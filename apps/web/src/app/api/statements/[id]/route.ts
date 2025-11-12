@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
-import { coreCol } from "@core/triMongo";
+import { coreCol, ObjectId } from "@core/triMongo";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   if (!ObjectId.isValid(params.id)) {

@@ -1,6 +1,6 @@
 // apps/web/src/components/ThemaGrid.tsx
 import { type ReactNode } from "react";
-import { colors } from "@packages/ui/src/theme";
+import { colors } from "../theme";
 
 type Thema = {
   icon: ReactNode;

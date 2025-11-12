@@ -1,4 +1,5 @@
 // core/db/triMongo.ts
+import { ObjectId } from "@core/triMongo";
 import { MongoClient, type Db, type Collection, type Document as MongoDoc } from "mongodb";
 
 export type TriStore = "core" | "votes" | "pii" | "ai_core_reader";
@@ -25,11 +26,19 @@ async function getClient(store: TriStore): Promise<MongoClient> {
   if (!G.clients[store]) {
     const { uri } = CFG[store];
     if (!uri) throw new Error(`[triMongo] Missing URI for store "${store}"`);
-    G.clients[store] = new MongoClient(uri);
+    G.clients[store] = new MongoClient(uri, {
+      connectTimeoutMS: 15_000,
+      serverSelectionTimeoutMS: 15_000,
+    });
   }
   const client = G.clients[store]!;
-  // (4.x/5.x) – wenn nicht verbunden, verbinden
-  if (!(client as any).topology?.isConnected?.()) await client.connect();
+  // kompatibel zu mongo 4/5/6 – ist verbunden?
+  const anyClient = client as any;
+  const connected =
+    anyClient?.topology?.isConnected?.() ??
+    anyClient?.mongoClient?.isConnected?.() ??
+    false;
+  if (!connected) await client.connect();
   return client;
 }
 
@@ -44,11 +53,16 @@ export async function getDb(store: TriStore = "core"): Promise<Db> {
   return G.dbs[store]!;
 }
 
+/** Overloads für sauberes TS: */
+export async function getCol<T extends MongoDoc = MongoDoc>(name: string): Promise<Collection<T>>;
+export async function getCol<T extends MongoDoc = MongoDoc>(name: string, store: TriStore): Promise<Collection<T>>;
+export async function getCol<T extends MongoDoc = MongoDoc>(store: TriStore, name: string): Promise<Collection<T>>;
+
 /**
- * getCol – unterstützt beide Aufrufarten:
- *   getCol("users")                 -> default store "core"
- *   getCol("votes","ballots")       -> (store, name)
- *   getCol("users", /* store? * /)   -> (name, store?) – Back-Compat
+ * Implementation – unterstützt beide Aufrufarten:
+ *   getCol("users")                       -> default store "core"
+ *   getCol("users", "votes")              -> (name, store)
+ *   getCol("votes", "ballots")            -> (store, name)
  */
 export async function getCol<T extends MongoDoc = MongoDoc>(
   a: string,
@@ -56,7 +70,15 @@ export async function getCol<T extends MongoDoc = MongoDoc>(
 ): Promise<Collection<T>> {
   let store: TriStore = "core";
   let name: string;
-  if (b) { store = a as TriStore; name = b; } else { name = a; }
+  if (!b) {
+    name = a;
+  } else if (a === "core" || a === "votes" || a === "pii" || a === "ai_core_reader") {
+    store = a;
+    name = b;
+  } else {
+    name = a;
+    store = b as TriStore;
+  }
   const db = await getDb(store);
   return db.collection<T>(name);
 }
@@ -80,6 +102,15 @@ export async function closeAll(): Promise<void> {
   G.clients = {};
   G.dbs = {};
 }
+
+const triMongo = {
+  getDb, getCol,
+  coreCol, votesCol, piiCol, aiReaderCol,
+  coreConn, votesConn, piiConn, aiReaderConn,
+  closeAll,
+};
+
+export { ObjectId } from "mongodb";
 
 const triMongo = {
   getDb, getCol,

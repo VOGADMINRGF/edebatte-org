@@ -2,8 +2,9 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+
 import { coreCol, votesCol } from "src/utils/triMongo";
 import { rateLimitFromRequest, rateLimitHeaders } from "src/utils/rateLimitHelpers";
 

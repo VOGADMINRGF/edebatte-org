@@ -1,8 +1,9 @@
 // apps/web/src/server/drafts.ts
+import { ObjectId } from "@core/triMongo";
 import "server-only";
 /* @ts-nocheck */
 import { coreCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 
 export async function createDraft(data: any) {
   const col = await coreCol("drafts");

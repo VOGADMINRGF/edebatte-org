@@ -1,0 +1,59 @@
+// OpenAI Responses API – text-only helper (JSON-fähig).
+// Wichtig: KEIN temperature/top_p/modalities senden.
+// JSON-Mode: text: { format: "json_object" } (statt response_format)
+const API_BASE = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/,"");
+const MODEL    = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+type AskArgs = {
+  prompt: string;
+  asJson?: boolean;
+  maxOutputTokens?: number;
+  signal?: AbortSignal;
+};
+type AskResult = { text: string; raw: any };
+
+export async function ask({ prompt, asJson=false, maxOutputTokens=1200, signal }: AskArgs): Promise<AskResult> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY fehlt");
+
+  // Responses-API minimal: input als String reicht
+  const body: any = {
+    model: MODEL,
+    input: prompt,
+    max_output_tokens: maxOutputTokens
+  };
+  if (asJson) body.text = { format: "json_object" }; // <- NEU statt response_format
+
+  const res = await fetch(`${API_BASE}/responses`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || JSON.stringify(data);
+    throw new Error(`OpenAI error ${res.status}: ${msg}`);
+  }
+
+  // Robust auslesen
+  let text = "";
+  try {
+    text = data.output_text
+        ?? data.output?.[0]?.content?.find?.((c:any)=>c?.type==="output_text")?.text
+        ?? "";
+  } catch {}
+  return { text, raw: data };
+}
+
+// Legacy-Aliase beibehalten
+export const callOpenAI = ask;
+export const runOpenAI  = ask;
+
+export async function callOpenAIJson(prompt: string) {
+  const { text } = await ask({ prompt, asJson: true });
+  return { text };
+}
+
+export default ask;

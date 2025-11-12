@@ -1,11 +1,12 @@
 // apps/web/src/app/api/auth/totp/initiate/route.ts
 export const runtime = "nodejs";
 
+import { ObjectId } from "@core/triMongo";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
 import { coreCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 import { authenticator } from "otplib";
 import { publicHost } from "@/utils/publicOrigin";
 

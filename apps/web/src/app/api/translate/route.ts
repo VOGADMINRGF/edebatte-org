@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     // 2) Statements aus Originaltext (Objekte)
     const statementObjs = extractStatementsFromText(text, {
-      max: Number(process.env.EXTRACT_MAX_STATEMENTS ?? 8),
+      max: Number(process.env.EXTRACT_MAX_STATEMENTS ?? 20),
       minChars: Number(process.env.EXTRACT_MIN_CHARS ?? 12),
     });
 

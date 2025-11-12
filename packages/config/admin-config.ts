@@ -1,5 +1,6 @@
 // packages/config/admin-config.ts
 // Central runtime config with env fallbacks
+
 export interface PricingConfig {
   membershipMonthlyEUR: number;      // e.g., 5
   postImmediateEUR: number;          // pay-to-post bypass price
@@ -7,13 +8,13 @@ export interface PricingConfig {
 }
 
 export interface PipelineLimits {
-  newsfeedMaxPerRun: number;     // throttle fetch volume per run
+  newsfeedMaxPerRun: number;         // throttle fetch volume per run
   factcheckMaxPerItemTokens: number; // token/compute budget per item
-  enableAutoPost: boolean;       // whether to auto-create drafts for votes
+  enableAutoPost: boolean;           // whether to auto-create drafts for votes
 }
 
 export interface RegionPilot {
-  defaultRegionKey: string; // "DE:BE:11000000" (Berlin)
+  defaultRegionKey: string;          // "DE:BE:11000000" (Berlin)
 }
 
 export interface AdminConfig {

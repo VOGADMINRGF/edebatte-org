@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { getNationalFlag } from "@features/stream/utils/nationalFlag";
-import { colors } from "@packages/ui/src/theme";
+import { colors } from "../theme";
 
 function VoteBarMini({ agree = 0, neutral = 0, disagree = 0 }) {
   const sum = agree + neutral + disagree;

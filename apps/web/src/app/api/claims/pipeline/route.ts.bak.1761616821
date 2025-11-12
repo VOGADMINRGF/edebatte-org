@@ -9,7 +9,7 @@ export async function POST(req: NextRequest){
   try{
     const body = await req.json().catch(()=> ({}));
     const text = String(body?.text??"").trim();
-    const maxClaims = Math.max(1, Math.min(8, Number(body?.maxClaims??6)));
+    const maxClaims = Math.max(1, Math.min(8, Number(body?.maxClaims?? 20)));
     if (!text) return NextResponse.json({ claims:[], _meta:{ ok:false, tookMs:Date.now()-t0, errors:["no-text"] } }, { status:200 });
     const out = await orchestrateClaims(text, maxClaims);
     return NextResponse.json(out, { status:200 });

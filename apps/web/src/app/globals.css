@@ -1,37 +1,273 @@
-@import "../styles/vog-steps.css";
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/aspect-ratio";
+/* eigene Styles danach */
+@import "../styles/vog-steps.css";
 
-/* CI-Helpers */
+/* === CI-Helpers (leicht) ================================================== */
 :root { --page-max: 1100px; }
 .container-vog { max-width: var(--page-max); margin: 0 auto; padding: 1rem; }
-.vog-head { 
+
+.vog-head{
   font-size: clamp(1.875rem, 2vw + 1rem, 2.25rem); font-weight: 800; letter-spacing: -0.02em;
   background: linear-gradient(90deg, #00E6D1 0%, #2196F3 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.vog-card       { border-radius: 1rem; border: 1px solid rgba(226,232,240,.8); background: #fff; box-shadow: 0 8px 24px rgba(2,6,23,.06); }
-.vog-card-muted { border-radius: 1rem; border: 1px solid rgba(226,232,240,.8); background: rgba(248,250,252,.7); }
-.vog-btn        { display:inline-flex; align-items:center; justify-content:center; border-radius:1rem; padding:.625rem .875rem; font-size:.875rem; border:1px solid #CBD5E1; background:#fff; }
-.vog-btn:hover  { background:#F1F5F9; }
-.vog-btn-pri    { display:inline-flex; align-items:center; justify-content:center; border-radius:1rem; padding:.625rem 1rem; font-weight:600; font-size:.9rem; color:#fff; background: linear-gradient(90deg, #00E6D1 0%, #2196F3 100%); }
-.vog-btn-ghost  { display:inline-flex; align-items:center; justify-content:center; border-radius:1rem; padding:.5rem .75rem; font-size:.875rem; color:#334155; }
-.vog-chip       { display:inline-flex; align-items:center; border-radius:9999px; padding:.125rem .5rem; font-size:.75rem; border:1px solid #E2E8F0; background:#F8FAFC; color:#475569; }
-.vog-stepper    { display:flex; align-items:center; gap:.5rem; font-size:.75rem; color:#64748B;}
-.vog-stepper .dot{ width:.5rem; height:.5rem; border-radius:9999px; background:#CBD5E1;}
-.vog-stepper .dot.active{ background:#0EA5E9;}
-.vog-skeleton   { animation:pulse 1.5s ease-in-out infinite; background: #E2E8F0; border-radius:.375rem; }
-@keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
 
+/* (Alte Card/Borders bleiben verfügbar für andere Screens, werden hier aber nicht benutzt) */
+.vog-card{ border-radius:1rem; border:1px solid rgba(226,232,240,.8); background:#fff; box-shadow:0 8px 24px rgba(2,6,23,.06); }
+.vog-card-muted{ border-radius:1rem; border:1px solid rgba(226,232,240,.8); background:rgba(248,250,252,.7); }
+
+/* Buttons – klassische & Gradient */
+.vog-btn{ display:inline-flex; align-items:center; justify-content:center; border-radius:1rem; padding:.625rem .875rem; font-size:.875rem; border:1px solid #CBD5E1; background:#fff; }
+.vog-btn:hover{ background:#F1F5F9; }
+
+/* === Utilities ============================================================ */
 /* Fallback für line-clamp-2 */
 .tw-fallback-line-clamp-2{
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  line-clamp: 2;                /* ← Standard-Property dazu, behebt die VS-Code Warnung */
+  -webkit-box-orient:vertical;
+  overflow:hidden;
 }
 
 /* VOG gating */
 body[data-analyzing="1"] [data-requires-analysis] { display: none; }
 body:not([data-analysis-ready="1"]) [data-requires-analysis] { display: none; }
-/* Simple skeleton */
 .skeleton { @apply animate-pulse rounded-xl bg-slate-200/70; }
+
+/* === Design Tokens & „Glas“ Look ========================================= */
+:root{
+  --glass-bg: color-mix(in oklab, white 70%, transparent);
+  --glass-hover: color-mix(in oklab, white 78%, transparent);
+}
+
+/* Glasmorphische Flächen – keine harten Ränder */
+.glass    { @apply rounded-3xl shadow-lg backdrop-blur-xl; background: var(--glass-bg); }
+.glass-sm { @apply rounded-2xl shadow-md backdrop-blur;   background: var(--glass-bg); }
+.glass-in { @apply rounded-2xl shadow-inner;              background: var(--glass-bg); }
+
+/* Buttons (Pill-Style) */
+.btn       { @apply rounded-full px-4 py-2 text-sm font-medium select-none active:scale-[.99] transition; }
+.btn-ghost { @apply bg-white/60 hover:bg-white/80; }
+.btn-grad  { @apply text-white; background-image: linear-gradient(90deg,#06b6d4,#2196F3); }
+
+/* HINWEIS: Bei Tailwind v4 KEINE nochmaligen
+   @tailwind base/components/utilities
+   hinzufügen – das ist durch @import "tailwindcss" bereits enthalten. */
+
+   /* ============ Flat/No-Border Surfaces ============ */
+.surface      { @apply rounded-2xl shadow-lg backdrop-blur-xl; background: color-mix(in oklab, white 72%, transparent); }
+.surface-sm   { @apply rounded-xl  shadow-md backdrop-blur;    background: color-mix(in oklab, white 76%, transparent); }
+
+/* Eingabe ohne sichtbare Kontur – nur feine Türkis-Linie bei Fokus */
+.input-clean {
+  @apply w-full rounded-xl bg-white/70 px-4 py-4 outline-none ring-0 shadow-inner;
+  border: none; /* explizit */
+}
+.input-clean:focus {
+  /* feine Unterstreichung (1.5px) in Türkis/Blau, kein Ring, keine Box-Border */
+  box-shadow:
+    inset 0 -2px 0 0 rgba(6, 182, 212, 0.85), /* cyan-500 */
+    inset 0 -1px 0 0 rgba(33, 150, 243, 0.20); /* blue-500 soft */
+}
+
+/* Sekundär-Text (z. B. Fairness-Hinweis) */
+.soft-text { @apply text-sm text-neutral-700; }
+
+/* Primär-/Sekundär-Buttons ohne „Pill“-Look (dezente Radien, no borders) */
+.cta        { @apply rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-md active:scale-[.99] transition; background-image: linear-gradient(90deg,#06b6d4,#2196F3); }
+.cta-ghost  { @apply rounded-xl px-4 py-2 text-sm font-medium bg-white/70 hover:bg-white/90 active:scale-[.99] transition; }
+
+/* Karten ohne sichtbare Linie, nur Soft-Shadow */
+.card-flat  { @apply rounded-2xl shadow-lg bg-white/80 backdrop-blur; }
+
+/* Dünne Divider-Linie (optional, sehr subtil) */
+.hr-soft    { height:1px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.06), transparent); }
+
+/* === Zusatz: neutrale Meta-Chips für Statement-Karten ===================== */
+/* Pfad: apps/web/src/app/globals.css */
+
+.chip {
+  @apply inline-flex items-center gap-1 rounded-full text-xs font-medium px-2 py-0.5 shadow-sm bg-white;
+  border: 1px solid rgba(226,232,240,.9);
+}
+
+/* Primär-CTA bleibt wie bei dir, hier nur robustere Hover/Disabled States */
+.cta:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(33,150,243,.25); }
+.cta:disabled { @apply opacity-50 pointer-events-none; }
+
+/* Mini-Helpers (saubere Zwischentöne) */
+.label-muted { @apply text-xs text-neutral-500; }
+.h2-tight { @apply text-xl font-semibold tracking-tight; }
+.pill { @apply rounded-full px-3 py-1 text-sm bg-white/70; }
+
+html, body { min-height: 100%; }
+
+body {
+  /* ruhiger, sachlicher Verlauf – kühles Papierblau → ganz leicht Türkis */
+  background-image: linear-gradient(180deg, #f3f7fb 0%, #eaf2ff 42%, #eaf7f4 100%);
+  background-attachment: fixed;
+}
+
+/* Glasflächen ohne harte Ränder – optional beibehalten */
+.glass    { border: 0; border-radius: 1.25rem; background: color-mix(in oklab, white 70%, transparent); backdrop-filter: blur(10px); box-shadow: 0 8px 28px rgba(2,6,23,.06); }
+.glass-sm { border: 0; border-radius: 1rem;   background: color-mix(in oklab, white 74%, transparent); backdrop-filter: blur(6px);  box-shadow: 0 6px 18px rgba(2,6,23,.05); }
+.glass-in { border: 0; border-radius: 1rem;   background: color-mix(in oklab, white 80%, transparent); }
+
+/* Eingabefokus – nur dezentes Türkis, keine sichtbaren Ränder */
+:focus-visible { outline: none; }
+
+/* ==== eDebatte – Zeitungslook & UI-Extras ================================= */
+
+.press-hero { background-image: linear-gradient(180deg, #ffffff 0%, #F6FAFD 60%); }
+.press-links a { @apply text-sm text-neutral-700 hover:underline hover:text-neutral-900; }
+.press-editor { @apply rounded-none bg-white/80 ring-0 shadow-[0_24px_64px_-40px_rgba(0,0,0,.35)] backdrop-blur; }
+.press-side { @apply rounded-xl bg-white/60 ring-1 ring-black/5 backdrop-blur; }
+
+.field { @apply rounded-xl bg-white/80 ring-1 ring-white/60 p-4 outline-none focus:ring-2 focus:ring-cyan-400/50; }
+
+/* horizontale Karussells */
+.hscroll { @apply overflow-x-auto snap-x snap-mandatory -mx-2 px-2; }
+.hitem { @apply snap-start min-w-[85%] sm:min-w-[55%] lg:min-w-[32%]; }
+
+@layer components {
+  .surface { @apply rounded-2xl border border-white/60 bg-white/80 shadow-sm backdrop-blur-md; }
+  .surface-sm { @apply rounded-xl border border-white/60 bg-white/80 shadow-sm backdrop-blur-md; }
+  .cta { @apply rounded-lg bg-black text-white px-4 py-2 hover:bg-black/90; }
+  .cta-ghost { @apply rounded-lg border border-black/10 px-4 py-2 hover:bg-black/5; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full bg-black/5 px-2 py-[2px] text-[11px]; }
+}
+
+/* ruhige Meta-Chips (falls noch nicht global vorhanden) */
+.chip { @apply rounded-full bg-white/70 px-2 py-0.5 shadow-sm border border-white/60 text-[12px] text-neutral-700; }
+
+/* moderne Buttons (Pill) – Aliase für Konsistenz */
+.btn-primary { @apply inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white
+                       bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600; }
+.btn-ghost { @apply inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-black/5; }
+
+.node-pill { @apply inline-flex items-center gap-2 rounded-full px-2 py-0.5 bg-white border text-neutral-700 shadow-sm; }
+.node-dot { @apply inline-block h-2 w-2 rounded-full; }
+.dot-eu { background:#0a6cf1; }
+.dot-bund { background:#0ea5e9; }
+.dot-land { background:#22c55e; }
+.dot-kommune { background:#f59e0b; }
+.dot-unknown { background:#94a3b8; }
+
+.handwriting { font-style: italic; letter-spacing: 0.1px; }
+mark { background: linear-gradient(90deg,#e0fbff 0%,#c8f3ff 100%); border-radius: .25rem; }
+
+/* ——— Zettel/Sidebars ——— */
+.handwriting{ font-style: italic; letter-spacing:.1px; }
+.col-sticky{ position: sticky; top: 5rem; }
+.zettel{ border-radius: 1rem; padding:.75rem .9rem; box-shadow:0 8px 18px rgba(0,0,0,.06);
+  border:1px solid rgba(6,182,212,.25); transform-origin:left top; text-align:left; }
+.z-blue{  background:rgba(6,182,212,.10);  color:#0e7490; border-color:rgba(6,182,212,.35); }
+.z-green{ background:rgba(16,185,129,.12); color:#065f46; border-color:rgba(16,185,129,.35); }
+.z-violet{background:rgba(124,58,237,.12); color:#4c1d95; border-color:rgba(124,58,237,.35); }
+.z-inline{ font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; opacity:.8; }
+
+/* Statuspunkte/Häkchen */
+.z-status{ display:inline-flex; align-items:center; gap:.35rem; font-size:11px; opacity:.85; }
+.z-dot{ width:6px; height:6px; border-radius:9999px; background:#e5e7eb; }
+.z-run{ background:#06b6d4; } .z-done{ background:#10b981; }
+
+/* Ping für neue Fragen */
+@keyframes pingDot{0%{transform:scale(1);opacity:.9}80%{transform:scale(2);opacity:0}100%{transform:scale(2);opacity:0}}
+.ping::after{content:"";position:absolute;right:.45rem;bottom:.45rem;width:6px;height:6px;border-radius:9999px;background:#ef4444;animation:pingDot 1.2s ease-out infinite}
+
+/* ——— Marker-Eingabe (ContentEditable) ——— */
+.marker-wrap{ position:relative; }
+.marker-layer{ position:absolute; inset:0; pointer-events:none; }
+.marker-chunk{ background:linear-gradient(transparent 62%, rgba(14,165,183,.28) 62%); }
+.marker-text{ white-space:pre-wrap; word-break:break-word; line-height:1.6; }
+
+.marker-input{
+  position:relative; background:transparent; outline:none; border:none; padding:0;
+  white-space:pre-wrap; word-break:break-word; line-height:1.6;
+}
+
+/* === eDebatte: Zettel + Sidebars + Marker ================================ */
+.handwriting{ font-style: italic; letter-spacing:.1px; }
+.col-sticky{ position: sticky; top: 5rem; align-self: start; height: fit-content; }
+
+.zettel{ border-radius: 1rem; padding:.75rem .9rem; box-shadow:0 8px 18px rgba(0,0,0,.06);
+  border:1px solid rgba(6,182,212,.25); transform-origin:left top; text-align:left; background:rgba(255,255,255,.9); }
+.z-blue{  background:rgba(6,182,212,.10);  color:#0e7490; border-color:rgba(6,182,212,.35); }
+.z-green{ background:rgba(16,185,129,.12); color:#065f46; border-color:rgba(16,185,129,.35); }
+.z-violet{background:rgba(124,58,237,.12); color:#4c1d95; border-color:rgba(124,58,237,.35); }
+.z-inline{ font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; opacity:.8; }
+
+.z-status{ display:inline-flex; align-items:center; gap:.35rem; font-size:11px; opacity:.85; }
+.z-dot{ width:6px; height:6px; border-radius:9999px; background:#e5e7eb; }
+.z-run{ background:#06b6d4; } .z-done{ background:#10b981; }
+
+/* Fragen „ping“ */
+@keyframes pingDot{0%{transform:scale(1);opacity:.9}80%{transform:scale(2);opacity:0}100%{transform:scale(2);opacity:0}}
+.ping::after{content:"";position:absolute;right:.45rem;bottom:.45rem;width:6px;height:6px;border-radius:9999px;background:#ef4444;animation:pingDot 1.2s ease-out infinite}
+
+/* —— Marker (Textarea mit Overlay) —— */
+.hl-wrap{ position:relative; }
+.hl-bg, .hl-ta{
+  font: inherit; line-height:1.6; white-space:pre-wrap; word-break:break-word;
+  padding:.75rem; border-radius:.75rem;
+}
+.hl-bg{ position:absolute; inset:0; pointer-events:none; color:#111; }
+.hl-bg .done{ 
+  background:linear-gradient(transparent 62%, rgba(14,165,183,.28) 62%);
+}
+.hl-bg .pending{ color:#111; }          /* wichtig: NICHT transparent → sonst „weiß auf weiß“ */
+
+.hl-ta{
+  position:relative; width:100%; min-height:12rem;
+  background:transparent; border:none; outline:none; resize:none;
+  color:transparent; caret-color:#111; /* Text kommt von .hl-bg; Caret bleibt sichtbar */
+}
+/* ==== Animationen ==== */
+@keyframes fadeInUp { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
+@keyframes fadeInUpDelayed { 0%{opacity:0; transform: translateY(10px)} 30%{opacity:0} 100%{opacity:1; transform: translateY(0)} }
+@keyframes swipeInLeft { from { opacity:0; transform: translateX(-12px) } to { opacity:1; transform: translateX(0) } }
+@keyframes swipeInRight{ from { opacity:0; transform: translateX(12px) }  to { opacity:1; transform: translateX(0) } }
+.animate-fade-in-up{ animation: fadeInUp .6s ease-out both; }
+.animate-fade-in-up-delayed{ animation: fadeInUpDelayed .8s ease-out both; }
+.animate-swipe-in-left{ animation: swipeInLeft .6s ease-out both; }
+.animate-swipe-in-right{ animation: swipeInRight .6s ease-out both; }
+
+/* Handschrift */
+@import url("https://fonts.googleapis.com/css2?family=Patrick+Hand:wght@400&display=swap");
+.handwriting{ font-family:"Patrick Hand", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+
+/* Glow-Ring (Scrollspy aktiv) */
+.ring-glow-cyan{ box-shadow: 0 0 0 2px rgba(6,182,212,.45), 0 8px 18px rgba(0,0,0,.08); }
+
+/* Statement-Toggle-Chips */
+.toggle-chip{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.35rem .7rem; border-radius:9999px; cursor:pointer; user-select:none;
+  border:1px solid rgba(2,6,23,.08); background:linear-gradient(180deg,#f8fafc,#ffffff);
+  font-size:13px; transition: box-shadow .2s, transform .2s, background .2s, border-color .2s;
+}
+.toggle-chip input{ appearance:none; width:0; height:0; margin:0; }
+.toggle-chip:has(input:checked){ transform: translateY(-1px); box-shadow: 0 8px 18px rgba(2,6,23,.08); border-color: transparent; }
+.toggle-chip.variant-pos:has(input:checked){ background:linear-gradient(90deg,#a7f3d0,#99f6e4);}
+.toggle-chip.variant-neu:has(input:checked){ background:linear-gradient(90deg,#e5e7eb,#e0f2fe);}
+.toggle-chip.variant-neg:has(input:checked){ background:linear-gradient(90deg,#fecaca,#fcd34d);}
+
+.card-soft{ box-shadow: 0 6px 18px rgba(2,6,23,.06); }
+
+/* === EINZIGES Overlay-System (hl-*) === */
+.hl-wrap{ position:relative; }
+.hl-bg,.hl-ta{
+  font:inherit; line-height:1.6; white-space:pre-wrap; word-break:break-word;
+  padding:.75rem; border-radius:.75rem;
+}
+.hl-bg{ position:absolute; inset:0; pointer-events:none; color:#111; }
+.hl-bg .done{    background:linear-gradient(transparent 62%, rgba(14,165,183,.28) 62%); }
+.hl-bg .pending{ background:linear-gradient(transparent 62%, rgba(14,165,183,.18) 62%); }
+.hl-ta{
+  position:relative; width:100%; min-height:12rem;
+  background:transparent; border:none; outline:none; resize:none;
+}

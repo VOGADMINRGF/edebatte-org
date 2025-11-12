@@ -29,18 +29,10 @@
       "@db-core": [
         "packages/db-core/src/client.ts"
       ],
-      "@vog/ui": [
-        "packages/ui/dist/index.d.ts"
-      ],
-      "@vog/ui/*": [
-        "packages/ui/dist/*"
-      ],
-      "@ui": [
-        "packages/ui/dist/index.d.ts"
-      ],
-      "@ui/*": [
-        "packages/ui/dist/*"
-      ],
+      "@vog/ui": ["packages/ui/src/index.ts"],
+"@vog/ui/*": ["packages/ui/src/*"],
+"@ui": ["packages/ui/src/index.ts"],
+"@ui/*": ["packages/ui/src/*"],
       "@db/web": [
         "./packages/db-web/src/index.ts"
       ],

@@ -1,3 +1,4 @@
+// features/ai/health.ts
 // Health, scoring & circuit breaker for AI providers.
 // - Rolling stats (success/fail, JSON validity, latency EMA)
 // - Circuit states: closed | open | half-open (with exponential backoff)
@@ -5,7 +6,6 @@
 
 export type ProviderId = "openai" | "anthropic" | "mistral" | "gemini";
 type CircuitState = "closed" | "open" | "half-open";
-
 type FailureReason = "timeout" | "http" | "json" | "validation" | "unknown";
 
 type ProviderStats = {
@@ -48,7 +48,7 @@ const cfg = {
   // circuit breaker
   minRequests: Number(process.env.AI_CIRCUIT_MIN_REQUESTS ?? 12),
   failRateThreshold: Number(process.env.AI_CIRCUIT_FAIL_RATE_THRESHOLD ?? 0.35),
-  openMsBase: Number(process.env.AI_CIRCUIT_OPEN_MS_BASE ?? 8000),
+  openMsBase: Number(process.env.AI_CIRCUIT_OPEN_MS_BASE ?? 20000),
   openMsMax: Number(process.env.AI_CIRCUIT_OPEN_MS_MAX ?? 120000),
   // half-open
   halfOpenProbeMs: Number(process.env.AI_CIRCUIT_HALFOPEN_MS ?? 4000),
@@ -97,8 +97,8 @@ class HealthRegistry {
     const latFit = latencyFitness(s.emaLatencyMs, cfg.targetLatencyMs);
 
     const base = cfg.wAvailability * s.successRate
-      + cfg.wJson * s.jsonRate
-      + cfg.wLatency * latFit;
+               + cfg.wJson * s.jsonRate
+               + cfg.wLatency * latFit;
 
     // penalize if circuit is open
     const penalty = s.state === "open" ? 0.25 : s.state === "half-open" ? 0.1 : 0;
@@ -109,11 +109,9 @@ class HealthRegistry {
     if (s.total < cfg.minRequests) return; // not enough data
     const failRate = s.failure / s.total;
     if (s.state === "closed" && failRate >= cfg.failRateThreshold) {
-      // open circuit
       s.state = "open";
       s.openUntil = NOW() + s.backoffMs;
-      // exponential backoff
-      s.backoffMs = Math.min(s.backoffMs * 2, cfg.openMsMax);
+      s.backoffMs = Math.min(s.backoffMs * 2, cfg.openMsMax); // exponential backoff
     }
   }
 
@@ -157,7 +155,6 @@ class HealthRegistry {
     s.lastError = undefined;
     s.lastFailureReason = undefined;
 
-    // circuit transitions
     if (s.state === "half-open") {
       // close on success and reset backoff
       s.state = "closed";
@@ -191,7 +188,6 @@ class HealthRegistry {
       s.openUntil = NOW() + s.backoffMs;
       s.backoffMs = Math.min(s.backoffMs * 2, cfg.openMsMax);
     } else if (s.state === "closed") {
-      // maybe open based on fail rate
       this.checkCircuitOpen(s);
     }
 
@@ -203,7 +199,6 @@ class HealthRegistry {
     const eligible = candidates.filter((p) => this.canAttempt(p));
     const ineligible = candidates.filter((p) => !this.canAttempt(p));
 
-    // Higher score first; stable fallback by name to avoid jitter
     eligible.sort((a, b) => {
       const sa = this.get(a).score;
       const sb = this.get(b).score;
@@ -211,7 +206,7 @@ class HealthRegistry {
       return a.localeCompare(b);
     });
 
-    // ineligible tacked to the end (still returned, but will likely be skipped by caller)
+    // ineligible tacked to the end (still returned, but caller may skip)
     return eligible.concat(ineligible);
   }
 
@@ -232,3 +227,77 @@ class HealthRegistry {
 }
 
 export const Health = new HealthRegistry();
+
+/* -------------------- Optional Utilities -------------------- */
+
+// Universeller Wrapper für Messung + Circuit-Logik
+export function withMetrics<Args extends any[], R>(
+  id: ProviderId,
+  fn: (...args: Args) => Promise<R>,
+  opts?: {
+    jsonOk?: (result: R) => boolean;
+    classifyFailure?: (err: unknown) => FailureReason; // timeout/http/json/validation/unknown
+  }
+) {
+  return async (...args: Args): Promise<R> => {
+    const { performance } = await import("node:perf_hooks");
+
+    if (!Health.canAttempt(id)) {
+      throw Object.assign(new Error(`circuit-open: ${id}`), { reason: "circuit" });
+    }
+    Health.markProbeStart(id);
+
+    const t0 = performance.now();
+    try {
+      const res = await fn(...args);
+      const jsonValid = opts?.jsonOk ? !!opts.jsonOk(res) : true;
+      Health.recordSuccess(id, performance.now() - t0, jsonValid);
+      return res;
+    } catch (e) {
+      const reason: FailureReason = opts?.classifyFailure?.(e) ?? defaultFailureClassifier(e);
+      Health.recordFailure(id, performance.now() - t0, reason, String((e as any)?.message ?? e));
+      throw e;
+    }
+  };
+}
+
+// Einfache Heuristik zur Fehlerklassifikation
+export function defaultFailureClassifier(err: unknown): FailureReason {
+  const msg = String((err as any)?.message ?? err ?? "");
+  if (/timed?out/i.test(msg)) return "timeout";
+  if (/\b(4\d\d|5\d\d)\b|http/i.test(msg)) return "http";
+  if (/json|parse/i.test(msg)) return "json";
+  if (/schema|zod|validation/i.test(msg)) return "validation";
+  return "unknown";
+}
+
+// Debug/Tooling
+export function getMetricsSnapshot() { return Health.snapshot(); }
+export function resetMetrics() {
+  // vorsichtige Rücksetzung: neue Map erzwingen
+  (Health as any).map = new Map<ProviderId, ProviderStats>();
+}
+
+// Persistenz-Hooks (leichtgewichtig)
+export function toJSON(){ return Health.snapshot(); }
+export function fromJSON(snap: any){
+  const ids: ProviderId[] = ["openai","anthropic","mistral","gemini"];
+  for (const id of ids) {
+    const src = snap?.providers?.[id]; if (!src) continue;
+    const dst = Health.get(id);
+    Object.assign(dst, {
+      total: src.total, success: src.success, jsonOk: src.jsonOk, failure: src.failure,
+      emaLatencyMs: src.emaLatencyMs, lastLatencyMs: src.lastLatencyMs,
+      state: src.state, openUntil: src.openUntil, halfOpenProbeInFlight: false,
+      backoffMs: src.backoffMs, lastError: src.lastError, lastFailureReason: src.lastFailureReason,
+      score: src.score, jsonRate: src.jsonRate, successRate: src.successRate,
+    });
+  }
+}
+
+/* -------------------- Bridge for simple helpers -------------------- */
+
+// Einfache Bridge für health_check.ts
+export function healthScore(id: ProviderId): number {
+  return Health.get(id).score;
+}

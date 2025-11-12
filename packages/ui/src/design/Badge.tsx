@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { colors } from "@packages/ui/src/theme";
+import { colors } from "../theme";
 
 interface BadgeProps {
   text: string;

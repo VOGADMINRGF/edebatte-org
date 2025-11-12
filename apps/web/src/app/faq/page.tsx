@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { colors } from "@packages/ui/src/theme";
+import { colors } from "../theme";
 
 const faqTabs = [
   {

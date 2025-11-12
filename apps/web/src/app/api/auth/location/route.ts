@@ -1,11 +1,12 @@
 // apps/web/src/app/api/profile/location/route.ts
 export const runtime = "nodejs";
 
+import { ObjectId } from "@core/triMongo";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
 import { coreCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 
 // Helper: getCookie kann string oder { value } liefern
 async function readCookie(name: string): Promise<string | undefined> {

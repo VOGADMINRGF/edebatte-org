@@ -1,8 +1,9 @@
 // core/queue/factcheckQueue.ts
+import { ObjectId } from "@core/triMongo";
 import { Queue, QueueEvents, Worker as BullmqWorker, Job } from "bullmq";
 import type { JobsOptions } from "bullmq";           // <= type-only (fix für ts1484)
 import IORedis, { Redis } from "ioredis";
-import { ObjectId } from "mongodb";
+
 import { coreCol } from "@core/db/triMongo";
 
 export const FACTCHECK_QUEUE = "factcheck";

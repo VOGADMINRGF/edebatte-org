@@ -9,19 +9,9 @@ import * as React from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardFooter,
-  Badge,
-  Button,
-  Input,
-  Separator,
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@ui";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   ArrowDownAZ,
   ArrowUpAZ,

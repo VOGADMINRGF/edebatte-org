@@ -1,6 +1,7 @@
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 import { getCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 
 export async function POST(req: NextRequest) {
   const { id, role } = await req.json().catch(() => ({}));

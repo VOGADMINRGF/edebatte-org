@@ -18,7 +18,8 @@
       "@features/*": ["./*"],
       "@core/*": ["../core/*"],
       "@contribution/*": ["../contribution/*"],
-      "@packages/*": ["../packages/*"]
+      "@packages/*": ["../packages/*"],
+      "@ui/*": ["../ui/*"]
     }
   },
   "include": ["**/*"],

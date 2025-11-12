@@ -1,45 +1,45 @@
-// --- progressive-ui auto-imports (safe) ---
-import FetchInstrument from "@/lib/net/fetchInstrument";
-import PipelineHUD from "@/ui/PipelineHUD";
-// --- end progressive-ui auto-imports ---
+// apps/web/src/app/layout.tsx
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import type { ReactNode } from "react";
-import type { Metadata } from "next";
-import ClientProviders from "./providers";
-import { Header, Footer } from "@vog/ui"; // nutzt Gradient-Brand "eDebatte"
 
 export const metadata: Metadata = {
-  title: "eDebatte",
-  description:
-    "eDebatte ist die Plattform für echte digitale Beteiligung. Anliegen einbringen, abstimmen, Fakten prüfen – unabhängig, transparent, weltweit.",
-  openGraph: {
-    title: "eDebatte – Digitale Beteiligung neu gedacht",
-    description:
-      "Mach mit: Abstimmen, Themen setzen, Reports lesen. Demokratie, direkt in deiner Hand.",
-    url: "https://edebatte.org", // ggf. anpassen
-    siteName: "eDebatte",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "eDebatte",
-    description:
-      "Digitale Beteiligung neu gedacht – für Bürger:innen, NGOs, Politik und Medien.",
-  },
+  title: "VoiceOpenGov",
+  description: "eDebatte – Anliegen analysieren, sauber & transparent.",
+};
+export const viewport: Viewport = {
+  themeColor: "#06b6d4",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de">
-      <body className="bg-white text-gray-900 antialiased">
-      <FetchInstrument>
-        <PipelineHUD />
-        <ClientProviders>
-          <Header />
-          <main className="min-h-screen">{children}</main>
-          <Footer />
-        </ClientProviders>
-            </FetchInstrument>
-  </body>
+    <html lang="de" className="h-full">
+      <body className="min-h-screen bg-gradient-to-b from-cyan-50 via-blue-50/40 to-white text-neutral-900 antialiased">
+        <div className="min-h-screen flex flex-col">
+          <header className="sticky top-0 z-40 border-b bg-white/60 backdrop-blur supports-[backdrop-filter]:bg-white/50">
+            <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+              <a href="/" className="font-extrabold tracking-tight">
+                VoiceOpenGov
+              </a>
+              <nav className="hidden md:flex items-center gap-6 text-sm text-neutral-700">
+                <a href="/reports">Reports</a>
+                <a href="/statements">Statements</a>
+                <a href="/kontakt">Kontakt</a>
+              </nav>
+            </div>
+          </header>
+
+          <main className="flex-1">{children}</main>
+
+          <footer className="border-t bg-white/70 backdrop-blur">
+            <div className="mx-auto max-w-7xl px-4 py-6 text-sm text-neutral-600">
+              © 2025 Voice Open Gov
+            </div>
+          </footer>
+
+          {/* iOS Safe Area */}
+          <div className="h-[env(safe-area-inset-bottom)]" />
+        </div>
+      </body>
     </html>
   );
 }

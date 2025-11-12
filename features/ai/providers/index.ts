@@ -1,17 +1,19 @@
-// features/ai/providers/index.ts
-export type Opts = {
-  timeoutMs?: number;
-  maxOutputTokens?: number;
-  system?: string;
-  json?: boolean;
-  forceJsonMode?: boolean;
-};
+import type { Provider } from "./types";
+import { ask as askOpenAI } from "./openai";
+import { ask as askAnthropic } from "./anthropic";
+import { ask as askMistral } from "./mistral";
+import { ask as askGemini } from "./gemini";
 
-export { callOpenAI } from "./openai";
+export const providers = {
+  openai:    { ask: askOpenAI },
+  anthropic: { ask: askAnthropic },
+  mistral:   { ask: askMistral },
+  gemini:    { ask: askGemini },
+} as const satisfies Record<string, Provider>;
 
-/** Provider-agnostischer JSON-Caller (aktuell OpenAI, später erweiterbar). */
-export async function runLLMJson(prompt: string, opts: Partial<Opts> = {}) {
-  const { callOpenAI } = await import("./openai");
-  const { text } = await callOpenAI(prompt, { ...opts, forceJsonMode: true });
-  return text;
-}
+export type ProviderName = keyof typeof providers;
+export const PROVS = providers;
+export const providerEntries = Object.entries(providers) as [ProviderName, Provider][];
+
+export { callOpenAIJson, youcomResearch, youcomSearch, extractNewsFromSearch } from "../askAny";
+export * from "./types";

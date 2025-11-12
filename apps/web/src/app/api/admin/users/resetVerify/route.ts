@@ -1,7 +1,8 @@
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 import { getCol } from "@core/db/triMongo";
 import { piiCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 import crypto from "node:crypto";
 
 export async function POST(req: NextRequest) {

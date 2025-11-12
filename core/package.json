@@ -1,9 +1,12 @@
 {
-    "name": "@vog/core",
-    "private": true,
-    "version": "1.0.0",
-    "type": "module",
-    "main": "src/index.ts",
-    "exports": { ".": "./src/index.ts" }
+  "name": "@vog/core",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
   }
-  
+}

@@ -1,39 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { orchestrateClaimsPipeline } from "@features/ai/orchestrator_claims";
+// apps/web/src/app/api/claims/pipeline/route.ts
+import { NextResponse } from "next/server";
+import { orchestrateClaimsV2 } from "@features/ai/orchestrator_claims"; // <— angepasst
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
-  const t0 = Date.now();
-  try{
-    const body = await req.json().catch(()=> ({}));
-    const text = String(body?.text ?? "").trim();
-    if (!text) return NextResponse.json({ claims:[], _meta:{ ok:true, note:"no-text", tookMs:0 }}, { status:200 });
-
-    const out = await orchestrateClaimsPipeline(text);
-    const filtered = Array.isArray(out?.claims) ? out.claims.filter((c:any)=> String(c?.text||"").trim().length >= 6) : [];
-    const claims = filtered.slice(0, 8);
-    const missing = claims.map((c:any)=> {
-      const miss:string[]=[];
-      if (!c?.ebene) miss.push("ebene");
-      if (!c?.ort) miss.push("ort");
-      if (!c?.zeitraum) miss.push("zeitraum");
-      return { id:c.id, missing: miss };
-    });
-
-    return NextResponse.json({
-      claims,
-      _meta: {
-        ...(out?._meta||{}),
-        tookMs: Date.now()-t0,
-        quality_gate: { passed: claims.length>0, missing }
-      }
-    }, { status:200 });
-  }catch(e:any){
-    return NextResponse.json({
-      claims:[],
-      _meta:{ ok:false, error:String(e?.message||e), tookMs: Date.now()-t0 }
-    }, { status:200 });
-  }
+export async function POST(req: Request) {
+  const { texts = [] } = await req.json().catch(() => ({}));
+  const items = await orchestrateClaimsV2(texts);
+  return NextResponse.json({ ok: true, items });
 }

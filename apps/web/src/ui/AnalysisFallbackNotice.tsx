@@ -31,7 +31,6 @@ export default function AnalysisFallbackNotice({
       reportedRef.current = true;
       doReport().catch(()=>{});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReport, shouldShow]);
 
   if (!shouldShow) return null;

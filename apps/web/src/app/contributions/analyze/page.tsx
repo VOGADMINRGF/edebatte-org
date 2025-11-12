@@ -1,81 +1,165 @@
 "use client";
-import React from "react";
-import SmartClaimCard from "@/components/analyze/SmartClaimCard";
-import ClarifyPanel from "@/components/analyze/ClarifyPanel";
-import NewsFeedPanel from "@/components/analyze/NewsFeedPanel";
-import StanceSpectrum from "@/components/analyze/StanceSpectrum";
-import ObjectionCollector from "@/components/analyze/ObjectionCollector";
-import CounterSynth from "@/components/analyze/CounterSynth";
-import AutopilotDialog from "@/components/analyze/AutopilotDialog";
 
-type Claim={ text:string; categoryMain?:string|null; categorySubs?:string[]|null; region?:string|null; authority?:string|null };
-type Res={ language?:string; mainTopic?:string|null; subTopics?:string[]; regionHint?:string|null; claims?:Claim[]; followUps?:string[]; _meta?:{picked?:string|null} };
+import * as React from "react";
+import StatementCarousel from "@/components/statement/StatementCarousel";
+import { buildPyramid } from "@features/analyze/pyramid";
 
-export default function AnalyzePage(){
-  const [text,setText]=React.useState("");
-  const [busy,setBusy]=React.useState(false);
-  const [res,setRes]=React.useState<Res|null>(null);
-  const [openAuto,setOpenAuto]=React.useState(false);
+/* ---------- kleines Inline-Overlay für Live-Status ---------- */
+function InlineProcessOverlay({ stage, note }: { stage: number; note: string | null }) {
+  const steps = [
+    "Vorbereitung …",
+    "KI-Analyse (Claims extrahieren) …",
+    "Clustern & Postprocessing …",
+    "Frames & Vorschau bauen …",
+    "Fertig.",
+  ];
+  const active = Math.min(stage, steps.length - 1);
+  return (
+    <div className="pointer-events-none absolute inset-0 rounded-2xl bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-sm">
+      <div className="animate-spin h-5 w-5 rounded-full border-2 border-black/20 border-t-black" />
+      <div className="font-medium">{steps[active]}</div>
+      {note && <div className="text-xs text-neutral-600">{note}</div>}
+    </div>
+  );
+}
 
-  async function analyze(clarify:boolean){
+type ApiResponse = {
+  ok: boolean;
+  degraded?: boolean;
+  reason?: string | null;
+  trace?: string;
+  frames?: any;
+  claims?: any[];
+  statements?: any[];
+  clusters?: any[];
+};
+
+export default function ContributionAnalyzePage() {
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [stage, setStage] = React.useState(0);
+  const [note, setNote] = React.useState<string | null>(null);
+  const [trace, setTrace] = React.useState<string | null>(null);
+
+  const [carousel, setCarousel] = React.useState<any[]>([]);
+
+  async function analyze() {
+    if (!text.trim()) return;
     setBusy(true);
-    const url="/api/contributions/analyze?mode=multi"+(clarify?"&clarify=1":"");
-    const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text, maxClaims:6})});
-    const j=await r.json(); setRes(j); setBusy(false);
+    setStage(0);
+    setNote(null);
+    setTrace(null);
+    setCarousel([]);
+
+    try {
+      setStage(1);
+      const res = await fetch("/api/contributions/analyze", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // maxClaims absichtlich weggelassen → Server-Default 20
+        body: JSON.stringify({ text: text.slice(0, 8000), locale: "de" }),
+      });
+
+      setStage(2);
+      const data: ApiResponse = await res.json();
+
+      setStage(3);
+      if (!data?.ok) {
+        setNote(
+          data?.reason === "OPENAI_AUTH"
+            ? "API-Zugang fehlerhaft."
+            : data?.reason === "RATE_LIMIT"
+            ? "Rate-Limit. Bitte kurz warten und erneut auslösen."
+            : data?.reason === "TIMEOUT"
+            ? "Zeitüberschreitung. Bitte erneut versuchen."
+            : data?.reason === "CLIENT_PARAM_MISMATCH"
+            ? "Client/Server-Parameter aktualisiert. Bitte Seite neu laden."
+            : data?.reason === "PARSE_ERROR"
+            ? "Antwort konnte nicht interpretiert werden."
+            : "Unerwarteter Fehler."
+        );
+        if (data?.trace) setTrace(data.trace);
+        setBusy(false);
+        return;
+      }
+
+      const { previews } = buildPyramid({
+        frames: data.frames,
+        claims: data.claims,
+        statements: data.statements,
+      });
+
+      setCarousel(previews);
+
+      setStage(4);
+      if (data?.degraded) {
+        setNote("Hinweis: Antwort wurde vereinfacht. Du kannst es erneut versuchen.");
+      }
+    } catch {
+      setNote("Netzwerk/Serverproblem. Bitte erneut versuchen.");
+    } finally {
+      setBusy(false);
+    }
   }
-  function useStatement(s:string){ const u=new URL("/statements/new", window.location.origin); u.searchParams.set("text", s); window.location.href=u.toString(); }
 
   return (
-    <div className="container-vog">
-      <h1 className="vog-head mb-2">Beitrag erstellen &amp; analysieren (Pro)</h1>
-      <div className="text-sm text-slate-600 mb-4">Für Redaktion/Partner. Öffentlich besser: <a className="underline" href="/contributions/new">„Beitrag (schnell)“</a>.</div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-3">
-          <div className="vog-card p-4">
-            <div className="vog-stepper mb-2"><span className="dot active"></span>Eingabe → <span className="dot"></span>Analyse → <span className="dot"></span>Auswahl → <span className="dot"></span>Feinschliff → <span className="dot"></span>Veröffentlichen</div>
-            <textarea className="w-full min-h-[180px] rounded-2xl border p-3" placeholder="Worum geht es?" value={text} onChange={e=>setText(e.target.value)} />
-            <div className="flex gap-2 mt-2">
-              <button className="vog-btn-pri" onClick={()=>analyze(false)} disabled={!text||busy}>Analyse starten</button>
-              <button className="vog-btn" onClick={()=>analyze(true)} disabled={!text||busy}>Analyse + Klärungsfragen</button>
-              <button className="vog-btn-ghost ml-auto" onClick={()=>setOpenAuto(true)}>Abbrechen – eDebatte übernimmt</button>
-            </div>
-          </div>
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      <h1 className="mb-4 text-2xl font-semibold">Beitrag analysieren</h1>
 
-          {res && (
-            <div className="space-y-3">
-              <div className="vog-card p-4">
-                <div className="font-semibold">Ergebnis • Sprache: {res.language ?? "—"} • Hauptthema: {res.mainTopic ?? "—"} {res._meta?.picked?<>• Pipeline: {res._meta?.picked}</>:null}</div>
-              </div>
-              {(res.claims||[]).map((c,i)=>(
-                <div key={i} className="space-y-2">
-                  <div className="text-xs text-slate-500">Aussage {i+1}</div>
-                  <SmartClaimCard claim={c} onUse={useStatement}/>
-                </div>
-              ))}
-              <ClarifyPanel questions={res.followUps}/>
-              {text && <>
-                <StanceSpectrum claimText={text}/>
-                <ObjectionCollector/>
-                <CounterSynth text={text}/>
-              </>}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <NewsFeedPanel topic={res?.mainTopic||"Allgemein"} region={res?.regionHint||null} keywords={res?.subTopics||[]} />
-          <div className="vog-card p-4">
-            <div className="font-semibold mb-2">Nächste Schritte</div>
-            <ol className="list-decimal ml-5 text-sm space-y-1">
-              <li>Claim wählen (verifiziert/cluster/neu)</li>
-              <li>Fehlende Lager im Spektrum füllen (Coins)</li>
-              <li>Faktencheck/Belege ergänzen</li>
-              <li>Veröffentlichen</li>
-            </ol>
-          </div>
-        </div>
+      <div className="relative">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="h-48 w-full rounded-2xl border p-4"
+          placeholder="Beschreibe kurz dein Anliegen …"
+          aria-busy={busy}
+        />
+        {busy && <InlineProcessOverlay stage={stage} note={note} />}
       </div>
-      <AutopilotDialog open={openAuto} onClose={()=>setOpenAuto(false)} text={text}/>
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={analyze}
+          disabled={busy || !text.trim()}
+          className="
+            group inline-flex items-center gap-2 rounded-2xl
+            bg-gradient-to-r from-brand-from to-brand-to
+            px-5 py-2.5 text-white font-semibold
+            shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/20
+            transition
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-to
+            disabled:opacity-50
+          "
+        >
+          {busy ? "Analysiere …" : "Analysieren"}
+        </button>
+
+        {note && !busy && (
+          <div className="text-sm text-neutral-700">
+            {note}{" "}
+            {trace && <span className="opacity-70">• Trace: {trace}</span>} ·{" "}
+            <button className="underline font-medium" onClick={analyze}>
+              Erneut versuchen
+            </button>{" "}
+            ·{" "}
+            <a
+              className="underline"
+              href={`mailto:support@voiceopengov.org?subject=Analyse%20Problem&body=Trace%3A%20${encodeURIComponent(
+                trace || ""
+              )}`}
+            >
+              Support
+            </a>
+          </div>
+        )}
+      </div>
+
+      {carousel.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-2 text-sm font-medium">Vorschau deiner Statement-Karten</div>
+          <StatementCarousel items={carousel} />
+        </div>
+      )}
     </div>
   );
 }

@@ -92,6 +92,30 @@ export function validateImpact(jsonText: string): CanonicalImpact {
     overallConfidence: data.overallConfidence,
   };
 }
+// ---------- Claims (Contribution → atomare Aussagen) ----------
+
+export const Claim = z.object({
+  text: z.string().min(8),
+  sachverhalt: z.string().min(3),
+  zeitraum: z.string().min(1),
+  ort: z.string().min(2),
+  zustaendigkeit: z.enum(["EU", "Bund", "Land", "Kommune"]),
+  betroffene: z.array(z.string()).min(1),
+  messgroesse: z.string().min(1),
+  unsicherheiten: z.string().optional().default(""),
+  sources: z.array(z.string().url()).optional().default([]),
+});
+
+export const Claims = z.array(Claim).min(1);
+
+export const AnalyzeRequest = z.object({
+  text: z.string().min(10),
+  maxClaims: z.number().int().min(1).max(20).default(5),
+  locale: z.enum(["de","en"]).default("de"),
+});
+
+export type TClaim = z.infer<typeof Claim>;
+export type TAnalyzeRequest = z.infer<typeof AnalyzeRequest>;
 
 // ---------- Alternatives ----------
 export const Alternative = z.object({

@@ -1,5 +1,6 @@
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+
 
 export async function POST(
   req: NextRequest,

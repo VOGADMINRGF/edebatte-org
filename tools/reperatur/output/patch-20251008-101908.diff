@@ -2454,7 +2454,7 @@ index 0bcab4e0..63a3957a 100644
 -import { storeContribution } from "@lib/contribution/storeContribution";
 +    // 2) Statements aus Originaltext (Objekte)
 +    const statementObjs = extractStatementsFromText(text, {
-+      max: Number(process.env.EXTRACT_MAX_STATEMENTS ?? 8),
++      max: Number(process.env.EXTRACT_MAX_STATEMENTS ?? 20),
 +      minChars: Number(process.env.EXTRACT_MIN_CHARS ?? 12),
 +    });
  
@@ -8180,7 +8180,7 @@ index 42dd7c22..dd376aea 100644
 -
 -  // 2) zusätzliche Sätze aus Originaltext ziehen
 -  const extra = extractStatementsFromText(body.text, {
--    max: body.extractMax ?? Number(process.env.EXTRACT_MAX_STATEMENTS ?? 8),
+-    max: body.extractMax ?? Number(process.env.EXTRACT_MAX_STATEMENTS ?? 20),
 -    minChars: body.extractMinChars ?? Number(process.env.EXTRACT_MIN_CHARS ?? 12),
 -  });
 -
@@ -8197,7 +8197,7 @@ index 42dd7c22..dd376aea 100644
 -      {
 -        from: body.fromLang ?? null,
 -        skipNoop: true,
--        concurrency: body.translateConcurrency ?? Number(process.env.TRANSLATE_CONCURRENCY ?? 6),
+-        concurrency: body.translateConcurrency ?? Number(process.env.TRANSLATE_CONCURRENCY ?? 20),
 -      }
 -    );
 +/** Platzhalter: Statements erzeugen wir hier NICHT (macht extractStatementsFromText) */

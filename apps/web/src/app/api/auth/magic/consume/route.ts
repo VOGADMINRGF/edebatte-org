@@ -1,5 +1,6 @@
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+
 import { getCol } from "@core/db/triMongo";
 import { piiCol } from "@core/db/triMongo";
 

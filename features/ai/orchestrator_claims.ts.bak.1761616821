@@ -200,7 +200,7 @@ export async function orchestrateClaimsV2(
   text: string,
   opts?: { maxClaims?: number; timeoutMs?: number }
 ): Promise<OrchestrationResult[]> {
-  const a = await atomicize(text, { mode: "auto", maxClaims: opts?.maxClaims ?? 6, timeoutMs: opts?.timeoutMs ?? 2500 });
+  const a = await atomicize(text, { mode: "auto", maxClaims: opts?.maxClaims ?? 20, timeoutMs: opts?.timeoutMs ?? 2500 });
   const claims = a.claims ?? [];
   if (!claims.length) return [];
 

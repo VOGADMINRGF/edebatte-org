@@ -1,7 +1,8 @@
 // apps/web/src/app/statements/[id]/page.tsx
 export const dynamic = "force-dynamic";
+import { ObjectId } from "@core/triMongo";
 import { notFound } from "next/navigation";
-import { ObjectId } from "mongodb";
+
 import StatementDetailClient from "@features/statement/components/StatementDetailClient";
 
 type Stats = {

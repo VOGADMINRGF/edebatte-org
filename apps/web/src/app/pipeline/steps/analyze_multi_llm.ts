@@ -40,7 +40,7 @@ export async function step_analyze_multi_llm(text: string, { maxClaims = 5 }: { 
   if (typeof result.mainTopic === "string") kw.add(result.mainTopic);
   (result.subTopics||[]).forEach((s:string)=> kw.add(s));
   (result.claims||[]).slice(0,3).forEach((c:any)=>{
-    String(c?.text||"").split(/[^A-Za-zÄÖÜäöüß0-9\-]+/).forEach(w=>{
+    String(c?.text||"").split(/[^A-Za-zÄÖÜäöüß0-9-]+/).forEach(w=>{
       if (w.length>3) kw.add(w);
     });
   });

@@ -132,7 +132,7 @@ export async function civicSearchStrict(params: {
     if (!feeds.length) return { ok:false, error:"no-feeds-configured", logs:[...logs, "feeds: 0"] };
 
     const xmls = await Promise.allSettled(
-      feeds.map(u => fetchText(u, params.timeoutMs ?? 8000).then(t => ({u,t})))
+      feeds.map(u => fetchText(u, params.timeoutMs ?? 20000).then(t => ({u,t})))
     );
     const items: CivicItem[] = [];
     for (const r of xmls) {

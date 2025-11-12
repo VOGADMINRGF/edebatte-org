@@ -2,7 +2,9 @@
 import * as React from "react";
 
 export type InputSize = "sm" | "md" | "lg";
-export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+
+// WICHTIG: 'size' aus den HTML-Props ausschließen, damit unser eigenes 'size' (InputSize) nicht kollidiert
+export type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
   size?: InputSize;
   invalid?: boolean;
   left?: boolean;
@@ -17,10 +19,18 @@ const sizeClass: Record<InputSize, string> = {
 };
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, size = "md", invalid = false, left, right, fullWidth, ...rest },
+  {
+    className,
+    size = "md",
+    invalid = false,
+    left = false,
+    right = false,
+    fullWidth = true,
+    ...rest
+  },
   ref
 ) {
-  const key: keyof typeof sizeClass = size ?? "md";
+  const key: InputSize = size ?? "md";
   const padLeft = left ? " pl-10" : "";
   const padRight = right ? " pr-10" : "";
 
@@ -31,12 +41,16 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
         "block rounded-md border transition outline-none",
         sizeClass[key],
         invalid ? "border-destructive ring-1 ring-destructive/30" : "border-input focus:ring-2 ring-ring",
-        fullWidth !== false ? "w-full" : "",
-        padLeft, padRight,
+        fullWidth ? "w-full" : "",
+        padLeft,
+        padRight,
         className,
-      ].filter(Boolean).join(" ")}
+      ]
+        .filter(Boolean)
+        .join(" ")}
       {...rest}
     />
   );
 });
+
 export default Input;

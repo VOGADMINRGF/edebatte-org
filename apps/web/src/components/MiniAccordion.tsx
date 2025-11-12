@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { colors } from "@packages/ui/src/theme";
+import { colors } from "../theme";
 
 export function MiniAccordion({ items }: { items: any[] }) {
   const [open, setOpen] = useState(-1);

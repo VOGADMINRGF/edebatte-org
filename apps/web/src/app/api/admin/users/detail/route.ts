@@ -1,7 +1,8 @@
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 import { getCol } from "@core/db/triMongo";
 import { coreCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 
 export async function GET(req: NextRequest) {
   const id = new URL(req.url).searchParams.get("id");

@@ -1,8 +1,9 @@
 // apps/web/src/app/api/votes/submit/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+
 import crypto from "node:crypto";
 import { coreCol, votesCol } from "@core/db/triMongo";
 

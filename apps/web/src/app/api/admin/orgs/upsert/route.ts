@@ -1,6 +1,7 @@
+import { ObjectId } from "@core/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 import { coreCol } from "@core/db/triMongo";
-import { ObjectId } from "mongodb";
+
 import { isOrgType } from "@/models/org";
 
 export async function POST(req: NextRequest) {

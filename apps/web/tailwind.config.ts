@@ -1,5 +1,7 @@
+// tailwind.config.ts
 import type { Config } from "tailwindcss";
-export default {
+
+const config: Config = {
   content: [
     "./src/**/*.{ts,tsx}",
     "../../features/**/*.{ts,tsx}",
@@ -7,8 +9,17 @@ export default {
   ],
   theme: {
     extend: {
-      colors: { brand: { from: "#00E6D1", to: "#2196F3" } },
+      colors: {
+        // exakt: Türkis -> Blau
+        brand: { from: "#00E6D1", to: "#2196F3" },
+      },
       borderRadius: { "2xl": "1rem" },
+      boxShadow: {
+        card: "0 8px 28px rgba(33,150,243,.15)",
+      },
     },
   },
-} satisfies Config;
+  plugins: [],
+};
+
+export default config;

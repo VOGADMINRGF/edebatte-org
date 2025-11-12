@@ -99,3 +99,13 @@ export interface SwipeStatement {
   importance?: string;
   // ... weitere Felder nach Bedarf
 }
+export type SwipeChoice = "agree" | "neutral" | "disagree";
+
+export interface SwipeCard {
+  id: string;
+  question: string;       // 1-Satz-Frage
+  sachverhalt?: string;   // optionaler Kontext
+  zustaendigkeit?: "EU" | "Bund" | "Land" | "Kommune" | "-";
+  tags?: string[];
+  evidenceCount?: number; // Belege/Quellen vorhanden
+}

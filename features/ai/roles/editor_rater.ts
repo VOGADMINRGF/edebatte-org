@@ -147,7 +147,7 @@ export async function rateClaims(
   }
 
   if (prefer === "v1") {
-    const legacy = await rateEditorialV1(claims, opts?.timeoutMs ?? 8000);
+    const legacy = await rateEditorialV1(claims, opts?.timeoutMs ?? 20000);
     const map: Record<string, ScoreSet> = {};
     for (const c of claims) {
       const s = legacy.ratings[c.text];
@@ -161,7 +161,7 @@ export async function rateClaims(
   const hasAny = Object.keys(v2).length > 0;
   if (hasAny) return v2;
 
-  const legacy = await rateEditorialV1(claims, opts?.timeoutMs ?? 8000);
+  const legacy = await rateEditorialV1(claims, opts?.timeoutMs ?? 20000);
   const map: Record<string, ScoreSet> = {};
   for (const c of claims) {
     const s = legacy.ratings[c.text];
