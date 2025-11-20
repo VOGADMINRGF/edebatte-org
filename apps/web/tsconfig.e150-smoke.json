@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "src/app/contributions/new/**/*.ts",
+    "src/app/contributions/new/**/*.tsx",
+    "src/app/statements/new/**/*.ts",
+    "src/app/statements/new/**/*.tsx",
+    "src/app/api/contributions/analyze/**/*.ts",
+    "src/app/api/contributions/analyze/**/*.tsx",
+    "src/features/analyze/**/*.ts",
+    "src/features/analyze/**/*.tsx",
+    "src/features/ai/**/*.ts",
+    "src/features/ai/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "public/**",
+    "src/__features_local_DISABLED__/**",
+    "src/_disabled/**",
+    "src/shims/**",
+    "src/app/pipeline/**",
+    "src/ui/**",
+    "src/utils/**",
+    "src/lib/contribution/**",
+    "src/app/dashboard/**",
+    "src/app/map/**",
+    "src/app/faq/**",
+    "src/components/**",
+    "src/features/**/legacy/**",
+    "tools/**",
+    "../tools/**",
+    "../../tools/**"
+  ]
+}

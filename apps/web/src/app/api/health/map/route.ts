@@ -1,4 +1,4 @@
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 // apps/web/src/app/api/health/map/route.ts
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";

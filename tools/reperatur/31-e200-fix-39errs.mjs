@@ -109,8 +109,8 @@ rep(path.join(web, "src", "app", "api", "finding", "upsert", "route.ts"), [
   const p = path.join(web, "src", "app", "api", "health", "map", "route.ts");
   if (ex(p)) {
     let s = rd(p);
-    if (!/from\s+["']@core\/triMongo["']/.test(s)) {
-      s = `import { coreCol } from "@core/triMongo";\n` + s;
+    if (!/from\s+["']@core\/db/triMongo["']/.test(s)) {
+      s = `import { coreCol } from "@core/db/triMongo";\n` + s;
     }
     s = s.replace(/const\s+db\s*=\s*await\s*getDb\([^)]+\);\s*[\r\n]*const\s+col\s*=.*\n/m,
                   "const col = await coreCol(\"statements\");\n");
@@ -215,7 +215,7 @@ rep(path.join(web, "src", "server", "services.ts"), [
   const p = path.join(web, "src", "shims", "core", "db", "triMongo.ts");
   if (ex(p)) {
     let s = rd(p);
-    s = s.replace(/await import\([^\)]+\)/, 'await import("@core/triMongo")');
+    s = s.replace(/await import\([^\)]+\)/, 'await import("@core/db/triMongo")');
     wr(p, s);
   }
 }

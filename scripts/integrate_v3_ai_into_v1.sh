@@ -49,7 +49,7 @@ j.compilerOptions.paths['@core/*']     = ['../../core/*'];
 j.compilerOptions.paths['@features/*'] = ['../../features/*'];
 j.compilerOptions.paths['@packages/*'] = ['../../packages/*'];
 // Legacy alias für triMongo beibehalten
-j.compilerOptions.paths['@core/triMongo'] = j.compilerOptions.paths['@core/triMongo'] || ['src/shims/core/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/triMongo'] = j.compilerOptions.paths['@core/db/triMongo'] || ['src/shims/core/db/db/triMongo.ts'];
 fs.writeFileSync(p, JSON.stringify(j,null,2));
 console.log("✅ tsconfig paths aktualisiert");
 NODE

@@ -1,7 +1,7 @@
-import * as tri from "@core/triMongo";
-const asFn = <T>(x:any)=> (typeof x==="function" ? x : (()=>x as T));
-export const coreConn = asFn<any>((tri as any).coreConn || (tri as any).getCoreConn || (tri as any).core);
-export const coreDb   = () => (coreConn() as any).db ?? (coreConn() as any);
-export const coreCol  = (name:string) =>
-  (typeof (tri as any).coreCol === "function") ? (tri as any).coreCol(name) : coreDb().collection(name);
+import { coreConn as triCoreConn, coreCol as triCoreCol } from "@core/db/triMongo";
+
+export const coreConn = triCoreConn;
+export const coreDb = () => coreConn();
+export const coreCol = triCoreCol;
+
 export default { coreConn, coreDb, coreCol };

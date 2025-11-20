@@ -14,17 +14,17 @@ const ex = (p) => fs.existsSync(p);
 {
   const j = JSON.parse(rd(tsconfigWeb));
   j.compilerOptions ||= {}; j.compilerOptions.paths ||= {};
-  j.compilerOptions.paths["@core/triMongo"] = ["src/shims/core/db/triMongo.ts"];
-  j.compilerOptions.paths["@core/db/triMongo"] = ["src/shims/core/db/triMongo.ts"];
+  j.compilerOptions.paths["@core/db/triMongo"] = ["src/shims/core/db/db/triMongo.ts"];
+  j.compilerOptions.paths["@core/db/db/triMongo"] = ["src/shims/core/db/db/triMongo.ts"];
   wr(tsconfigWeb, JSON.stringify(j, null, 2));
-  console.log("✓ tsconfig(web): @core[/db]/triMongo → Shim");
+  console.log("✓ tsconfig(web): @core[/db]/db/triMongo → Shim");
 }
 
 // ---------- B) triMongo-Shim: default + alle erwarteten Named-Exports ----------
 {
   const p = path.join(web, "src", "shims", "core", "db", "triMongo.ts");
   const s = `// Unified triMongo shim: bietet default + Named-Exports, die viele Routen erwarten.
-import coreTri from "@core/triMongo"; // reale Implementierung aus /core
+import coreTri from "@core/db/triMongo"; // reale Implementierung aus /core
 type Any = any;
 const tri: Any = coreTri ?? {};
 export default coreTri;
@@ -236,7 +236,7 @@ function addAnyParams(file) {
 {
   const p = path.join(web, "src", "lib", "connectDB.ts");
   if (!ex(p)) {
-    const s = `import { getDb } from "@core/db/triMongo";
+    const s = `import { getDb } from "@core/db/db/triMongo";
 export async function connectDB() { try { return await getDb("core"); } catch { return null as any; } }
 export default connectDB;`;
     wr(p, s);

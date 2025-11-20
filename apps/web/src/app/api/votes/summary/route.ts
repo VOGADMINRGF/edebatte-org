@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { type Filter, type FindOptions } from "mongodb";
-import { coreCol, votesCol, ObjectId } from "@core/triMongo";
+import { coreCol, votesCol, ObjectId } from "@core/db/triMongo";
 
 type SummaryKey = "agree" | "neutral" | "disagree";
 type Summary = Record<SummaryKey, number>;

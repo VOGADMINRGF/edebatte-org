@@ -1,8 +1,8 @@
 // apps/web/src/server/drafts.ts
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import "server-only";
 /* @ts-nocheck */
-import { coreCol } from "@core/db/triMongo";
+import { coreCol } from "@core/db/db/triMongo";
 
 
 export async function createDraft(data: any) {

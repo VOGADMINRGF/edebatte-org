@@ -1,7 +1,7 @@
-import * as tri from "@core/triMongo";
-const asFn = <T>(x:any)=> (typeof x==="function" ? x : (()=>x as T));
-export const piiConn = asFn<any>((tri as any).piiConn || (tri as any).getPiiConn || (tri as any).pii);
-export const piiDb   = () => (piiConn() as any).db ?? (piiConn() as any);
-export const piiCol  = (name:string) =>
-  (typeof (tri as any).piiCol === "function") ? (tri as any).piiCol(name) : piiDb().collection(name);
+import { piiConn as triPiiConn, piiCol as triPiiCol } from "@core/db/triMongo";
+
+export const piiConn = triPiiConn;
+export const piiDb = () => piiConn();
+export const piiCol = triPiiCol;
+
 export default { piiConn, piiDb, piiCol };

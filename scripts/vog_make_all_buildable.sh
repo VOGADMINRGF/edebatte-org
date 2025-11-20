@@ -77,7 +77,7 @@ EOF
 # 2) triMongo – direkt MongoDB (deine Variante)
 ###############################################################################
 say "Schreibe triMongo (falls fehlt) …"
-cat > "$WEB/src/shims/core/db/triMongo.ts" <<'EOF'
+cat > "$WEB/src/shims/core/db/db/triMongo.ts" <<'EOF'
 import { MongoClient, Db, Collection, Document } from "mongodb";
 let coreClient: MongoClient | null = null;
 let votesClient: MongoClient | null = null;
@@ -184,7 +184,7 @@ cat > "$WEB/tsconfig.json" <<'EOF'
       "@config/*": ["src/config/*"],
       "@db/web": ["src/shims/db-web.ts"],
       "@db/core": ["src/shims/db-core.ts"],
-      "@core/triMongo": ["src/shims/core/db/triMongo.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
       "@features/*": ["src/shims/features/*"],
       "@packages/*": ["src/shims/packages/*"]
     },

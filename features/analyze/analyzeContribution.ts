@@ -1,7 +1,8 @@
 // apps/web/src/features/analyze/analyzeContribution.ts
 import { AnalyzeResultSchema } from "./schemas";
 import type { AnalyzeResult, StatementRecord } from "./schemas";
-import { callOpenAIJson } from "@features/ai";
+import { normalizeStatementRecord } from "./normalizeClaim";
+import { callE150Orchestrator } from "@features/ai/orchestratorE150";
 
 export type AnalyzeInput = {
   text: string;
@@ -125,53 +126,6 @@ function buildUserPrompt(
   ].join("\n");
 }
 
-/* ---------- Claim-Normalisierung (ohne Fallback) ---------- */
-
-function normalizeStatementRecord(
-  raw: any,
-  idx: number
-): StatementRecord | null {
-  if (!raw || typeof raw.text !== "string") return null;
-  const text = raw.text.trim();
-  if (!text) return null;
-
-  const id =
-    typeof raw.id === "string" && raw.id.trim().length > 0
-      ? raw.id.trim()
-      : `claim-${idx + 1}`;
-
-  const rec: any = { id, text };
-
-  if (typeof raw.title === "string" && raw.title.trim().length > 0) {
-    rec.title = raw.title.trim();
-  }
-
-  if (typeof raw.responsibility === "string") {
-    rec.responsibility = raw.responsibility;
-  }
-  if (
-    typeof raw.importance === "number" &&
-    Number.isFinite(raw.importance)
-  ) {
-    rec.importance = Math.min(5, Math.max(1, Math.round(raw.importance)));
-  }
-  if (typeof raw.topic === "string") {
-    rec.topic = raw.topic;
-  }
-  if (typeof raw.domain === "string") {
-    rec.domain = raw.domain;
-  }
-  if (
-    raw.stance === "pro" ||
-    raw.stance === "contra" ||
-    raw.stance === "neutral"
-  ) {
-    rec.stance = raw.stance;
-  }
-
-  return rec as StatementRecord;
-}
-
 /* ---------- Hauptfunktion ---------- */
 
 export async function analyzeContribution(
@@ -188,11 +142,15 @@ export async function analyzeContribution(
       ? Math.min(input.maxClaims, DEFAULT_MAX_CLAIMS)
       : DEFAULT_MAX_CLAIMS;
 
-  const { text: rawText } = await callOpenAIJson({
-    system: buildSystemPrompt(language),
-    user: buildUserPrompt(sourceText, language, maxClaims),
-    max_tokens: 1800,
+  const orchestration = await callE150Orchestrator({
+    systemPrompt: buildSystemPrompt(language),
+    userPrompt: buildUserPrompt(sourceText, language, maxClaims),
+    locale: language,
+    maxClaims,
+    maxTokens: 1800,
   });
+
+  const rawText = orchestration.rawText;
 
   let raw: any;
   try {
@@ -218,16 +176,26 @@ export async function analyzeContribution(
     );
   }
 
-  const rawClaims = Array.isArray(raw?.claims) ? raw.claims : [];
+  const rawClaims = Array.isArray(raw?.claims)
+    ? raw.claims.slice(0, maxClaims)
+    : [];
   const rawNotes = Array.isArray(raw?.notes) ? raw.notes : [];
   const rawQuestions = Array.isArray(raw?.questions) ? raw.questions : [];
   const rawKnots = Array.isArray(raw?.knots) ? raw.knots : [];
+
+  const normalizedRawClaims: StatementRecord[] = rawClaims
+    .map((c: any, idx: number) =>
+      normalizeStatementRecord(c, { fallbackId: `claim-${idx + 1}` })
+    )
+    .filter(
+      (c: StatementRecord | null): c is StatementRecord => c !== null
+    );
 
   const parsed = AnalyzeResultSchema.safeParse({
     mode: "E150",
     sourceText,
     language,
-    claims: rawClaims,
+    claims: normalizedRawClaims,
     notes: rawNotes,
     questions: rawQuestions,
     knots: rawKnots,
@@ -245,18 +213,11 @@ export async function analyzeContribution(
 
   const base: AnalyzeResult = parsed.data;
 
-  const normalizedClaims: StatementRecord[] = Array.isArray(
-    (base as any).claims
-  )
-    ? (base as any).claims
-        .map((c: any, idx: number) => normalizeStatementRecord(c, idx))
-        .filter(
-          (c: StatementRecord | null): c is StatementRecord => c !== null
-        )
-    : [];
-
   return {
     ...base,
-    claims: normalizedClaims,
+    claims: base.claims ?? [],
+    notes: base.notes ?? [],
+    questions: base.questions ?? [],
+    knots: base.knots ?? [],
   };
 }

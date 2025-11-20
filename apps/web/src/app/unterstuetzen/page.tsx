@@ -1,52 +1,54 @@
-// src/app/unterstuetzen/page.tsx
+import { MembershipCalculator_VOG } from "@/features/membership";
+import Link from "next/link";
 
 export default function UnterstuetzenPage() {
   return (
-    <main className="max-w-3xl mx-auto px-4 pt-24 pb-16 space-y-8">
-      <h1 className="text-4xl font-extrabold text-coral text-center">
-        Unterstützen
-      </h1>
+    <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
+      <section className="mx-auto max-w-4xl px-4 pt-20 space-y-6">
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
+          <h1 className="text-4xl font-extrabold text-slate-900 text-center">
+            Unterstützen
+          </h1>
+          <p className="mt-3 text-center text-lg text-slate-700">
+            VoiceOpenGov ist eine gemeinwohlorientierte Plattform – unabhängig, datensicher und
+            demokratisch. Deine Unterstützung macht politische Teilhabe möglich.
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-slate-200 bg-emerald-50/80 p-4">
+              <h2 className="text-base font-semibold text-emerald-700">Warum unterstützen?</h2>
+              <ul className="mt-2 list-disc pl-5 text-sm text-slate-700 space-y-1">
+                <li>Barrierefreie Weiterentwicklung</li>
+                <li>Redaktionelle Aufarbeitung & Moderation</li>
+                <li>Unabhängige Infrastruktur (DSGVO-konform)</li>
+              </ul>
+            </article>
+            <article className="rounded-2xl border border-slate-200 bg-rose-50/80 p-4">
+              <h2 className="text-base font-semibold text-rose-700">Mitgliedschaften</h2>
+              <ul className="mt-2 list-disc pl-5 text-sm text-slate-700 space-y-1">
+                <li>10 €/Monat – Zugang zu Reports & Beteiligungsformaten</li>
+                <li>25 €/Monat – Engagiert, inkl. Community-Formate</li>
+                <li>50 €/Monat – Fördermitgliedschaft</li>
+              </ul>
+            </article>
+          </div>
+        </div>
 
-      <p className="text-gray-800 text-lg text-center max-w-2xl mx-auto">
-        VoiceOpenGov ist eine gemeinwohlorientierte Plattform – unabhängig,
-        datensicher und demokratisch. Deine Unterstützung macht politische
-        Teilhabe möglich.
-      </p>
+        <MembershipCalculator_VOG />
 
-      <section className="bg-[#F0FAF9] border-l-4 border-[#00B3A6] rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-[#00B3A6] mb-2">
-          Warum unterstützen?
-        </h2>
-        <ul className="list-disc list-inside text-gray-700 space-y-1">
-          <li>Barrierefreie Weiterentwicklung</li>
-          <li>Redaktionelle Aufarbeitung & Moderation</li>
-          <li>Unabhängige Infrastruktur (DSGVO-konform)</li>
-        </ul>
+        <p className="text-center text-sm text-slate-600">
+          Für Plattform-Kontingente (Beiträge, Swipes, Bundles) siehe{" "}
+          <Link href="/nutzungsmodell" className="text-emerald-600 underline">
+            /nutzungsmodell
+          </Link>
+          . Die VoG-Mitgliedschaft bleibt davon getrennt.
+        </p>
+
+        <div className="text-center">
+          <a href="/mitglied-werden" className="btn bg-brand-grad text-white shadow-soft">
+            Jetzt unterstützen
+          </a>
+        </div>
       </section>
-
-      <section className="bg-[#FFF6F5] border-l-4 border-[#FF6F61] rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-[#FF6F61] mb-2">
-          Mitgliedschaften
-        </h2>
-        <ul className="list-disc list-inside text-gray-700 space-y-1">
-          <li>
-            <strong>10 €/Monat:</strong> Zugang zu exklusiven Reports
-          </li>
-          <li>
-            <strong>50 €/Monat:</strong> Fördermitgliedschaft
-          </li>
-          <li>Freiwillig, monatlich kündbar</li>
-        </ul>
-      </section>
-
-      <div className="text-center">
-        <a
-          href="/mitglied-werden"
-          className="inline-block bg-[#4B0082] text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition"
-        >
-          Jetzt unterstützen
-        </a>
-      </div>
     </main>
   );
 }

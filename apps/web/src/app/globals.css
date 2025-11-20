@@ -12,6 +12,15 @@
   --page-max: 1100px;
   --brand-cyan: #06b6d4;
   --brand-blue: #2196f3;
+  --brand-accent-1: #05b8f6;
+  --brand-accent-2: #0ad0b2;
+  --brand-from: #eafcf6;
+  --brand-to: #fefefe;
+  --chip-border: rgba(15, 23, 42, 0.12);
+  --chip-bg: rgba(255, 255, 255, 0.9);
+  --chip-text: #0f172a;
+  --panel-from: #e3f2ff;
+  --panel-to: #fdfdff;
   --glass-bg: color-mix(in oklab, white 70%, transparent);
   --glass-hover: color-mix(in oklab, white 78%, transparent);
 }
@@ -98,6 +107,14 @@ body {
   padding-inline: 0.5rem;
   padding-block: 0.25rem;
   font-size: 0.75rem;
+}
+
+.bg-brand-grad {
+  background-image: linear-gradient(90deg, var(--brand-accent-1), var(--brand-accent-2));
+}
+
+.shadow-soft {
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
 }
 
 /* Generische Buttons (Landing etc.) */

@@ -8,7 +8,7 @@ SHIMS="$SRC/shims/core/db"
 TS="$WEB/tsconfig.json"
 
 echo "🧭 Project: $ROOT"
-echo "🛠  Ensure alias + shim for @core/triMongo"
+echo "🛠  Ensure alias + shim for @core/db/triMongo"
 
 # 1) tsconfig.json: Aliases für V1 wiederherstellen/ergänzen
 node - <<'NODE'
@@ -17,15 +17,15 @@ const j=JSON.parse(fs.readFileSync(p,'utf8'));
 j.compilerOptions=j.compilerOptions||{};
 j.compilerOptions.paths=j.compilerOptions.paths||{};
 j.compilerOptions.paths["@/*"]=j.compilerOptions.paths["@/*"]||["src/*"];
-j.compilerOptions.paths["@core/triMongo"]=["src/shims/core/db/triMongo.ts"];
-j.compilerOptions.paths["@core/db/triMongo"]=["src/shims/core/db/triMongo.ts"];
+j.compilerOptions.paths["@core/db/triMongo"]=["src/shims/core/db/db/triMongo.ts"];
+j.compilerOptions.paths["@core/db/db/triMongo"]=["src/shims/core/db/db/triMongo.ts"];
 fs.writeFileSync(p, JSON.stringify(j,null,2));
 console.log("✅ tsconfig paths aktualisiert");
 NODE
 
 # 2) triMongo-Shim anlegen
 mkdir -p "$SHIMS"
-cat > "$SHIMS/triMongo.ts" <<'TS'
+cat > "$SHIMS/db/triMongo.ts" <<'TS'
 import { MongoClient, type Db, type Collection } from "mongodb";
 
 let _core: MongoClient | null = null;
@@ -75,7 +75,7 @@ export async function votesCol<T=any>(name: string): Promise<Collection<T>> {
 
 export default { coreDb, votesDb, coreCol, votesCol };
 TS
-echo "✅ Shim geschrieben: $SHIMS/triMongo.ts"
+echo "✅ Shim geschrieben: $SHIMS/db/triMongo.ts"
 
 # 3) .env.local: Defaults setzen, falls fehlen
 ENV="$WEB/.env.local"

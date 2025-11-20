@@ -52,8 +52,8 @@ function ensure(alias, targets){
 }
 
 ensure("@db/web", ["src/shims/db-web.ts"]);
-ensure("@core/triMongo", ["src/shims/core/db/triMongo.ts"]);
-ensure("@core/db/triMongo", ["src/shims/core/db/triMongo.ts"]);
+ensure("@core/db/triMongo", ["src/shims/core/db/db/triMongo.ts"]);
+ensure("@core/db/db/triMongo", ["src/shims/core/db/db/triMongo.ts"]);
 ensure("@ui", ["src/shims/ui.ts"]);
 ensure("@components/*", ["src/shims/components/*"]);
 
@@ -65,7 +65,7 @@ NODE
 mkdir -p "$SRC/shims/core/db" "$SRC/shims/components" "$SRC/features/analysis"
 
 # --- 4) triMongo-Shim ---------------------------------------------------------
-cat > "$SRC/shims/core/db/triMongo.ts" <<'TS'
+cat > "$SRC/shims/core/db/db/triMongo.ts" <<'TS'
 import { MongoClient, Db, Collection, Document } from "mongodb";
 
 let coreClient: MongoClient | null = null;

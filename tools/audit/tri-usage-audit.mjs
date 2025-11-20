@@ -60,16 +60,16 @@ function analyzeFile(file) {
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, kind);
 
   /** Track Imports */
-  const tri = { defaultName: null, named: new Set() };          // from "@core/triMongo"
+  const tri = { defaultName: null, named: new Set() };          // from "@core/db/triMongo"
   const connect = { defaultNames: new Set(), named: new Set(), hasImport: false }; // from "@/lib/connectDB" | "@lib/connectDB"
-  const objectIdImportedFrom = new Set(); // 'mongodb' | '@core/triMongo'
+  const objectIdImportedFrom = new Set(); // 'mongodb' | '@core/db/triMongo'
 
   // 1) gather imports
   sf.forEachChild(node => {
     if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
       const mod = node.moduleSpecifier.text;
 
-      const isTri = mod === "@core/triMongo";
+      const isTri = mod === "@core/db/triMongo";
       const isConn = mod === "@/lib/connectDB" || mod === "@lib/connectDB";
       const isMongo = mod === "mongodb";
 
@@ -114,7 +114,7 @@ function analyzeFile(file) {
       if (tri.defaultName && ts.isIdentifier(node.expression) && node.expression.text === tri.defaultName) {
         addIssue(file, sf, node, "TRI_CALLABLE",
           `triMongo default import wird als Funktion aufgerufen.`,
-          `Nutze: import { getCol } from "@core/triMongo";  ->  await getCol("error_logs")  oder  triMongo.getCol("...")`
+          `Nutze: import { getCol } from "@core/db/triMongo";  ->  await getCol("error_logs")  oder  triMongo.getCol("...")`
         );
       }
 
@@ -122,7 +122,7 @@ function analyzeFile(file) {
       if (ts.isIdentifier(node.expression) && node.expression.text === "connectDB") {
         addIssue(file, sf, node, "CONNECTDB_CALL",
           `connectDB() aufgerufen – nicht mehr verwenden.`,
-          `Entfernen und stattdessen Collections via getCol()/getDb() aus "@core/triMongo" nutzen.`
+          `Entfernen und stattdessen Collections via getCol()/getDb() aus "@core/db/triMongo" nutzen.`
         );
       }
 
@@ -133,7 +133,7 @@ function analyzeFile(file) {
         if (ts.isIdentifier(obj) && isConnectDbDefault(obj.text) && (prop === "getDb" || prop === "getCol")) {
           addIssue(file, sf, node, "CONNECTDB_MEMBER",
             `Aufruf ${obj.text}.${prop}() aus connectDB-Default – bitte ablösen.`,
-            `Stattdessen: import { getDb, getCol } from "@core/triMongo";`
+            `Stattdessen: import { getDb, getCol } from "@core/db/triMongo";`
           );
         }
       }
@@ -161,8 +161,8 @@ function analyzeFile(file) {
     if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "ObjectId") {
       if (!hasObjectIdImport) {
         addIssue(file, sf, node, "OBJECTID_IMPORT_MISSING",
-          `new ObjectId(...) verwendet, aber kein Import aus "mongodb" oder "@core/triMongo" gefunden.`,
-          `Füge hinzu: import { ObjectId } from "mongodb";  (oder re-export aus "@core/triMongo").`
+          `new ObjectId(...) verwendet, aber kein Import aus "mongodb" oder "@core/db/triMongo" gefunden.`,
+          `Füge hinzu: import { ObjectId } from "mongodb";  (oder re-export aus "@core/db/triMongo").`
         );
       }
     }
@@ -175,7 +175,7 @@ function analyzeFile(file) {
   if (connect.hasImport) {
     addIssue(file, sf, sf, "CONNECTDB_IMPORT",
       `Import aus "@/lib/connectDB" oder "@lib/connectDB" gefunden.`,
-      `Bitte auf "@core/triMongo" umstellen (getDb/getCol).`
+      `Bitte auf "@core/db/triMongo" umstellen (getDb/getCol).`
     );
   }
 }

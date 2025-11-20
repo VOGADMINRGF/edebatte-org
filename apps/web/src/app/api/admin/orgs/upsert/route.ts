@@ -1,6 +1,6 @@
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextRequest, NextResponse } from "next/server";
-import { coreCol } from "@core/db/triMongo";
+import { coreCol } from "@core/db/db/triMongo";
 
 import { isOrgType } from "@/models/org";
 

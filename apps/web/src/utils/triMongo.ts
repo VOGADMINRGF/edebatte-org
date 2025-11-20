@@ -1,5 +1,5 @@
-// apps/web/src/utils/triMongo.ts
-import tri from "@core/triMongo/index";
+// apps/web/src/utils/db/triMongo.ts
+import tri from "@core/db/triMongo/index";
 
 export const getDb   = tri.getDb;
 export const getCol  = tri.getCol;

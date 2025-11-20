@@ -23,8 +23,8 @@
 
       "@db/web": ["src/shims/db-web.ts"],
       "@db/core": ["src/shims/db-core.ts"],
-      "@core/triMongo": ["src/shims/core/db/triMongo.ts"],
-      "@core/db/triMongo": ["src/shims/core/db/triMongo.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
+      "@core/db/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
 
       "@core/*": ["../../core/*"],
       "@ui": ["../../packages/ui/src/index.ts"],

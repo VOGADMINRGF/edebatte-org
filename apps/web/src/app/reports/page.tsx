@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@features/auth/hooks/useAuth";
 import { useActionPermission } from "@features/user/hooks/useActionPermission";
+import type { AccessTier } from "@/features/pricing";
 
 /** UI-Typ für Themen in einer Region (nur für diese Seite relevant) */
 type RegionTopic = {
@@ -75,14 +76,6 @@ const MOCK_TOPICS: RegionTopic[] = [
     rank: 4,
   },
 ];
-
-type AccessTier =
-  | "public"
-  | "citizenBasic"
-  | "citizenPremium"
-  | "institutionBasic"
-  | "institutionPremium"
-  | "staff";
 
 type ReportAccess = {
   hasFullAccess: boolean;

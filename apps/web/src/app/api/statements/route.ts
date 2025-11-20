@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { cookies, headers } from "next/headers";
-import { coreCol, ObjectId } from "@core/triMongo";
+import { coreCol, ObjectId } from "@core/db/triMongo";
 import { readSession } from "src/utils/session";
 
 const DEV_DISABLE_CSRF = process.env.DEV_DISABLE_CSRF === "1";
@@ -149,8 +149,11 @@ export async function POST(req: NextRequest) {
   const timeframe = body?.timeframe ? String(body.timeframe).slice(0, 120) : undefined;
 
   
-  const analysis = await analyzeContribution(text);
-  if (!category && analysis.subTopics?.length) category = analysis.subTopics[0];
+  const analysis = await analyzeContribution({ text, locale: language });
+  if (!category) {
+    const firstTopic = analysis.claims.find((c) => c.topic)?.topic;
+    if (firstTopic) category = firstTopic;
+  }
   const now = new Date();
 
   const doc: any = { analysis,

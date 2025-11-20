@@ -41,8 +41,8 @@ export default adminConfig;
 EOF
 
 # 1) triMongo ist bei dir bereits da – falls Pfad differiert, Dummy anlegen
-if [ ! -f "$WEB/src/shims/core/db/triMongo.ts" ]; then
-  cat > "$WEB/src/shims/core/db/triMongo.ts" <<'EOF'
+if [ ! -f "$WEB/src/shims/core/db/db/triMongo.ts" ]; then
+  cat > "$WEB/src/shims/core/db/db/triMongo.ts" <<'EOF'
 import { MongoClient, Db, Collection, Document } from "mongodb";
 let coreClient: MongoClient | null = null;
 async function getClient(uri: string){ const c=new MongoClient(uri); try{await c.connect();}catch{} return c; }
@@ -93,7 +93,7 @@ cat > "$WEB/tsconfig.json" <<'EOF'
     "paths": {
       "@/*": ["src/*"],
       "@components/*": ["src/components/*"],
-      "@core/triMongo": ["src/shims/core/db/triMongo.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
       "@config/*": ["src/config/*"],
       "@features/*": ["src/shims/features/*"],
       "@packages/*": ["src/shims/packages/*"]

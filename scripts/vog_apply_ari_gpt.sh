@@ -86,7 +86,7 @@ cat > "$WEB/tsconfig.json" <<'EOF'
       "@/*": ["src/*"],
       "@/lib/*": ["src/lib/*"],
       "@components/*": ["src/components/*"],
-      "@core/triMongo": ["src/shims/core/db/triMongo.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
       "@/features/*": ["../../features/*", "src/shims/features/*"]
     },
     "plugins": [{ "name": "next" }],
@@ -206,7 +206,7 @@ EOF
 cat > "$WEB/src/app/api/contributions/analyze/stream/route.ts" <<'EOF'
 import { NextRequest } from "next/server";
 import crypto from "crypto";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 import {
   analyzeWithGptStrict, cleanTopics,
   mapCanonWithGpt, factcheckWithGpt
@@ -330,7 +330,7 @@ import {
   analyzeWithGptStrict, cleanTopics,
   mapCanonWithGpt, factcheckWithGpt
 } from "@/lib/llm";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 export const dynamic = "force-dynamic";
 

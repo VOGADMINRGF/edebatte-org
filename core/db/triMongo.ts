@@ -1,5 +1,4 @@
 // core/db/triMongo.ts
-import { ObjectId } from "@core/triMongo";
 import { MongoClient, type Db, type Collection, type Document as MongoDoc } from "mongodb";
 
 export type TriStore = "core" | "votes" | "pii" | "ai_core_reader";
@@ -102,13 +101,6 @@ export async function closeAll(): Promise<void> {
   G.clients = {};
   G.dbs = {};
 }
-
-const triMongo = {
-  getDb, getCol,
-  coreCol, votesCol, piiCol, aiReaderCol,
-  coreConn, votesConn, piiConn, aiReaderConn,
-  closeAll,
-};
 
 export { ObjectId } from "mongodb";
 

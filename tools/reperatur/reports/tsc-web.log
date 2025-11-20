@@ -306,8 +306,8 @@ apps/web/src/models/core/Event.ts(61,54): error TS2694: Namespace '"@core/*"' ha
 apps/web/src/models/core/Event.ts(63,54): error TS2694: Namespace '"@core/*"' has no exported member 'Model'.
 apps/web/src/models/core/Event.ts(64,22): error TS2347: Untyped function calls may not accept type arguments.
 apps/web/src/models/core/Report.ts(4,26): error TS2307: Cannot find module '@/lib/db/core' or its corresponding type declarations.
-apps/web/src/models/core/Source.ts(2,10): error TS2724: '"@core/triMongo"' has no exported member named 'coreConn'. Did you mean 'coreCol'?
-apps/web/src/models/core/Statement.ts(3,10): error TS2724: '"@core/triMongo"' has no exported member named 'coreConn'. Did you mean 'coreCol'?
+apps/web/src/models/core/Source.ts(2,10): error TS2724: '"@core/db/triMongo"' has no exported member named 'coreConn'. Did you mean 'coreCol'?
+apps/web/src/models/core/Statement.ts(3,10): error TS2724: '"@core/db/triMongo"' has no exported member named 'coreConn'. Did you mean 'coreCol'?
 apps/web/src/models/core/Stream.ts(3,26): error TS2307: Cannot find module '@/lib/db/core' or its corresponding type declarations.
 apps/web/src/models/core/StreamEvent.ts(2,26): error TS2307: Cannot find module '@/lib/db/core' or its corresponding type declarations.
 apps/web/src/models/ErrorLog.ts(52,15): error TS2484: Export declaration conflicts with exported declaration of 'IErrorLog'.

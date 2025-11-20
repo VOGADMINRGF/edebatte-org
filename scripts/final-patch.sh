@@ -22,8 +22,8 @@ j.compilerOptions.paths["@/*"] = ["src/*"];
 j.compilerOptions.paths["@config/*"] = ["src/config/*"];
 // unsere bisherigen Mappings belassen:
 j.compilerOptions.paths["@db/web"] = ["src/shims/db-web.ts"];
-j.compilerOptions.paths["@core/db/triMongo"] = ["src/shims/core/db/triMongo.ts"];
-j.compilerOptions.paths["@core/triMongo"] = ["src/shims/core/db/triMongo.ts"];
+j.compilerOptions.paths["@core/db/db/triMongo"] = ["src/shims/core/db/db/triMongo.ts"];
+j.compilerOptions.paths["@core/db/triMongo"] = ["src/shims/core/db/db/triMongo.ts"];
 j.compilerOptions.paths["@db/core"] = ["src/shims/db-core.ts"];
 j.compilerOptions.paths["@ui"] = ["src/shims/ui.tsx"];
 // etwaige Excludes für Admin/Dashboard entfernen (keine Stummschaltung)

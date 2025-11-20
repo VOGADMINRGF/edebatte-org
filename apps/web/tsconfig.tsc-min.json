@@ -6,7 +6,18 @@
       "public/**",
       "../../features/**",
       "**/__tests__/**",
-      "**/*.test.*"
+      "**/*.test.*",
+      "src/__features_local_DISABLED__/**",
+      "src/_disabled/**",
+      "src/shims/**",
+      "src/app/pipeline/**",
+      "src/ui/PipelineHUD.tsx",
+      "src/utils/aiProviders.ts",
+      "src/lib/contribution/llm/**",
+      "src/app/api/_diag/**",
+      "src/app/api/diag/**",
+      "src/app/api/translate/**",
+      "src/app/api/map/points/**"
     ]
   }
   

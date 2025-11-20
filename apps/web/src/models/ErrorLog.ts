@@ -1,4 +1,4 @@
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 import type { Collection, Filter, UpdateFilter, FindOptions, WithId } from "mongodb";
 
 export type ErrorLogDoc = {

@@ -131,7 +131,7 @@ mkdir -p "$SRC/app/api/contributions/ingest"
 cat > "$SRC/app/api/contributions/ingest/route.ts" <<'TS'
 import { NextRequest, NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 import { readSession } from "src/utils/session";
 
 function safeLang(v:any){ const ok=new Set(["de","en","fr","it","es","pl","uk","ru","tr","hi","zh","ar"]); const x=typeof v==="string"?v.slice(0,2).toLowerCase():"de"; return ok.has(x)?x:"de"; }

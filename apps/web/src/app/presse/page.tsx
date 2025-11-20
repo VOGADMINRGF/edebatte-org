@@ -1,6 +1,6 @@
 "use client";
 
-import { colors } from "@packages/ui/src/theme";
+import { colors } from "../theme";
 import { useState } from "react";
 
 // Zielgruppen-Tabs

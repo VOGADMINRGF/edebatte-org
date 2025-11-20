@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
-import { getCol, ObjectId } from "@core/triMongo";
+import { getCol, ObjectId } from "@core/db/triMongo";
 
 
 export async function POST(_req: NextRequest) {

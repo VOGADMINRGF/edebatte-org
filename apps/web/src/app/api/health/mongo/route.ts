@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 export async function GET() {
   try {
     const col = await coreCol("_health");

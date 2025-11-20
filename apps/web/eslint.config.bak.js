@@ -85,12 +85,12 @@ export default [
         // ❌ connectDB() darf nicht mehr aufgerufen werden
         {
           selector: "CallExpression[callee.name='connectDB']",
-          message: "connectDB ist veraltet. Nutze getDb()/getCol() aus @core/triMongo.",
+          message: "connectDB ist veraltet. Nutze getDb()/getCol() aus @core/db/triMongo.",
         },
         // ❌ triMongo(...) darf nie als Callable benutzt werden
         {
           selector: "CallExpression[callee.name='triMongo']",
-          message: "triMongo ist kein Callable. Nutze getDb()/getCol() aus @core/triMongo.",
+          message: "triMongo ist kein Callable. Nutze getDb()/getCol() aus @core/db/triMongo.",
         },
       ],
 
@@ -107,17 +107,17 @@ export default [
             // ✔ connectDB komplett sperren
             {
               name: "@/lib/connectDB",
-              message: 'Deprecated. Nutze "@core/triMongo" (getDb/getCol).',
+              message: 'Deprecated. Nutze "@core/db/triMongo" (getDb/getCol).',
             },
             {
               name: "@lib/connectDB",
-              message: 'Deprecated. Nutze "@core/triMongo" (getDb/getCol).',
+              message: 'Deprecated. Nutze "@core/db/triMongo" (getDb/getCol).',
             },
-            // ✔ ObjectId nur noch aus @core/triMongo
+            // ✔ ObjectId nur noch aus @core/db/triMongo
             {
               name: "mongodb",
               importNames: ["ObjectId"],
-              message: 'Bitte "ObjectId" NUR aus "@core/triMongo" importieren.',
+              message: 'Bitte "ObjectId" NUR aus "@core/db/triMongo" importieren.',
             },
           ],
         },

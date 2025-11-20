@@ -138,11 +138,11 @@ for (const rel of [
   const f = path.join(web, "src", "shims", "core", "db", "triMongo.ts");
   if (fs.existsSync(f)) {
     let s = fs.readFileSync(f, "utf8");
-    if (!/from\s+["']@core\/triMongo["']/.test(s)) {
-      s = `import triMongo from "@core/triMongo";\n` + s.replace(/^\s*export\s+default\s+triMongo.*$/m, "export default triMongo");
+    if (!/from\s+["']@core\/db/triMongo["']/.test(s)) {
+      s = `import triMongo from "@core/db/triMongo";\n` + s.replace(/^\s*export\s+default\s+triMongo.*$/m, "export default triMongo");
     }
     fs.writeFileSync(f, s);
-    console.log("✓ fix: shims/core/db/triMongo default export");
+    console.log("✓ fix: shims/core/db/db/triMongo default export");
   }
 }
 

@@ -7,7 +7,7 @@ SRC="$WEB/src"
 
 echo "🔧 Harmonisiere V1 mit V3-AI Orchestrierung"
 
-# 1) TS-Aliases sicherstellen (inkl. @core/db/triMongo)
+# 1) TS-Aliases sicherstellen (inkl. @core/db/db/triMongo)
 node - <<'NODE'
 const fs=require('fs'); const p="apps/web/tsconfig.json";
 const j=JSON.parse(fs.readFileSync(p,'utf8'));
@@ -15,15 +15,15 @@ j.compilerOptions=j.compilerOptions||{}; j.compilerOptions.paths=j.compilerOptio
 j.compilerOptions.paths['@/*']           = j.compilerOptions.paths['@/*']           || ['src/*'];
 j.compilerOptions.paths['@features/*']   = j.compilerOptions.paths['@features/*']   || ['../../features/*'];
 j.compilerOptions.paths['@core/*']       = j.compilerOptions.paths['@core/*']       || ['../../core/*'];
-j.compilerOptions.paths['@core/triMongo']= ['src/shims/core/db/triMongo.ts'];
-j.compilerOptions.paths['@core/db/triMongo']= ['src/shims/core/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/triMongo']= ['src/shims/core/db/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/db/triMongo']= ['src/shims/core/db/db/triMongo.ts'];
 fs.writeFileSync(p, JSON.stringify(j,null,2));
 console.log("✅ tsconfig paths aktualisiert");
 NODE
 
 # 2) triMongo: Kompat-Exports (getDb / getVotesDb), falls fehlen
 node - <<'NODE'
-const fs=require('fs'); const p="apps/web/src/shims/core/db/triMongo.ts";
+const fs=require('fs'); const p="apps/web/src/shims/core/db/db/triMongo.ts";
 let s=fs.readFileSync(p,'utf8');
 if(!/export\s+async\s+function\s+getDb/.test(s)){
   s += `
@@ -44,9 +44,9 @@ if [[ -f "$SRC/app/api/statements/[id]/route.ts" ]]; then
   const fs=require('fs'); const p="apps/web/src/app/api/statements/[id]/route.ts";
   let s=fs.readFileSync(p,'utf8');
   // Import sicherstellen
-  if(!s.includes("from '@core/db/triMongo'") && !s.includes('from "@core/db/triMongo"') &&
-     !s.includes("from '@core/triMongo'") && !s.includes('from "@core/triMongo"')) {
-    s = s.replace(/^(import .+\n)+/, m => m + `import { getDb } from "@core/triMongo";\n`);
+  if(!s.includes("from '@core/db/db/triMongo'") && !s.includes('from "@core/db/db/triMongo"') &&
+     !s.includes("from '@core/db/triMongo'") && !s.includes('from "@core/db/triMongo"')) {
+    s = s.replace(/^(import .+\n)+/, m => m + `import { getDb } from "@core/db/triMongo";\n`);
   }
   // Fallback: falls coreDb genutzt werden soll
   if (/getDb\(\)/.test(s)===false && /coreDb\(\)/.test(s)===false){

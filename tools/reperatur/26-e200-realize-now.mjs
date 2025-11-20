@@ -114,7 +114,7 @@ export async function GET() {
 `);
 write(path.join(src, "app", "api", "health", "mongo", "route.ts"), `
 import { NextResponse } from "next/server";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 export async function GET() {
   try {
     const col = await coreCol("_health");

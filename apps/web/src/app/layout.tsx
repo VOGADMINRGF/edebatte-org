@@ -1,6 +1,7 @@
 // apps/web/src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { SiteHeader } from "./(components)/SiteHeader";
 
 export const metadata: Metadata = {
   title: "VoiceOpenGov",
@@ -13,30 +14,20 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de" className="h-full">
-      <body className="min-h-screen bg-gradient-to-b from-cyan-50 via-blue-50/40 to-white text-neutral-900 antialiased">
-        <div className="min-h-screen flex flex-col">
-          <header className="sticky top-0 z-40 border-b bg-white/60 backdrop-blur supports-[backdrop-filter]:bg-white/50">
-            <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-              <a href="/" className="font-extrabold tracking-tight">
-                VoiceOpenGov
-              </a>
-              <nav className="hidden md:flex items-center gap-6 text-sm text-neutral-700">
-                <a href="/reports">Reports</a>
-                <a href="/statements">Statements</a>
-                <a href="/kontakt">Kontakt</a>
-              </nav>
-            </div>
-          </header>
-
+      <body className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white text-neutral-900 antialiased">
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
           <main className="flex-1">{children}</main>
-
           <footer className="border-t bg-white/70 backdrop-blur">
-            <div className="mx-auto max-w-7xl px-4 py-6 text-sm text-neutral-600">
-              © 2025 Voice Open Gov
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-neutral-600 md:flex-row md:items-center md:justify-between">
+              <span>© 2025 VoiceOpenGov</span>
+              <div className="flex items-center gap-4">
+                <a href="/kontakt" className="font-medium text-slate-800 hover:text-slate-900">
+                  Kontakt
+                </a>
+              </div>
             </div>
           </footer>
-
-          {/* iOS Safe Area */}
           <div className="h-[env(safe-area-inset-bottom)]" />
         </div>
       </body>

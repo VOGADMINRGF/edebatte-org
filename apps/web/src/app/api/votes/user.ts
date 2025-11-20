@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { votesCol } from "@core/triMongo";
+import { votesCol } from "@core/db/triMongo";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);

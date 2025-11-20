@@ -2,7 +2,7 @@
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 // ⬇️ statt getDb bitte getCol benutzen
-import { getCol } from "@core/triMongo";
+import { getCol } from "@core/db/triMongo";
 import { sendAlertEmail } from "@/utils/email";
 
 const TOKEN = process.env.INTERNAL_HEALTH_TOKEN || "";

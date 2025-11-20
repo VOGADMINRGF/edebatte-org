@@ -1,8 +1,8 @@
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCol } from "@core/db/triMongo";
-import { piiCol } from "@core/db/triMongo";
+import { getCol } from "@core/db/db/triMongo";
+import { piiCol } from "@core/db/db/triMongo";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;

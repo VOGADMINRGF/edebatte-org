@@ -1,11 +1,11 @@
 // apps/web/src/app/api/profile/location/route.ts
 export const runtime = "nodejs";
 
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
-import { coreCol } from "@core/db/triMongo";
+import { coreCol } from "@core/db/db/triMongo";
 
 
 // Helper: getCookie kann string oder { value } liefern

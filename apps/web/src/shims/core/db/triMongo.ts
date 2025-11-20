@@ -1,5 +1,5 @@
-// shims/core/triMongo.ts
-import { ObjectId } from "@core/triMongo";
+// shims/core/db/triMongo.ts
+import { ObjectId } from "@core/db/triMongo";
 import { MongoClient, Db, Collection } from "mongodb";
 
 export type TriStore = "core" | "votes" | "pii";

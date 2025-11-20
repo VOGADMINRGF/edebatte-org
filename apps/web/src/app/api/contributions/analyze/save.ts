@@ -1,6 +1,6 @@
 // apps/web/src/app/api/contributions/analyze/save.ts
 import { NextRequest } from "next/server";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 import { formatError } from "@/core/utils/errors";
 
 export const runtime = "nodejs"; // wichtig für Mongo

@@ -3,93 +3,35 @@
 
 import * as React from "react";
 import Link from "next/link";
+import {
+  HighlightedTextarea,
+} from "@/app/(components)/HighlightedTextarea";
+import {
+  normalizeClaim,
+  type NormalizedClaim,
+} from "@/app/(components)/normalizeClaim";
 
 type VoteKind = "pro" | "neutral" | "contra" | null;
 
-type SimpleStatement = {
-  id: string;
-  index: number;
-  text: string;
+type SimpleStatement = NormalizedClaim & {
   vote: VoteKind;
-  title?: string;
-  responsibility?: string;
-  topic?: string;
   locallyEdited?: boolean; // lokal angepasst → redaktionelle Prüfung
   flagged?: boolean;       // vom User gemeldet
 };
-
-/* === Textmarker-Animation (wie bei Contributions) ========================= */
-
-function useMarkerAnimation(trigger: number, durationMs: number = 900) {
-  const [pct, setPct] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!trigger) return; // beim ersten Render nichts tun
-
-    setPct(0);
-    const start = performance.now();
-    let frame: number;
-
-    const loop = (now: number) => {
-      const t = Math.min(1, (now - start) / durationMs);
-      setPct(Math.round(t * 100));
-
-      if (t < 1) {
-        frame = requestAnimationFrame(loop);
-      }
-    };
-
-    frame = requestAnimationFrame(loop);
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [trigger, durationMs]);
-
-  return pct;
-}
 
 const STORAGE_KEY = "vog_statement_draft_v1";
 const MAX_LEVEL1_STATEMENTS = 3;
 
 /** Nur 1:1-Übernahme aus der API – KEINE Heuristik */
 function mapClaimToStatement(raw: any, idx: number): SimpleStatement | null {
-  if (!raw || typeof raw.text !== "string") return null;
-  const text = raw.text.trim();
-  if (!text) return null;
-
-  const id =
-    typeof raw.id === "string" && raw.id.trim() ? raw.id : `claim-${idx + 1}`;
-
-  const title =
-    typeof raw.title === "string" && raw.title.trim()
-      ? raw.title.trim()
-      : undefined;
-
-  const topic =
-    typeof raw.topic === "string" && raw.topic
-      ? raw.topic
-      : typeof raw.domain === "string" && raw.domain
-      ? raw.domain
-      : undefined;
-
-  const meta =
-    raw && typeof raw.meta === "object" && raw.meta !== null ? raw.meta : {};
-
-  const responsibility =
-    typeof raw.responsibility === "string" && raw.responsibility.trim()
-      ? raw.responsibility.trim()
-      : typeof meta.responsibility === "string" && meta.responsibility.trim()
-      ? meta.responsibility.trim()
-      : undefined;
+  const normalized = normalizeClaim(raw, idx);
+  if (!normalized) return null;
 
   return {
-    id,
-    index: idx,
-    text,
-    title,
-    topic,
-    responsibility,
+    ...normalized,
     vote: null,
+    locallyEdited: false,
+    flagged: false,
   };
 }
 
@@ -309,11 +251,14 @@ export default function StatementsNewPage() {
               </p>
             </header>
 
-            <textarea
-              className="w-full min-h-[180px] max-h-[360px] resize-y rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-sm leading-relaxed text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
-              placeholder="Schreibe hier deinen Beitrag …"
+            <HighlightedTextarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={setText}
+              analyzing={isAnalyzing}
+              rows={12}
+              placeholder="Schreibe hier deinen Beitrag …"
+              textareaClassName="rounded-2xl border-slate-200 bg-slate-50/70 focus:border-sky-400"
+              overlayClassName="rounded-2xl"
             />
 
             <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-500">
@@ -405,15 +350,20 @@ export default function StatementsNewPage() {
                   >
                     {/* Header: Hauptkategorie + Zuständigkeit/Topic + Badges */}
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                      <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-semibold text-sky-700">
-                        {s.title || `Statement #${s.index + 1}`}
+                      <span className="inline-flex items-center rounded-full bg-sky-50 px-3 py-0.5 font-semibold text-sky-700">
+                        Hauptkategorie:{" "}
+                        <span className="ml-1 font-bold text-sky-800">
+                          {s.title || `Statement #${s.index + 1}`}
+                        </span>
                       </span>
-                      <span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5">
                         Zuständigkeit:{" "}
                         <span className="font-medium">
                           {s.responsibility || "–"}
-                        </span>{" "}
-                        · Topic:{" "}
+                        </span>
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                        Topic:{" "}
                         <span className="font-medium">
                           {s.topic || "–"}
                         </span>

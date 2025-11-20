@@ -15,7 +15,7 @@ if sed --version >/dev/null 2>&1; then SED_I=(-i); else SED_I=(-i ''); fi
 # 1) triMongo-Shim: getDb + überladenes getCol(db, col)
 # ------------------------------------------------------------------------------------
 mkdir -p "$SRC/shims/core/db"
-cat > "$SRC/shims/core/db/triMongo.ts" <<'TS'
+cat > "$SRC/shims/core/db/db/triMongo.ts" <<'TS'
 import { MongoClient, Db, Collection, Document } from "mongodb";
 
 let coreClient: MongoClient | null = null;
@@ -151,8 +151,8 @@ j.compilerOptions.paths ??= {};
 
 j.compilerOptions.paths['@ui'] = ['src/shims/ui.tsx'];                 // erzwingen
 j.compilerOptions.paths['@db/web'] = ['src/shims/db-web.ts'];          // sicherstellen
-j.compilerOptions.paths['@core/triMongo'] = ['src/shims/core/db/triMongo.ts'];
-j.compilerOptions.paths['@core/db/triMongo'] = ['src/shims/core/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/triMongo'] = ['src/shims/core/db/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/db/triMongo'] = ['src/shims/core/db/db/triMongo.ts'];
 j.compilerOptions.paths['@db/core'] = ['src/shims/db-core.ts'];
 j.compilerOptions.paths['@config/*'] = ['src/config/*'];
 j.compilerOptions.paths['@/ui/design/*'] = ['src/ui/design/*'];

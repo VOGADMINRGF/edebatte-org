@@ -14,7 +14,7 @@ mkdir -p "$WEB/src/lib" \
 ###############################################################################
 cat > "$WEB/src/lib/cache.ts" <<'EOF'
 import crypto from "crypto";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 export function sha256(s: string){ return crypto.createHash("sha256").update(s).digest("hex"); }
 

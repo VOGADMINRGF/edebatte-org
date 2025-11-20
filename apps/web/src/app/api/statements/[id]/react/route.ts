@@ -1,4 +1,4 @@
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 
 

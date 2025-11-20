@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));

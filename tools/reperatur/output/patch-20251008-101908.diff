@@ -29,8 +29,8 @@ index b040dfff..13a8bdd4 100644
  
    // Optional: Legacy-Collections via triMongo (nur wenn vorhanden)
    try {
--    const tri = await import("../src/utils/triMongo");
-+    const tri = await import("../../core/db/triMongo");
+-    const tri = await import("../src/utils/db/triMongo");
++    const tri = await import("../../core/db/db/triMongo");
      const statements = await tri.coreCol("statements").catch(() => null);
      if (statements?.createIndexes) {
        console.log("→ indexing legacy 'statements' …");
@@ -92,8 +92,8 @@ index c3fe4fca..794e7b79 100644
  for (const p of candidates) if (existsSync(p)) { config({ path: p, override: false }); break; }
  
  async function run() {
--  const { piiCol } = await import("../src/utils/triMongo");
-+  const { piiCol } = await import("@core/triMongo");
+-  const { piiCol } = await import("../src/utils/db/triMongo");
++  const { piiCol } = await import("@core/db/triMongo");
    const col = await piiCol<any>("tokens");
  
    // Einzel-Token-Lookup & Cleanup
@@ -105,8 +105,8 @@ index c696baf4..fe419da2 100644
  
  async function run() {
    // triMongo NACH dem env-load importieren (RELATIVER Pfad, kein "@/")
--  const { votesCol } = await import("../src/utils/triMongo");
-+  const { votesCol } = await import("@core/triMongo");
+-  const { votesCol } = await import("../src/utils/db/triMongo");
++  const { votesCol } = await import("@core/db/triMongo");
    const col = await votesCol("votes");
  
    // --- UNIQUE ---
@@ -116,8 +116,8 @@ index 0c08c46f..bcfb8ce8 100644
 +++ b/apps/web/src/app/admin/orgs/delete/route.ts
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function POST(req: NextRequest) {
@@ -127,8 +127,8 @@ index 8e75185e..5863726d 100644
 +++ b/apps/web/src/app/admin/orgs/list/route.ts
 @@ -1,5 +1,5 @@
  import { NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  export async function GET() {
    const col = await coreCol<any>("orgs");
@@ -138,8 +138,8 @@ index cc9eff52..af64dbf8 100644
 +++ b/apps/web/src/app/admin/orgs/upsert/route.ts
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function POST(req: NextRequest) {
@@ -152,7 +152,7 @@ index 4e0c7d02..569d9c43 100644
  import "server-only";
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  import { sendAlertMail } from "@/utils/email";
  
  const TOKEN = process.env.INTERNAL_HEALTH_TOKEN || "";
@@ -165,7 +165,7 @@ index 76f71944..2bb78118 100644
  import { NextResponse } from "next/server";
  import { cookies } from "next/headers";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  async function isAdmin() {
    const c = await cookies();
@@ -178,7 +178,7 @@ index a8d99fbe..a1237cff 100644
  import { NextResponse } from "next/server";
  import { cookies } from "next/headers";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  import { sendAlertEmail } from "@/utils/email";
  
  async function isAdmin() {
@@ -188,8 +188,8 @@ index 1d6158cd..b44f972c 100644
 +++ b/apps/web/src/app/api/admin/analytics/summary/contrib-timeseries/route.ts
 @@ -1,5 +1,5 @@
  import { NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  export async function GET() {
    const col = await coreCol<any>("statements");
@@ -206,7 +206,7 @@ index 1633fe62..de03fee1 100644
 +
 +import { NextRequest, NextResponse } from "next/server";
 +import { getCookie } from "@/lib/http/typedCookies";
-+import { getCol } from "@core/triMongo";
++import { getCol } from "@core/db/triMongo";
  import { ObjectId } from "mongodb";
  
 -export async function POST() {
@@ -260,8 +260,8 @@ index 325b90e2..88f56a57 100644
 +++ b/apps/web/src/app/api/admin/errors/export/route.ts
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  export async function GET(req: NextRequest) {
    const lvl = (new URL(req.url).searchParams.get("lvl") || "").toLowerCase();
@@ -271,8 +271,8 @@ index d4d96e75..a32bf4f6 100644
 +++ b/apps/web/src/app/api/admin/orgs/upsert/route.ts
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  import { isOrgType } from "@/models/org";
  
@@ -285,7 +285,7 @@ index 600058be..65ada432 100644
  import { NextResponse } from "next/server";
  import { cookies } from "next/headers";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  async function isAdmin() {
    const c = await cookies();
@@ -315,7 +315,7 @@ index 63b16e60..45f72004 100644
 +import "server-only";
 +import { NextRequest, NextResponse } from "next/server";
 +import { z } from "zod";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
 +import { formatError } from "@core/errors/formatError";
 +import { logger } from "@core/observability/logger";
 +// Hinweis: Wenn du bereits ein RBAC-Permission-Setup nutzt, kannst du die Cookie-Admin-Logik unten
@@ -404,8 +404,8 @@ index e17bf8c3..2a163fc9 100644
 +++ b/apps/web/src/app/api/admin/system/ping/route.ts
 @@ -1,5 +1,5 @@
  import { NextResponse } from "next/server";
--import { coreCol, votesCol, piiCol } from "@/utils/triMongo";
-+import { coreCol, votesCol, piiCol } from "@core/db/triMongo";
+-import { coreCol, votesCol, piiCol } from "@/utils/db/triMongo";
++import { coreCol, votesCol, piiCol } from "@core/db/db/triMongo";
  
  export async function GET() {
    const out:any = { ok:true, services: [] as any[] };
@@ -416,9 +416,9 @@ index 2ffe02e1..cf4ad69e 100644
 @@ -1,6 +1,6 @@
  import { NextRequest, NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
--import { coreCol } from "@/utils/triMongo";
-+import { getCol } from "@core/db/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function GET(req: NextRequest) {
@@ -431,7 +431,7 @@ index b18bb6e4..14114452 100644
  
  import { NextRequest, NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  
  function isAdmin(req: NextRequest) {
    const role = req.cookies.get("u_role")?.value || "guest";
@@ -442,7 +442,7 @@ index b09bd45c..0cdb983e 100644
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function POST(req: NextRequest) {
@@ -453,9 +453,9 @@ index b6e95aca..a67eb56c 100644
 @@ -1,6 +1,6 @@
  import { NextRequest, NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
--import { piiCol } from "@/utils/triMongo";
-+import { getCol } from "@core/db/triMongo";
-+import { piiCol } from "@core/db/triMongo";
+-import { piiCol } from "@/utils/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
++import { piiCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  import crypto from "node:crypto";
  
@@ -466,7 +466,7 @@ index 9f650678..3aea0f90 100644
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function POST(req: NextRequest) {
@@ -477,7 +477,7 @@ index 37e8663b..aa005e04 100644
 @@ -1,5 +1,5 @@
  import { NextRequest, NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function POST(req: NextRequest) {
@@ -495,7 +495,7 @@ index 76cb2143..f4a80f25 100644
 +import type { NextRequest } from "next/server";
 +import { NextResponse } from "next/server";
 +import { getCookie } from "@/lib/http/typedCookies";
-+import { coreCol } from "@core/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
 +// Helper: getCookie kann string oder { value } liefern
@@ -589,7 +589,7 @@ index 6626ae5a..20bb9b25 100644
  import { NextResponse } from "next/server";
  import jwt from "jsonwebtoken";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { verifyPassword } from "@/utils/password";
  import { rateLimit } from "@/utils/rateLimit";
  
@@ -602,7 +602,7 @@ index 9d497a46..78eda941 100644
  import bcrypt from "bcryptjs";
  import jwt from "jsonwebtoken";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { rateLimit } from "@/utils/rateLimit";
  
  const JWT_SECRET = process.env.JWT_SECRET!;
@@ -614,9 +614,9 @@ index 7cc15db6..2f566660 100644
  import { NextRequest, NextResponse } from "next/server";
  import { ObjectId } from "mongodb";
 -import { getCol } from "@/utils/mongoClient";
--import { piiCol } from "@/utils/triMongo";
-+import { getCol } from "@core/db/triMongo";
-+import { piiCol } from "@core/db/triMongo";
+-import { piiCol } from "@/utils/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
++import { piiCol } from "@core/db/db/triMongo";
  
  export async function GET(req: NextRequest) {
    const url = req.nextUrl;
@@ -628,9 +628,9 @@ index c74a586c..fe0c999f 100644
  import { NextRequest, NextResponse } from "next/server";
  import crypto from "node:crypto";
 -import { getCol } from "@/utils/mongoClient";
--import { piiCol } from "@/utils/triMongo";
-+import { getCol } from "@core/db/triMongo";
-+import { piiCol } from "@core/db/triMongo";
+-import { piiCol } from "@/utils/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
++import { piiCol } from "@core/db/db/triMongo";
  import { sendMail } from "@/utils/mailer";
  
  export async function POST(req: NextRequest) {
@@ -644,7 +644,7 @@ index f0ee9d26..5bacde60 100644
  import { readSession } from "@/utils/session";
 -import { getCol } from "@/utils/mongoClient";
 +import { ObjectId } from "mongodb";
-+import { piiCol /* ggf. coreCol */ } from "@core/db/triMongo";
++import { piiCol /* ggf. coreCol */ } from "@core/db/db/triMongo";
  
  export const runtime = "nodejs";
  
@@ -706,9 +706,9 @@ index 215e8271..8073f196 100644
  import { NextRequest, NextResponse } from "next/server";
  import crypto from "node:crypto";
 -import { getCol } from "@/utils/mongoClient";
--import { piiCol } from "@/utils/triMongo";
-+import { getCol } from "@core/db/triMongo";
-+import { piiCol } from "@core/db/triMongo";
+-import { piiCol } from "@/utils/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
++import { piiCol } from "@core/db/db/triMongo";
  import { sendMail } from "@/utils/mailer";
  
  // gleiche Policy wie im Client
@@ -718,8 +718,8 @@ index 8e4ce4c8..5484700f 100644
 +++ b/apps/web/src/app/api/auth/register/route.ts.bak.20250831183211
 @@ -1,5 +1,5 @@
  import { NextResponse } from "next/server";
--import { piiCol } from "@/utils/triMongo";
-+import { piiCol } from "@core/db/triMongo";
+-import { piiCol } from "@/utils/db/triMongo";
++import { piiCol } from "@core/db/db/triMongo";
  import { hashPassword } from "@/utils/password";
  import { rateLimit } from "@/utils/rateLimit";
  import crypto from "crypto";
@@ -731,7 +731,7 @@ index 451be834..c73cb05e 100644
  import { NextResponse } from "next/server";
  import { ResetRequestSchema } from "@/utils/authSchemas";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { rateLimit } from "@/utils/rateLimit";
  import { createToken } from "@/utils/tokens";
  import { sendMail, resetEmailLink } from "@/utils/email";
@@ -744,7 +744,7 @@ index 87caaf88..80cdb65d 100644
  import { ResetSetSchema } from "@/utils/authSchemas";
  import { consumeToken } from "@/utils/tokens";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  
  export const runtime = "nodejs";
  
@@ -761,7 +761,7 @@ index 31cb1b45..b07e41b5 100644
 -import { cookies } from "next/headers";
 -import { getCol } from "@/utils/mongoClient";
 +import { getCookie } from "@/lib/http/typedCookies";
-+import { coreCol } from "@core/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  import { authenticator } from "otplib";
  import { publicHost } from "@/utils/publicOrigin";
@@ -831,7 +831,7 @@ index 65ea9d1a..e9524888 100644
 +import type { NextRequest } from "next/server";
 +import { NextResponse } from "next/server";
 +import { getCookie } from "@/lib/http/typedCookies";
-+import { coreCol } from "@core/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  import { authenticator } from "otplib";
  
@@ -932,9 +932,9 @@ index 3086627f..e3f91673 100644
  import { NextRequest, NextResponse } from "next/server";
  import crypto from "node:crypto";
 -import { getCol } from "@/utils/mongoClient";
--import { piiCol } from "@/utils/triMongo";
-+import { getCol } from "@core/db/triMongo";
-+import { piiCol } from "@core/db/triMongo";
+-import { piiCol } from "@/utils/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
++import { piiCol } from "@core/db/db/triMongo";
  import { sendMail } from "@/utils/mailer";
  
  export async function POST(req: NextRequest) {
@@ -947,7 +947,7 @@ index f3180307..eeeb63f9 100644
  import "server-only";
  import { NextResponse } from "next/server";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function POST(req: Request) {
@@ -1861,8 +1861,8 @@ index 18161fa5..4cd8e188 100644
  export const runtime = "nodejs";
  
  import { NextRequest, NextResponse } from "next/server";
--import { coreCol } from "src/utils/triMongo";
-+import { coreCol } from "@core/triMongo";
+-import { coreCol } from "src/utils/db/triMongo";
++import { coreCol } from "@core/db/triMongo";
  
  function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
  
@@ -2022,8 +2022,8 @@ index 72e05db0..8e74f34e 100644
  
  import { NextRequest, NextResponse } from "next/server";
  import { ObjectId } from "mongodb";
--import { coreCol, votesCol } from "src/utils/triMongo";
-+import { coreCol, votesCol } from "@core/triMongo";
+-import { coreCol, votesCol } from "src/utils/db/triMongo";
++import { coreCol, votesCol } from "@core/db/triMongo";
  
  /** --- Helpers ------------------------------------------------------------ */
  
@@ -2197,7 +2197,7 @@ index cc785eac..b3f39e71 100644
  export const runtime = "nodejs";
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  import { ObjectId } from "mongodb";
  
  export async function GET(_: Request, { params }: { params: { id: string } }) {
@@ -2209,8 +2209,8 @@ index 3cda1967..9925ecc9 100644
  
  import "server-only";
  import { NextResponse } from "next/server";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  export async function GET(_: Request, { params }: { params: { id: string }}) {
    const col = await coreCol<any>("statements");
@@ -2221,8 +2221,8 @@ index 7836d81e..9b98eb1c 100644
 @@ -1,6 +1,6 @@
  import "server-only";
  import { NextResponse } from "next/server";
--import { votesCol } from "@/utils/triMongo";
-+import { votesCol } from "@core/db/triMongo";
+-import { votesCol } from "@/utils/db/triMongo";
++import { votesCol } from "@core/db/db/triMongo";
  
  export async function GET(_: Request, { params }: { params: { id: string }}) {
    const statementId = params.id;
@@ -2234,8 +2234,8 @@ index fc06c173..8f4634bc 100644
  
  import { NextRequest, NextResponse } from "next/server";
  import { ObjectId } from "mongodb";
--import { coreCol } from "src/utils/triMongo";
-+import { coreCol } from "@core/triMongo";
+-import { coreCol } from "src/utils/db/triMongo";
++import { coreCol } from "@core/db/triMongo";
  import { readSession } from "src/utils/session";
  
  const REQUIRE_LOGIN = (process.env.REQUIRE_LOGIN_FOR_STATEMENTS || "false") === "true";
@@ -2520,8 +2520,8 @@ index 7a3f35ee..a04ae0c1 100644
  import { NextRequest, NextResponse } from "next/server";
  import { ObjectId } from "mongodb";
  import crypto from "node:crypto";
--import { votesCol, coreCol } from "src/utils/triMongo";
-+import { votesCol, coreCol } from "@core/triMongo";
+-import { votesCol, coreCol } from "src/utils/db/triMongo";
++import { votesCol, coreCol } from "@core/db/triMongo";
  import { rateLimit } from "src/utils/rateLimit";
  import UserGameStats from "src/models/game/UserGameStats";
  
@@ -2540,7 +2540,7 @@ index 3fc92b00..bc49030d 100644
 -import Vote from "@/models/Vote";
 +import { ObjectId } from "mongodb";
 +import crypto from "node:crypto";
-+import { coreCol, votesCol } from "@core/db/triMongo";
++import { coreCol, votesCol } from "@core/db/db/triMongo";
  
 -export async function POST(req: NextRequest) {
 -  await dbConnect();
@@ -2684,9 +2684,9 @@ index d28c1203..f31ec301 100644
 -  type Filter,
 -  type FindOptions,
 -} from "mongodb";
--import { coreCol, votesCol } from "src/utils/triMongo";
+-import { coreCol, votesCol } from "src/utils/db/triMongo";
 +import { ObjectId, type Filter, type FindOptions } from "mongodb";
-+import { coreCol, votesCol } from "@core/triMongo";
++import { coreCol, votesCol } from "@core/db/triMongo";
  
  type SummaryKey = "agree" | "neutral" | "disagree";
  type Summary = Record<SummaryKey, number>;
@@ -2873,7 +2873,7 @@ index b0d2cbfb..7b80a555 100644
 -import dbConnect from "@/utils/dbConnect";
 -import Vote from "@/models/Vote";
 +import { NextRequest, NextResponse } from "next/server";
-+import { votesCol } from "@core/triMongo";
++import { votesCol } from "@core/db/triMongo";
  
 -export default async function handler(req, res) {
 -  await dbConnect();
@@ -3018,8 +3018,8 @@ index da67ca95..40d8bc20 100644
  import "server-only";
  import { notFound } from "next/navigation";
  import { ObjectId } from "mongodb";
--import { coreCol } from "@/utils/triMongo";                 // ⬅️ triMongo statt getCoreCol
-+import { coreCol } from "@core/db/triMongo";                 // ⬅️ triMongo statt getCoreCol
+-import { coreCol } from "@/utils/db/triMongo";                 // ⬅️ triMongo statt getCoreCol
++import { coreCol } from "@core/db/db/triMongo";                 // ⬅️ triMongo statt getCoreCol
  import StatementDetailClient from "@features/statement/components/StatementDetailClient";
  
  type Stats = { votesTotal: number; votesAgree: number; votesNeutral: number; votesDisagree: number };
@@ -7850,7 +7850,7 @@ index e69de29b..d702a82a 100644
 +import bcrypt from "bcryptjs";
 +
 +// triMongo: wir lesen Nutzer aus der PII-DB (kein Mongoose)
-+import { piiCol } from "@core/triMongo";
++import { piiCol } from "@core/db/triMongo";
 +
 +// Optional: Deine bestehende TOTP-Verify-Funktion
 +let verifyTotp: ((code?: string, secret?: string) => boolean) | null = null;
@@ -8457,8 +8457,8 @@ index 6a143d09..53e4dd0f 100644
 @@ -1,6 +1,6 @@
  // apps/web/src/lib/db/index.ts
  import { MongoClient } from "mongodb";
--export { coreCol, votesCol, piiCol, pingAll } from "src/utils/triMongo";
-+export { coreCol, votesCol, piiCol, pingAll } from "@core/triMongo";
+-export { coreCol, votesCol, piiCol, pingAll } from "src/utils/db/triMongo";
++export { coreCol, votesCol, piiCol, pingAll } from "@core/db/triMongo";
  
  declare global {
    // eslint-disable-next-line no-var
@@ -9054,7 +9054,7 @@ index b14ccccc..77ed39b0 100644
 @@ -1,5 +1,5 @@
  import { Schema, Document } from "mongoose";
 -import { coreConn } from "src/lib/db/core";
-+import { coreConn } from "@core/triMongo";
++import { coreConn } from "@core/db/triMongo";
  import { modelOn } from "src/lib/db/modelOn";
  
  export type SourceType =
@@ -9066,7 +9066,7 @@ index 012bc2ad..2b3e958a 100644
 +// apps/web/src/models/core/Statement.ts
  import mongoose, { Schema, Document } from "mongoose";
 -import { coreConn } from "src/lib/db/core";
-+import { coreConn } from "@core/triMongo";
++import { coreConn } from "@core/db/triMongo";
  
  export interface VotesSummary {
    agree: number;
@@ -9388,8 +9388,8 @@ index da51d48c..8f322695 100644
 --- a/apps/web/src/utils/log.ts
 +++ b/apps/web/src/utils/log.ts
 @@ -1,4 +1,4 @@
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  export async function logError(msg: string, ctx?: any) {
    // Mongo (persist)
@@ -9400,8 +9400,8 @@ index 1eb311b9..22de28ce 100644
 @@ -1,6 +1,6 @@
  // Kompat-Wrapper für ältere Importe wie  "@/utils/mongo/votes"
  import type { Collection } from "mongodb";
--import { votesCol } from "@src/utils/triMongo";
-+import { votesCol } from "@core/triMongo";
+-import { votesCol } from "@src/utils/db/triMongo";
++import { votesCol } from "@core/db/triMongo";
  
  // Falls irgendwo getVotesDb().collection("…") benutzt wird:
  export async function getVotesDb() {
@@ -9448,7 +9448,7 @@ index 82462d17..00000000
 -// apps/web/src/utils/mongoClient.ts
 -import "server-only";
 -import type { Db, Collection } from "mongodb";
--import { getCoreDb, coreCol, piiCol } from "@/utils/triMongo";
+-import { getCoreDb, coreCol, piiCol } from "@/utils/db/triMongo";
 -
 -const PII_NAMES = new Set(["users", "tokens", "sessions"]);
 -
@@ -9470,8 +9470,8 @@ index d1fad724..d345b06c 100644
 +++ b/apps/web/src/utils/rateLimit.ts.bak.20250831183211
 @@ -1,5 +1,5 @@
  import "server-only";
--import { coreCol } from "@/utils/triMongo";
-+import { coreCol } from "@core/db/triMongo";
+-import { coreCol } from "@/utils/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  /** Mongo-basierter Rate-Limiter (pro key/window) mit TTL-Index in CORE */
  export async function rateLimit(key: string, max: number, windowMs: number) {
@@ -9593,7 +9593,7 @@ index 757d67ae..b1e40680 100644
  import "server-only";
  import crypto from "crypto";
 -import { getCol } from "@/utils/mongoClient";
-+import { getCol } from "@core/db/triMongo";
++import { getCol } from "@core/db/db/triMongo";
  
  type TokenType = "verify" | "reset";
  
@@ -9636,13 +9636,13 @@ index 84b99352..6e6c1f3b 100644
 +    this._m.set(makeKey(text, lang), translated);
    },
  };
-diff --git a/apps/web/src/utils/triMongo.ts b/apps/web/src/utils/triMongo.ts
+diff --git a/apps/web/src/utils/db/triMongo.ts b/apps/web/src/utils/db/triMongo.ts
 deleted file mode 100644
 index cf302329..00000000
---- a/apps/web/src/utils/triMongo.ts
+--- a/apps/web/src/utils/db/triMongo.ts
 +++ /dev/null
 @@ -1,111 +0,0 @@
--// apps/web/src/utils/triMongo.ts
+-// apps/web/src/utils/db/triMongo.ts
 -import {
 -  MongoClient,
 -  Db,
@@ -9816,7 +9816,7 @@ index 07c637b9..e76f61af 100644
 -      "@/models/*": ["apps/web/src/models/*"],
 -      "@data/*": ["src/data/*"],
 -
-+      "@core/triMongo": ["../../core/db/triMongo.ts"],
++      "@core/db/triMongo": ["../../core/db/db/triMongo.ts"],
 +      "@/*": ["src/*"],
        "@features/*": ["../../features/*"],
 -      "@features/graph": ["src/graph/index.ts"],
@@ -9948,7 +9948,7 @@ index 875be3f9..9c6a5bbf 100644
  import IORedis, { Redis } from "ioredis";
  import { ObjectId } from "mongodb";
 -import { coreCol } from "../db/mongo";
-+import { coreCol } from "@core/db/triMongo";
++import { coreCol } from "@core/db/db/triMongo";
  
  export const FACTCHECK_QUEUE = "factcheck";
  const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
@@ -19702,7 +19702,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19711,7 +19711,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
    const db = await getDb();
@@ -19720,7 +19720,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19729,7 +19729,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export const runtime = "edge";
  
@@ -19738,7 +19738,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19747,7 +19747,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function POST(req: NextRequest) {
    const db = await getDb();
@@ -19756,7 +19756,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET(req: NextRequest) {
    const db = await getDb();
@@ -19765,7 +19765,7 @@ index c31902e1..02555dda 100755
  # ---------- Graph: Sync to Arango ----------
  CONTENT='
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  import { aql } from "@/graph/arangoRepo";
  
  /** Sync statements & reports to Arango (nodes + simple edges). */
@@ -19774,7 +19774,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19783,7 +19783,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19792,7 +19792,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  import { can } from "@/config/accessControl";
  
  function roleFrom(req: NextRequest) {
@@ -19801,7 +19801,7 @@ index c31902e1..02555dda 100755
  CONTENT='
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function POST(req: NextRequest) {
    const db = await getDb();
@@ -19814,14 +19814,14 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' R_GET_DB <<'TS'
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  TS
  
  # ---------- /api/admin/analytics/summary ----------
  read -r -d '' CONTENT <<'TS'
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19830,7 +19830,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19839,7 +19839,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET(req: NextRequest) {
    const db = await getDb();
@@ -19848,7 +19848,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19857,7 +19857,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19866,7 +19866,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19875,7 +19875,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
    const db = await getDb();
@@ -19884,7 +19884,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();
@@ -19893,7 +19893,7 @@ index 4f09fab9..e127d28c 100644
  read -r -d '' CONTENT <<'TS'
  import { NextRequest, NextResponse } from "next/server";
 -import { getDb } from "@/utils/mongoClient";
-+import { getDb } from "@core/db/triMongo";
++import { getDb } from "@core/db/db/triMongo";
  
  export async function GET() {
    const db = await getDb();

@@ -1,4 +1,4 @@
-import * as tri from "@core/triMongo";
+import * as tri from "@core/db/triMongo";
 export const coreConn = asFn<any>(
   (tri as any).coreConn || (tri as any).getCoreConn || (tri as any).core,
 );

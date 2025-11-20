@@ -291,7 +291,7 @@ cat > "$WEB/tsconfig.json" <<'EOF'
       "@config/*": ["src/config/*"],
       "@db/web": ["src/shims/db-web.ts"],
       "@db/core": ["src/shims/db-core.ts"],
-      "@core/triMongo": ["src/shims/core/db/triMongo.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
       "@features/*": ["src/shims/features/*"],
       "@packages/*": ["src/shims/packages/*"]
     },

@@ -1,11 +1,11 @@
 // apps/web/src/app/api/votes/submit/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 
 import crypto from "node:crypto";
-import { coreCol, votesCol } from "@core/db/triMongo";
+import { coreCol, votesCol } from "@core/db/db/triMongo";
 
 type Val = "agree" | "neutral" | "disagree";
 

@@ -1,6 +1,6 @@
 // apps/web/src/app/statements/[id]/page.tsx
 export const dynamic = "force-dynamic";
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { notFound } from "next/navigation";
 
 import StatementDetailClient from "@features/statement/components/StatementDetailClient";
@@ -17,7 +17,7 @@ export default async function StatementPage({
 }: {
   params: { id: string };
 }) {
-  const tri: any = await import("@core/triMongo");
+  const tri: any = await import("@core/db/triMongo");
   const stmts = tri.coreCol
     ? await tri.coreCol("statements")
     : (await tri.getDb()).collection("statements");

@@ -1,9 +1,9 @@
 // apps/web/src/app/api/auth/me/route.ts
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextResponse } from "next/server";
 import { readSession } from "@/utils/session";
 
-import { piiCol /* ggf. coreCol */ } from "@core/db/triMongo";
+import { piiCol /* ggf. coreCol */ } from "@core/db/db/triMongo";
 
 export const runtime = "nodejs";
 

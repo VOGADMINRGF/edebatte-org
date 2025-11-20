@@ -56,9 +56,9 @@ function uniq(arr) { return Array.from(new Set(arr)); }
 const RE_NAMED_FROM_MONGODB =
   /(^|\n)\s*import\s+(type\s+)?\{([^}]+)\}\s+from\s+['"]mongodb['"]\s*;?/gms;
 
-// import { A, B } from "@core/triMongo";
+// import { A, B } from "@core/db/triMongo";
 const RE_NAMED_FROM_TRIMONGO =
-  /(^|\n)\s*import\s+(type\s+)?\{([^}]+)\}\s+from\s+['"]@core\/triMongo['"]\s*;?/gms;
+  /(^|\n)\s*import\s+(type\s+)?\{([^}]+)\}\s+from\s+['"]@core\/db/triMongo['"]\s*;?/gms;
 
 // import * as mdb from "mongodb";   oder   import mongodb from "mongodb";
 const RE_STAR_OR_DEFAULT_FROM_MONGODB =
@@ -109,14 +109,14 @@ function addOrExtendTriMongoImport(src, toAdd, asType) {
     changed = true;
 
     const nextBody = (current.join(", ") + ", " + appends.join(", ")).trim();
-    return `${lead ?? ""}import ${isType ? "type " : ""}{ ${nextBody} } from "@core/triMongo";`;
+    return `${lead ?? ""}import ${isType ? "type " : ""}{ ${nextBody} } from "@core/db/triMongo";`;
   });
 
   if (!found) {
     // keinen passenden Import gefunden → neu erzeugen (nahe an Datei-Anfang)
     const firstImportIdx = src.indexOf("import");
     const inject =
-      `import ${asType ? "type " : ""}{ ${toAdd.map(a => (a === "ObjectId" ? "ObjectId" : `ObjectId as ${a}`)).join(", ")} } from "@core/triMongo";\n`;
+      `import ${asType ? "type " : ""}{ ${toAdd.map(a => (a === "ObjectId" ? "ObjectId" : `ObjectId as ${a}`)).join(", ")} } from "@core/db/triMongo";\n`;
     if (firstImportIdx >= 0) {
       src = `${src.slice(0, firstImportIdx)}${inject}${src.slice(firstImportIdx)}`;
     } else {
@@ -129,7 +129,7 @@ function addOrExtendTriMongoImport(src, toAdd, asType) {
 }
 
 function removeObjectIdFromMongoImport(src) {
-  // Sammelt zu ersetzende Imports und die Aliase, die wir nach @core/triMongo umziehen
+  // Sammelt zu ersetzende Imports und die Aliase, die wir nach @core/db/triMongo umziehen
   let changed = false;
   const moveNormal = []; // Aliase für normalen Import
   const moveType = [];   // Aliase für type-Import
@@ -177,7 +177,7 @@ function detectStarOrDefaultMongoWithObjectId(src, file) {
     if (!ns) continue;
     const reUse = new RegExp(`\\b${ns}\\.ObjectId\\b`);
     if (reUse.test(src)) {
-      warnings.push(`• ${file}\n  - [STAR_OR_DEFAULT] "${ns}.ObjectId" genutzt (Stern/Default-Import aus "mongodb"). Bitte manuell auf "@core/triMongo" umstellen.`);
+      warnings.push(`• ${file}\n  - [STAR_OR_DEFAULT] "${ns}.ObjectId" genutzt (Stern/Default-Import aus "mongodb"). Bitte manuell auf "@core/db/triMongo" umstellen.`);
     }
   }
 }
@@ -193,7 +193,7 @@ async function processFile(file) {
   const step1 = removeObjectIdFromMongoImport(src);
   src = step1.src;
 
-  // 3) @core/triMongo-Import hinzufügen/ergänzen (für normale + type Imports)
+  // 3) @core/db/triMongo-Import hinzufügen/ergänzen (für normale + type Imports)
   if (step1.moveNormal.length) {
     const r = addOrExtendTriMongoImport(src, step1.moveNormal, /*asType*/ false);
     src = r.src; if (r.changed) {}

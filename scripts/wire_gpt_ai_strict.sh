@@ -15,8 +15,8 @@ j.compilerOptions=j.compilerOptions||{}; j.compilerOptions.paths=j.compilerOptio
 j.compilerOptions.paths['@/*']             = j.compilerOptions.paths['@/*'] || ['src/*'];
 j.compilerOptions.paths['@features/*']     = ['../../features/*'];
 j.compilerOptions.paths['@core/*']         = j.compilerOptions.paths['@core/*'] || ['../../core/*'];
-j.compilerOptions.paths['@core/triMongo']  = ['src/shims/core/db/triMongo.ts'];
-j.compilerOptions.paths['@core/db/triMongo']= ['src/shims/core/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/triMongo']  = ['src/shims/core/db/db/triMongo.ts'];
+j.compilerOptions.paths['@core/db/db/triMongo']= ['src/shims/core/db/db/triMongo.ts'];
 fs.writeFileSync(p, JSON.stringify(j,null,2));
 console.log("✅ tsconfig ok");
 NODE
@@ -79,7 +79,7 @@ TS
 
 say "🧷 Kompat-Exports in triMongo (getDb/getVotesDb)"
 node - <<'NODE'
-const fs=require('fs'); const p="apps/web/src/shims/core/db/triMongo.ts";
+const fs=require('fs'); const p="apps/web/src/shims/core/db/db/triMongo.ts";
 let s=fs.readFileSync(p,'utf8');
 if(!/export\s+async\s+function\s+getDb/.test(s)){
   s += `
@@ -118,7 +118,7 @@ mkdir -p "$SRC/app/api/statements/[id]"
 cat > "$SRC/app/api/statements/[id]/route.ts" <<'TS'
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   if (!ObjectId.isValid(params.id)) {

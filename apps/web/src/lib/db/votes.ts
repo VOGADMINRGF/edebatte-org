@@ -1,4 +1,4 @@
-import * as tri from "@core/triMongo";
+import * as tri from "@core/db/triMongo";
 /** Compatibility shim for legacy "@/lib/db/votes" */
 export { getVotesConn, votes } from "@vog/tri-mongo";
 export const votesConn = asFn<any>(

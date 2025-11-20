@@ -1,6 +1,6 @@
 // apps/web/src/app/api/errors/resolve.ts
 import { NextResponse } from "next/server";
-import { getCol, ObjectId } from "@core/triMongo";
+import { getCol, ObjectId } from "@core/db/triMongo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

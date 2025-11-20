@@ -3,7 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@core/triMongo": ["../../core/db/triMongo.ts"],
+      "@core/db/triMongo": ["../../core/db/db/triMongo.ts"],
       "@/*": ["src/*"],
       "@features/*": ["../../features/*"],
       "@core/*": ["../../core/*"],

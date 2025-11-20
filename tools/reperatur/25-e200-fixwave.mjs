@@ -302,8 +302,8 @@ export default { ROUNDS, PWD_OK };
 {
   const f = path.join(web, "src", "shims", "core", "db", "triMongo.ts");
   if (fs.existsSync(f)) {
-    fs.writeFileSync(f, `export { default } from "@core/triMongo";\n`);
-    console.log("✓ shim(core/triMongo): default-Reexport");
+    fs.writeFileSync(f, `export { default } from "@core/db/triMongo";\n`);
+    console.log("✓ shim(core/db/triMongo): default-Reexport");
   }
 }
 

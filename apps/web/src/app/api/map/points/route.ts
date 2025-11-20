@@ -2,10 +2,10 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 
-import { coreCol, votesCol } from "src/utils/triMongo";
+import { coreCol, votesCol } from "src/utils/db/triMongo";
 import { rateLimitFromRequest, rateLimitHeaders } from "src/utils/rateLimitHelpers";
 
 /** --- Rate Limit Config (aus v2) ---------------------------------------- */

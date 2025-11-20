@@ -8,13 +8,13 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const MODEL = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 
 /* ---- helpers ---- */
-const JSON = { "content-type": "application/json" } as const;
+const JSON_HEADERS = { "content-type": "application/json" } as const;
 const ok = (data: any, status = 200) =>
-  new Response(JSON.stringify({ ok: true, ...data }), { status, headers: JSON });
+  new Response(JSON.stringify({ ok: true, ...data }), { status, headers: JSON_HEADERS });
 const fail = (error: string, trace: string, status = 500, extra: any = {}) =>
   new Response(JSON.stringify({ ok: false, error, trace, ...extra }), {
     status,
-    headers: JSON,
+    headers: JSON_HEADERS,
   });
 
 /* ---- classify → frames ---- */

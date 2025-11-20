@@ -1,7 +1,7 @@
 // apps/web/src/app/api/admin/settings/get/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getDb } from "@core/triMongo"; // <— vereinheitlicht
+import { getDb } from "@core/db/triMongo"; // <— vereinheitlicht
 import { adminConfig, type AdminConfig } from "@config/admin";
 
 type SettingsDoc = {

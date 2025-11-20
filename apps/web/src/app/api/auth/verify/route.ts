@@ -1,7 +1,7 @@
 // apps/web/src/app/api/auth/verify/route.ts
-import { ObjectId } from "@core/triMongo";
+import { ObjectId } from "@core/db/triMongo";
 import { NextResponse } from "next/server";
-import { coreCol, piiCol } from "@core/db/triMongo";
+import { coreCol, piiCol } from "@core/db/db/triMongo";
 
 
 export async function POST(req: Request) {

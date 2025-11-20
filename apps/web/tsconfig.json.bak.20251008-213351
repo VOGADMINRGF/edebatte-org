@@ -41,8 +41,8 @@
       "@core/*": [
         "../../core/*"
       ],
-      "@core/triMongo": [
-        "../../core/db/triMongo.ts"
+      "@core/db/triMongo": [
+        "../../core/db/db/triMongo.ts"
       ],
       "@db/web": [
         "../../packages/db-web/src/index.ts"

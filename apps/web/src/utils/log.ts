@@ -1,6 +1,6 @@
 // apps/web/src/utils/log.ts
 // V2: Mongo + Redis (Upstash bevorzugt, TCP Fallback) + sichere Helper ohne leere catch-Blöcke.
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 /** Sicheres JSON.stringify ohne leeren catch – liefert Fallback-String. */
 export function safeJson(obj: unknown): string {

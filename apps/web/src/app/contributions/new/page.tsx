@@ -4,6 +4,13 @@
 import * as React from "react";
 import Link from "next/link";
 import type { AnalyzeResult } from "@features/analyze/schemas";
+import {
+  HighlightedTextarea,
+} from "@/app/(components)/HighlightedTextarea";
+import {
+  normalizeClaim,
+  type NormalizedClaim,
+} from "@/app/(components)/normalizeClaim";
 
 /* ---------- Types ---------- */
 
@@ -18,13 +25,7 @@ type KnotCard = { id: string; title: string; category: string; body: string };
 
 type VoteKind = "pro" | "neutral" | "contra" | null;
 
-type StatementCard = {
-  id: string;
-  index: number;
-  text: string;
-  title?: string;
-  responsibility?: string;
-  topic?: string;
+type StatementCard = NormalizedClaim & {
   quality?: {
     precision: number;
     testability: number;
@@ -86,33 +87,11 @@ function mapAiKnotToCard(raw: any, idx: number): KnotCard | null {
 }
 
 function mapAiClaimToStatement(raw: any, idx: number): StatementCard | null {
-  if (!raw || typeof raw.text !== "string") return null;
+  const normalized = normalizeClaim(raw, idx);
+  if (!normalized) return null;
 
-  const id =
-    typeof raw.id === "string" && raw.id.trim() ? raw.id : `s-${idx + 1}`;
-
-  const topic =
-    typeof raw.topic === "string" && raw.topic
-      ? raw.topic
-      : typeof raw.domain === "string"
-      ? raw.domain
-      : undefined;
-
-  const meta = (raw as any)?.meta ?? {};
-
-  const title =
-    typeof raw.title === "string" && raw.title.trim()
-      ? raw.title.trim()
-      : typeof meta?.title === "string" && meta.title.trim()
-      ? meta.title.trim()
-      : undefined;
-
-  const responsibility =
-    typeof raw.responsibility === "string"
-      ? raw.responsibility
-      : typeof meta?.responsibility === "string"
-      ? meta.responsibility
-      : undefined;
+  const meta =
+    raw && typeof raw.meta === "object" && raw.meta !== null ? raw.meta : {};
 
   const quality =
     meta && typeof meta === "object" && meta.quality
@@ -120,12 +99,7 @@ function mapAiClaimToStatement(raw: any, idx: number): StatementCard | null {
       : undefined;
 
   return {
-    id,
-    index: idx,
-    text: raw.text,
-    title,
-    responsibility,
-    topic,
+    ...normalized,
     quality,
     vote: null,
     locallyEdited: false,
@@ -193,83 +167,6 @@ function InlineEditableText({ value, onChange, label }: InlineEditableTextProps)
     </div>
   );
 }
-
-/* ---------- HighlightedTextarea (Textmarker) ---------- */
-
-type HighlightedTextareaProps = {
-  value: string;
-  onChange: (val: string) => void;
-  analyzing: boolean;
-};
-
-function HighlightedTextarea({
-  value,
-  onChange,
-  analyzing,
-}: HighlightedTextareaProps) {
-  const [markerPct, setMarkerPct] = React.useState(0);
-  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
-  const overlayRef = React.useRef<HTMLDivElement | null>(null);
-
-  // Animation: von 0% auf 100%, Dauer abhängig von Textlänge
-  React.useEffect(() => {
-    const total = value.length;
-    if (!analyzing || total === 0) {
-      setMarkerPct(100);
-      return;
-    }
-
-    setMarkerPct(0);
-    const duration = Math.min(3000, Math.max(900, total * 5));
-    const start = performance.now();
-    let frameId: number;
-
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration);
-      setMarkerPct(progress * 100);
-      if (progress < 1 && analyzing) {
-        frameId = window.requestAnimationFrame(tick);
-      } else {
-        setMarkerPct(100);
-      }
-    };
-
-    frameId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [analyzing, value]);
-
-  // Scroll-Sync
-  const handleScroll = () => {
-    if (!textareaRef.current || !overlayRef.current) return;
-    overlayRef.current.scrollTop = textareaRef.current.scrollTop;
-    overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
-  };
-
-  return (
-    <div className="relative">
-      {/* Marker-Overlay */}
-      <div
-        ref={overlayRef}
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg px-3 py-2 text-sm leading-relaxed font-sans text-transparent marker-mask"
-        style={{ ["--marker-pct" as any]: `${markerPct}%` }}
-      >
-        {value || " "}
-      </div>
-
-      {/* Eigentliche Eingabe */}
-      <textarea
-        ref={textareaRef}
-        className="relative z-10 w-full min-h-[260px] rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm leading-relaxed text-slate-900 shadow-inner focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
-        rows={14}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onScroll={handleScroll}
-      />
-    </div>
-  );
-}
-
 
 /* ---------- Hauptseite ---------- */
 
@@ -579,6 +476,7 @@ export default function ContributionNewPage() {
                 value={text}
                 onChange={setText}
                 analyzing={isAnalyzing}
+                rows={14}
               />
 
               {/* Buttons */}
@@ -700,10 +598,13 @@ export default function ContributionNewPage() {
                           </div>
                         ) : (
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-sky-50 px-3 py-0.5 font-semibold text-sky-700">
-                              {s.title && s.title.trim().length > 0
-                                ? s.title
-                                : `Statement #${s.index + 1}`}
+                            <span className="rounded-full bg-sky-50 px-3 py-0.5 text-[11px] font-semibold text-sky-700">
+                              Hauptkategorie:{" "}
+                              <span className="font-bold text-sky-800">
+                                {s.title && s.title.trim().length > 0
+                                  ? s.title
+                                  : `Statement #${s.index + 1}`}
+                              </span>
                             </span>
                             <span className="rounded-full bg-slate-100 px-2 py-0.5">
                               Zuständigkeit:{" "}

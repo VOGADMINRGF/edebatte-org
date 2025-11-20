@@ -52,7 +52,7 @@ cat > "$WEB/tsconfig.json" <<'JSON'
       "@/*": ["src/*"],
       "@features/*": ["../../features/*"],
       "@core/*": ["../../core/*"],
-      "@core/triMongo": ["src/shims/core/db/triMongo.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
       "@packages/*": ["../../packages/*"],
       "@packages/config/*": ["src/shims/packages/config/*"],
       "@config/*": ["src/config/*"],
@@ -180,7 +180,7 @@ cat > "$WEB/src/app/api/contributions/analyze/stream/route.ts" <<'TS'
 import { NextRequest } from "next/server";
 import crypto from "crypto";
 import { analyzeWithGpt } from "@/lib/llm";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 export const dynamic = "force-dynamic";
 const enc = new TextEncoder();
@@ -305,7 +305,7 @@ cat > "$WEB/src/app/api/contributions/analyze/route.ts" <<'TS'
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { analyzeWithGpt } from "@/lib/llm";
-import { coreCol } from "@core/triMongo";
+import { coreCol } from "@core/db/triMongo";
 
 export const dynamic = "force-dynamic";
 

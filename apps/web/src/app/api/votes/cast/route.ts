@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 
 import crypto from "node:crypto";
-import { votesCol, coreCol, ObjectId } from "@core/triMongo";
+import { votesCol, coreCol, ObjectId } from "@core/db/triMongo";
 import { rateLimit } from "src/utils/rateLimit";
 import UserGameStats from "src/models/game/UserGameStats";
 

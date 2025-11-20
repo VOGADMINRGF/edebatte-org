@@ -69,10 +69,10 @@ ts.compilerOptions.paths = Object.assign({
   "@models/*":                  ["src/models/*"],
   "@db/web":                    ["src/shims/db-web.ts"],
   "@db/core":                   ["src/shims/db-core.ts"],
-  "@core/triMongo":             ["src/shims/core/db/triMongo.ts"]
+  "@core/db/triMongo":             ["src/shims/core/db/db/triMongo.ts"]
 }, ts.compilerOptions.paths || {});
 delete ts.compilerOptions.paths["src/*"];
-delete ts.compilerOptions.paths["@core/db/triMongo"];
+delete ts.compilerOptions.paths["@core/db/db/triMongo"];
 fs.writeFileSync(p, JSON.stringify(ts,null,2));
 console.log(" - paths normalized in", p);
 NODE
@@ -118,8 +118,8 @@ fi
 
 # 8) triMongo Util
 mkdir -p "$WEB/src/utils"
-cat > "$WEB/src/utils/triMongo.ts" <<'TS'
-import * as tri from "@core/triMongo";
+cat > "$WEB/src/utils/db/triMongo.ts" <<'TS'
+import * as tri from "@core/db/triMongo";
 const asFn = <T>(x:any)=> (typeof x==="function" ? x : (()=>x as T));
 export const coreConn  = asFn<any>((tri as any).coreConn  || (tri as any).getCoreConn  || (tri as any).core);
 export const votesConn = asFn<any>((tri as any).votesConn || (tri as any).getVotesConn || (tri as any).votes);
@@ -133,7 +133,7 @@ export const votesCol = (name:string) => (tri as any).votesCol ? (tri as any).vo
 export const piiCol   = (name:string) => (tri as any).piiCol   ? (tri as any).piiCol(name)   : (piiDb()  as any).collection(name);
 export default { coreConn, votesConn, piiConn, coreDb, votesDb, piiDb, coreCol, votesCol, piiCol };
 TS
-echo " - utils/triMongo.ts written"
+echo " - utils/db/triMongo.ts written"
 
 # 9) drafts.ts server-only + bson->mongodb
 if [ -f "$WEB/src/server/drafts.ts" ]; then
