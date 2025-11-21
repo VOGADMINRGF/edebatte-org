@@ -9,6 +9,7 @@ import { extractStatementsFromText } from "@/lib/contribution/extractStatements"
 import { translateAndCache } from "@/lib/contribution/translateAndCache";
 import { storeContribution } from "@/lib/contribution/storeContribution";
 import type { ContributionAnalysisRequest } from "@/types/contribution";
+import { ensureUserMeetsVerificationLevel } from "@features/auth/verificationAccess";
 
 type TranslateBody = { pipeline?: "translate"; text: string; to: string };
 type ContributionBody = {
@@ -54,6 +55,21 @@ export async function POST(req: NextRequest) {
     }
 
     // B) Contribution-Pipeline
+    const cookieUserId = req.cookies.get("u_id")?.value ?? null;
+    const levelCheck = await ensureUserMeetsVerificationLevel(cookieUserId, "soft");
+    if (!levelCheck.ok) {
+      const status = levelCheck.error === "login_required" ? 401 : 403;
+      return NextResponse.json(
+        {
+          ok: false,
+          error: levelCheck.error,
+          requiredLevel: "soft",
+          currentLevel: levelCheck.level,
+        },
+        { status },
+      );
+    }
+
     const text = String(body.text ?? "");
     if (!text)
       return NextResponse.json(
@@ -62,7 +78,7 @@ export async function POST(req: NextRequest) {
       );
 
     const region = body.region ?? null;
-    const userId = body.userId ?? null;
+    const userId = cookieUserId;
     const locales =
       Array.isArray(body.locales) && body.locales.length
         ? body.locales

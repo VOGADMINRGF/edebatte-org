@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { Types } from "mongoose";
 import { getServerUser } from "@/lib/auth/getServerUser";
 import { VoteModel } from "@/models/votes/Vote";
+import { ObjectId } from "@core/db/triMongo";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const statementId = searchParams.get("statementId") || "";
-  if (!Types.ObjectId.isValid(statementId)) {
+  if (!ObjectId.isValid(statementId)) {
     return NextResponse.json(
       { ok: false, error: "invalid_statementId" },
       { status: 400 },
@@ -32,10 +32,10 @@ export async function GET(req: Request) {
   const userHash = hmacUserHash(String(user.id));
 
   const doc = await Vote.findOne({
-    statementId: new Types.ObjectId(statementId),
+    statementId: new ObjectId(statementId),
     userHash,
     deletedAt: { $exists: false },
-  }).lean();
+  });
 
   return NextResponse.json({ ok: true, vote: doc?.choice ?? null });
 }

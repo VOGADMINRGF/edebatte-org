@@ -1,8 +1,7 @@
 //apps/web/src/lib/vote/stats.ts
-
-import { Types } from "mongoose";
 import { VoteModel } from "@/models/votes/Vote";
 import { redisPublish } from "@/lib/redis"; // nur für Invalidation-Event, optional
+import { ObjectId } from "@core/db/triMongo";
 
 type Totals = {
   agree: number;
@@ -30,9 +29,9 @@ function pctOf(total: number, n: number) {
 
 export async function getVoteStats(statementId: string) {
   const Vote = await VoteModel();
-  const sid = new Types.ObjectId(statementId);
+  const sid = new ObjectId(statementId);
 
-  const [res] = await Vote.aggregate([
+  const totalsCursor = Vote.aggregate([
     { $match: { statementId: sid, deletedAt: { $exists: false } } },
     {
       $facet: {
@@ -51,7 +50,9 @@ export async function getVoteStats(statementId: string) {
         ],
       },
     },
-  ]).allowDiskUse(true);
+  ]);
+  totalsCursor.allowDiskUse(true);
+  const [res] = await totalsCursor.toArray();
 
   // totals
   const tMap: Record<string, number> = { agree: 0, neutral: 0, disagree: 0 };
@@ -101,11 +102,11 @@ export async function getVoteStats(statementId: string) {
 
 export async function getVoteTimeseries(statementId: string, days = 30) {
   const Vote = await VoteModel();
-  const sid = new Types.ObjectId(statementId);
+  const sid = new ObjectId(statementId);
   const since = new Date(Date.now() - days * 864e5);
   since.setUTCHours(0, 0, 0, 0);
 
-  const rows = await Vote.aggregate([
+  const rowsCursor = Vote.aggregate([
     {
       $match: {
         statementId: sid,
@@ -115,7 +116,9 @@ export async function getVoteTimeseries(statementId: string, days = 30) {
     },
     { $group: { _id: { day: "$day", choice: "$choice" }, c: { $sum: 1 } } },
     { $sort: { "_id.day": 1 } },
-  ]).allowDiskUse(true);
+  ]);
+  rowsCursor.allowDiskUse(true);
+  const rows = await rowsCursor.toArray();
 
   const out: Array<{
     day: string;

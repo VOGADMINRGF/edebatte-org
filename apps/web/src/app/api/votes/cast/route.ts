@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { votesCol, coreCol, ObjectId } from "@core/db/triMongo";
 import { rateLimit } from "src/utils/rateLimit";
 import UserGameStats from "src/models/game/UserGameStats";
+import { ensureUserMeetsVerificationLevel } from "@features/auth/verificationAccess";
 
 type Val = "agree" | "neutral" | "disagree";
 
@@ -86,6 +87,19 @@ export async function POST(req: NextRequest) {
     /* noop */
   }
 
+  const userId = req.cookies.get("u_id")?.value || null;
+  const levelCheck = await ensureUserMeetsVerificationLevel(userId, "email");
+  if (!levelCheck.ok) {
+    return NextResponse.json(
+      {
+        error: levelCheck.error,
+        requiredLevel: "email",
+        currentLevel: levelCheck.level,
+      },
+      { status: levelCheck.error === "login_required" ? 401 : 403 },
+    );
+  }
+
   const statementIdStr = String(body?.statementId ?? "");
   const rawValue = String(body?.value ?? "").toLowerCase();
   const value = rawValue as Val;
@@ -101,24 +115,13 @@ export async function POST(req: NextRequest) {
   const statementId = new ObjectId(statementIdStr);
 
   // Identität: userId → (fp + ipSubnet) → fp → 400
-  const userId =
-    req.cookies.get("u_id")?.value || req.headers.get("x-user-id") || null;
   const fp = (req.headers.get("x-fp") || "").slice(0, 200) || null;
   const ip = getClientIp(req);
   const subnet = ipSubnet(ip);
   const subnetHash = stableHash(subnet);
 
   let key: Record<string, any> = { statementId };
-  if (userId) {
-    key.userId = String(userId);
-  } else if (fp && subnetHash) {
-    key.fp = fp;
-    key.ipSubnet = subnetHash;
-  } else if (fp) {
-    key.fp = fp;
-  } else {
-    return NextResponse.json({ error: "missing_identifier" }, { status: 400 });
-  }
+  key.userId = String(userId);
 
   const regionCode = parseRegion(req.headers);
   const now = new Date();

@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
         suspended: 1,
         createdAt: 1,
         verifiedEmail: 1,
-        "verification.twoFA.enabled": 1,
+        emailVerified: 1,
+        verification: 1,
       },
     },
   );

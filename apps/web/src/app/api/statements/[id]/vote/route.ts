@@ -33,7 +33,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     const Vote = await VoteModel();
     await Vote.updateOne(
       { statementId, sessionId },
-      { $set: { choice } },
+      {
+        $set: {
+          statementId,
+          sessionId,
+          choice,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { createdAt: new Date() },
+      },
       { upsert: true }
     );
 

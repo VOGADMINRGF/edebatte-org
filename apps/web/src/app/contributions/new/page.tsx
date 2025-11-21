@@ -11,6 +11,10 @@ import {
   normalizeClaim,
   type NormalizedClaim,
 } from "@/app/(components)/normalizeClaim";
+import { useLocale } from "@/context/LocaleContext";
+import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
+import type { VerificationLevel } from "@core/auth/verificationTypes";
+import { VERIFICATION_REQUIREMENTS, meetsVerificationLevel } from "@features/auth/verificationRules";
 
 /* ---------- Types ---------- */
 
@@ -38,6 +42,27 @@ type StatementCard = NormalizedClaim & {
 };
 
 const STORAGE_KEY = "vog_contribution_draft_v1";
+
+const pageCopy = {
+  title_de: "Beitrag analysieren",
+  title_en: "Analyze your contribution",
+  info_de: "Für die schlanke Bürger-Ansicht nutze /statements/new. Hier siehst du die ausführliche Analyse-Ansicht (E150).",
+  info_en: "Use /statements/new for the lightweight citizen view. This is the full E150 analysis mode.",
+};
+
+const levelOptions = [
+  { id: 1 as 1 | 2, label_de: "Level 1 – Basis", label_en: "Level 1 – basic" },
+  { id: 2 as 1 | 2, label_de: "Level 2 – Mehr Fakten", label_en: "Level 2 – more facts" },
+];
+
+const analyzeButtonTexts = {
+  running_de: "Analyse läuft …",
+  running_en: "Analysis running…",
+  retry_de: "Erneut versuchen",
+  retry_en: "Try again",
+  start_de: "Analyse starten",
+  start_en: "Start analysis",
+};
 
 /* ---------- AI → UI Mapping (nur 1:1, keine Heuristik) ---------- */
 
@@ -171,6 +196,13 @@ function InlineEditableText({ value, onChange, label }: InlineEditableTextProps)
 /* ---------- Hauptseite ---------- */
 
 export default function ContributionNewPage() {
+  const { locale } = useLocale();
+  const [verificationLevel, setVerificationLevel] = React.useState<VerificationLevel>("none");
+  const [levelStatus, setLevelStatus] = React.useState<"loading" | "ok" | "login_required" | "error">("loading");
+  const textContent = React.useCallback(
+    (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
+    [locale],
+  );
   const [viewLevel, setViewLevel] = React.useState<1 | 2>(2);
   const [text, setText] = React.useState("");
 
@@ -189,6 +221,32 @@ export default function ContributionNewPage() {
 
   // welches Statement ist gerade im Meta-Edit-Modus?
   const [metaEditingId, setMetaEditingId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let ignore = false;
+    async function loadLevel() {
+      try {
+        const res = await fetch("/api/account/overview", { cache: "no-store" });
+        if (!res.ok) {
+          if (!ignore) {
+            setLevelStatus(res.status === 401 ? "login_required" : "error");
+          }
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        if (!ignore && body?.overview) {
+          setVerificationLevel(body.overview.verificationLevel ?? "none");
+          setLevelStatus("ok");
+        }
+      } catch {
+        if (!ignore) setLevelStatus("error");
+      }
+    }
+    loadLevel();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Draft aus localStorage holen
   React.useEffect(() => {
@@ -269,7 +327,7 @@ export default function ContributionNewPage() {
       const res = await fetch("/api/contributions/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, locale: "de" }),
+        body: JSON.stringify({ text, locale }),
       });
 
       const data = await res.json();
@@ -379,35 +437,48 @@ export default function ContributionNewPage() {
 
   const analyzeButtonLabel =
     isAnalyzing
-      ? "Analyse läuft …"
+      ? textContent(analyzeButtonTexts, "running")
       : lastStatus === "error" || lastStatus === "empty"
-      ? "Erneut versuchen"
-      : "Analyse starten";
+      ? textContent(analyzeButtonTexts, "retry")
+      : textContent(analyzeButtonTexts, "start");
+
+  const requiredLevel =
+    viewLevel >= 2
+      ? VERIFICATION_REQUIREMENTS.contribution_level2
+      : VERIFICATION_REQUIREMENTS.contribution_level1;
+  const meetsLevel = meetsVerificationLevel(verificationLevel, requiredLevel);
+  const analyzeDisabled =
+    isAnalyzing || !text.trim() || levelStatus === "loading" || !meetsLevel;
+  const gatingMessage =
+    levelStatus === "login_required"
+      ? "Bitte melde dich an, um Beiträge zu analysieren."
+      : levelStatus === "error"
+      ? "Level konnte nicht geladen werden – bitte später erneut versuchen."
+      : !meetsLevel
+      ? `Für diese Ansicht benötigst du mindestens Verifizierungs-Level "${requiredLevel}".`
+      : null;
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-[linear-gradient(180deg,#e9f6ff_0%,#c0f8ff_45%,#a4fcec_100%)]">
       <div className="container-vog space-y-4 pb-10 pt-6">
         {/* Hinweis oben */}
         <div className="rounded-xl border border-sky-100 bg-sky-50/80 px-4 py-2 text-xs text-sky-800">
-          Für die schlanke Bürger-Ansicht nutze{" "}
+          {textContent(pageCopy, "info")}{" "}
           <Link href="/statements/new" className="font-semibold underline">
             /statements/new
           </Link>
-          . Hier siehst du die ausführliche Analyse-Ansicht (E150).
+          .
         </div>
 
         {/* Level-Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="vog-head">Beitrag analysieren</h1>
+          <h1 className="vog-head">{textContent(pageCopy, "title")}</h1>
           <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-xs">
-            {[
-              { id: 1, label: "Level 1 – Basis" },
-              { id: 2, label: "Level 2 – Mehr Fakten" },
-            ].map((lvl) => (
+            {levelOptions.map((lvl) => (
               <button
                 key={lvl.id}
                 type="button"
-                onClick={() => setViewLevel(lvl.id as 1 | 2)}
+                onClick={() => setViewLevel(lvl.id)}
                 className={[
                   "rounded-full px-3 py-1 transition",
                   viewLevel === lvl.id
@@ -415,7 +486,7 @@ export default function ContributionNewPage() {
                     : "text-slate-600 hover:text-slate-900",
                 ].join(" ")}
               >
-                {lvl.label}
+                {textContent(lvl, "label")}
               </button>
             ))}
           </div>
@@ -468,7 +539,7 @@ export default function ContributionNewPage() {
                   </p>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Sprache: <span className="font-medium">de</span>
+                  Sprache: <span className="font-medium uppercase">{locale}</span>
                 </div>
               </div>
 
@@ -486,7 +557,7 @@ export default function ContributionNewPage() {
                   <button
                     type="button"
                     onClick={handleAnalyze}
-                    disabled={isAnalyzing || !text.trim()}
+                    disabled={analyzeDisabled}
                     className="rounded-full bg-sky-500 px-5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {analyzeButtonLabel}
@@ -755,9 +826,12 @@ export default function ContributionNewPage() {
                           >
                             entfernen
                           </button>
-                        </div>
-                      </div>
-                    </div>
+                </div>
+                {gatingMessage && (
+                  <p className="text-xs font-semibold text-rose-600">{gatingMessage}</p>
+                )}
+              </div>
+            </div>
                   );
                 })}
 

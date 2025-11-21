@@ -4,6 +4,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CORE_LOCALES, EXTENDED_LOCALES } from "@/config/locales";
+import { RegisterStepper } from "./RegisterStepper";
 
 function okPwd(p: string) {
   return p.length >= 12 && /[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p);
@@ -17,6 +19,8 @@ export default function RegisterPage() {
   const [errMsg, setErrMsg] = useState<string>();
   const [okMsg, setOkMsg] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [preferredLocale, setPreferredLocale] = useState<string>("de");
+  const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const router = useRouter();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -46,6 +50,8 @@ export default function RegisterPage() {
           email,
           name: name.trim() || undefined,
           password,
+          preferredLocale,
+          newsletterOptIn,
         }),
         signal: ac.signal,
       });
@@ -61,11 +67,7 @@ export default function RegisterPage() {
         throw new Error(data?.error || data?.message || `HTTP ${r.status}`);
 
       setOkMsg("Konto erstellt. Weiterleitung zur Verifizierung …");
-      const next =
-        typeof data?.verifyUrl === "string" && data.verifyUrl.length > 0
-          ? data.verifyUrl
-          : `/verify?email=${encodeURIComponent(email)}`;
-      router.push(next);
+      router.push(`/register/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setErrMsg(
         err?.name === "AbortError"
@@ -78,8 +80,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-semibold mb-4">Registrieren</h1>
+    <div className="mx-auto max-w-2xl p-6 space-y-6">
+      <RegisterStepper current={1} />
+      <h1 className="text-2xl font-semibold">Registrieren</h1>
 
       <form onSubmit={onSubmit} className="space-y-4">
         <label className="block">
@@ -156,6 +159,32 @@ export default function RegisterPage() {
           </p>
         )}
 
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-700">Bevorzugte Sprache</span>
+          <select
+            className="mt-1 w-full rounded border px-3 py-2"
+            value={preferredLocale}
+            onChange={(e) => setPreferredLocale(e.target.value)}
+            disabled={busy}
+          >
+            {[...CORE_LOCALES, ...EXTENDED_LOCALES].map((loc) => (
+              <option key={loc} value={loc}>
+                {loc.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={newsletterOptIn}
+            onChange={(e) => setNewsletterOptIn(e.target.checked)}
+            disabled={busy}
+          />
+          Ich möchte Updates & Hinweise per E-Mail erhalten.
+        </label>
+
         <button
           type="submit"
           disabled={busy}
@@ -171,6 +200,21 @@ export default function RegisterPage() {
           Login
         </Link>
       </p>
+
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-5 text-sm text-slate-700 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Warum diese Schritte?</h2>
+        <ul className="mt-3 space-y-2 list-disc pl-5">
+          <li>
+            VoiceOpenGov ist keine Partei und kein Verein – wir finanzieren uns über Mitgliederbeiträge und setzen auf Transparenz statt Spendenquittungen.
+          </li>
+          <li>
+            Deine Daten werden strikt getrennt gespeichert (PII-DB). Bank- und ID-Daten verlassen nie unseren Kontrollbereich, wir verkaufen oder teilen sie nicht.
+          </li>
+          <li>
+            Die Identitäts-Verifikation schützt die Plattform vor Bots und ermöglicht faire Abstimmungen – eine Voraussetzung, damit Citizen Votes weltweit ernst genommen werden können.
+          </li>
+        </ul>
+      </section>
     </div>
   );
 }

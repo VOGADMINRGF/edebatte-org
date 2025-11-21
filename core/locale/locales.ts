@@ -1,7 +1,10 @@
 // core/locale/locales.ts
-export const SUPPORTED_LOCALES = ["de", "en"] as const;
+export const CORE_LOCALES = ["de", "en"] as const;
+export const EXTENDED_LOCALES = ["fr", "pl", "es", "tr", "ar", "ru", "zh"] as const;
+export const SUPPORTED_LOCALES = [...CORE_LOCALES, ...EXTENDED_LOCALES] as const;
+
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
-export const DEFAULT_LOCALE: SupportedLocale = "de";
+export const DEFAULT_LOCALE: SupportedLocale = CORE_LOCALES[0];
 
 export function isSupportedLocale(v: string | null | undefined): v is SupportedLocale {
   return !!v && (SUPPORTED_LOCALES as readonly string[]).includes(v);

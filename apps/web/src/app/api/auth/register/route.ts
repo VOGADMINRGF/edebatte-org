@@ -1,100 +1,119 @@
-import { env } from "@/utils/env";
-export const runtime = "nodejs";
-
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "node:crypto";
-// ✅ named imports aus dem triMongo-Shim
-import { getCol, piiCol } from "@core/db/triMongo";
+import { z } from "zod";
+import { getCol, ObjectId } from "@core/db/triMongo";
+import { createEmailVerificationToken } from "@core/auth/emailVerificationService";
+import { DEFAULT_LOCALE, isSupportedLocale } from "@core/locale/locales";
+import { hashPassword } from "@/utils/password";
+import { logIdentityEvent } from "@core/telemetry/identityEvents";
 import { sendMail } from "@/utils/mailer";
+import { buildVerificationMail } from "@/utils/emailTemplates";
 
-function hashPassword(pw: string) {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(pw, salt, 64).toString("hex");
-  return { algo: "scrypt", salt, hash };
-}
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const schema = z.object({
+  name: z.string().min(2).max(120),
+  email: z.string().email(),
+  password: z.string().min(12),
+  preferredLocale: z.string().optional(),
+  newsletterOptIn: z.boolean().optional(),
+});
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const email = String(body?.email || "")
-    .trim()
-    .toLowerCase();
-  const name = String(body?.name || "").trim() || null;
-  const pw = String(body?.env.MEMGRAPH_PASSWORD || "");
+  const json = await req.json().catch(() => null);
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
+  const body = parsed.data;
+  const email = body.email.trim().toLowerCase();
+  const locale = normalizeLocale(body.preferredLocale);
 
-  if (!email || !pw)
-    return NextResponse.json(
-      { error: "email_password_required" },
-      { status: 400 },
-    );
-  if (!PWD_OK(pw))
+  if (!isPasswordStrong(body.password)) {
     return NextResponse.json({ error: "weak_password" }, { status: 400 });
+  }
 
   const Users = await getCol("users");
   const existing = await Users.findOne(
     { email },
-    { projection: { _id: 1, verifiedEmail: 1 } },
+    { projection: { _id: 1, verifiedEmail: 1, createdAt: 1 } },
   );
+
   if (existing && existing.verifiedEmail) {
     return NextResponse.json({ error: "email_in_use" }, { status: 409 });
   }
 
   const now = new Date();
-  let userId = existing?._id;
+  const passwordHash = await hashPassword(body.password);
+  const baseDoc = {
+    email,
+    name: body.name.trim(),
+    passwordHash,
+    role: "user",
+    verifiedEmail: false,
+    emailVerified: false,
+    accessTier: "citizenBasic",
+    profile: {
+      displayName: body.name.trim(),
+      locale,
+    },
+    settings: {
+      preferredLocale: locale,
+      newsletterOptIn: body.newsletterOptIn ?? false,
+    },
+    verification: {
+      level: "none",
+      methods: [],
+      lastVerifiedAt: null,
+      preferredRegionCode: null,
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
 
-  if (!userId) {
-    const { hash, salt, algo } = hashPassword(pw);
-    const ins = await Users.insertOne({
-      email,
-      name,
-      passwordHash: { algo, salt, hash },
-      role: "user",
-      verifiedEmail: false,
-      createdAt: now,
-      updatedAt: now,
-    });
-    userId = ins.insertedId;
+  let userId: ObjectId;
+  if (!existing) {
+    const insert = await Users.insertOne(baseDoc);
+    userId = insert.insertedId;
   } else {
-    const { hash, salt, algo } = hashPassword(pw);
+    userId = existing._id as ObjectId;
     await Users.updateOne(
       { _id: userId },
-      { $set: { passwordHash: { algo, salt, hash }, updatedAt: now } },
+      {
+        $set: {
+          ...baseDoc,
+          createdAt: existing.createdAt ?? now,
+        },
+      },
     );
   }
 
-  // ✅ Tokens in PII-DB
-  const Tokens = await piiCol("tokens");
-  const token = crypto.randomBytes(24).toString("base64url");
-  const exp = new Date(Date.now() + 48 * 3600 * 1000);
-
-  await Tokens.insertOne({
-    type: "verify_email",
-    userId,
-    email,
-    token,
-    createdAt: now,
-    expiresAt: exp,
+  const { rawToken } = await createEmailVerificationToken(userId, email);
+  await logIdentityEvent("identity_register", {
+    userId: String(userId),
+    meta: { email },
   });
-
-  const base = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
-  // ✅ Backticks fürs Template
-  const verifyUrl = new URL(
-    `/verify?email=${encodeURIComponent(email)}&token=${token}`,
-    base,
-  ).toString();
-
+  const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const verifyUrl = `${origin.replace(/\/$/, "")}/register/verify-email?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
+  const mail = buildVerificationMail({
+    verifyUrl,
+    displayName: body.name.trim(),
+  });
   await sendMail({
     to: email,
-    subject: "Bitte E-Mail verifizieren",
-    html: `<p>Hallo${name ? " " + name : ""},</p>
-           <p>bitte bestätige deine E-Mail-Adresse:</p>
-           <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-           <p>Gültig bis: ${exp.toLocaleString()}</p>`,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
   });
 
-  const res = NextResponse.json({ ok: true, verifyUrl }, { status: 201 });
-  res.cookies.set("u_id", String(userId), { path: "/", sameSite: "lax" });
-  res.cookies.set("u_role", "user", { path: "/", sameSite: "lax" });
-  res.cookies.set("u_verified", "0", { path: "/", sameSite: "lax" });
-  if (name) res.cookies.set("u_name", name, { path: "/", sameSite: "lax" });
-  return res;
+  return NextResponse.json({ ok: true }, { status: 201 });
+}
+
+function isPasswordStrong(value: string) {
+  return value.length >= 12 && /\d/.test(value) && /[^A-Za-z0-9]/.test(value);
+}
+
+function normalizeLocale(locale?: string) {
+  if (locale && isSupportedLocale(locale)) return locale;
+  return DEFAULT_LOCALE;
 }

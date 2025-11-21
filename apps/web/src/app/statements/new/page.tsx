@@ -10,6 +10,8 @@ import {
   normalizeClaim,
   type NormalizedClaim,
 } from "@/app/(components)/normalizeClaim";
+import { useLocale } from "@/context/LocaleContext";
+import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
 
 type VoteKind = "pro" | "neutral" | "contra" | null;
 
@@ -21,6 +23,26 @@ type SimpleStatement = NormalizedClaim & {
 
 const STORAGE_KEY = "vog_statement_draft_v1";
 const MAX_LEVEL1_STATEMENTS = 3;
+
+const statementsPageCopy = {
+  badge_de: "Level 1 – Bürgeransicht",
+  badge_en: "Level 1 – citizen view",
+  title_de: "Dein Statement – wir machen daraus klare Abstimmungsfragen",
+  title_en: "Your statement becomes a clear voting item",
+  intro_de:
+    "Schreib einfach, wie du sprichst. Füge Links zu Artikeln oder Videos ein – wir interpretieren sie automatisch. Kein Fachjargon nötig. Für vollständige Analysen mit Kontext, Fragen und Knoten wechselst du später zu Level 2.",
+  intro_en:
+    "Write just like you talk. Add links to articles or videos – we interpret them automatically. No jargon required. For full analyses with context, questions, and knots you can switch to Level 2 later.",
+};
+
+const analyzeButtonTexts = {
+  running_de: "Analyse läuft …",
+  running_en: "Analysis running…",
+  retry_de: "Erneut versuchen",
+  retry_en: "Try again",
+  start_de: "Analyse starten",
+  start_en: "Start analysis",
+};
 
 /** Nur 1:1-Übernahme aus der API – KEINE Heuristik */
 function mapClaimToStatement(raw: any, idx: number): SimpleStatement | null {
@@ -36,6 +58,11 @@ function mapClaimToStatement(raw: any, idx: number): SimpleStatement | null {
 }
 
 export default function StatementsNewPage() {
+  const { locale } = useLocale();
+  const textContent = React.useCallback(
+    (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
+    [locale],
+  );
   const [text, setText] = React.useState("");
   const [statements, setStatements] = React.useState<SimpleStatement[]>([]);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
@@ -137,7 +164,7 @@ export default function StatementsNewPage() {
       const res = await fetch("/api/contributions/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, locale: "de" }),
+        body: JSON.stringify({ text, locale }),
       });
 
       const data = await res.json();
@@ -165,7 +192,7 @@ export default function StatementsNewPage() {
           "Die Analyse konnte aus deinem Text im Moment keine klaren Einzel-Statements ableiten. Deine Eingabe bleibt oben erhalten – du kannst sie leicht anpassen (z.B. kürzere Sätze) und die Analyse gleich erneut starten."
         );
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("[Level1] analyze error", e);
       setStatements([]);
       setLastStatus("error");
@@ -213,10 +240,10 @@ export default function StatementsNewPage() {
 
   const analyzeButtonLabel =
     isAnalyzing
-      ? "Analyse läuft …"
+      ? textContent(analyzeButtonTexts, "running")
       : lastStatus === "error" || lastStatus === "empty"
-      ? "Erneut versuchen"
-      : "Analyse starten";
+      ? textContent(analyzeButtonTexts, "retry")
+      : textContent(analyzeButtonTexts, "start");
 
   const totalStatements = statements.length;
   const visibleStatements = statements.slice(0, MAX_LEVEL1_STATEMENTS);
@@ -225,38 +252,41 @@ export default function StatementsNewPage() {
     <main className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50 to-emerald-100">
       <div className="container-vog py-10 space-y-8">
         {/* Kopf */}
-        <header className="text-center space-y-2">
+        <header className="space-y-4 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+            {textContent(statementsPageCopy, "badge")}
+          </div>
           <h1 className="vog-head text-2xl sm:text-3xl">
-            Dein Statement – in klare Abstimmungsfragen übersetzt
+            {textContent(statementsPageCopy, "title")}
           </h1>
-          <p className="max-w-2xl mx-auto text-sm text-slate-600">
-            Schreib frei heraus, was dich beschäftigt. Wir verwandeln deinen
-            Text in bis zu drei klare Statements, zu denen du (und andere)
-            später einfach zustimmen, neutral bleiben oder ablehnen kannst.
-            Für eine ausführlichere Analyse kannst du jederzeit auf Level 2
-            wechseln.
+          <p className="max-w-3xl mx-auto text-sm text-slate-600 leading-relaxed">
+            {textContent(statementsPageCopy, "intro")}
           </p>
+          <div className="mx-auto flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-center">
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <strong>Level 1:</strong> Bis zu drei Kern-Statements, perfekt für schnelle Einreichungen.
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <strong>Level 2:</strong> komplette eDebatte-Ansicht mit Kontext, Fragen & Knoten –{" "}
+              <Link href="/contributions/new" className="font-semibold text-sky-600 underline">
+                gleich anschauen
+              </Link>
+              .
+            </div>
+          </div>
         </header>
 
         {/* Beitrag-Editor */}
         <section className="flex justify-center">
           <div className="w-full max-w-3xl rounded-3xl bg-white shadow-sm border border-slate-100 p-4 sm:p-6">
-            <header className="mb-3">
-              <div className="text-xs font-semibold text-slate-700">
-                DEIN BEITRAG
-              </div>
-              <p className="mt-0.5 text-[11px] text-slate-500">
-                Formuliere in deinen Worten, was dich stört oder was du ändern
-                möchtest. Keine Fachsprache nötig.
-              </p>
-            </header>
-
             <HighlightedTextarea
               value={text}
               onChange={setText}
               analyzing={isAnalyzing}
               rows={12}
-              placeholder="Schreibe hier deinen Beitrag …"
+              placeholder={
+                "Schreib frei heraus, was dich beschäftigt. Wir verwandeln deinen Text in bis zu drei klare Statements, zu denen du (und andere) später einfach zustimmen, neutral bleiben oder ablehnen kannst. Für eine ausführlichere Analyse kannst du jederzeit upgraden…"
+              }
               textareaClassName="rounded-2xl border-slate-200 bg-slate-50/70 focus:border-sky-400"
               overlayClassName="rounded-2xl"
             />
@@ -264,8 +294,8 @@ export default function StatementsNewPage() {
             <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-500">
               <span>{text.length}/4000 Zeichen</span>
               <span>
-                Hinweis: Speichern erfolgt derzeit lokal in deinem Browser, nicht
-                auf dem Server.
+                Hinweis: Speichern erfolgt derzeit lokal in deinem Browser. Links bleiben erhalten, Dateien
+                werden vorerst als Verweis gespeichert.
               </span>
             </div>
 
@@ -323,7 +353,7 @@ export default function StatementsNewPage() {
         <section className="max-w-4xl mx-auto space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-800">
-              Abgeleitete Statements (Bürgeransicht)
+              Abgeleitete Statements (Basisansicht)
             </h2>
             <span className="text-[11px] text-slate-400">
               {totalStatements > 0

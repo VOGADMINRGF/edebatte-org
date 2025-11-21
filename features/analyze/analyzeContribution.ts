@@ -3,11 +3,13 @@ import { AnalyzeResultSchema } from "./schemas";
 import type { AnalyzeResult, StatementRecord } from "./schemas";
 import { normalizeStatementRecord } from "./normalizeClaim";
 import { callE150Orchestrator } from "@features/ai/orchestratorE150";
+import type { AiPipelineName } from "@core/telemetry/aiUsageTypes";
 
 export type AnalyzeInput = {
   text: string;
   locale?: string; // "de" | "en" | ...
   maxClaims?: number;
+  pipeline?: AiPipelineName;
 };
 
 // User-Wunsch: MaxClaims wieder auf 20
@@ -69,21 +71,32 @@ function buildUserPrompt(
       '   - responsibility: grobe Zuständigkeit, z.B. "EU", "Bund", "Land", "Kommune", "privat", "unbestimmt".',
       "   Wenn die Ebene unklar ist, nutze „unbestimmt“ oder lasse das Feld weg.",
       "",
-      "3) Optional kannst du Kontext-Notizen, Fragen und Knoten hinzufügen, aber NUR wenn der Text das eindeutig hergibt.",
-      "   - Wenn etwas unklar ist oder du zu wenig Informationen hast, lasse die Arrays einfach leer.",
+      "3) Kontext-Notizen (mindestens 2, maximal 5):",
+      "   - Erkenne thematische Abschnitte im Beitrag und fasse sie als `notes` zusammen.",
+      "   - Jede Note: { id, kind, text } – kind ist ein kurzer Label wie „Faktenlage“, „Beispiel“, „Emotion“. Text ist ein prägnanter Absatz aus dem Beitrag bzw. eine saubere Paraphrase.",
       "",
-      "4) Gib das Ergebnis ausschließlich als JSON mit diesem Shape zurück (keine Markdown-Formatierung, keine ```-Blöcke):",
+      "4) Fragen zum Weiterdenken (2–4 Einträge):",
+      "   - Zeige Lücken oder Prüf-Aufgaben auf (z.B. „Welche Kosten entstehen dadurch?“).",
+      "   - Jede Frage: { id, text, dimension } – dimension benennt das Themenfeld („Finanzen“, „Recht“, „Betroffene“).",
+      "",
+      "5) Thematische Knoten / Schwerpunkte (mindestens 1):",
+      "   - Zeige Spannungsfelder oder harte Zielkonflikte.",
+      "   - Jeder Knoten: { id, label, description } – label kurz (z.B. „Tierwohl vs. Kosten“), description mit 1–2 Sätzen.",
+      "",
+      "   Wichtig: Erfinde nichts, bleibe streng beim Text. Wenn wirklich keine Hinweise existieren, darf ein Array leer bleiben – kennzeichne das aber nicht speziell.",
+      "",
+      "6) Gib das Ergebnis ausschließlich als JSON mit diesem Shape zurück (keine Markdown-Formatierung, keine ```-Blöcke):",
       "   {",
       '     "mode": "E150",',
       '     "sourceText": "...",',
       '     "language": "de",',
       '     "claims": [ { "id": "...", "title": "...", "text": "...", "responsibility": "Bund" } ],',
-      '     "notes": [ { "id": "...", "text": "..." } ],',
-      '     "questions": [ { "id": "...", "text": "..." } ],',
+      '     "notes": [ { "id": "...", "kind": "Faktenlage", "text": "..." } ],',
+      '     "questions": [ { "id": "...", "dimension": "Finanzen", "text": "..." } ],',
       '     "knots": [ { "id": "...", "label": "...", "description": "..." } ]',
       "   }",
       "",
-      "5) Gib NUR den JSON-Text zurück – keine Erklärungen, keine Kommentare, keine Markdown-Formatierung.",
+      "7) Gib NUR den JSON-Text zurück – keine Erklärungen, keine Kommentare, keine Markdown-Formatierung.",
       "",
       "BEITRAG:",
       text,
@@ -108,16 +121,26 @@ function buildUserPrompt(
     '   - title: a very short label (max. 6–8 words).',
     '   - responsibility: one of "EU", "Bund", "Land", "Kommune", "privat", "unbestimmt" or leave it empty.',
     "",
-    "3) You MAY add notes, questions and knots, but ONLY if the text clearly supports them.",
+    "3) Context notes (at least 2, up to 5):",
+    "   - Highlight key sections of the text as { id, kind, text }.",
+    "   - kind is a short label such as “FACTS”, “EXAMPLE”, “MOTIVATION”.",
     "",
-    "4) Return ONLY raw JSON with this shape (no markdown, no ``` blocks):",
+    "4) Critical questions (2–4 entries):",
+    "   - Surface gaps or checks the community should clarify.",
+    "   - Shape: { id, dimension, text } where dimension is a domain like “Finance”, “Legal”, “Impact”.",
+    "",
+    "5) Knots / topic hotspots (at least 1):",
+    "   - Describe tensions or trade-offs (label + 1–2 sentence description).",
+    "   - All entries must remain grounded in the given text; leave an array empty only if there is truly no signal.",
+    "",
+    "6) Return ONLY raw JSON with this shape (no markdown, no ``` blocks):",
     "   {",
     '     "mode": "E150",',
     '     "sourceText": "...",',
     '     "language": "en" or "de",',
     '     "claims": [ { "id": "...", "title": "...", "text": "...", "responsibility": "Bund" } ],',
-    '     "notes": [ { "id": "...", "text": "..." } ],',
-    '     "questions": [ { "id": "...", "text": "..." } ],',
+    '     "notes": [ { "id": "...", "kind": "FACTS", "text": "..." } ],',
+    '     "questions": [ { "id": "...", "dimension": "Finance", "text": "..." } ],',
     '     "knots": [ { "id": "...", "label": "...", "description": "..." } ]',
     "   }",
     "",
@@ -128,9 +151,21 @@ function buildUserPrompt(
 
 /* ---------- Hauptfunktion ---------- */
 
+export type AnalyzeResultWithMeta = AnalyzeResult & {
+  _meta?: {
+    provider?: string;
+    model?: string;
+    durationMs?: number;
+    tokensInput?: number;
+    tokensOutput?: number;
+    costEur?: number;
+    pipeline?: AiPipelineName;
+  };
+};
+
 export async function analyzeContribution(
   input: AnalyzeInput
-): Promise<AnalyzeResult> {
+): Promise<AnalyzeResultWithMeta> {
   const sourceText = input.text?.trim() ?? "";
   if (!sourceText) {
     throw new Error("analyzeContribution: input.text ist leer");
@@ -148,6 +183,9 @@ export async function analyzeContribution(
     locale: language,
     maxClaims,
     maxTokens: 1800,
+    telemetry: {
+      pipeline: input.pipeline ?? "contribution_analyze",
+    },
   });
 
   const rawText = orchestration.rawText;
@@ -213,11 +251,22 @@ export async function analyzeContribution(
 
   const base: AnalyzeResult = parsed.data;
 
+  const meta = {
+    provider: orchestration.best?.provider,
+    model: orchestration.best?.modelName,
+    durationMs: orchestration.best?.durationMs,
+    tokensInput: orchestration.best?.tokensIn ?? 0,
+    tokensOutput: orchestration.best?.tokensOut ?? 0,
+    costEur: orchestration.best?.costEur ?? 0,
+    pipeline: input.pipeline ?? "contribution_analyze",
+  };
+
   return {
     ...base,
     claims: base.claims ?? [],
     notes: base.notes ?? [],
     questions: base.questions ?? [],
     knots: base.knots ?? [],
+    _meta: meta,
   };
 }

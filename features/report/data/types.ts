@@ -8,6 +8,14 @@ export type CountryVotes = {
   disagree: number;
 };
 
+export type TopicDecisionSummary = {
+  yesShare: number;
+  noShare: number;
+  abstainShare?: number;
+  decidedAt?: string | null;
+  majorityKind?: string;
+};
+
 export type TopicReport = {
   id: string;                 // z.B. Topic-Kanon-ID
   label: string;              // Klartext "Tierschutz & Agrar"
@@ -18,6 +26,8 @@ export type TopicReport = {
   neutralShare: number;       // 0..1
   disagreeShare: number;      // 0..1
   trend?: "up" | "down" | "steady";
+  decisionSummary?: TopicDecisionSummary | null;
+  newsSourceCount?: number;
 };
 
 export type RegionReportOverview = {
@@ -25,6 +35,8 @@ export type RegionReportOverview = {
   regionName: string;         // Klartext
   totalStatements: number;
   totalReports: number;
+  newsSourceCount?: number;
+  lastUpdated?: string | null;
   topTopics: TopicReport[];   // wichtigste Themen in dieser Region
 };
 

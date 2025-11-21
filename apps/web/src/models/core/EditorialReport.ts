@@ -1,15 +1,15 @@
-import { getConn } from "@/lib/triMongo";
-import { Schema } from "mongoose";
+import type { Collection } from "mongodb";
+import { coreCol } from "@core/db/triMongo";
 
-const EditorialReportSchema = new Schema({
-  submissionId: { type: String, required: false }, // optional link to an archive id
-  trace:        { type: String, required: true },
-  userNote:     { type: String, default: "" },
-  flags:        { type: [Object], default: [] },   // [{type,match,start,end}]
-  createdAt:    { type: Date, default: () => new Date() },
-});
+export type EditorialReportDoc = {
+  _id?: string;
+  submissionId?: string;
+  trace: string;
+  userNote: string;
+  flags: Array<Record<string, unknown>>;
+  createdAt: Date;
+};
 
-export default async function EditorialReportModel() {
-  const conn = await getConn("core");
-  return conn.models.EditorialReport || conn.model("EditorialReport", EditorialReportSchema);
+export async function getEditorialReportCollection(): Promise<Collection<EditorialReportDoc>> {
+  return coreCol<EditorialReportDoc>("editorialreports");
 }

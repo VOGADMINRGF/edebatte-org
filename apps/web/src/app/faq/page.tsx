@@ -1,41 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { colors } from "../theme";
-
-const faqTabs = [
-  {
-    label: "Was ist VoiceOpenGov?",
-    content: (
-      <p>
-        VoiceOpenGov ist eine unabhängige Beteiligungsplattform, die echte
-        Mitbestimmung, Transparenz und nachvollziehbare Entscheidungen für alle
-        Menschen ermöglicht – digital, datenschutzfreundlich, ohne
-        Parteienzwang.
-      </p>
-    ),
-  },
-  {
-    label: "Wie funktioniert die Abstimmung?",
-    content: (
-      <p>
-        Jeder kann Anliegen einbringen, Kernbotschaften zustimmen oder ablehnen.
-        Die Auswertung ist jederzeit live einsehbar, anonym und repräsentativ.
-      </p>
-    ),
-  },
-  {
-    label: "Wer kann mitmachen?",
-    content: (
-      <p>
-        Alle! Egal ob Bürger:in, Verein, Unternehmen, NGO oder Verwaltung –
-        Beteiligung ist offen für jede Person und Gruppe.
-      </p>
-    ),
-  },
-];
+import { useLocale } from "@/context/LocaleContext";
+import { getFaqTabs } from "./strings";
 
 export function FAQTabs() {
+  const { locale } = useLocale();
+  const faqTabs = getFaqTabs(locale);
   const [tab, setTab] = useState(0);
   return (
     <section className="mb-10">
@@ -55,7 +26,7 @@ export function FAQTabs() {
         ))}
       </div>
       <div className="bg-white p-6 rounded-xl shadow border border-coral text-gray-800 min-h-[80px]">
-        {faqTabs[tab].content}
+        <p>{faqTabs[tab].body}</p>
       </div>
     </section>
   );

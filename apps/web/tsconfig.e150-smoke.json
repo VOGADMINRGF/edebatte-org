@@ -30,6 +30,7 @@
     "src/features/**/legacy/**",
     "tools/**",
     "../tools/**",
-    "../../tools/**"
+    "../../tools/**",
+    "tools/migration/VPM25/_legacy/**"
   ]
 }

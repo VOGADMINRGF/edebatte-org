@@ -1,4 +1,3 @@
-// apps/web/src/app/reports/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,91 +5,26 @@ import Link from "next/link";
 import { useAuth } from "@features/auth/hooks/useAuth";
 import { useActionPermission } from "@features/user/hooks/useActionPermission";
 import type { AccessTier } from "@/features/pricing";
+import type { RegionReportOverview, TopicReport } from "@features/report/data/types";
+import { useLocale } from "@/context/LocaleContext";
+import { resolveTimeRange, type TimeRangeKey } from "@/utils/timeRange";
 
-/** UI-Typ für Themen in einer Region (nur für diese Seite relevant) */
-type RegionTopic = {
-  id: string;
-  label: string;
-  description: string;
-  statements: number;
-  evidenceSlots: number;
-  openQuestions: number;
-  countries: string[];
-  lastUpdated: string;
-  regionCode: string;
-  rank: number; // 1 = meist diskutiert
-};
-
-/** Mock-Daten – später durch echte Aggregationen ersetzen */
-const MOCK_TOPICS: RegionTopic[] = [
-  {
-    id: "tier_agri",
-    label: "Tierschutz ↔ Agrarwirtschaft",
-    description:
-      "Wie vereinbaren wir Tierwohl, Ernährungssicherheit und wirtschaftliche Tragfähigkeit der Landwirtschaft?",
-    statements: 42,
-    evidenceSlots: 118,
-    openQuestions: 17,
-    countries: ["DE", "NL", "DK", "ES"],
-    lastUpdated: "2025-11-12",
-    regionCode: "DE-BB",
-    rank: 1,
-  },
-  {
-    id: "prices_inflation",
-    label: "Preise & Lebenshaltungskosten",
-    description:
-      "Preiserhöhungen, Energie, Mieten – welche Maßnahmen werden diskutiert und welche Evidenz gibt es?",
-    statements: 73,
-    evidenceSlots: 204,
-    openQuestions: 31,
-    countries: ["DE", "FR", "IT", "PL"],
-    lastUpdated: "2025-11-10",
-    regionCode: "DE-BB",
-    rank: 2,
-  },
-  {
-    id: "health_care",
-    label: "Gesundheit & Pflege",
-    description:
-      "Wie sichern wir eine gute Versorgung in Stadt und Land – personell, finanziell und strukturell?",
-    statements: 51,
-    evidenceSlots: 139,
-    openQuestions: 22,
-    countries: ["DE", "AT", "CH"],
-    lastUpdated: "2025-11-09",
-    regionCode: "DE-BB",
-    rank: 3,
-  },
-  {
-    id: "climate_energy",
-    label: "Klima & Energie",
-    description:
-      "Energiewende, Netzausbau, lokale Projekte – welche Konflikte und Chancen werden diskutiert?",
-    statements: 88,
-    evidenceSlots: 260,
-    openQuestions: 45,
-    countries: ["DE", "DK", "NL"],
-    lastUpdated: "2025-11-08",
-    regionCode: "DE-BB",
-    rank: 4,
-  },
+const REGION_OPTIONS = [
+  { value: "DE-BB", label: "Brandenburg" },
+  { value: "DE-BE", label: "Berlin" },
+  { value: "DE", label: "Deutschland" },
+  { value: "EU", label: "Europa" },
+  { value: "all", label: "Global" },
 ];
 
-type ReportAccess = {
-  hasFullAccess: boolean;
-  tier: AccessTier;
-  label: string;
-  defaultRegion: string;
-};
+const formatter = new Intl.NumberFormat("de-DE");
+const formatNumber = (value: number) => formatter.format(value);
 
-/**
- * Leitet aus deinem bestehenden Auth-/Permissions-System
- * ein einfaches Gating für die Reports ab.
- *
- * Wichtig: wir casten auf `any`, damit TS nicht mit UserType/IUserProfile kollidiert.
- */
-function useReportAccess(): ReportAccess {
+function topicDescription(topic: TopicReport): string {
+  return topic.description?.trim() || "Sammelthema aus aktuellen Evidence-Claims";
+}
+
+function useReportAccess() {
   const auth = useAuth() as any;
   const user = auth?.user ?? null;
   const permission = useActionPermission(user as any);
@@ -99,29 +33,20 @@ function useReportAccess(): ReportAccess {
     if (!user) {
       return {
         hasFullAccess: false,
-        tier: "public",
+        tier: "public" as AccessTier,
         label: "Öffentliche Ansicht",
         defaultRegion: "DE-BB",
       };
     }
 
     const profile = user as any;
-    const active =
-      profile.roles?.[profile.activeRole] ?? { role: profile.role, region: profile.region };
+    const active = profile.roles?.[profile.activeRole] ?? { role: profile.role, region: profile.region };
     const activeRole: string = active?.role ?? "user";
-
     const isStaff = ["admin", "superadmin", "moderator"].includes(activeRole);
     const isInstitution = ["ngo", "politics", "party", "b2b"].includes(activeRole);
-
-    const canPremiumFeature =
-      permission && typeof permission.can === "function"
-        ? !!permission.can("premiumFeature")
-        : false;
-
+    const canPremiumFeature = permission && typeof permission.can === "function" ? !!permission.can("premiumFeature") : false;
     const hasFullAccess = isStaff || canPremiumFeature;
-
-    const defaultRegion: string =
-      active.region || profile.region || "DE-BB";
+    const defaultRegion: string = active.region || profile.region || "DE-BB";
 
     let tier: AccessTier;
     let label: string;
@@ -154,55 +79,71 @@ function useReportAccess(): ReportAccess {
 
 export default function ReportsOverviewPage() {
   const { hasFullAccess, tier, label, defaultRegion } = useReportAccess();
+  const { locale } = useLocale();
 
   const [region, setRegion] = useState(defaultRegion);
-  const [topics, setTopics] = useState<RegionTopic[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("90d");
+  const [overview, setOverview] = useState<RegionReportOverview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Region bei Rollenwechsel nachziehen
   useEffect(() => {
     setRegion(defaultRegion);
   }, [defaultRegion]);
 
   useEffect(() => {
-    // aktuell nur Filter auf Mock-Daten,
-    // später hier API-Aufruf / echte Aggregationen
-    const filtered = MOCK_TOPICS.filter((t) => t.regionCode === region).sort(
-      (a, b) => a.rank - b.rank
-    );
-    setTopics(filtered);
-  }, [region]);
+    let abort = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ region, locale, timeRange });
+        const res = await fetch(`/api/reports/overview?${params.toString()}`, {
+          cache: "no-store",
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(body?.error || res.statusText);
+        }
+        if (!abort) {
+          setOverview(body.overview ?? null);
+        }
+      } catch (err: any) {
+        if (!abort) {
+          setOverview(null);
+          setError(err?.message || "Konnte Daten nicht laden");
+        }
+      } finally {
+        if (!abort) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      abort = true;
+    };
+  }, [region, locale, timeRange]);
 
-  const publicTop3 = useMemo(
-    () => topics.filter((t) => t.rank <= 3),
-    [topics]
-  );
-  const lockedRest = useMemo(
-    () => topics.filter((t) => t.rank > 3),
-    [topics]
-  );
+  const rangeInfo = resolveTimeRange(timeRange);
+  const publicTopics = useMemo(() => overview?.topTopics.slice(0, 3) ?? [], [overview]);
+  const lockedTopics = useMemo(() => overview?.topTopics.slice(3) ?? [], [overview]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50 to-emerald-100">
       <div className="container-vog py-6 space-y-6">
-        {/* Kopfbereich */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="vog-head mb-1">
-              Themen-Reports & Tendenzen nach Region
-            </h1>
+          <div className="space-y-2">
+            <h1 className="vog-head mb-1">Themen-Reports &amp; Tendenzen nach Region</h1>
             <p className="text-sm text-slate-600 max-w-2xl">
-              Diese Übersicht zeigt, welche Themen in einer Region gerade am
-              stärksten diskutiert werden – auf Basis von Bürger-Beiträgen
-              (Level&nbsp;1), E150-Analysen (Level&nbsp;2) und weiteren Quellen.
+              Diese Übersicht stützt sich auf den Evidence-Graph: Claims, Drafts und Entscheidungen, die aus Feeds
+              und Beiträgen automatisiert analysiert wurden.
             </p>
             <p className="mt-1 text-[11px] text-slate-400">
-              Top&nbsp;3 Themen pro Region sind für alle Bürger:innen sichtbar.
-              Detailliertere Rankings &amp; Reports sind für Premium-Mitglieder
-              und legitimierte Institutionen vorgesehen.
+              Top&nbsp;3 Themen pro Region sind öffentlich. Detailliertere Rankings stehen Premium-Mitgliedern und
+              legitimierten Institutionen zur Verfügung.
             </p>
+            <p className="text-[11px] text-slate-500">Zeitraum: {rangeInfo.label}</p>
           </div>
 
-          {/* Region + Tier-Anzeige */}
           <div className="flex flex-col items-end gap-2 text-[11px]">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1.5 shadow-sm">
               <span
@@ -219,15 +160,31 @@ export default function ReportsOverviewPage() {
               />
               <span className="font-semibold text-slate-700">{label}</span>
             </div>
-            <label className="text-slate-500">
+            <label className="text-slate-500 flex items-center gap-2">
               Region wählen
               <select
-                className="ml-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-700"
+                className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-700"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
               >
-                <option value="DE-BB">Brandenburg</option>
-                {/* TODO: dynamische Regionen aus DB */}
+                {REGION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-slate-500 flex items-center gap-2">
+              Zeitraum
+              <select
+                className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-700"
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value as TimeRangeKey)}
+              >
+                <option value="30d">Letzte 30 Tage</option>
+                <option value="90d">Letzte 90 Tage</option>
+                <option value="365d">Letzte 12 Monate</option>
+                <option value="all">Gesamter Zeitraum</option>
               </select>
             </label>
             <Link
@@ -239,157 +196,84 @@ export default function ReportsOverviewPage() {
           </div>
         </header>
 
-        {/* Top 3 – immer öffentlich */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Top 3 Themen (öffentlich)
-            </h2>
-            <span className="text-[11px] text-slate-400">
-              Ranking nach Anzahl der geprüften Statements &amp; Evidenz-Slots
-            </span>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {publicTop3.map((t) => (
-              <article
-                key={t.id}
-                className="rounded-3xl bg-white/95 border border-slate-100 shadow-sm p-4 flex flex-col gap-3"
-              >
-                <header className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] font-semibold text-slate-400">
-                      #{t.rank}
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                      {t.label}
-                    </h3>
-                    <p className="text-xs text-slate-600">
-                      {t.description}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-slate-400">
-                    Stand: {t.lastUpdated}
-                  </span>
-                </header>
-
-                <dl className="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
-                  <div className="rounded-2xl bg-sky-50 px-3 py-2">
-                    <dt className="text-[10px] uppercase text-sky-700 mb-0.5">
-                      Statements
-                    </dt>
-                    <dd className="text-base font-semibold">
-                      {t.statements}
-                    </dd>
-                  </div>
-                  <div className="rounded-2xl bg-emerald-50 px-3 py-2">
-                    <dt className="text-[10px] uppercase text-emerald-700 mb-0.5">
-                      Evidenz-Slots
-                    </dt>
-                    <dd className="text-base font-semibold">
-                      {t.evidenceSlots}
-                    </dd>
-                  </div>
-                  <div className="rounded-2xl bg-amber-50 px-3 py-2">
-                    <dt className="text-[10px] uppercase text-amber-700 mb-0.5">
-                      Offene Fragen
-                    </dt>
-                    <dd className="text-base font-semibold">
-                      {t.openQuestions}
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <div>Fokus-Länder: {t.countries.join(", ")}</div>
-                  <button
-                    type="button"
-                    className="underline text-sky-700 font-semibold"
-                  >
-                    Kurz-Report (Preview)
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+        <section className="grid gap-3 md:grid-cols-3">
+          <SummaryCard label="Evidence-Claims" value={overview?.totalStatements ?? 0} hint={rangeInfo.label} />
+          <SummaryCard label="Decisions" value={overview?.totalReports ?? 0} hint="Votes & Drafts" />
+          <SummaryCard
+            label="News-Quellen"
+            value={overview?.newsSourceCount ?? 0}
+            hint={overview?.lastUpdated ? `Update: ${new Date(overview.lastUpdated).toLocaleDateString("de-DE")}` : undefined}
+          />
         </section>
 
-        {/* Top 4–10 – Zugang abhängig von Mitgliedschaft/Rolle */}
+        <section className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+          {loading ? (
+            <p className="text-sm text-slate-500">Daten werden geladen …</p>
+          ) : error ? (
+            <p className="text-sm text-rose-600">{error}</p>
+          ) : overview ? (
+            <div className="flex flex-wrap gap-6 text-sm text-slate-600">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-400">Region</p>
+                <p className="text-lg font-semibold text-slate-900">{overview.regionName}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-400">Evidence-Claims</p>
+                <p className="text-lg font-semibold text-slate-900">{formatNumber(overview.totalStatements)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-400">Entscheidungen / Drafts</p>
+                <p className="text-lg font-semibold text-slate-900">{formatNumber(overview.totalReports)}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Keine Evidence-Daten für diese Region vorhanden.</p>
+          )}
+        </section>
+
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Weitere Themen dieser Region
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-900">Top 3 Themen (öffentlich)</h2>
+            <span className="text-[11px] text-slate-400">Ranking nach Anzahl der Evidence-Claims</span>
+          </div>
+          {publicTopics.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-5 text-center text-sm text-slate-500">
+              Noch keine Themen identifiziert.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              {publicTopics.map((topic, idx) => (
+                <TopicCard key={topic.id} topic={topic} rank={idx + 1} highlight />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-900">Weitere Themen dieser Region</h2>
             {!hasFullAccess && (
               <span className="text-[11px] text-slate-400">
-                Detaillierte Rankings (Platz 4–10) sind für Premium-Mitglieder
-                und legitimierte Institutionen freigeschaltet.
+                Plätze 4–10 sind für Premium-Mitglieder &amp; Institutionen verfügbar.
               </span>
             )}
           </div>
-
           {hasFullAccess ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {lockedRest.map((t) => (
-                <article
-                  key={t.id}
-                  className="rounded-3xl bg-white/95 border border-slate-100 shadow-sm p-4 flex flex-col gap-3"
-                >
-                  <header className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-[11px] font-semibold text-slate-400">
-                        #{t.rank}
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                        {t.label}
-                      </h3>
-                      <p className="text-xs text-slate-600">
-                        {t.description}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-400">
-                      Stand: {t.lastUpdated}
-                    </span>
-                  </header>
-
-                  <dl className="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
-                    <div className="rounded-2xl bg-sky-50 px-3 py-2">
-                      <dt className="text-[10px] uppercase text-sky-700 mb-0.5">
-                        Statements
-                      </dt>
-                      <dd className="text-base font-semibold">
-                        {t.statements}
-                      </dd>
-                    </div>
-                    <div className="rounded-2xl bg-emerald-50 px-3 py-2">
-                      <dt className="text-[10px] uppercase text-emerald-700 mb-0.5">
-                        Evidenz-Slots
-                      </dt>
-                      <dd className="text-base font-semibold">
-                        {t.evidenceSlots}
-                      </dd>
-                    </div>
-                    <div className="rounded-2xl bg-amber-50 px-3 py-2">
-                      <dt className="text-[10px] uppercase text-amber-700 mb-0.5">
-                        Offene Fragen
-                      </dt>
-                      <dd className="text-base font-semibold">
-                        {t.openQuestions}
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
-              ))}
-            </div>
+            lockedTopics.length ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {lockedTopics.map((topic, idx) => (
+                  <TopicCard key={topic.id} topic={topic} rank={idx + 4} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 bg-white/80 p-5 text-center text-sm text-slate-500">
+                Keine weiteren Themen vorhanden.
+              </div>
+            )
           ) : (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-5 text-center text-[12px] text-slate-500 space-y-3">
               <p>
-                In dieser Region gibt es weitere Themen (Platz 4–10), die
-                aktuell intensiv diskutiert werden.
-              </p>
-              <p>
-                Der detaillierte Zugriff ist für Premium-Mitglieder,
-                legitimierte Institutionen und Redaktionen vorgesehen.
+                Für diese Region sind zusätzliche Themen verfügbar, die nach Freigabe detailliert eingesehen werden können.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Link
@@ -404,17 +288,66 @@ export default function ReportsOverviewPage() {
                 >
                   Institutions-Zugang anfragen
                 </Link>
-                <Link
-                  href={`/swipe?region=${region}`}
-                  className="w-full sm:w-auto px-4 py-1.5 rounded-full border border-slate-200 bg-white text-[11px] text-slate-700 font-semibold"
-                >
-                  Oder: Alle Themen swipe-basiert entdecken
-                </Link>
               </div>
             </div>
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+function TopicCard({ topic, rank, highlight }: { topic: TopicReport; rank: number; highlight?: boolean }) {
+  const decision = topic.decisionSummary ?? null;
+
+  return (
+    <article
+      className={`rounded-3xl border shadow-sm p-4 flex flex-col gap-3 ${
+        highlight ? "bg-white/95 border-slate-100" : "bg-white/90 border-slate-200"
+      }`}
+    >
+      <header className="flex items-start justify-between gap-2">
+        <div>
+          <div className="text-[11px] font-semibold text-slate-400">#{rank}</div>
+          <h3 className="text-sm font-semibold text-slate-900 mb-1">{topic.label}</h3>
+          <p className="text-xs text-slate-600">{topicDescription(topic)}</p>
+        </div>
+      </header>
+      <dl className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+        <div className="rounded-2xl bg-sky-50 px-3 py-2">
+          <dt className="text-[10px] uppercase text-sky-700 mb-0.5">Evidence-Claims</dt>
+          <dd className="text-base font-semibold">{formatNumber(topic.totalStatements)}</dd>
+        </div>
+        <div className="rounded-2xl bg-emerald-50 px-3 py-2">
+          <dt className="text-[10px] uppercase text-emerald-700 mb-0.5">Votes &amp; Drafts</dt>
+          <dd className="text-base font-semibold">{formatNumber(topic.totalVotes)}</dd>
+        </div>
+      </dl>
+      <div className="text-[11px] text-slate-500 space-y-1">
+        {decision ? (
+          <span className="font-semibold text-emerald-700">
+            Mehrheit: {Math.round((decision.yesShare ?? 0) * 100)}% Zustimmung
+            {decision.decidedAt ? ` · Stand ${new Date(decision.decidedAt).toLocaleDateString("de-DE")}` : ""}
+          </span>
+        ) : (
+          <span className="text-slate-400">Noch keine Entscheidung erfasst</span>
+        )}
+        <div>
+          {topic.newsSourceCount
+            ? `${topic.newsSourceCount} verlinkte News-Quellen`
+            : "Noch keine News-Quellen verknüpft"}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SummaryCard({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900">{value.toLocaleString("de-DE")}</p>
+      {hint && <p className="text-xs text-slate-500">{hint}</p>}
+    </div>
   );
 }

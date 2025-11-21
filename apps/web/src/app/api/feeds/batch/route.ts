@@ -1,35 +1,30 @@
-import crypto from "node:crypto";
-import { NextRequest } from "next/server";
-import type {
-  FeedBatchItem,
-  StatementCandidate,
-} from "@/features/feeds/types";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
+import type { FeedItemInput, StatementCandidate } from "@features/feeds/types";
+import {
+  buildCanonicalHash,
+  buildStatementCandidate,
+  normalizeLocale,
+} from "@features/feeds/utils";
+import {
+  findCandidateByHash,
+  insertStatementCandidate,
+  saveFeedItemRaw,
+} from "@features/feeds/storage";
+import { normalizeRegionCode } from "@core/regions/types";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
 } as const;
 
 type FeedBatchBody = {
-  items: FeedBatchItem[];
+  items: FeedItemInput[];
 };
 
 function fail(message: string, status = 400) {
-  return new Response(JSON.stringify({ ok: false, error: message }), {
-    status,
-    headers: JSON_HEADERS,
-  });
-}
-
-function hashForItem(item: FeedBatchItem): string {
-  const canonical = [
-    item.url?.trim() ?? "",
-    item.title?.trim() ?? "",
-    item.publishedAt?.trim() ?? "",
-  ].join("|");
-  return crypto.createHash("sha256").update(canonical).digest("hex");
+  return NextResponse.json({ ok: false, error: message }, { status, headers: JSON_HEADERS });
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -41,43 +36,47 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   if (!body || !Array.isArray(body.items)) {
-    return fail("Body muss { items: FeedBatchItem[] } enthalten", 400);
+    return fail("Body muss { items: FeedItemInput[] } enthalten", 400);
   }
 
   const seenHashes = new Set<string>();
   const candidates: StatementCandidate[] = [];
 
   for (const item of body.items) {
-    if (!item || typeof item.url !== "string" || !item.url.trim()) {
-      continue;
-    }
-    const canonicalHash = hashForItem(item);
-    const deduped = seenHashes.has(canonicalHash);
-    if (!deduped) {
-      seenHashes.add(canonicalHash);
-    }
+    if (!item || typeof item.url !== "string" || !item.url.trim()) continue;
 
-    candidates.push({
-      id: crypto.randomUUID(),
-      sourceUrl: item.url.trim(),
-      title: item.title?.trim(),
-      summary: item.summary?.trim(),
-      content: item.content,
-      publishedAt: item.publishedAt,
-      canonicalHash,
-      deduped,
-      createdAt: new Date().toISOString(),
-      topic: item.topicHint,
+    const normalizedItem = applyFeedDefaults(item);
+    const canonicalHash = buildCanonicalHash(normalizedItem);
+    if (seenHashes.has(canonicalHash)) continue;
+    seenHashes.add(canonicalHash);
+
+    await saveFeedItemRaw({ ...normalizedItem, canonicalHash }).catch(() => {
+      /* optional collection – ignore errors */
     });
 
-    // TODO: analyzeContribution({ text }) aufrufen, sobald wir Claims erzeugen wollen.
+    const exists = await findCandidateByHash(canonicalHash);
+    if (exists) continue;
+
+    const candidate = buildStatementCandidate(normalizedItem, canonicalHash);
+
+    try {
+      await insertStatementCandidate(candidate);
+      candidates.push(candidate);
+    } catch (error: any) {
+      if (error?.code === 11000) continue;
+      throw error;
+    }
   }
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      results: candidates,
-    }),
-    { status: 200, headers: JSON_HEADERS }
-  );
+  return NextResponse.json({ ok: true, results: candidates }, { headers: JSON_HEADERS });
+}
+
+function applyFeedDefaults(item: FeedItemInput & { locale?: string | null }): FeedItemInput {
+  const sourceLocale = normalizeLocale(item.sourceLocale ?? item.locale ?? null);
+  const regionCode = normalizeRegionCode(item.regionCode ?? item.region ?? null);
+  return {
+    ...item,
+    sourceLocale,
+    regionCode,
+  };
 }

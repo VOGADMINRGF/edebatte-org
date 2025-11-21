@@ -1,15 +1,15 @@
-import { getConn } from "@/lib/triMongo";
-import { Schema } from "mongoose";
+import type { Collection } from "mongodb";
+import { votesCol } from "@core/db/triMongo";
 
-const SubmissionArchiveSchema = new Schema({
-  submissionId:   { type: String, required: true },  // your synthetic id/trace
-  authorPseudoId: { type: String, required: false }, // hashed/pseudonymized
-  locale:         { type: String, default: "de" },
-  originalText:   { type: String, required: true },  // (can be encrypted at rest)
-  archivedAt:     { type: Date, default: () => new Date() },
-});
+export type SubmissionArchiveDoc = {
+  _id?: string;
+  submissionId: string;
+  authorPseudoId?: string;
+  locale: string;
+  originalText: string;
+  archivedAt: Date;
+};
 
-export default async function SubmissionArchiveModel() {
-  const conn = await getConn("votes");
-  return conn.models.SubmissionArchive || conn.model("SubmissionArchive", SubmissionArchiveSchema);
+export async function getSubmissionArchiveCollection(): Promise<Collection<SubmissionArchiveDoc>> {
+  return votesCol<SubmissionArchiveDoc>("submissionarchives");
 }

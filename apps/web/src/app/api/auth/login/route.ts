@@ -2,6 +2,7 @@ import { env } from "@/utils/env";
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { getCol } from "@core/db/triMongo";
+import { ensureVerificationDefaults } from "@core/auth/verificationTypes";
 import { verifyPassword } from "@/utils/password"; // <— korrekt
 import { rateLimit } from "@/utils/rateLimit";
 
@@ -40,9 +41,11 @@ export async function POST(req: Request) {
       expiresIn: `${DAYS}d`,
     });
 
+    const verification = ensureVerificationDefaults(u.verification);
+    const legacyTwoFA = u.verification?.twoFA?.enabled === true;
+    const isVerified = verification.level !== "none" || legacyTwoFA;
     const role: string =
-      (u.role as string) || (u.verification?.twoFA?.enabled ? "verified" : "user");
-    const isVerified = u.verification?.twoFA?.enabled === true;
+      (u.role as string) || (isVerified ? "verified" : "user");
     const hasLocation = !!(u.profile?.location || u.city || u.region);
 
     const res = NextResponse.json({ ok: true });

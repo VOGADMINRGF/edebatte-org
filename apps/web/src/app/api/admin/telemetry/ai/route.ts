@@ -1,30 +1,51 @@
-import { NextResponse } from "next/server";
-import { providerEntries, type ProviderName } from "@features/ai/providers";
+import { NextRequest, NextResponse } from "next/server";
+import { getUsageSnapshot } from "@core/telemetry/aiUsageSnapshot";
+import type {
+  AiPipelineName,
+  AiProviderName,
+} from "@core/telemetry/aiUsageTypes";
 
-type ProvRow = {
-  name: ProviderName;
-  label: string;
-  ok: boolean;
-  skipped?: boolean;
-  code: number;
-  note?: string;
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const META: Record<ProviderName, { label: string; envKeys: string[]; note?: string }> = {
-  openai:    { label: "OpenAI",    envKeys: ["OPENAI_API_KEY"] },
-  anthropic: { label: "Anthropic", envKeys: ["ANTHROPIC_API_KEY"] },
-  mistral:   { label: "Mistral",   envKeys: ["MISTRAL_API_KEY"] },
-  gemini:    { label: "Gemini",    envKeys: ["GOOGLE_GENERATIVE_AI_API_KEY","GEMINI_API_KEY"] },
-};
+function parseRange(value: string | null): number {
+  switch (value) {
+    case "week":
+      return 7;
+    case "month":
+      return 30;
+    case "quarter":
+      return 90;
+    default:
+      return 1;
+  }
+}
 
-export async function GET() {
-  const providers: ProvRow[] = providerEntries.map(([name]) => {
-    const meta = META[name];
-    const hasKey = (meta?.envKeys ?? []).some((k) => !!process.env[k]);
-    return hasKey
-      ? { name, label: meta?.label ?? name, ok: true, code: 200, note: meta?.note ?? "Key vorhanden" }
-      : { name, label: meta?.label ?? name, ok: false, skipped: true, code: 202, note: "Kein API-Key gesetzt" };
-  });
+function normalizeProvider(value: string | null): AiProviderName | undefined {
+  if (!value || value === "all") return undefined;
+  return value as AiProviderName;
+}
 
-  return NextResponse.json({ providers, ts: new Date().toISOString() });
+function normalizePipeline(value: string | null): AiPipelineName | undefined {
+  if (!value || value === "all") return undefined;
+  return value as AiPipelineName;
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const snapshot = await getUsageSnapshot({
+      rangeDays: parseRange(searchParams.get("range")),
+      provider: normalizeProvider(searchParams.get("provider")),
+      pipeline: normalizePipeline(searchParams.get("pipeline")),
+      region: searchParams.get("region") ?? undefined,
+    });
+    return NextResponse.json({ ok: true, snapshot });
+  } catch (error) {
+    console.error("[api] telemetry snapshot error", error);
+    return NextResponse.json(
+      { ok: false, error: "Telemetry not available" },
+      { status: 500 },
+    );
+  }
 }
