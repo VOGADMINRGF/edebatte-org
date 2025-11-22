@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { voteDraftsCol } from "@features/feeds/db";
 import type { VoteDraftDoc } from "@features/feeds/types";

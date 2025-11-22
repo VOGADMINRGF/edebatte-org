@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { evidenceItemsCol } from "@core/evidence/db";
 import { isStaffRequest } from "../../feeds/utils";

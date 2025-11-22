@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { publishVoteDraft } from "@features/feeds/publishVoteDraft";
 import { isStaffRequest } from "../../../utils";
