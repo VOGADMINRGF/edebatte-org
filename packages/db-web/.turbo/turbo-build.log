@@ -1,0 +1,6 @@
+
+
+> @db/web@1.0.0 build /Users/RF/Arbeitsmappe/LandingeDbtt/packages/db-web
+> tsc -p tsconfig.build.json && node ./scripts/copy-generated.mjs
+
+[db-web] copied Prisma client from /Users/RF/Arbeitsmappe/LandingeDbtt/packages/db-web/src/generated to /Users/RF/Arbeitsmappe/LandingeDbtt/packages/db-web/dist/generated

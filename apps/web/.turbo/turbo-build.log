@@ -1,0 +1,298 @@
+
+
+> @vog/web@1.0.0 build /Users/RF/Arbeitsmappe/LandingeDbtt/apps/web
+> next build
+
+   [1m[38;2;173;127;168m▲ Next.js 15.3.2[39m[22m
+   - Environments: .env.local
+   - Experiments (use with caution):
+     [1m✓[22m externalDir
+     [1m✓[22m typedRoutes
+
+ [37m[1m [22m[39m Creating an optimized production build ...
+ [32m[1m✓[22m[39m Compiled successfully in 9.0s
+[?25l [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m(node:46430) ESLintIgnoreWarning: The ".eslintignore" file is no longer supported. Switch to using the "ignores" property in "eslint.config.js": https://eslint.org/docs/latest/use/configure/migration-guide#ignoring-files
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m
+ ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
+[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m..[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m...[39m[2K[1G [37m[1m [22m[39m Linting and checking validity of types  [36m.[39m[2K[1G[?25h [37m[1m [22m[39m Linting and checking validity of types     [32m[1m✓[22m[39m Linting and checking validity of types 
+[?25l [37m[1m [22m[39m Collecting page data  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting page data  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting page data  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting page data  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting page data  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting page data  [36m...[39m[youClient] Missing env: YOU_API_KEY
+[youClient] Missing env: YOU_API_KEY
+[2K[1G[?25h [37m[1m [22m[39m Collecting page data     [32m[1m✓[22m[39m Collecting page data 
+[?25l [37m[1m [22m[39m Generating static pages (0/151)  [36m[    ][39m[2K[1G [37m[1m [22m[39m Generating static pages (0/151)  [36m[=   ][39m[2K[1G [37m[1m [22m[39m Generating static pages (0/151)  [36m[==  ][39m[2K[1G [37m[1m [22m[39m Generating static pages (0/151)  [36m[=== ][39m[2K[1G [37m[1m [22m[39m Generating static pages (0/151)  [36m[ ===][39m[2K[1G [37m[1m [22m[39m Generating static pages (53/151)  [36m[  ==][39m[2K[1G [37m[1m [22m[39m Generating static pages (130/151)  [36m[   =][39m[2K[1G[?25h[youClient] Missing env: YOU_API_KEY
+[?25h [32m[1m✓[22m[39m Generating static pages (151/151)
+[?25l [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[?25l [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m..[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m...[39m[2K[1G [37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G [37m[1m [22m[39m Collecting build traces  [36m.[39m[2K[1G[?25h [37m[1m [22m[39m Collecting build traces     [32m[1m✓[22m[39m Collecting build traces 
+[2K[1G[?25h [37m[1m [22m[39m Finalizing page optimization     [32m[1m✓[22m[39m Finalizing page optimization 
+
+[4mRoute (app)[24m                                                  [4mSize[24m  [4mFirst Load JS[24m  [4m[24m  [4m[24m
+┌ ƒ /                                                      4.1 kB         [37m[1m109 kB[22m[39m
+├ ƒ /_not-found                                             985 B         [37m[1m103 kB[22m[39m
+├ ƒ /account                                               3.9 kB         [37m[1m109 kB[22m[39m
+├ ƒ /admin                                                1.07 kB         [37m[1m106 kB[22m[39m
+├ ƒ /admin/access                                          1.6 kB         [37m[1m103 kB[22m[39m
+├ ƒ /admin/access/users                                   1.15 kB         [37m[1m106 kB[22m[39m
+├ ƒ /admin/access/users/[id]                              2.44 kB         [37m[1m104 kB[22m[39m
+├ ƒ /admin/eventualities                                  2.63 kB         [37m[1m108 kB[22m[39m
+├ ƒ /admin/eventualities/[id]                             2.87 kB         [37m[1m108 kB[22m[39m
+├ ƒ /admin/evidence/claims                                2.29 kB         [37m[1m107 kB[22m[39m
+├ ƒ /admin/evidence/claims/[id]                              2 kB         [37m[1m104 kB[22m[39m
+├ ƒ /admin/evidence/items                                 1.65 kB         [37m[1m107 kB[22m[39m
+├ ƒ /admin/evidence/items/[id]                            1.92 kB         [37m[1m104 kB[22m[39m
+├ ƒ /admin/feeds/drafts                                   2.06 kB         [37m[1m107 kB[22m[39m
+├ ƒ /admin/feeds/drafts/[id]                              2.44 kB         [37m[1m104 kB[22m[39m
+├ ƒ /admin/graph/impact                                   1.57 kB         [37m[1m107 kB[22m[39m
+├ ƒ /admin/identity                                       1.66 kB         [37m[1m103 kB[22m[39m
+├ ƒ /admin/impact/[id]                                    3.44 kB         [37m[1m109 kB[22m[39m
+├ ƒ /admin/reports/region/[id]                            1.45 kB         [37m[1m103 kB[22m[39m
+├ ƒ /admin/reports/topic/[slug]                           1.46 kB         [37m[1m103 kB[22m[39m
+├ ƒ /admin/responsibility                                 2.31 kB         [37m[1m104 kB[22m[39m
+├ ƒ /admin/settings                                       1.54 kB         [37m[1m103 kB[22m[39m
+├ ƒ /admin/telemetry/ai/dashboard                         1.69 kB         [37m[1m104 kB[22m[39m
+├ ƒ /admin/telemetry/ai/orchestrator                      1.31 kB         [37m[1m106 kB[22m[39m
+├ ƒ /api/account/overview                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/account/payment-profile                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/account/settings                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/account/signature                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/access/routes                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/access/routes/[routeId]                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/access/users/[userId]/overrides              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/access/users/[userId]/overrides/[routeId]    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/ai/orchestrator-smoke                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/alerts/notify                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/alerts/settings                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/alerts/test                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/analytics/summary                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/analytics/summary/contrib-timeseries         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/dev-elevate                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/errors/export                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/errors/last24                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/eventualities/item                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/eventualities/list                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/eventualities/markReviewed                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/evidence/claims                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/evidence/claims/[id]                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/evidence/items                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/evidence/items/[id]                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/feeds/drafts                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/feeds/drafts/[id]                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/feeds/drafts/[id]/publish                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/feeds/drafts/[id]/status                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/graph/ensure                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/graph/impact/summary                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/graph/seed                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/health/check                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/identity/funnel                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/impact/by-contribution                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/orgs/upsert                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/reports/region/[id]                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/reports/topic/[slug]                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/responsibility/directory                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/responsibility/paths                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/settings/get                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/settings/save                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/streams                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/system/ping                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/telemetry/ai                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/telemetry/ai/events                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/usage/summary                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/users/detail                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/users/list                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/users/reset2fa                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/users/resetVerify                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/users/suspend                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/admin/users/updateRole                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/analyze/stream                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/ari                                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/[...nextauth]                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/email/confirm                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/email/start-verify                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/location                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/login                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/logout                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/magic/consume                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/magic/request                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/me                                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/register                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/request-reset                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/reset                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/totp/initiate                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/totp/verify                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/verification/confirm                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/verification/start                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/verify                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/auth/verify/resend                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/autopilot/start                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/claims/pipeline                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/analytics/summary                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/analyze                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/analyze/save                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/analyze/stream                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/drafts                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/ingest                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/refine                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/report                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/contributions/save                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/csrf                                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/debug/env                                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/diag/gpt                                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/drafts                                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/drafts/[id]                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/drafts/create                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/errors/list                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/errors/resolve                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/events                                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/export/items                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/factcheck                                        1.17 kB         [37m[1m103 kB[22m[39m
+├ ƒ /api/factcheck/enqueue                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/factcheck/intern/enqueue                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/factcheck/result/[contributionId]                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/factcheck/status                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/factcheck/status/[jobId]                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/feeds/analyze-pending                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/feeds/batch                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/finding/upsert                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/gdpr/delete                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/gdpr/export                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/geo/lookup                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/geo/nuts                                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/geo/region-meta                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health                                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/ai-models                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/ari                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/gpt                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/map                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/mongo                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/prisma                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/redis                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/streams                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/system                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/system-matrix                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/typensense                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/health/worker                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/items                                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/items/[id]                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/items/list                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/map/points                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/news/search                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/news/survey-topics                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/preflight                                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/public/streams                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/qualify/start                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/quality/clarify                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/quality/polish                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/quick-register                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/region/effective                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/region/set                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/reports                                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/reports/[id]                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/reports/overview                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/reports/topic                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/search/civic                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/stance/expand                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/[id]                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/[id]/react                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/[id]/stats                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/[id]/timeseries                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/[id]/vote                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/create                                  577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/prepare                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/statements/similar                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/stream/append                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/streams/sessions                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/streams/sessions/[id]/agenda                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/streams/sessions/[id]/overlay-feed                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/streams/sessions/[id]/vote                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/support/report                                     577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/swipes/register                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/swipeStatements                                    577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/topics                                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/topics/[slug]                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/translate                                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/translate/contribution                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/unit/[id]/interest                                 577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/uploads                                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/votes/cast                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/votes/stats/[statementId]                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/votes/stream                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/votes/submit                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/votes/summary                                      577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/votes/user                                         577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/you/ping                                           577 B         [37m[1m102 kB[22m[39m
+├ ƒ /api/you/query                                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /apple-touch-icon.png                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /auth/2fa-setup                                       9.87 kB         [37m[1m112 kB[22m[39m
+├ ƒ /auth/onboarding/location                             1.17 kB         [37m[1m103 kB[22m[39m
+├ ƒ /barrierefreiheit                                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /beitraege                                              901 B         [37m[1m103 kB[22m[39m
+├ ƒ /beitraege/neu                                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /beitritt                                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /contact                                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /context                                              1.66 kB         [37m[1m103 kB[22m[39m
+├ ƒ /contribute                                           4.71 kB         [37m[1m107 kB[22m[39m
+├ ƒ /contributions/analyze                                 1.4 kB         [37m[1m103 kB[22m[39m
+├ ƒ /contributions/new                                    10.7 kB         [37m[1m116 kB[22m[39m
+├ ƒ /dashboard/streams                                    1.41 kB         [37m[1m107 kB[22m[39m
+├ ƒ /dashboard/streams/[id]                                1.9 kB         [37m[1m104 kB[22m[39m
+├ ƒ /dashboard/usage                                        948 B         [37m[1m103 kB[22m[39m
+├ ƒ /daten                                                1.98 kB         [37m[1m104 kB[22m[39m
+├ ƒ /demo                                                   846 B         [37m[1m103 kB[22m[39m
+├ ƒ /evidence/[regionCode]                                  180 B         [37m[1m105 kB[22m[39m
+├ ƒ /evidence/[regionCode]/[topicKey]                       577 B         [37m[1m102 kB[22m[39m
+├ ƒ /factcheck                                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /faq                                                  2.13 kB         [37m[1m104 kB[22m[39m
+├ ƒ /howtoworks                                             577 B         [37m[1m102 kB[22m[39m
+├ ƒ /howtoworks/bewegung                                  6.65 kB         [37m[1m108 kB[22m[39m
+├ ƒ /howtoworks/edebatte                                  6.58 kB         [37m[1m108 kB[22m[39m
+├ ƒ /impressum                                            2.01 kB         [37m[1m104 kB[22m[39m
+├ ƒ /join                                                 2.27 kB         [37m[1m104 kB[22m[39m
+├ ƒ /kontakt                                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /login                                                1.17 kB         [37m[1m106 kB[22m[39m
+├ ƒ /map                                                  2.19 kB         [37m[1m104 kB[22m[39m
+├ ƒ /mitglied-antrag                                      2.44 kB         [37m[1m108 kB[22m[39m
+├ ƒ /mitglied-werden                                      5.95 kB         [37m[1m111 kB[22m[39m
+├ ƒ /not-found                                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /nutzungsmodell                                       3.74 kB         [37m[1m109 kB[22m[39m
+├ ƒ /overlay/stream/[id]                                  1.02 kB         [37m[1m103 kB[22m[39m
+├ ƒ /presse                                               4.22 kB         [37m[1m106 kB[22m[39m
+├ ƒ /profile                                              1.83 kB         [37m[1m104 kB[22m[39m
+├ ƒ /qr/[qrId]                                              577 B         [37m[1m102 kB[22m[39m
+├ ƒ /qrcodegenerator                                        331 B         [37m[1m102 kB[22m[39m
+├ ƒ /qrcodewizard                                           306 B         [37m[1m102 kB[22m[39m
+├ ƒ /register                                              3.3 kB         [37m[1m108 kB[22m[39m
+├ ƒ /register/identity                                    2.21 kB         [37m[1m104 kB[22m[39m
+├ ƒ /register/verify-email                                2.31 kB         [37m[1m104 kB[22m[39m
+├ ƒ /report                                                207 kB         [37m[1m348 kB[22m[39m
+├ ƒ /report/[id]                                            577 B         [37m[1m102 kB[22m[39m
+├ ƒ /reports                                              4.84 kB         [37m[1m110 kB[22m[39m
+├ ƒ /reports/topic                                        1.65 kB         [37m[1m103 kB[22m[39m
+├ ƒ /reset                                                1.04 kB         [37m[1m103 kB[22m[39m
+├ ƒ /satzung                                                577 B         [37m[1m102 kB[22m[39m
+├ ƒ /settings                                               577 B         [37m[1m102 kB[22m[39m
+├ ƒ /statements/[id]                                       103 kB         [37m[1m205 kB[22m[39m
+├ ƒ /statements/new                                       9.88 kB         [37m[1m115 kB[22m[39m
+├ ƒ /stream                                                  9 kB         [37m[1m150 kB[22m[39m
+├ ● /stream/[slug]                                          577 B         [37m[1m102 kB[22m[39m
+├ ƒ /swipe                                                5.85 kB         [37m[1m144 kB[22m[39m
+├ ƒ /swipes                                               1.28 kB         [37m[1m103 kB[22m[39m
+├ ƒ /team                                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /testinput                                              489 B         [37m[1m102 kB[22m[39m
+├ ƒ /unterstuetzen                                         3.8 kB         [37m[1m109 kB[22m[39m
+├ ƒ /verhaltenskodex                                        577 B         [37m[1m102 kB[22m[39m
+├ ƒ /verify                                               1.85 kB         [37m[1m107 kB[22m[39m
+├ ƒ /vote                                                   577 B         [37m[1m102 kB[22m[39m
+├ ƒ /votes                                                  180 B         [37m[1m105 kB[22m[39m
+└ ƒ /votes/[id]                                             888 B         [37m[1m106 kB[22m[39m
++ First Load JS shared by all                              [37m[1m102 kB[22m[39m
+  ├ chunks/5839-fb46b478b0000b60.js                       46.5 kB
+  ├ chunks/87d160b4-43c6416be0c91785.js                   53.2 kB
+  └ other shared chunks (total)                           2.09 kB
+
+
+ƒ Middleware                                              [37m[1m34.4 kB[22m[39m
+
+●  (SSG)      prerendered as static HTML (uses [36mgenerateStaticParams[39m)
+ƒ  (Dynamic)  server-rendered on demand
+
+[?25h

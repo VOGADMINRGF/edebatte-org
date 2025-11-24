@@ -1,357 +1,91 @@
 
 
-> ui@ build /Users/RF/VPM25/packages/ui
-> tsc -p tsconfig.json
-
-[96m../../core/context/LocaleContext.tsx[0m:[93m12[0m:[93m8[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m12[0m } from "react";
-[7m  [0m [91m       ~~~~~~~[0m
-
-[96m../../core/context/LocaleContext.tsx[0m:[93m18[0m:[93m8[0m - [91merror[0m[90m TS6059: [0mFile '/Users/RF/VPM25/core/locale/locales.ts' is not under 'rootDir' '/Users/RF/VPM25/packages/ui/src'. 'rootDir' is expected to contain all source files.
-
-[7m18[0m } from "@core/locale/locales";
-[7m  [0m [91m       ~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96m../../core/context/LocaleContext.tsx[0m:[93m73[0m:[93m31[0m - [91merror[0m[90m TS7006: [0mParameter 'ev' implicitly has an 'any' type.
-
-[7m73[0m       bc.current.onmessage = (ev) => {
-[7m  [0m [91m                              ~~[0m
-
-[96m../../core/context/LocaleContext.tsx[0m:[93m136[0m:[93m10[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m136[0m   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-[7m   [0m [91m         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96m../../features/common/components/UniversalSearchBar.tsx[0m:[93m1[0m:[93m26[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m1[0m import { useState } from "react";
-[7m [0m [91m                         ~~~~~~~[0m
-
-[96m../../features/common/components/UniversalSearchBar.tsx[0m:[93m50[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m 50[0m     <div className="relative w-full max-w-xl">
-[7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m 51[0m       <input
-[7m   [0m [91m~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m117[0m       )}
-[7m   [0m [91m~~~~~~~~[0m
-[7m118[0m     </div>
-[7m   [0m [91m~~~~~~~~~~[0m
-
-[96m../../features/common/components/UniversalSearchBar.tsx[0m:[93m64[0m:[93m36[0m - [91merror[0m[90m TS7006: [0mParameter 's' implicitly has an 'any' type.
-
-[7m64[0m               {results.streams.map(s => (
-[7m  [0m [91m                                   ~[0m
-
-[96m../../features/common/components/UniversalSearchBar.tsx[0m:[93m73[0m:[93m36[0m - [91merror[0m[90m TS7006: [0mParameter 'r' implicitly has an 'any' type.
-
-[7m73[0m               {results.reports.map(r => (
-[7m  [0m [91m                                   ~[0m
-
-[96m../../features/common/components/UniversalSearchBar.tsx[0m:[93m82[0m:[93m39[0m - [91merror[0m[90m TS7006: [0mParameter 'st' implicitly has an 'any' type.
-
-[7m82[0m               {results.statements.map(st => (
-[7m  [0m [91m                                      ~~[0m
-
-[96m../../features/common/components/UniversalSearchBar.tsx[0m:[93m91[0m:[93m33[0m - [91merror[0m[90m TS7006: [0mParameter 'news' implicitly has an 'any' type.
-
-[7m91[0m               {results.news.map(news => (
-[7m  [0m [91m                                ~~~~[0m
-
-[96m../../features/user/context/UserContext.tsx[0m:[93m9[0m:[93m8[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m9[0m } from "react";
-[7m [0m [91m       ~~~~~~~[0m
-
-[96m../../features/user/context/UserContext.tsx[0m:[93m65[0m:[93m19[0m - [91merror[0m[90m TS7006: [0mParameter 'prev' implicitly has an 'any' type.
-
-[7m65[0m     setLocalUser((prev) => (prev ? { ...prev, ...fields } : prev));
-[7m  [0m [91m                  ~~~~[0m
-
-[96m../../features/user/context/UserContext.tsx[0m:[93m77[0m:[93m10[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m77[0m   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
-[7m  [0m [91m         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/design/Badge.tsx[0m:[93m2[0m:[93m19[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m2[0m import React from "react";
-[7m [0m [91m                  ~~~~~~~[0m
-
-[96msrc/design/Badge.tsx[0m:[93m19[0m:[93m5[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m19[0m     <span
-[7m  [0m [91m    ~~~~~[0m
-[7m20[0m       className={`px-3 py-1 rounded-full text-xs font-semibold shadow inline-block select-none ${className}`}
-[7m  [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m21[0m       style={{ backgroundColor: bg, color: "#fff" }}
-[7m  [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m22[0m     >
-[7m  [0m [91m~~~~~[0m
-
-[96msrc/design/Badge.tsx[0m:[93m19[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m 19[0m     <span
-[7m   [0m [91m    ~~~~~[0m
-[7m 20[0m       className={`px-3 py-1 rounded-full text-xs font-semibold shadow inline-block select-none ${className}`}
-[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m 23[0m       {text}
-[7m   [0m [91m~~~~~~~~~~~~[0m
-[7m 24[0m     </span>
-[7m   [0m [91m~~~~~~~~~~~[0m
-
-[96msrc/design/Badge.tsx[0m:[93m24[0m:[93m5[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m24[0m     </span>
-[7m  [0m [91m    ~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m2[0m:[93m19[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m2[0m import React from "react";
-[7m [0m [91m                  ~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m30[0m:[93m5[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m 30[0m     <button
-[7m   [0m [91m    ~~~~~~~[0m
-[7m 31[0m       className={`${base} ${variants[variant]} ${width} ${className}`}
-[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m 33[0m       {...props}
-[7m   [0m [91m~~~~~~~~~~~~~~~~[0m
-[7m 34[0m     >
-[7m   [0m [91m~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m30[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m 30[0m     <button
-[7m   [0m [91m    ~~~~~~~[0m
-[7m 31[0m       className={`${base} ${variants[variant]} ${width} ${className}`}
-[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m 37[0m       {children}
-[7m   [0m [91m~~~~~~~~~~~~~~~~[0m
-[7m 38[0m     </button>
-[7m   [0m [91m~~~~~~~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m31[0m:[93m29[0m - [91merror[0m[90m TS7053: [0mElement implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ primary: string; secondary: string; ghost: string; danger: string; }'.
-
-[7m31[0m       className={`${base} ${variants[variant]} ${width} ${className}`}
-[7m  [0m [91m                            ~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m35[0m:[93m21[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m35[0m       {isLoading && <span className="loader mr-2" />}
-[7m  [0m [91m                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m36[0m:[93m16[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m36[0m       {icon && <span className="text-base">{icon}</span>}
-[7m  [0m [91m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m36[0m:[93m50[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m36[0m       {icon && <span className="text-base">{icon}</span>}
-[7m  [0m [91m                                                 ~~~~~~~[0m
-
-[96msrc/design/Button.tsx[0m:[93m38[0m:[93m5[0m - [91merror[0m[90m TS7026: [0mJSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.
-
-[7m38[0m     </button>
-[7m  [0m [91m    ~~~~~~~~~[0m
-
-[96msrc/design/LoadingOverlay.tsx[0m:[93m11[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m11[0m     <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-[7m  [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m12[0m       <Spinner size={40} text={text} />
-[7m  [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m13[0m     </div>
-[7m  [0m [91m~~~~~~~~~~[0m
-
-[96msrc/design/LoadingOverlay.tsx[0m:[93m12[0m:[93m16[0m - [91merror[0m[90m TS2322: [0mType '{ size: number; text: string; }' is not assignable to type 'IntrinsicAttributes'.
-  Property 'size' does not exist on type 'IntrinsicAttributes'.
-
-[7m12[0m       <Spinner size={40} text={text} />
-[7m  [0m [91m               ~~~~[0m
-
-[96msrc/design/Modal.tsx[0m:[93m2[0m:[93m27[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m2[0m import { useEffect } from "react";
-[7m [0m [91m                          ~~~~~~~[0m
-
-[96msrc/design/Modal.tsx[0m:[93m36[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m 36[0m     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
-[7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m 37[0m       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl relative overflow-hidden">
-[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m 49[0m       </div>
-[7m   [0m [91m~~~~~~~~~~~~[0m
-[7m 50[0m     </div>
-[7m   [0m [91m~~~~~~~~~~[0m
-
-[96msrc/design/ModalConfirm.tsx[0m:[93m22[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m 22[0m     <Modal title={title} onClose={onCancel}>
-[7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m 23[0m       <p className="text-sm text-gray-600 mb-4">{message}</p>
-[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m 27[0m       </div>
-[7m   [0m [91m~~~~~~~~~~~~[0m
-[7m 28[0m     </Modal>
-[7m   [0m [91m~~~~~~~~~~~~[0m
-
-[96msrc/design/ModalConfirm.tsx[0m:[93m22[0m:[93m6[0m - [91merror[0m[90m TS2741: [0mProperty 'isOpen' is missing in type '{ children: Element[]; title: string; onClose: () => void; }' but required in type 'ModalProps'.
-
-[7m22[0m     <Modal title={title} onClose={onCancel}>
-[7m  [0m [91m     ~~~~~[0m
-
-  [96msrc/design/Modal.tsx[0m:[93m6[0m:[93m3[0m
-    [7m6[0m   isOpen: boolean;
-    [7m [0m [96m  ~~~~~~[0m
-    'isOpen' is declared here.
-
-[96msrc/design/Spinner.tsx[0m:[93m5[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m5[0m     <div className="flex justify-center items-center py-6">
-[7m [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m6[0m       <div className="animate-spin rounded-full h-8 w-8 border-4 border-coral border-t-transparent" />
-[7m [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m7[0m     </div>
-[7m [0m [91m~~~~~~~~~~[0m
-
-[96msrc/design/Toast.tsx[0m:[93m3[0m:[93m37[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m3[0m import { useEffect, useState } from "react";
-[7m [0m [91m                                    ~~~~~~~[0m
-
-[96msrc/design/Toast.tsx[0m:[93m28[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m28[0m     <div className={`fixed top-4 right-4 px-4 py-2 rounded shadow ${bg} z-50`}>
-[7m  [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m29[0m       {message}
-[7m  [0m [91m~~~~~~~~~~~~~~~[0m
-[7m30[0m     </div>
-[7m  [0m [91m~~~~~~~~~~[0m
-
-[96msrc/index.tsx[0m:[93m10[0m:[93m29[0m - [91merror[0m[90m TS2307: [0mCannot find module './design/badgeColors' or its corresponding type declarations.
-
-[7m10[0m export { badgeColors } from "./design/badgeColors";
-[7m  [0m [91m                            ~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/layout/Footer.tsx[0m:[93m35[0m:[93m9[0m - [91merror[0m[90m TS2367: [0mThis comparison appears to be unintentional because the types '"guest" | "user" | "verified" | "editor"' and '"member"' have no overlap.
-
-[7m35[0m       : role === "member"
-[7m  [0m [91m        ~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/layout/Footer.tsx[0m:[93m42[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m 42[0m     <footer className="w-full border-t border-neutral-200 bg-gray-50 text-sm text-neutral-700">
-[7m   [0m [91m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m 43[0m       <div className="mx-auto max-w-7xl px-4 py-8 flex flex-col gap-6">
-[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-[7m...[0m 
-[7m 89[0m       </div>
-[7m   [0m [91m~~~~~~~~~~~~[0m
-[7m 90[0m     </footer>
-[7m   [0m [91m~~~~~~~~~~~~~[0m
-
-[96msrc/layout/Header.tsx[0m:[93m3[0m:[93m45[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/index.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m3[0m import { useState, useRef, useEffect } from "react";
-[7m [0m [91m                                            ~~~~~~~[0m
-
-[96msrc/layout/Header.tsx[0m:[93m5[0m:[93m25[0m - [91merror[0m[90m TS6059: [0mFile '/Users/RF/VPM25/features/user/context/UserContext.tsx' is not under 'rootDir' '/Users/RF/VPM25/packages/ui/src'. 'rootDir' is expected to contain all source files.
-  The file is in the program because:
-    Imported via "@features/user/context/UserContext" from file '/Users/RF/VPM25/packages/ui/src/layout/Header.tsx'
-    Imported via "@features/user/context/UserContext" from file '/Users/RF/VPM25/packages/ui/src/layout/Footer.tsx'
-
-[7m5[0m import { useUser } from "@features/user/context/UserContext";
-[7m [0m [91m                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-  [96msrc/layout/Footer.tsx[0m:[93m5[0m:[93m25[0m
-    [7m5[0m import { useUser } from "@features/user/context/UserContext";
-    [7m [0m [96m                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-    File is included via import here.
-
-[96msrc/layout/Header.tsx[0m:[93m6[0m:[93m27[0m - [91merror[0m[90m TS6059: [0mFile '/Users/RF/VPM25/core/context/LocaleContext.tsx' is not under 'rootDir' '/Users/RF/VPM25/packages/ui/src'. 'rootDir' is expected to contain all source files.
-  The file is in the program because:
-    Imported via "@core/context/LocaleContext" from file '/Users/RF/VPM25/packages/ui/src/layout/Header.tsx'
-    Imported via "@core/context/LocaleContext" from file '/Users/RF/VPM25/packages/ui/src/layout/Footer.tsx'
-
-[7m6[0m import { useLocale } from "@core/context/LocaleContext";
-[7m [0m [91m                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-  [96msrc/layout/Footer.tsx[0m:[93m6[0m:[93m27[0m
-    [7m6[0m import { useLocale } from "@core/context/LocaleContext";
-    [7m [0m [96m                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-    File is included via import here.
-
-[96msrc/layout/Header.tsx[0m:[93m7[0m:[93m35[0m - [91merror[0m[90m TS6059: [0mFile '/Users/RF/VPM25/features/stream/utils/nationalFlag.ts' is not under 'rootDir' '/Users/RF/VPM25/packages/ui/src'. 'rootDir' is expected to contain all source files.
-
-[7m7[0m import { getSupportedFlags } from "@features/stream/utils/nationalFlag";
-[7m [0m [91m                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/layout/Header.tsx[0m:[93m8[0m:[93m32[0m - [91merror[0m[90m TS6059: [0mFile '/Users/RF/VPM25/features/common/components/UniversalSearchBar.tsx' is not under 'rootDir' '/Users/RF/VPM25/packages/ui/src'. 'rootDir' is expected to contain all source files.
-
-[7m8[0m import UniversalSearchBar from "@features/common/components/UniversalSearchBar";
-[7m [0m [91m                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/layout/Header.tsx[0m:[93m67[0m:[93m5[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module 'react/jsx-runtime'. '/Users/RF/VPM25/node_modules/.pnpm/react@19.1.1/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
-  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
-
-[7m67[0m     <>
-[7m  [0m [91m    ~~[0m
-
-[96msrc/layout/Header.tsx[0m:[93m101[0m:[93m46[0m - [91merror[0m[90m TS7006: [0mParameter 'o' implicitly has an 'any' type.
-
-[7m101[0m               onClick={() => setDropdownOpen(o => !o)}
-[7m   [0m [91m                                             ~[0m
-
-[96msrc/layout/Header.tsx[0m:[93m114[0m:[93m33[0m - [91merror[0m[90m TS2345: [0mArgument of type 'string' is not assignable to parameter of type '"de" | "en"'.
-
-[7m114[0m                       setLocale(l.code);
-[7m   [0m [91m                                ~~~~~~[0m
-
-
-Found 45 errors in 13 files.
-
-Errors  Files
-     4  ../../core/context/LocaleContext.tsx[90m:12[0m
-     6  ../../features/common/components/UniversalSearchBar.tsx[90m:1[0m
-     3  ../../features/user/context/UserContext.tsx[90m:9[0m
-     4  src/design/Badge.tsx[90m:2[0m
-     8  src/design/Button.tsx[90m:2[0m
-     2  src/design/LoadingOverlay.tsx[90m:11[0m
-     2  src/design/Modal.tsx[90m:2[0m
-     2  src/design/ModalConfirm.tsx[90m:22[0m
-     1  src/design/Spinner.tsx[90m:5[0m
-     2  src/design/Toast.tsx[90m:3[0m
-     1  src/index.tsx[90m:10[0m
-     2  src/layout/Footer.tsx[90m:35[0m
-     8  src/layout/Header.tsx[90m:3[0m
-[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 2.[39m
+> @vog/ui@0.1.0 build /Users/RF/Arbeitsmappe/LandingeDbtt/packages/ui
+> pnpm run clean && tsup && tsc -p tsconfig.build.json
+
+
+> @vog/ui@0.1.0 clean /Users/RF/Arbeitsmappe/LandingeDbtt/packages/ui
+> rimraf dist || rm -rf dist
+
+[34mCLI[39m Building entry: {"index":"src/index.ts","theme":"src/theme.ts","design/badgeColor":"src/design/badgeColor.ts","design/Button":"src/design/Button.tsx","design/Badge":"src/design/Badge.tsx","design/Modal":"src/design/Modal.tsx","design/ModalConfirm":"src/design/ModalConfirm.tsx","design/Spinner":"src/design/Spinner.tsx","design/Toast":"src/design/Toast.tsx","design/LoadingOverlay":"src/design/LoadingOverlay.tsx","design/Card":"src/design/Card.tsx","design/Input":"src/design/Input.tsx","design/Separator":"src/design/Separator.tsx","design/Avatar":"src/design/Avatar.tsx","design/AvatarImage":"src/design/AvatarImage.tsx","design/AvatarFallback":"src/design/AvatarFallback.tsx","layout/Header":"src/layout/Header.tsx","layout/Footer":"src/layout/Footer.tsx"}
+[34mCLI[39m Using tsconfig: tsconfig.json
+[34mCLI[39m tsup v8.5.0
+[34mCLI[39m Using tsup config: /Users/RF/Arbeitsmappe/LandingeDbtt/packages/ui/tsup.config.ts
+[34mCLI[39m Target: es2020
+[34mCLI[39m Cleaning output folder
+[34mESM[39m Build start
+[34mCJS[39m Build start
+[32mESM[39m [1mdist/design/badgeColor.mjs         [22m[32m534.00 B[39m
+[32mESM[39m [1mdist/index.mjs                     [22m[32m9.10 KB[39m
+[32mESM[39m [1mdist/design/Badge.mjs              [22m[32m651.00 B[39m
+[32mESM[39m [1mdist/layout/Footer.mjs             [22m[32m1.02 KB[39m
+[32mESM[39m [1mdist/theme.mjs                     [22m[32m988.00 B[39m
+[32mESM[39m [1mdist/design/Modal.mjs              [22m[32m707.00 B[39m
+[32mESM[39m [1mdist/design/ModalConfirm.mjs       [22m[32m1.22 KB[39m
+[32mESM[39m [1mdist/design/Button.mjs             [22m[32m1.73 KB[39m
+[32mESM[39m [1mdist/design/Spinner.mjs            [22m[32m646.00 B[39m
+[32mESM[39m [1mdist/design/LoadingOverlay.mjs     [22m[32m882.00 B[39m
+[32mESM[39m [1mdist/design/Toast.mjs              [22m[32m536.00 B[39m
+[32mESM[39m [1mdist/design/Avatar.mjs             [22m[32m282.00 B[39m
+[32mESM[39m [1mdist/design/AvatarFallback.mjs     [22m[32m266.00 B[39m
+[32mESM[39m [1mdist/design/AvatarImage.mjs        [22m[32m258.00 B[39m
+[32mESM[39m [1mdist/design/Card.mjs               [22m[32m467.00 B[39m
+[32mESM[39m [1mdist/layout/Header.mjs             [22m[32m582.00 B[39m
+[32mESM[39m [1mdist/design/Separator.mjs          [22m[32m317.00 B[39m
+[32mESM[39m [1mdist/design/Input.mjs              [22m[32m618.00 B[39m
+[32mESM[39m [1mdist/design/badgeColor.mjs.map     [22m[32m1.77 KB[39m
+[32mESM[39m [1mdist/layout/Footer.mjs.map         [22m[32m2.58 KB[39m
+[32mESM[39m [1mdist/design/Badge.mjs.map          [22m[32m2.78 KB[39m
+[32mESM[39m [1mdist/theme.mjs.map                 [22m[32m2.25 KB[39m
+[32mESM[39m [1mdist/design/Button.mjs.map         [22m[32m4.69 KB[39m
+[32mESM[39m [1mdist/design/LoadingOverlay.mjs.map [22m[32m2.09 KB[39m
+[32mESM[39m [1mdist/design/Avatar.mjs.map         [22m[32m641.00 B[39m
+[32mESM[39m [1mdist/design/Spinner.mjs.map        [22m[32m1.45 KB[39m
+[32mESM[39m [1mdist/design/AvatarFallback.mjs.map [22m[32m508.00 B[39m
+[32mESM[39m [1mdist/design/Toast.mjs.map          [22m[32m1.43 KB[39m
+[32mESM[39m [1mdist/design/AvatarImage.mjs.map    [22m[32m554.00 B[39m
+[32mESM[39m [1mdist/design/Card.mjs.map           [22m[32m1.19 KB[39m
+[32mESM[39m [1mdist/design/Modal.mjs.map          [22m[32m1.67 KB[39m
+[32mESM[39m [1mdist/layout/Header.mjs.map         [22m[32m1.05 KB[39m
+[32mESM[39m [1mdist/design/Separator.mjs.map      [22m[32m868.00 B[39m
+[32mESM[39m [1mdist/design/ModalConfirm.mjs.map   [22m[32m3.04 KB[39m
+[32mESM[39m [1mdist/index.mjs.map                 [22m[32m24.91 KB[39m
+[32mESM[39m [1mdist/design/Input.mjs.map          [22m[32m2.10 KB[39m
+[32mESM[39m ⚡️ Build success in 58ms
+[32mCJS[39m [1mdist/theme.js                     [22m[32m1.52 KB[39m
+[32mCJS[39m [1mdist/design/Badge.js              [22m[32m1.08 KB[39m
+[32mCJS[39m [1mdist/design/badgeColor.js         [22m[32m1.01 KB[39m
+[32mCJS[39m [1mdist/design/ModalConfirm.js       [22m[32m1.72 KB[39m
+[32mCJS[39m [1mdist/design/Toast.js              [22m[32m989.00 B[39m
+[32mCJS[39m [1mdist/design/Input.js              [22m[32m1.18 KB[39m
+[32mCJS[39m [1mdist/design/Card.js               [22m[32m1002.00 B[39m
+[32mCJS[39m [1mdist/design/Separator.js          [22m[32m772.00 B[39m
+[32mCJS[39m [1mdist/design/Avatar.js             [22m[32m737.00 B[39m
+[32mCJS[39m [1mdist/design/Spinner.js            [22m[32m1.10 KB[39m
+[32mCJS[39m [1mdist/design/Modal.js              [22m[32m1.17 KB[39m
+[32mCJS[39m [1mdist/design/LoadingOverlay.js     [22m[32m1.34 KB[39m
+[32mCJS[39m [1mdist/design/AvatarFallback.js     [22m[32m721.00 B[39m
+[32mCJS[39m [1mdist/layout/Footer.js             [22m[32m1.66 KB[39m
+[32mCJS[39m [1mdist/layout/Header.js             [22m[32m1.23 KB[39m
+[32mCJS[39m [1mdist/design/AvatarImage.js        [22m[32m713.00 B[39m
+[32mCJS[39m [1mdist/index.js                     [22m[32m10.29 KB[39m
+[32mCJS[39m [1mdist/design/Button.js             [22m[32m2.38 KB[39m
+[32mCJS[39m [1mdist/theme.js.map                 [22m[32m2.46 KB[39m
+[32mCJS[39m [1mdist/design/badgeColor.js.map     [22m[32m1.95 KB[39m
+[32mCJS[39m [1mdist/design/Toast.js.map          [22m[32m1.51 KB[39m
+[32mCJS[39m [1mdist/design/Card.js.map           [22m[32m1.33 KB[39m
+[32mCJS[39m [1mdist/design/ModalConfirm.js.map   [22m[32m3.10 KB[39m
+[32mCJS[39m [1mdist/design/Badge.js.map          [22m[32m2.89 KB[39m
+[32mCJS[39m [1mdist/design/Separator.js.map      [22m[32m985.00 B[39m
+[32mCJS[39m [1mdist/design/Spinner.js.map        [22m[32m1.53 KB[39m
+[32mCJS[39m [1mdist/design/LoadingOverlay.js.map [22m[32m2.20 KB[39m
+[32mCJS[39m [1mdist/design/AvatarFallback.js.map [22m[32m630.00 B[39m
+[32mCJS[39m [1mdist/design/Input.js.map          [22m[32m2.20 KB[39m
+[32mCJS[39m [1mdist/layout/Footer.js.map         [22m[32m2.66 KB[39m
+[32mCJS[39m [1mdist/design/Avatar.js.map         [22m[32m755.00 B[39m
+[32mCJS[39m [1mdist/design/Modal.js.map          [22m[32m1.73 KB[39m
+[32mCJS[39m [1mdist/index.js.map                 [22m[32m26.79 KB[39m
+[32mCJS[39m [1mdist/layout/Header.js.map         [22m[32m1.16 KB[39m
+[32mCJS[39m [1mdist/design/AvatarImage.js.map    [22m[32m673.00 B[39m
+[32mCJS[39m [1mdist/design/Button.js.map         [22m[32m4.78 KB[39m
+[32mCJS[39m ⚡️ Build success in 60ms
