@@ -1,12 +1,14 @@
 export type ContributionLevel = "level1" | "level2";
 
 export type AccessTier =
-  | "public"
-  | "citizenBasic"
-  | "citizenPremium"
-  | "institutionBasic"
-  | "institutionPremium"
-  | "staff";
+|"public"
+| "citizenBasic"
+| "citizenPremium"
+| "citizenPro"
+| "citizenUltra"
+| "institutionBasic"
+| "institutionPremium"
+| "staff";
 
 export type EarnRule = {
   level: ContributionLevel;

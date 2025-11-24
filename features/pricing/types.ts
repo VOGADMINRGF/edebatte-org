@@ -1,9 +1,11 @@
 export type ContributionLevel = "level1" | "level2";
 
 export type AccessTier =
-  | "public"
+  |"public"
   | "citizenBasic"
   | "citizenPremium"
+  | "citizenPro"
+  | "citizenUltra"
   | "institutionBasic"
   | "institutionPremium"
   | "staff";
