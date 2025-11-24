@@ -33,7 +33,7 @@
     "MEMGRAPH_URI",
     "OPENAI_MODEL"
   ],
-  "pipeline": {
+  "tasks": {
     "dev": { "cache": false, "persistent": true, "dependsOn": ["^dev"] },
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
     "lint": {
