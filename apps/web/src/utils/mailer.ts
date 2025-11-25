@@ -1,7 +1,9 @@
 // apps/web/src/utils/mailer.ts
-// Robust: SMTP wenn vorhanden, sonst Console-Log. Kein Build-Fehler, kein Crash.
+// Robuster Mailversand: SMTP, sonst Console-Log-Fallback.
 
-let _tx: any = null;
+import nodemailer from "nodemailer";
+
+let transporter: nodemailer.Transporter | null = null;
 
 export async function sendMail(opts: {
   to: string;
@@ -10,6 +12,7 @@ export async function sendMail(opts: {
   text?: string;
 }) {
   const { to, subject, html, text } = opts;
+
   const from = process.env.MAIL_FROM || "no-reply@localhost";
   const wantsSmtp = !!(
     process.env.SMTP_URL ||
@@ -17,7 +20,6 @@ export async function sendMail(opts: {
     process.env.SMTP_USER
   );
 
-  // Helper: sicher in die Konsole loggen (Dev-Fallback)
   const logToConsole = (reason?: string) => {
     if (reason) console.warn("[mailer] SMTP-Fallback:", reason);
     console.log(`[MAIL->${to}] ${subject}\n${html}\n`);
@@ -25,19 +27,15 @@ export async function sendMail(opts: {
   };
 
   if (!wantsSmtp) {
-    // Kein SMTP konfiguriert → Console
+    // Kein SMTP konfiguriert → nur loggen
     return logToConsole();
   }
 
-  // SMTP gewünscht → nodemailer nur *zur Laufzeit* laden (ohne Webpack-Analyse)
   try {
-    // Trick: verhindert, dass Webpack 'nodemailer' build-time auflöst
-    const nm = await new Function('return import("nodemailer")')();
-
-    if (!_tx) {
-      _tx = process.env.SMTP_URL
-        ? nm.createTransport(process.env.SMTP_URL as string)
-        : nm.createTransport({
+    if (!transporter) {
+      transporter = process.env.SMTP_URL
+        ? nodemailer.createTransport(process.env.SMTP_URL as string)
+        : nodemailer.createTransport({
             host: process.env.SMTP_HOST,
             port: Number(process.env.SMTP_PORT || 587),
             secure:
@@ -48,7 +46,7 @@ export async function sendMail(opts: {
           });
     }
 
-    await _tx.sendMail({
+    await transporter.sendMail({
       from,
       to,
       subject,
@@ -56,9 +54,8 @@ export async function sendMail(opts: {
       text: text ?? html.replace(/<[^>]+>/g, ""),
     });
 
-    return { ok: true, smtp: true };
+    return { ok: true, smtp: true as const };
   } catch (e: any) {
-    // nodemailer fehlt oder Transport schlägt fehl → sauberer Fallback
     return logToConsole(e?.message || String(e));
   }
 }
