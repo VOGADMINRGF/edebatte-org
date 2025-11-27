@@ -3,6 +3,7 @@ import type { ObjectId } from "@core/db/triMongo";
 export type StreamVisibility = "public" | "unlisted";
 export type StreamAgendaKind = "statement" | "question" | "poll" | "info";
 export type StreamAgendaStatus = "queued" | "live" | "archived" | "skipped";
+export type StreamSessionStatus = "draft" | "scheduled" | "live" | "ended" | "cancelled";
 export type StreamAttributionMode = "hidden" | "creator_only" | "public";
 
 export interface StreamSessionDoc {
@@ -13,6 +14,7 @@ export interface StreamSessionDoc {
   regionCode?: string | null;
   topicKey?: string | null;
   visibility: StreamVisibility;
+  status?: StreamSessionStatus;
   isLive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -56,4 +58,21 @@ export interface StreamOverlayState {
   sessionId: ObjectId;
   items: StreamOverlayItem[];
   updatedAt: Date;
+}
+
+export function resolveSessionStatus(
+  session: Pick<StreamSessionDoc, "status" | "isLive" | "endedAt">,
+): StreamSessionStatus {
+  if (
+    session.status === "draft" ||
+    session.status === "scheduled" ||
+    session.status === "live" ||
+    session.status === "ended" ||
+    session.status === "cancelled"
+  ) {
+    return session.status;
+  }
+  if (session.isLive) return "live";
+  if (session.endedAt) return "ended";
+  return "draft";
 }

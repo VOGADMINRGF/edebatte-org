@@ -288,5 +288,11 @@ Zusammenfassend soll Codex bei allen zukünftigen Aufgaben:
 5. **Governance-Rollen vorbereiten**  
    - Rollen/Permissions so modellieren, dass Platform Owner, Editorial Council, Community Council & Ombudsperson technisch möglich sind.
 
-Part 01 ist damit der **wertemäßige Rahmen**.  
+Part 01 ist damit der **wertemäßige Rahmen**.
 Part 02 ff. konkretisieren, wie diese Werte in Rollen, XP-System, Pricing, Orchestrator, Graph, Streams und Admin-Oberflächen umgesetzt werden.
+
+### Aktueller B2C-Stand (VoiceOpenGov + eDebatte)
+
+- B2C-Tiers der App: **eDebatte Basis (0 €), Erweitert, Premium** – Preise und Labels liegen zentral in `apps/web/src/config/pricing.ts`.
+- Mitgliedschaft: VoiceOpenGov mit empfohlenen 5,63 € p. P. pro Monat. 24 Monate Mindestlaufzeit, wenn das eDebatte-Dankeschön genutzt werden soll.
+- Goodie: Bis zu 25 % Nachlass auf eDebatte-Abos in den ersten 6 Monaten, nur bei monatlicher Zahlung, Mindestbeitrag 5,63 € und 24 Monaten Commitment; einmalig pro Mitgliedschaft.

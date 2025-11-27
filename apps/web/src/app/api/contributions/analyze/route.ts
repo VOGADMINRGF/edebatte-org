@@ -22,18 +22,36 @@ const JSON_HEADERS = {
 
 const DEFAULT_MAX_CLAIMS = 20;
 
-function ok(data: any, status = 200) {
-  return new Response(JSON.stringify({ ok: true, ...data }), {
+type SuccessResponse<T extends Record<string, unknown>> = { ok: true } & T;
+type ErrorResponse<T extends Record<string, unknown> = Record<string, never>> =
+  { ok: false; error: string; code: string } & T;
+
+function ok<T extends Record<string, unknown>>(data: T, status = 200) {
+  return new Response(JSON.stringify({ ok: true, ...data } satisfies SuccessResponse<T>), {
     status,
     headers: JSON_HEADERS,
   });
 }
 
-function err(message: string, status = 500, extra: any = {}) {
-  return new Response(JSON.stringify({ ok: false, error: message, ...extra }), {
-    status,
-    headers: JSON_HEADERS,
-  });
+function err(
+  code: string,
+  message: string,
+  status = 500,
+  extra: Record<string, unknown> = {},
+) {
+  return new Response(
+    JSON.stringify({ ok: false, code, error: message, ...extra } satisfies ErrorResponse),
+    {
+      status,
+      headers: JSON_HEADERS,
+    },
+  );
+}
+
+type NormalizedAnalyzerError = { code: string; message: string };
+
+function formatErrorResponse(error: NormalizedAnalyzerError, status = 500) {
+  return err(error.code, error.message, status);
 }
 
 type AnalyzeBody = {
@@ -82,11 +100,11 @@ export async function POST(req: NextRequest): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return err("Invalid JSON body", 400);
+    return err("INVALID_JSON", "Invalid JSON body", 400);
   }
 
   if (!body || typeof body.text !== "string" || !body.text.trim()) {
-    return err("Missing 'text' in request body", 400);
+    return err("MISSING_TEXT", "Missing 'text' in request body", 400);
   }
 
   const locale = sanitizeLocale(body.locale);
@@ -112,7 +130,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return ok({ result }, 200);
   } catch (error) {
     console.error("[E150] /api/contributions/analyze error", error);
-    return err(normalizeAnalyzerError(error), 500);
+    return formatErrorResponse(normalizeAnalyzerError(error), 500);
   }
 }
 
@@ -155,7 +173,8 @@ function startAnalyzeSseStream(input: AnalyzeJobInput): Response {
         controller.close();
       } catch (error) {
         console.error("[E150] SSE analyze error", error);
-        sendEvent("error", { reason: normalizeAnalyzerError(error) });
+        const normalized = normalizeAnalyzerError(error);
+        sendEvent("error", { code: normalized.code, reason: normalized.message });
         controller.close();
       }
     },
@@ -257,7 +276,7 @@ function normalizeConsequenceBundle(
   };
 }
 
-function normalizeAnalyzerError(error: unknown): string {
+function normalizeAnalyzerError(error: unknown): NormalizedAnalyzerError {
   const message =
     typeof error === "object" && error !== null && "message" in error
       ? String((error as { message?: unknown }).message ?? "")
@@ -266,9 +285,17 @@ function normalizeAnalyzerError(error: unknown): string {
         : "";
 
   if (message.includes("KI-Antwort war kein gültiges JSON")) {
-    return "AnalyzeContribution: KI-Antwort war kein gültiges JSON. Bitte später erneut versuchen.";
+    return {
+      code: "INVALID_AI_RESPONSE",
+      message:
+        "AnalyzeContribution: KI-Antwort war kein gültiges JSON. Bitte später erneut versuchen.",
+    };
   }
-  return "AnalyzeContribution: Fehler im Analyzer. Bitte später erneut versuchen.";
+  return {
+    code: "ANALYZE_FAILED",
+    message:
+      "AnalyzeContribution: Fehler im Analyzer. Bitte später erneut versuchen.",
+  };
 }
 
 function resolveContributionId(rawId: unknown, text: string): string {

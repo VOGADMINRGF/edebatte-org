@@ -1,5 +1,6 @@
 "use client";
 
+import { MEMBER_DISCOUNT } from "@/config/pricing";
 import { ACCESS_TIER_CONFIG } from "../config";
 import { applyVogMembershipDiscount } from "../discount";
 import type { AccessTier } from "../types";
@@ -69,7 +70,7 @@ export function PricingWidget_eDbtt({ hasVogMembership = false }: PricingWidgetP
                   </div>
                   {hasVogMembership && (
                     <p className="text-xs font-semibold text-emerald-700">
-                      VOG-Mitgliedsrabatt –25 %
+                      VOG-Mitgliedsrabatt −{MEMBER_DISCOUNT.percent} %
                     </p>
                   )}
                 </div>

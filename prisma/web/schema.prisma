@@ -45,6 +45,29 @@ enum Locale {
   ar
 }
 
+enum PlanType {
+  B2C
+  B2B
+  STAFF
+}
+
+enum SubscriptionStatus {
+  active
+  pending
+  canceled
+  expired
+}
+
+enum BillingCycle {
+  monthly
+  annual
+}
+
+enum DiscountType {
+  NONE
+  VOG_MEMBER_25_6M
+}
+
 //
 // ---------- REGION ----------
 model Region {
@@ -168,4 +191,35 @@ model AnswerOption {
 
   @@unique([itemId, sortOrder])
   @@unique([itemId, value])
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  type            PlanType
+  monthlyPriceCents Int
+  features        Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  userId        String
+  planId        String
+  status        SubscriptionStatus @default(pending)
+  billingCycle  BillingCycle       @default(monthly)
+  discountType  DiscountType       @default(NONE)
+  discountUntil DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([planId])
+  @@unique([userId])
 }

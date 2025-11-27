@@ -41,6 +41,12 @@ export type AccountOverview = {
   userId: string;
   email: string;
   displayName: string | null;
+  profile: {
+    headline: string | null;
+    bio: string | null;
+  };
+  publicFlags: AccountPublicFlags;
+  topTopics: string[];
   accessTier: AccessTier;
   roles: string[];
   groups: string[];
@@ -59,8 +65,22 @@ export type AccountOverview = {
   lastLoginAt?: Date | string | null;
 };
 
+export type AccountPublicFlags = {
+  profile?: boolean;
+  headline?: boolean;
+  bio?: boolean;
+  topTopics?: boolean;
+};
+
 export type AccountSettingsUpdate = {
   displayName?: string | null;
   preferredLocale?: SupportedLocale;
   newsletterOptIn?: boolean;
+};
+
+export type AccountProfileUpdate = {
+  headline?: string | null;
+  bio?: string | null;
+  topTopics?: string[];
+  publicFlags?: AccountPublicFlags;
 };

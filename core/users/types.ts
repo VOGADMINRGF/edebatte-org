@@ -5,6 +5,8 @@ export type CoreAccessTier =
   | "public"
   | "citizenBasic"
   | "citizenPremium"
+  | "citizenPro"
+  | "citizenUltra"
   | "institutionBasic"
   | "institutionPremium"
   | "staff";

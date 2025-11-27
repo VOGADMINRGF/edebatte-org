@@ -7,7 +7,7 @@ Dieses Modul kapselt alles rund um das Nutzungsmodell der Plattform (Kontingente
 - `types.ts` – AccessTier, ContributionLevel, UsageState.
 - `config.ts` – Konfiguration der Tiers (citizenBasic, citizenPremium, institutionBasic, …) inkl. inkludierter Beiträge und Preise.
 - `credits.ts` – Helper rund um Swipes → Credits und Verbrauch (`applySwipesToCredits`, `canPostContribution`, `consumeContribution`).
-- `discount.ts` – `applyVogMembershipDiscount` berücksichtigt den 25%-Rabatt für aktive VoG-Mitglieder (E150 Part03).
+- `discount.ts` – `applyVogMembershipDiscount` berücksichtigt den Mitgliederrabatt laut zentraler Pricing-Konfiguration (E150 Part03).
 - `components/PricingWidget_eDbtt.tsx` – UI-Komponente zur Darstellung der Kontingente.
 
 ## Prinzipien

@@ -9,8 +9,21 @@ import {
   type SupportedLocale,
 } from "@/config/locales";
 import { VERIFICATION_LEVEL_DESCRIPTIONS } from "@features/auth/verificationRules";
+import {
+  canUserChatPublic,
+  canUserCreateStream,
+  canUserHostStream,
+} from "@/utils/accessTiers";
 
 const LOCALE_OPTIONS = [...CORE_LOCALES, ...EXTENDED_LOCALES];
+const ENGAGEMENT_ORDER = [
+  "interessiert",
+  "engagiert",
+  "begeistert",
+  "brennend",
+  "inspirierend",
+  "leuchtend",
+] as const;
 
 type Props = {
   initialData: AccountOverview;
@@ -19,12 +32,22 @@ type Props = {
 export function AccountClient({ initialData }: Props) {
   const [data, setData] = useState<AccountOverview>(initialData);
   const [displayName, setDisplayName] = useState(initialData.displayName ?? "");
+  const [headline, setHeadline] = useState(initialData.profile?.headline ?? "");
+  const [bio, setBio] = useState(initialData.profile?.bio ?? "");
+  const [topTopicInputs, setTopTopicInputs] = useState<string[]>(() =>
+    fillTopicSlots(initialData.topTopics ?? []),
+  );
+  const [publicFlags, setPublicFlags] = useState<AccountOverview["publicFlags"]>(
+    initialData.publicFlags ?? {},
+  );
   const [preferredLocale, setPreferredLocale] = useState<SupportedLocale>(
     initialData.preferredLocale as SupportedLocale,
   );
   const [newsletterOptIn, setNewsletterOptIn] = useState(!!initialData.newsletterOptIn);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [ibanInput, setIbanInput] = useState("");
   const [bicInput, setBicInput] = useState("");
   const [holderNameInput, setHolderNameInput] = useState(initialData.displayName ?? "");
@@ -32,12 +55,40 @@ export function AccountClient({ initialData }: Props) {
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [signatureSaving, setSignatureSaving] = useState(false);
   const [signatureMessage, setSignatureMessage] = useState<string | null>(null);
+  const accessContext = {
+    accessTier: data.accessTier,
+    engagementXp: data.stats.xp,
+    engagementLevel: data.stats.engagementLevel,
+  };
+
+  function updateTopTopic(index: number, value: string) {
+    setTopTopicInputs((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return fillTopicSlots(next);
+    });
+  }
+
+  function updatePublicFlag(key: keyof AccountOverview["publicFlags"], value: boolean) {
+    setPublicFlags((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function syncFromOverview(overview: AccountOverview) {
+    setData(overview);
+    setDisplayName(overview.displayName ?? "");
+    setPreferredLocale(overview.preferredLocale as SupportedLocale);
+    setNewsletterOptIn(!!overview.newsletterOptIn);
+    setHeadline(overview.profile?.headline ?? "");
+    setBio(overview.profile?.bio ?? "");
+    setTopTopicInputs(fillTopicSlots(overview.topTopics ?? []));
+    setPublicFlags(overview.publicFlags ?? {});
+  }
 
   async function reloadOverview() {
     const res = await fetch("/api/account/overview", { cache: "no-store" });
     const body = await res.json().catch(() => ({}));
     if (res.ok && body?.overview) {
-      setData(body.overview);
+      syncFromOverview(body.overview);
     }
   }
 
@@ -57,16 +108,40 @@ export function AccountClient({ initialData }: Props) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || "Speichern fehlgeschlagen");
       if (body?.overview) {
-        setData(body.overview);
-        setDisplayName(body.overview.displayName ?? "");
-        setPreferredLocale(body.overview.preferredLocale as SupportedLocale);
-        setNewsletterOptIn(!!body.overview.newsletterOptIn);
+        syncFromOverview(body.overview);
       }
       setMessage("Einstellungen aktualisiert");
     } catch (err: any) {
       setMessage(err?.message ?? "Fehler beim Speichern");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleProfileSave() {
+    setProfileSaving(true);
+    setProfileMessage(null);
+    try {
+      const res = await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          headline,
+          bio,
+          topTopics: topTopicInputs.map((topic) => topic.trim()).filter(Boolean),
+          publicFlags,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || "Speichern fehlgeschlagen");
+      if (body?.overview) {
+        syncFromOverview(body.overview);
+      }
+      setProfileMessage("Profil aktualisiert");
+    } catch (err: any) {
+      setProfileMessage(err?.message ?? "Fehler beim Speichern");
+    } finally {
+      setProfileSaving(false);
     }
   }
 
@@ -124,22 +199,23 @@ export function AccountClient({ initialData }: Props) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const canEditTopTopics =
+    ENGAGEMENT_ORDER.indexOf(data.stats.engagementLevel as (typeof ENGAGEMENT_ORDER)[number]) >=
+    ENGAGEMENT_ORDER.indexOf("engagiert");
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-xl font-semibold text-white">
-            {initials || "?"}
+      <div className="space-y-6">
+        <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-xl font-semibold text-white">
+              {initials || "?"}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Profil</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{previewName}</h2>
+              <p className="text-sm text-slate-500">{data.email}</p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Profil</p>
-            <h2 className="text-2xl font-semibold text-slate-900">
-            {previewName}
-            </h2>
-            <p className="text-sm text-slate-500">{data.email}</p>
-          </div>
-        </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-slate-700">
@@ -190,6 +266,106 @@ export function AccountClient({ initialData }: Props) {
             {saving ? "Speichert …" : "Änderungen speichern"}
           </button>
           {message && <span className="text-sm text-slate-500">{message}</span>}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Profil & Privatsphäre</p>
+            <h2 className="text-xl font-semibold text-slate-900">Öffentliche Angaben</h2>
+          </div>
+          {profileMessage && <span className="text-sm text-slate-500">{profileMessage}</span>}
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="text-sm font-semibold text-slate-700">
+            Überschrift
+            <input
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm"
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              placeholder="z.B. Bürger:in aus Berlin, Fokus Klima"
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
+            Bio
+            <textarea
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm"
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Kurzbeschreibung für dein öffentliches Profil"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold text-slate-900">Top-Themen (max. 3)</p>
+            {!canEditTopTopics && (
+              <span className="text-xs font-semibold text-amber-700">
+                Top-Themen ab Level „engagiert“ freigeschaltet
+              </span>
+            )}
+          </div>
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
+            {[0, 1, 2].map((idx) => (
+              <input
+                key={idx}
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={topTopicInputs[idx] ?? ""}
+                onChange={(e) => updateTopTopic(idx, e.target.value)}
+                placeholder={`Top-Thema ${idx + 1}`}
+                disabled={!canEditTopTopics}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={publicFlags.profile ?? false}
+              onChange={(e) => updatePublicFlag("profile", e.target.checked)}
+            />
+            Öffentliches Profil aktivieren
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={publicFlags.headline ?? false}
+              onChange={(e) => updatePublicFlag("headline", e.target.checked)}
+            />
+            Überschrift anzeigen
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={publicFlags.bio ?? false}
+              onChange={(e) => updatePublicFlag("bio", e.target.checked)}
+            />
+            Bio anzeigen
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={publicFlags.topTopics ?? false}
+              onChange={(e) => updatePublicFlag("topTopics", e.target.checked)}
+            />
+            Top-Themen anzeigen
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <button
+            onClick={handleProfileSave}
+            className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            disabled={profileSaving}
+          >
+            {profileSaving ? "Speichert …" : "Profil speichern"}
+          </button>
         </div>
       </section>
 
@@ -379,6 +555,52 @@ export function AccountClient({ initialData }: Props) {
           </div>
         </div>
       </section>
+
+      <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Streams & Teilnahme</p>
+          <h3 className="text-lg font-semibold text-slate-900">Stream erstellen</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Du brauchst mindestens Engagement-Level "Brennend" und einen Tier mit Stream-Rechten.
+          </p>
+          <button
+            type="button"
+            disabled={!canUserCreateStream(accessContext)}
+            className="mt-4 w-full rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+          >
+            {canUserCreateStream(accessContext)
+              ? "Stream jetzt erstellen"
+              : "Stream-Erstellung aktuell gesperrt"}
+          </button>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Streaming</p>
+          <h3 className="text-lg font-semibold text-slate-900">Host-Rechte</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Hosting erfordert Engagement-Level "Inspirierend" oder höher sowie Pro/Ultra oder Staff.
+          </p>
+          <p className="mt-3 text-sm font-semibold text-slate-900">
+            {canUserHostStream(accessContext)
+              ? "Du kannst Streams hosten."
+              : "Hosting aktuell nicht freigeschaltet."}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Public Chat</p>
+          <h3 className="text-lg font-semibold text-slate-900">Chat-Berechtigung</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Öffentlich schreiben ist für Organisationstiers deaktiviert. Citizen-Tiers mit Chat-Flag können sofort
+            mitdiskutieren.
+          </p>
+          <p className="mt-3 text-sm font-semibold text-slate-900">
+            {canUserChatPublic(accessContext)
+              ? "Chatting freigeschaltet"
+              : "Chat aktuell gesperrt"}
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
@@ -394,4 +616,10 @@ function membershipLabel(status: AccountOverview["vogMembershipStatus"]) {
     default:
       return "Kein aktiver Plan";
   }
+}
+
+function fillTopicSlots(topics: string[]): string[] {
+  const slots = [...topics.filter(Boolean).slice(0, 3)];
+  while (slots.length < 3) slots.push("");
+  return slots;
 }

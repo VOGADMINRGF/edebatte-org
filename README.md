@@ -62,11 +62,11 @@ Die Ergebnisse können in `docs/ORPHAN_FEATURES_VPM25.md` eingetragen werden.
 
 ## Admin-Dashboards
 
-- Identity-Funnel: `/admin/telemetry/identity`
-- AI-Usage: `/admin/telemetry/ai/usage`
-- Orchestrator-Smoke: `/admin/telemetry/ai/orchestrator`
+- Identity-Funnel: `/admin/telemetry/identity` – zeigt pro Zeitraum Event-Zählungen vom Register bis „strong completed“.
+- AI-Usage: `/admin/telemetry/ai/usage` – Tokens, Kosten, Calls und Fehler pro Provider/Pipeline.
+- Orchestrator-Smoke: `/admin/telemetry/ai/orchestrator` – einfacher Smoketest für die AI-Pipelines.
 
-Alle Admin-APIs prüfen die Rolle via `u_role`-Cookie; Endpunkte liegen unter `apps/web/src/app/api/admin/**`.
+Alle Admin-APIs prüfen die Rolle via `u_role`-Cookie; Endpunkte liegen unter `apps/web/src/app/api/admin/**`. Die Dashboards sind nur für Staff/Admin gedacht und greifen ausschließlich auf Telemetrie-Aggregate zu, nicht auf PII.
 
 ## Datenschutz & PII
 

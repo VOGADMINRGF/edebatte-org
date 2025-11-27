@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
 import { streamAgendaCol, streamSessionsCol } from "@features/stream/db";
 import type { StreamOverlayItem } from "@features/stream/types";
+import { resolveSessionStatus } from "@features/stream/types";
 import { VoteModel } from "@/models/votes/Vote";
 
 export async function GET(
@@ -17,6 +18,23 @@ export async function GET(
   const session = await sessions.findOne({ _id: sessionId });
   if (!session) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const sessionStatus = resolveSessionStatus(session);
+
+  if (sessionStatus !== "live") {
+    return NextResponse.json({
+      ok: true,
+      session: {
+        id: session._id?.toHexString?.(),
+        title: session.title,
+        description: session.description ?? null,
+        isLive: false,
+        status: sessionStatus,
+      },
+      items: [],
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   const agendaCol = await streamAgendaCol();
@@ -46,7 +64,8 @@ export async function GET(
       id: session._id?.toHexString?.(),
       title: session.title,
       description: session.description ?? null,
-      isLive: session.isLive,
+      isLive: sessionStatus === "live",
+      status: sessionStatus,
     },
     items: overlayItems,
     updatedAt: new Date().toISOString(),

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getCol, ObjectId } from "@core/db/triMongo";
+import { piiCol } from "@core/db/db/triMongo";
+import { CREDENTIAL_COLLECTION } from "../sharedAuth";
 import { createEmailVerificationToken } from "@core/auth/emailVerificationService";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@core/locale/locales";
 import { hashPassword } from "@/utils/password";
@@ -87,6 +89,20 @@ export async function POST(req: NextRequest) {
       },
     );
   }
+
+  const credentials = await piiCol(CREDENTIAL_COLLECTION);
+  await credentials.updateOne(
+    { coreUserId: userId },
+    {
+      $set: {
+        coreUserId: userId,
+        email,
+        passwordHash,
+        twoFactorEnabled: false,
+      },
+    },
+    { upsert: true },
+  );
 
   const { rawToken } = await createEmailVerificationToken(userId, email);
   await logIdentityEvent("identity_register", {

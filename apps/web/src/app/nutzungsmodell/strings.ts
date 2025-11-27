@@ -5,13 +5,14 @@ type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
 const STRINGS = {
   heroTitle: { de: "Nutzungsmodell eDbtt" } as LocaleValue<string>,
   heroIntro: {
-    de: "Lesen und Swipen bleiben kostenlos. Beiträge sind unsere begrenzte Ressource – deshalb steuern wir sie über Kontingente, Bundles und Earned Credits.",
+    de: "Lesen und Swipen bleiben kostenlos. Beiträge sind unsere begrenzte Ressource – deshalb steuern wir sie über Kontingente, Bundles und Earned Credits. eDebatte-Pakete (Start, Pro) sind klar bepreist, VoiceOpenGov-Mitglieder erhalten einen Mitgliederrabatt darauf.",
   } as LocaleValue<string>,
   infoList: {
     de: [
       "Swipe: unbegrenzt und kostenlos – egal welches Tier.",
       "Pro Monat gibt es inkludierte Beiträge (Level 1 & 2) je nach Tier.",
       "Zusätzliche Beiträge kannst du durch Swipes freischalten oder via Bundles/Abo buchen.",
+      "VoiceOpenGov-Mitglieder sparen auf eDebatte-Pakete – Details unter /mitglied-werden.",
     ],
   } as LocaleValue<string[]>,
   earnedTitle: { de: "Earned Credits" } as LocaleValue<string>,
@@ -21,10 +22,6 @@ const STRINGS = {
   earnedList: {
     de: ["100 Swipes → 1 zusätzlicher Level‑1-Beitrag", "500 Swipes → 1 zusätzlicher Level‑2-Beitrag"],
   } as LocaleValue<string[]>,
-  membershipNote: {
-    de: "VoiceOpenGov-Mitglied werden? Das ist der ideelle Teil der Bewegung – erfahre mehr unter",
-  } as LocaleValue<string>,
-  membershipLink: { de: "/mitglied-werden" } as LocaleValue<string>,
 } as const;
 
 function pick<T>(entry: LocaleValue<T>, locale: SupportedLocale | string): T {
@@ -40,7 +37,5 @@ export function getNutzungsStrings(locale: SupportedLocale | string) {
     earnedTitle: pick(STRINGS.earnedTitle, locale),
     earnedIntro: pick(STRINGS.earnedIntro, locale),
     earnedList: pick(STRINGS.earnedList, locale),
-    membershipNote: pick(STRINGS.membershipNote, locale),
-    membershipLink: pick(STRINGS.membershipLink, locale),
   };
 }

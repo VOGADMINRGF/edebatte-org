@@ -8,11 +8,11 @@ type LocaleStringArray = Record<"de", string[]> & Partial<Record<SupportedLocale
 const STRINGS = {
   heroTitle: { de: "Mitglied werden – Teil der Bewegung" } as LocaleString,
   heroIntro: {
-    de: "Als Mitglied stärkst du unabhängige digitale Beteiligung und hältst die VoiceOpenGov-Bewegung finanziell und politisch unabhängig. Deine Beiträge finanzieren Moderation, Faktenaufbereitung und öffentliche Audit-Trails – nicht Werbung und nicht „Zugang gegen Geld“.",
+    de: "VoiceOpenGov ist eine weltweite Initiative, die länderübergreifend wachsen will – unabhängig von Stiftungen, Großvermögen oder staatlichen/EU-Förderprogrammen. Deine Mitgliedschaft finanziert Moderation, Faktenaufbereitung und öffentliche Audit-Trails, nicht Werbung oder Paywalls.",
   } as LocaleString,
   transparencyTitle: { de: "Wichtiger Hinweis zur Transparenz" } as LocaleString,
   transparencyBody: {
-    de: "Diese Mitgliedschaft betrifft ausschließlich die VoiceOpenGov-Bewegung – nicht das Nutzungsmodell der eDebatte-App. Wer Mitglied ist, bleibt unabhängig von Beitragshöhe gleichberechtigt und erhält keine zusätzlichen Stimmrechte. Abstimmungen folgen immer dem Prinzip „eine Person, eine Stimme“. Das eDebatte-Pricing findest du separat unter unserem Nutzungsmodell.",
+    de: "Diese Mitgliedschaft betrifft ausschließlich die VoiceOpenGov-Bewegung – nicht das Nutzungsmodell der eDebatte-App. Wir stellen keine Spendenquittungen aus, erhalten keine staatlichen/EU-Förderungen und versteuern Einnahmen regulär. Wir finanzieren uns über viele Mitglieder, nicht über wenige Großzahler:innen. Abstimmungen folgen immer dem Prinzip „eine Person, eine Stimme“. Das eDebatte-Pricing findest du separat unter unserem Nutzungsmodell.",
   } as LocaleString,
   enableTitle: { de: "Was du mit deiner Mitgliedschaft ermöglichst" } as LocaleString,
   enableList: {
@@ -44,7 +44,9 @@ const STRINGS = {
   warmRentLabel: { de: "Warmmiete (€/Monat)" } as LocaleString,
   warmRentPlaceholder: { de: "z. B. 900" } as LocaleString,
   suggestionTitle: { de: "Vorschlag pro Person" } as LocaleString,
-  suggestionNote: { de: "basierend auf deinen Angaben und mindestens 5,63 €" } as LocaleString,
+  suggestionNote: {
+    de: "basierend auf deinen Angaben und mindestens dem orientierenden Basisbeitrag",
+  } as LocaleString,
   suggestionButton: { de: "Vorschlag übernehmen" } as LocaleString,
   perPersonLabel: { de: "Beitrag pro Person / Mitglied" } as LocaleString,
   perPersonCustomSuffix: { de: "€/Monat" } as LocaleString,
@@ -94,6 +96,15 @@ const STRINGS = {
     ],
   } as Record<"de", { label: string; href: string; variant: "primary" | "secondary" }[]> &
     Partial<Record<SupportedLocale, { label: string; href: string; variant: "primary" | "secondary" }[]>>,
+  membershipAppTitle: {
+    de: "Mitgliedschaft + eDebatte-App",
+  } as LocaleString,
+  membershipAppBody: {
+    de: "VOG-Mitglieder erhalten einen festen Nachlass auf eDebatte-App-Pakete und künftig auf den Merchandise-Shop. Die Mitgliedschaft bleibt ideell – App-Pakete werden separat fakturiert und später technisch verknüpft.",
+  } as LocaleString,
+  merchNote: {
+    de: "Sobald unser Merchandise-Shop startet, gilt derselbe Nachlass automatisch auch dort für Mitglieder.",
+  } as LocaleString,
 } as const;
 
 function pick<T>(entry: Record<"de", T> & Partial<Record<SupportedLocale, T>>, locale: SupportedLocale | string): T {
@@ -141,5 +152,8 @@ export function getMembershipStrings(locale: SupportedLocale | string) {
     finalList: pick(STRINGS.finalList, locale),
     creatorBox: pick(STRINGS.creatorBox, locale),
     creatorButtons: pick(STRINGS.creatorButtons, locale),
+    membershipAppTitle: pick(STRINGS.membershipAppTitle, locale),
+    membershipAppBody: pick(STRINGS.membershipAppBody, locale),
+    merchNote: pick(STRINGS.merchNote, locale),
   };
 }

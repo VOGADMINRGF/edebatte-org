@@ -3,16 +3,9 @@ export const dynamic = "force-dynamic";
 import { ObjectId } from "@core/db/triMongo";
 import { notFound } from "next/navigation";
 
-import type {
-  ConsequenceRecord,
-  ResponsibilityPath,
-  ResponsibilityRecord,
-} from "@features/analyze/schemas";
 import StatementDetailClient from "@features/statement/components/StatementDetailClient";
-import {
-  ConsequencesPreviewCard,
-  ResponsibilityPreviewCard,
-} from "@features/statement/components/StatementImpactPreview";
+import ResponsibilityNavigator from "@features/statement/components/ResponsibilityNavigator";
+import { getActors, type ResponsibilityPath } from "@core/responsibility";
 
 type Stats = {
   votesTotal: number;
@@ -49,17 +42,12 @@ export default async function StatementPage({
     votesDisagree: 0,
   };
 
-  const analysis = doc.analysis ?? null;
-  const consequenceBundle = analysis?.consequences;
-  const consequences: ConsequenceRecord[] = Array.isArray(consequenceBundle?.consequences)
-    ? consequenceBundle.consequences
-    : [];
-  const responsibilities: ResponsibilityRecord[] = Array.isArray(consequenceBundle?.responsibilities)
-    ? consequenceBundle.responsibilities
-    : [];
-  const responsibilityPaths: ResponsibilityPath[] = Array.isArray(analysis?.responsibilityPaths)
-    ? analysis.responsibilityPaths
-    : [];
+  const responsibilityPaths: ResponsibilityPath[] =
+    (doc.analysis?.responsibilityPaths as ResponsibilityPath[] | undefined) ??
+    (doc.responsibilityPaths as ResponsibilityPath[] | undefined) ??
+    [];
+
+  const actors = await getActors();
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -72,20 +60,13 @@ export default async function StatementPage({
 
       {content && <p className="text-lg leading-relaxed">{content}</p>}
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <ConsequencesPreviewCard
-          consequences={consequences}
-          responsibilities={responsibilities}
-        />
-        <ResponsibilityPreviewCard
-          responsibilities={responsibilities}
-          paths={responsibilityPaths}
-          showPathOverlay
-          overlayButtonLabel="Zuständigkeitsweg anzeigen"
-        />
-      </section>
-
       <StatementDetailClient statementId={statementId} initialStats={stats} />
+
+      <ResponsibilityNavigator
+        paths={responsibilityPaths}
+        actors={actors}
+        statementTitle={doc.title}
+      />
 
       {doc.analysis?.summary && (
         <section className="bg-white border rounded-xl p-4">

@@ -27,6 +27,8 @@ export default function AiUsageTelemetryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hasData = snapshot !== null && (snapshot.totals.calls > 0 || snapshot.totals.tokens > 0);
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -82,7 +84,14 @@ export default function AiUsageTelemetryPage() {
         {error && <span className="text-sm text-rose-600">{error}</span>}
       </section>
 
-      {snapshot && (
+      {!loading && !error && snapshot === null && (
+        <section className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Noch kein Snapshot geladen</p>
+          <p>Wähle einen Zeitraum, um die AI-Nutzungsdaten abzurufen.</p>
+        </section>
+      )}
+
+      {snapshot && hasData && (
         <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <UsageTile label="Tokens" value={formatNumber(snapshot.totals.tokens)} />
           <UsageTile label="Kosten" value={formatCurrency(snapshot.totals.costEur)} />
@@ -91,10 +100,17 @@ export default function AiUsageTelemetryPage() {
         </section>
       )}
 
-      {snapshot && (
+      {snapshot && hasData && (
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <UsageTable title="Nach Provider" rows={snapshot.byProvider} />
           <UsageTable title="Nach Pipeline" rows={snapshot.byPipeline} />
+        </section>
+      )}
+
+      {snapshot && !hasData && (
+        <section className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Keine Events im Zeitraum</p>
+          <p>Es wurden keine AI-Usage-Events für den gewählten Zeitraum gefunden.</p>
         </section>
       )}
 
@@ -142,6 +158,13 @@ function UsageTable({ title, rows }: UsageTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
+            {rows.length === 0 && (
+              <tr>
+                <td className="px-4 py-3 text-sm text-slate-600" colSpan={5}>
+                  Keine Zeilen für den gewählten Zeitraum.
+                </td>
+              </tr>
+            )}
             {rows.map((row) => {
               const errorRate = row.calls ? (row.errors / row.calls) * 100 : 0;
               return (

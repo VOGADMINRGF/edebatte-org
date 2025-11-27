@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# LEGACY_KEEP: Hotfix-Stubs für alte Dev-Setups; enthält bewusst unfertige
+# Platzhalter. Nicht in produktiven Flows einsetzen.
+
 # --- tsconfig (JSONC) sicher patchen ---
 node - <<'NODE'
 const fs=require("fs"), p="apps/web/tsconfig.json";

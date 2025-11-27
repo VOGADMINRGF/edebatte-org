@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# LEGACY_KEEP: UX-Pipeline-Stub aus VPM25, nicht automatisiert im Einsatz.
+# Nur als Vorlage für spätere Schritte gedacht.
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB="$ROOT/apps/web"
 

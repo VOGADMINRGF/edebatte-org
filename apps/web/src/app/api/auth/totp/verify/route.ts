@@ -5,7 +5,7 @@ import { ObjectId } from "@core/db/triMongo";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
-import { coreCol } from "@core/db/db/triMongo";
+import { coreCol, piiCol } from "@core/db/db/triMongo";
 
 import { authenticator } from "otplib";
 
@@ -70,6 +70,21 @@ export async function POST(req: NextRequest) {
         },
         $unset: { "verification.twoFA.temp": "" },
       },
+    );
+
+    const credentials = await piiCol("user_credentials");
+    await credentials.updateOne(
+      { coreUserId: new ObjectId(uid) },
+      {
+        $set: {
+          coreUserId: new ObjectId(uid),
+          email: user.email ?? null,
+          twoFactorEnabled: true,
+          twoFactorMethod: "otp",
+          otpSecret: secret,
+        },
+      },
+      { upsert: true },
     );
 
     const res = NextResponse.json({ ok: true });

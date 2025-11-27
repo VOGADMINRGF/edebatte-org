@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# LEGACY_KEEP: Reparatur-Script für alte v1-LandingeDbtt-Stände, nur manuell
+# nutzen. Keine aktuelle Deployment-Pipeline.
+
 # === Pfade anpassen falls nötig ===
 V1_ROOT="${V1_ROOT:-$(pwd)}"
 WEB_DIR="$V1_ROOT/apps/web"

@@ -31,7 +31,24 @@ export default function AnalyzeWorkbench({
   const [text, setText] = React.useState(defaultText);
   const [busy, setBusy] = React.useState(false);
   const [statements, setStatements] = React.useState<Statement[]>([]);
+  const [filter, setFilter] = React.useState("");
+  const [sortOrder, setSortOrder] = React.useState<"original" | "short" | "long">("original");
   const taRef = React.useRef<HTMLTextAreaElement | null>(null);
+
+  const filteredStatements = React.useMemo(() => {
+    const normalizedFilter = filter.trim().toLowerCase();
+    const base = normalizedFilter
+      ? statements.filter((s) => s.rep?.text?.toLowerCase().includes(normalizedFilter))
+      : [...statements];
+
+    if (sortOrder === "short") {
+      return [...base].sort((a, b) => (a.rep?.text?.length ?? 0) - (b.rep?.text?.length ?? 0));
+    }
+    if (sortOrder === "long") {
+      return [...base].sort((a, b) => (b.rep?.text?.length ?? 0) - (a.rep?.text?.length ?? 0));
+    }
+    return base;
+  }, [filter, sortOrder, statements]);
 
   // Auto-grow Textarea
   React.useEffect(() => {
@@ -97,8 +114,17 @@ export default function AnalyzeWorkbench({
             busy={busy}
           />
           <ActionBar onAnalyze={analyze} busy={busy} />
-          {/* Statements unter dem Editor */}
-          <StatementList statements={statements} className="mt-4" />
+          <StatementToolbar
+            filter={filter}
+            sortOrder={sortOrder}
+            onFilterChange={setFilter}
+            onSortChange={setSortOrder}
+          />
+          <StatementList
+            statements={filteredStatements}
+            className="mt-4"
+            emptyHint={filter ? "Keine Statements zum aktuellen Filter." : undefined}
+          />
         </div>
 
         {/* Rechts: Fragen */}
@@ -122,7 +148,17 @@ export default function AnalyzeWorkbench({
           busy={busy}
         />
         <ActionBar onAnalyze={analyze} busy={busy} />
-        <StatementList statements={statements} className="mt-4" />
+        <StatementToolbar
+          filter={filter}
+          sortOrder={sortOrder}
+          onFilterChange={setFilter}
+          onSortChange={setSortOrder}
+        />
+        <StatementList
+          statements={filteredStatements}
+          className="mt-4"
+          emptyHint={filter ? "Keine Statements zum aktuellen Filter." : undefined}
+        />
       </div>
     </section>
   );
@@ -172,6 +208,44 @@ function ActionBar({ onAnalyze, busy }: { onAnalyze: () => void; busy?: boolean 
   );
 }
 
+function StatementToolbar({
+  filter,
+  sortOrder,
+  onFilterChange,
+  onSortChange,
+}: {
+  filter: string;
+  sortOrder: "original" | "short" | "long";
+  onFilterChange: (v: string) => void;
+  onSortChange: (v: "original" | "short" | "long") => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+      <label className="flex items-center gap-2">
+        <span className="font-semibold">Filter</span>
+        <input
+          value={filter}
+          onChange={(e) => onFilterChange(e.target.value)}
+          placeholder="Stichwort suchen"
+          className="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+        />
+      </label>
+      <label className="flex items-center gap-2">
+        <span className="font-semibold">Sortierung</span>
+        <select
+          value={sortOrder}
+          onChange={(e) => onSortChange(e.target.value as "original" | "short" | "long")}
+          className="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+        >
+          <option value="original">Originalreihenfolge</option>
+          <option value="short">Kürzeste zuerst</option>
+          <option value="long">Längste zuerst</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
 function Section({ title, items }: { title: string; items: Item[] }) {
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white/70 shadow-sm p-3">
@@ -201,7 +275,15 @@ function ChipBar({ title, items, variant = "solid" }: { title?: string; items: I
   );
 }
 
-function StatementList({ statements, className }: { statements: Statement[]; className?: string }) {
+function StatementList({
+  statements,
+  className,
+  emptyHint,
+}: {
+  statements: Statement[];
+  className?: string;
+  emptyHint?: string;
+}) {
   return (
     <div className={className}>
       {statements.map((s) => (
@@ -215,7 +297,9 @@ function StatementList({ statements, className }: { statements: Statement[]; cla
         </article>
       ))}
       {!statements.length && (
-        <div className="text-xs text-slate-500">Noch keine Statements – schreibe Text und klicke „Erneut analysieren“.</div>
+        <div className="text-xs text-slate-500">
+          {emptyHint ?? "Noch keine Statements – schreibe Text und klicke „Erneut analysieren“."}
+        </div>
       )}
     </div>
   );

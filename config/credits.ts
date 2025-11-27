@@ -1,0 +1,4 @@
+export const SWIPES_PER_CONTRIBUTION_CREDIT = 100;
+export const MAX_STORED_CONTRIBUTION_CREDITS = 50;
+
+export const XP_PER_SWIPE = 1;

@@ -80,6 +80,8 @@ type ProviderProfile = {
   promptHint?: string;
 };
 
+type ProviderHealthState = "healthy" | "degraded" | "unknown" | "down";
+
 type ProviderSuccess = {
   ok: true;
   provider: E150ProviderName;
@@ -276,6 +278,27 @@ function withTimeout<T>(
   });
 }
 
+function clamp(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function resolveProviderHealth(profile: ProviderProfile): {
+  state: ProviderHealthState;
+  score: number;
+} {
+  if (!profile.metricId) {
+    return { state: "unknown", score: 0.5 };
+  }
+
+  const raw = clamp(healthScore(profile.metricId), 0, 1);
+
+  if (raw >= 0.75) return { state: "healthy", score: raw };
+  if (raw >= 0.45) return { state: "degraded", score: raw };
+  if (raw > 0) return { state: "down", score: raw };
+  return { state: "unknown", score: raw };
+}
+
 function scoreCandidate(
   provider: ProviderProfile,
   rawText: string,
@@ -296,9 +319,11 @@ function scoreCandidate(
   const jsonBonus = jsonOk ? 0.5 : 0;
   const speedBonus =
     durationMs > 0 ? Math.min(0.5, Math.max(0, 8_000 - durationMs) / 8_000) : 0;
-  const healthBoost = provider.metricId ? healthScore(provider.metricId) * 0.2 : 0;
+  const { state, score } = resolveProviderHealth(provider);
+  const healthBoost = score * 0.25;
+  const healthPenalty = state === "down" ? 0.3 : state === "degraded" ? 0.1 : 0;
 
-  return base + jsonBonus + speedBonus + healthBoost;
+  return base + jsonBonus + speedBonus + healthBoost - healthPenalty;
 }
 
 async function runProvider(
@@ -424,7 +449,8 @@ export async function callE150Orchestrator(
   const failedProviders: { provider: E150ProviderName; error: string }[] = [];
 
   results.forEach((settled, idx) => {
-    const profile = PROVIDERS[idx];
+    const profile = profiles[idx];
+    if (!profile) return;
 
     if (settled.status !== "fulfilled") {
       const failure: ProviderFailure = {
@@ -464,6 +490,36 @@ export async function callE150Orchestrator(
     }
   });
 
+  const telemetryMeta = args.telemetry ?? {};
+  const pipelineName: AiPipelineName =
+    telemetryMeta.pipeline ?? "contribution_analyze";
+
+  const usageLogs = providerOutcomes.map((outcome) => {
+    const success = outcome.ok ? (outcome as ProviderSuccess) : null;
+    const failure = outcome.ok ? null : (outcome as ProviderFailure);
+
+    return logAiUsage({
+      createdAt: new Date(),
+      provider: outcome.provider,
+      model: success?.modelName ?? "unknown",
+      pipeline: pipelineName,
+      userId: telemetryMeta.userId ?? null,
+      tenantId: telemetryMeta.tenantId ?? null,
+      region: telemetryMeta.region ?? null,
+      locale: args.locale ?? null,
+      tokensInput: success?.tokensIn ?? 0,
+      tokensOutput: success?.tokensOut ?? 0,
+      costEur: success?.costEur ?? 0,
+      durationMs: outcome.durationMs,
+      success: Boolean(success),
+      errorKind: failure?.error ?? null,
+    }).catch((err) => {
+      console.error("[E150] logAiUsage (provider outcome) failed", err);
+    });
+  });
+
+  await Promise.all(usageLogs);
+
   if (!candidates.length) {
     const msg =
       failedProviders.length === 1
@@ -478,29 +534,6 @@ export async function callE150Orchestrator(
       if (b.score !== a.score) return b.score - a.score;
       return a.durationMs - b.durationMs;
     })[0];
-
-  const telemetryMeta = args.telemetry ?? {};
-  const pipelineName: AiPipelineName =
-    telemetryMeta.pipeline ?? "contribution_analyze";
-
-  logAiUsage({
-    createdAt: new Date(),
-    provider: best.provider,
-    model: best.modelName ?? "unknown",
-    pipeline: pipelineName,
-    userId: telemetryMeta.userId ?? null,
-    tenantId: telemetryMeta.tenantId ?? null,
-    region: telemetryMeta.region ?? null,
-    locale: args.locale ?? null,
-    tokensInput: best.tokensIn ?? 0,
-    tokensOutput: best.tokensOut ?? 0,
-    costEur: best.costEur ?? 0,
-    durationMs: best.durationMs,
-    success: true,
-    errorKind: null,
-  }).catch((err) => {
-    console.error("[E150] logAiUsage failed", err);
-  });
 
   const telemetryEvents = providerOutcomes.map((outcome) => {
     const success = outcome.ok ? (outcome as ProviderSuccess) : null;

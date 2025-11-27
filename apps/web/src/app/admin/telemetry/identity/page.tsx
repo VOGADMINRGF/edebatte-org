@@ -43,6 +43,10 @@ export default function IdentityTelemetryPage() {
   const [error, setError] = useState<string | null>(null);
 
   const totals = useMemo(() => snapshot?.totalsByEvent ?? {}, [snapshot]);
+  const noData = useMemo(
+    () => snapshot && Object.values(totals).every((value) => value === 0),
+    [snapshot, totals],
+  );
 
   useEffect(() => {
     async function fetchData() {
@@ -97,8 +101,26 @@ export default function IdentityTelemetryPage() {
         </select>
         <span className="text-xs text-slate-500">{formatDateRange(snapshot)}</span>
         {loading && <span className="text-sm text-slate-600">Lädt …</span>}
-        {error && <span className="text-sm text-rose-600">{error}</span>}
+        {error && (
+          <span className="text-sm text-rose-600" role="alert">
+            {error}
+          </span>
+        )}
       </section>
+
+      {!loading && !error && snapshot === null && (
+        <section className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Keine Daten geladen</p>
+          <p>Wähle oben einen Zeitraum, um einen Snapshot zu laden.</p>
+        </section>
+      )}
+
+      {noData && !loading && !error && snapshot && (
+        <section className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Keine Events im Zeitraum</p>
+          <p>Für den ausgewählten Zeitraum liegen keine Identity-Events vor.</p>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {FUNNEL_ORDER.map((step) => (
@@ -110,6 +132,7 @@ export default function IdentityTelemetryPage() {
             <p className="text-3xl font-bold text-slate-900">
               {totals[step.key] ?? 0}
             </p>
+            <p className="mt-1 text-xs text-slate-600">{step.key.replace("identity_", "").replace(/_/g, " → ")}</p>
           </div>
         ))}
       </section>

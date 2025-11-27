@@ -3,9 +3,10 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
-import { streamAgendaCol } from "@features/stream/db";
+import { streamAgendaCol, streamSessionsCol } from "@features/stream/db";
 import { VoteModel } from "@/models/votes/Vote";
 import { createHash } from "node:crypto";
+import { resolveSessionStatus } from "@features/stream/types";
 
 function hashSession(input: string) {
   return createHash("sha256").update(input).digest("hex").slice(0, 40);
@@ -17,11 +18,18 @@ export async function POST(
 ) {
   const { id } = await context.params;
   const agendaCol = await streamAgendaCol();
+  const sessionCol = await streamSessionsCol();
   const body = (await req.json().catch(() => null)) as { agendaItemId?: string; choice?: string } | null;
   const agendaItemId = body?.agendaItemId;
   const choice = String(body?.choice ?? "").trim();
   if (!agendaItemId || !choice) {
     return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+  }
+
+  const session = await sessionCol.findOne({ _id: new ObjectId(id) });
+  const sessionStatus = session ? resolveSessionStatus(session) : "ended";
+  if (!session || sessionStatus !== "live") {
+    return NextResponse.json({ ok: false, error: "session_not_live" }, { status: 400 });
   }
 
   const item = await agendaCol.findOne({ _id: new ObjectId(agendaItemId), sessionId: new ObjectId(id) });

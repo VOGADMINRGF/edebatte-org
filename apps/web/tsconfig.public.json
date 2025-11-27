@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022","DOM"],
+    "lib": ["ES2022", "DOM"],
     "jsx": "preserve",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -22,6 +22,35 @@
       "@packages/*": ["src/shims/packages/*"]
     }
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", ".next", "dist", "build"]
+  "include": [
+    "next-env.d.ts",
+    "src/app/page.tsx",
+    "src/app/layout.tsx",
+    "src/app/homeStrings.ts",
+    "src/app/privacyStrings.ts",
+    "src/app/api/public/**/*",
+    "src/app/api/security/**/*",
+    "src/app/(components)/SiteHeader.tsx",
+    "src/components/privacy/**/*",
+    "src/components/security/**/*",
+    "src/context/**/*",
+    "src/lib/privacy/**/*",
+    "src/lib/security/**/*",
+    "src/config/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist",
+    "build",
+    "src/app/_disabled/**",
+    "src/app/admin/**",
+    "src/app/api/admin/**",
+    "src/app/api/**/admin/**",
+    "src/app/dashboard/**",
+    "src/app/contributions/**",
+    "src/app/stream/**",
+    "src/app/votes/**"
+  ]
 }

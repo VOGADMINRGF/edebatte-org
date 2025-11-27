@@ -2,8 +2,20 @@
 
 import * as React from "react";
 import Link from "next/link";
+import {
+  EDEBATTE_PLANS,
+  MEMBER_DISCOUNT,
+  VOG_MEMBERSHIP_PLAN,
+  calcDiscountedPrice,
+} from "@/config/pricing";
 import { useLocale } from "@/context/LocaleContext";
 import { getMembershipStrings } from "./strings";
+import {
+  EDEBATTE_PLANS,
+  MEMBER_DISCOUNT,
+  VOG_MEMBERSHIP_PLAN,
+  calcDiscountedPrice,
+} from "@/config/pricing";
 
 type Rhythm = "monthly" | "once";
 
@@ -25,7 +37,9 @@ export default function MitgliedWerdenPage() {
   const [householdNet, setHouseholdNet] = React.useState("2400");
   const [warmRent, setWarmRent] = React.useState("900");
   const [householdSize, setHouseholdSize] = React.useState(1);
-  const [amountPerPerson, setAmountPerPerson] = React.useState(5.63);
+  const [amountPerPerson, setAmountPerPerson] = React.useState(
+    VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth,
+  );
   const [rhythm, setRhythm] = React.useState<Rhythm>("monthly");
   const [skills, setSkills] = React.useState("");
 
@@ -34,10 +48,19 @@ export default function MitgliedWerdenPage() {
   const available = Math.max(0, net - rent);
   const size = Number.isFinite(householdSize) && householdSize > 0 ? householdSize : 1;
 
-  const suggestedRaw = available > 0 ? (available * 0.01) / size : 5.63; // 1 % vom frei verfügbaren Einkommen
-  const suggestedPerPerson = Math.max(5.63, Math.round(suggestedRaw * 100) / 100);
+  const suggestedRaw =
+    available > 0
+      ? (available * 0.01) / size
+      : VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth; // 1 % vom frei verfügbaren Einkommen
+  const suggestedPerPerson = Math.max(
+    VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth,
+    Math.round(suggestedRaw * 100) / 100,
+  );
 
-  const effectivePerPerson = Math.max(5.63, amountPerPerson || 0);
+  const effectivePerPerson = Math.max(
+    VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth,
+    amountPerPerson || 0,
+  );
   const total = effectivePerPerson * size;
 
   return (
@@ -95,7 +118,89 @@ export default function MitgliedWerdenPage() {
                 </ul>
               </div>
             </div>
+
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-slate-900">
+                {strings.membershipAppTitle}
+              </h2>
+              <p className="text-xs md:text-sm text-slate-700">{strings.membershipAppBody}</p>
+              <p className="text-xs md:text-sm text-slate-700">
+                Aktuell gilt: {MEMBER_DISCOUNT.percent}% Nachlass auf alle eDebatte-Pakete und auf den
+                zukünftigen Merchandise-Shop – automatisch für Mitglieder.
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {EDEBATTE_PLANS.map((plan) => {
+                  const memberPrice = calcDiscountedPrice(plan.listPrice.amount);
+                  return (
+                    <article
+                      key={plan.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-800"
+                    >
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {plan.label}
+                      </h3>
+                      <p className="mt-1">{plan.description}</p>
+                      <p className="mt-2 text-xs text-slate-600">
+                        Listenpreis: {plan.listPrice.amount.toFixed(2)} € /{" "}
+                        {plan.listPrice.interval === "month" ? "Monat" : "Jahr"}
+                        <br />
+                        <span className="font-medium text-emerald-700">
+                          VOG-Mitglied: {memberPrice.toFixed(2)} € /{" "}
+                          {plan.listPrice.interval === "month" ? "Monat" : "Jahr"}{" "}
+                          (−{MEMBER_DISCOUNT.percent}%)
+                        </span>
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-600">{strings.merchNote}</p>
+            </div>
           </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.04)] p-6 md:p-8 space-y-4">
+          <h2 className="text-lg md:text-xl font-semibold text-slate-900">
+            {strings.membershipAppTitle}
+          </h2>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            {strings.membershipAppBody}
+          </p>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            {VOG_MEMBERSHIP_PLAN.description}
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {EDEBATTE_PLANS.map((plan) => {
+              const memberPrice = calcDiscountedPrice(plan.listPrice.amount);
+              return (
+                <article
+                  key={plan.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-800"
+                >
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {plan.label}
+                  </h3>
+                  <p className="mt-1">{plan.description}</p>
+                  <p className="mt-2 text-xs text-slate-600">
+                    Listenpreis: {plan.listPrice.amount.toFixed(2)} € /{" "}
+                    {plan.listPrice.interval === "month" ? "Monat" : "Jahr"}
+                    <br />
+                    <span className="font-medium text-emerald-700">
+                      VOG-Mitglied: {memberPrice.toFixed(2)} € /{" "}
+                      {plan.listPrice.interval === "month" ? "Monat" : "Jahr"}{" "}
+                      (−{MEMBER_DISCOUNT.percent}%)
+                    </span>
+                  </p>
+                  <p className="mt-2 text-xs text-slate-600">
+                    Bis zu {MEMBER_DISCOUNT.percent} % Nachlass in den ersten 6 Monaten – wenn du deine
+                    VoiceOpenGov-Mitgliedschaft mit mindestens 5,63 €/Monat und 24 Monaten Mindestlaufzeit
+                    bestätigst. Danach gilt der Listenpreis. Rabatt und Mitgliedschaft laufen buchhalterisch getrennt.
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+          <p className="text-xs text-slate-600">{strings.merchNote}</p>
         </section>
 
         {/* Beitrag berechnen */}
@@ -151,7 +256,10 @@ export default function MitgliedWerdenPage() {
                     {formatEuro(suggestedPerPerson)}
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    {strings.suggestionNote}
+                    {strings.suggestionNote} ({
+                      formatEuro(VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth)
+                    }
+                    )
                   </p>
                 </div>
                 <button
@@ -169,7 +277,7 @@ export default function MitgliedWerdenPage() {
                   {strings.perPersonLabel}
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
-                  {[5.63, 10, 25, 50].map((amount) => (
+                  {[VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth, 10, 25, 50].map((amount) => (
                     <button
                       key={amount}
                       type="button"
@@ -188,10 +296,13 @@ export default function MitgliedWerdenPage() {
                     <input
                       type="number"
                       inputMode="decimal"
-                      className="w-24 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                      value={amountPerPerson.toString().replace(".", ",")}
+                    className="w-24 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                    value={amountPerPerson.toString().replace(".", ",")}
                     onChange={(e) =>
-                      setAmountPerPerson(parseEuro(e.target.value) ?? 5.63)
+                      setAmountPerPerson(
+                        parseEuro(e.target.value) ??
+                          VOG_MEMBERSHIP_PLAN.suggestedPerPersonPerMonth,
+                      )
                     }
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">

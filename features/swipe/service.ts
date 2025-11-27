@@ -1,11 +1,7 @@
 // features/swipe/service.ts
 import { ObjectId, getCol } from "@core/db/triMongo";
-import {
-  getEngagementLevel,
-  swipesUntilNextCredit,
-  XP_PER_SWIPE,
-  SWIPES_PER_CONTRIBUTION_CREDIT,
-} from "@features/user/engagement";
+import { applySwipeForCredits } from "@features/user/credits";
+import { getEngagementLevel } from "@features/user/engagement";
 import type { EngagementLevel } from "@features/user/engagement";
 
 export type SwipeDirection = "pro" | "neutral" | "contra";
@@ -114,23 +110,19 @@ export async function registerSwipeForUser(
   });
 
   const prevUsage = userDoc.usage ?? {};
-  const prevSwipes = prevUsage.swipeCountTotal ?? 0;
-  const prevXp = prevUsage.xp ?? 0;
-  const prevCredits = prevUsage.contributionCredits ?? 0;
-
-  const nextSwipes = prevSwipes + 1;
-  const nextXp = prevXp + XP_PER_SWIPE;
-  const prevCompletedCredits = Math.floor(prevSwipes / SWIPES_PER_CONTRIBUTION_CREDIT);
-  const nextCompletedCredits = Math.floor(nextSwipes / SWIPES_PER_CONTRIBUTION_CREDIT);
-  const earnedCredits = Math.max(0, nextCompletedCredits - prevCompletedCredits);
+  const creditResult = applySwipeForCredits({
+    swipeCountTotal: prevUsage.swipeCountTotal,
+    xp: prevUsage.xp,
+    contributionCredits: prevUsage.contributionCredits,
+  });
 
   const incOps: Record<string, number> = {
     "usage.swipeCountTotal": 1,
     "usage.swipesThisMonth": 1,
-    "usage.xp": XP_PER_SWIPE,
+    "usage.xp": creditResult.xp - (prevUsage.xp ?? 0),
   };
-  if (earnedCredits > 0) {
-    incOps["usage.contributionCredits"] = earnedCredits;
+  if (creditResult.earnedCredits > 0) {
+    incOps["usage.contributionCredits"] = creditResult.earnedCredits;
   }
 
   await Users.updateOne(
@@ -141,16 +133,14 @@ export async function registerSwipeForUser(
     },
   );
 
-  const contributionCredits = prevCredits + earnedCredits;
-
   return {
     ok: true,
     stats: {
-      xp: nextXp,
-      swipeCountTotal: nextSwipes,
-      contributionCredits,
-      engagementLevel: getEngagementLevel(nextXp),
-      nextCreditIn: swipesUntilNextCredit(nextSwipes),
+      xp: creditResult.xp,
+      swipeCountTotal: creditResult.swipeCountTotal,
+      contributionCredits: creditResult.contributionCredits,
+      engagementLevel: getEngagementLevel(creditResult.xp),
+      nextCreditIn: creditResult.nextCreditIn,
     },
   };
 }

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# LEGACY_KEEP: Pipeline-Stubs aus VPM25, aktuell nicht aktiv verdrahtet.
+# Dient nur als Referenz für spätere Verkabelungen.
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB="$ROOT/apps/web"
 

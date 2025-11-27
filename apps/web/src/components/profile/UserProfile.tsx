@@ -60,6 +60,16 @@ export default function UserProfile() {
   const stats = data.stats;
   const displayName = data.displayName || data.email || "Bürger:in";
   const plan = data.accessTier;
+  const publicFlags = data.publicFlags ?? {};
+  const profileAllowed = publicFlags.profile ?? false;
+  const headlineAllowed = profileAllowed && (publicFlags.headline ?? false);
+  const bioAllowed = profileAllowed && (publicFlags.bio ?? false);
+  const topicsAllowed = profileAllowed && (publicFlags.topTopics ?? false);
+  const hasPublicContent =
+    profileAllowed &&
+    ((headlineAllowed && !!data.profile?.headline) ||
+      (bioAllowed && !!data.profile?.bio) ||
+      (topicsAllowed && data.topTopics.length > 0));
 
   return (
     <div className="space-y-8">
@@ -111,6 +121,43 @@ export default function UserProfile() {
             Neue Contribution starten
           </a>
         </div>
+      </section>
+
+      <section className="rounded-4xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold text-slate-900">Profil & Sichtbarkeit</h2>
+        {!profileAllowed && (
+          <p className="mt-2 text-sm text-slate-600">Dein öffentliches Profil ist aktuell deaktiviert.</p>
+        )}
+
+        {profileAllowed && hasPublicContent ? (
+          <div className="mt-4 space-y-3 text-sm text-slate-700">
+            {headlineAllowed && data.profile?.headline && (
+              <p className="text-base font-semibold text-slate-900">{data.profile.headline}</p>
+            )}
+            {bioAllowed && data.profile?.bio && <p className="text-slate-700">{data.profile.bio}</p>}
+            {topicsAllowed && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Top-Themen</p>
+                {data.topTopics.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {data.topTopics.map((topic) => (
+                      <span
+                        key={topic}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800"
+                      >
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-500">Noch keine Top-Themen freigegeben.</p>
+                )}
+              </div>
+            )}
+          </div>
+        ) : profileAllowed ? (
+          <p className="mt-2 text-sm text-slate-600">Es sind noch keine öffentlichen Angaben hinterlegt.</p>
+        ) : null}
       </section>
 
       <section className="rounded-4xl border border-slate-200 bg-white/90 p-6 shadow-sm">

@@ -3,12 +3,21 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import {
+  EDEBATTE_PLANS,
+  MEMBER_DISCOUNT,
+  type EDebattePlanId,
+} from "@/config/pricing";
 
 export default function MitgliedAntragPage() {
   const searchParams = useSearchParams();
   const betrag = searchParams.get("betrag");
   const rhythm = searchParams.get("rhythm");
   const personen = searchParams.get("personen");
+  const planId = searchParams.get("edbPlan") as EDebattePlanId | null;
+  const selectedPlan = planId
+    ? EDEBATTE_PLANS.find((plan) => plan.id === planId) ?? null
+    : null;
 
   const [submitted, setSubmitted] = React.useState(false);
 
@@ -52,9 +61,21 @@ export default function MitgliedAntragPage() {
             <span className="font-medium">Anzahl Personen (≥ 16 Jahre):</span>{" "}
             {personen ?? "—"}
           </p>
+          {selectedPlan && (
+            <p className="text-xs text-slate-700">
+              Gewähltes eDebatte-Paket: <strong>{selectedPlan.label}</strong>.{" "}
+              Listenpreis: {selectedPlan.listPrice.amount.toFixed(2)} € /{" "}
+              {selectedPlan.listPrice.interval === "month" ? "Monat" : "Jahr"} – als VOG-Mitglied erhältst du
+              darauf automatisch {MEMBER_DISCOUNT.percent}% Nachlass.
+            </p>
+          )}
           <p className="text-[11px] text-slate-600">
             Du kannst deinen Beitrag im nächsten Schritt noch anpassen. Der Vorschlag soll nur eine faire
             Orientierung geben.
+          </p>
+          <p className="text-[11px] text-slate-600">
+            Mitgliedschaft (ideell) und App-Pakete (Produkt) werden buchhalterisch getrennt. Rabatte werden später
+            im Abrechnungssystem umgesetzt – hier siehst du nur die Vorschau bzw. Absichtserklärung.
           </p>
         </section>
 

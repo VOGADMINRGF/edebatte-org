@@ -1,6 +1,12 @@
 // prisma/seed.cjs
-const { PrismaClient, ContentKind, PublishStatus, RegionMode } = require("@prisma/client");
+const { PrismaClient, ContentKind, PublishStatus, RegionMode, PlanType } = require("@prisma/client");
 const prisma = new PrismaClient();
+
+function parsePriceCents(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.round(parsed));
+}
 
 async function upsertRegion(code, name, level, parentCode) {
   let parentId = null;
@@ -139,6 +145,53 @@ async function main() {
     ],
     skipDuplicates: true,
   });
+
+  // 4) B2C Plans
+  const planDefinitions = [
+    {
+      slug: "basic",
+      name: "Basic",
+      type: PlanType.B2C,
+      monthlyPriceCents: parsePriceCents(process.env.PLAN_BASIC_PRICE_CENTS, 0),
+      features: {
+        tier: "citizenBasic",
+        notes: "Kostenloser Plan, Registrierung erforderlich",
+      },
+    },
+    {
+      slug: "pro",
+      name: "Pro",
+      type: PlanType.B2C,
+      monthlyPriceCents: parsePriceCents(process.env.PLAN_PRO_PRICE_CENTS, 990),
+      features: {
+        tier: "citizenPro",
+        perks: ["Stream-Hosting", "Erhöhte Limits"],
+      },
+    },
+    {
+      slug: "premium",
+      name: "Premium",
+      type: PlanType.B2C,
+      monthlyPriceCents: parsePriceCents(process.env.PLAN_PREMIUM_PRICE_CENTS, 1990),
+      features: {
+        tier: "citizenUltra",
+        perks: ["Kampagnen", "Höhere Limits"],
+      },
+    },
+  ];
+
+  for (const plan of planDefinitions) {
+    await prisma.plan.upsert({
+      where: { slug: plan.slug },
+      update: {
+        name: plan.name,
+        type: plan.type,
+        monthlyPriceCents: plan.monthlyPriceCents,
+        features: plan.features,
+      },
+      create: plan,
+    });
+  }
 
   console.log("✅ Seed done.");
 }

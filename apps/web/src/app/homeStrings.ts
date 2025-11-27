@@ -1,108 +1,103 @@
+// E200: Centralized marketing copy for the public landing page.
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/config/locales";
 
 type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
 
-const HERO_CHIPS = ["Direktdemokratisch", "Lokal", "National", "Weltweit"];
+const HERO_CHIPS = ["Direktdemokratisch", "Lokal", "National", "Global"];
 const HERO_LINES = ["Weniger reden.", "Mehr entscheiden."];
 const HERO_ACCENT = "Dein Anliegen";
 const HERO_SUFFIX = "– unsere Struktur.";
-
-// Fokus auf VoiceOpenGov + weltgesellschaftliche Perspektive, eDebatte nur als Werkzeug
 const HERO_INTRO =
-  "VoiceOpenGov ist eine Initiative für eine weltweite Gesellschaft, die ihre Entscheidungen selbst besser trifft – digital und vor Ort. Wir verbinden direkte Beteiligung mit klaren Regeln, Auswertungen und Transparenz, damit Mehrheiten und Minderheiten fair sichtbar werden. Unser VOG-System führt Kontexte, Quellen und Einschätzungen aus vielen Richtungen zu einem neuen Entscheidungsstandard zusammen, der Entscheidungen strukturiert, dokumentiert und für alle nachvollziehbar macht – von der Nachbarschaftsfrage bis zur großen Weichenstellung. Wir sind kein Staat, keine Partei, kein Verein und keine Stiftung, sondern bauen eine unabhängige Struktur, die demokratische Mehrheiten sichtbar macht, ohne sich von großen Geldgebern oder Lobby-Interessen abhängig zu machen.";
-
+  "VoiceOpenGov verbindet Bürger:innen, Verwaltung und Journalist:innen. KI-orchestriert bündeln wir Quellen, Gegenquellen und Unsicherheiten in einem Evidenz-Graphen, stimmen fair ab und begleiten die Umsetzung öffentlich nachvollziehbar.";
 const HERO_BULLETS = [
-  "<strong>Direkte Beteiligung:</strong> Menschen können vor Ort und von überall digital an denselben Fragen mitwirken – nach klaren Regeln, aber ohne Parteizwang.",
-  "<strong>Gleicher Informationsstand:</strong> Alle sehen dieselben Kontexte, Optionen und Folgen – keine versteckten Wissensvorsprünge.",
-  "<strong>Minderheiten sichtbar:</strong> Argumente von Minderheiten bleiben getrennt erkennbar, Mehrheiten werden sauber ausgewiesen.",
-  "<strong>Dokumentierte Entscheidungen:</strong> Am Ende steht nicht nur ein Ergebnis, sondern eine nachvollziehbare, öffentlich prüfbare Entscheidung.",
+  "<strong>Transparente Verfahren:</strong> Jede Quelle und jeder Schritt sind einsehbar.",
+  "<strong>Faire Debatten:</strong> Pro & Contra werden symmetrisch moderiert; Dominanz einzelner Stimmen wird verhindert.",
+  "<strong>Regionale Legitimität:</strong> Entscheidungen lassen sich auf Gemeinden, Kreise oder Länder begrenzen.",
 ];
-
-// CTA-Reihenfolge angepasst: Mitglied werden im Fokus
 const HERO_CTAS = {
   primary: "Mitglied werden",
-  secondary: "Abstimmungen ansehen",
+  secondary: "Jetzt abstimmen",
   tertiary: "Thema einreichen",
 };
-
-// Weniger "Behörde", mehr Einladung – neutrale Zielgruppen
 const HERO_CARDS = [
   {
     title: "Für Bürger:innen",
-    body:
-      "Du möchtest mitreden, wenn es um deine Stadt, dein Land oder Europa geht – ohne Parteibuch und ohne stundenlange Recherche? VoiceOpenGov bereitet Fragen so auf, dass du schnell verstehst, worum es geht, welche Optionen es gibt und welche Folgen sie haben könnten. Deine Stimme fließt in nachvollziehbare Entscheidungen ein – sichtbar für alle.",
+    body: "Faire Pro/Contra-Darstellung, geheime Stimmabgabe, klare Regeln & Quoren.",
   },
   {
-    title: "Für Medien & Forschung",
-    body:
-      "Du brauchst belastbare Daten, wie Menschen in verschiedenen Regionen oder Gruppen zu Themen stehen, und welche Informationen ihnen wichtig sind? Das VOG-System liefert strukturierte Auswertungen, Verläufe und Entscheidungsgründe – eine neue Datenbasis für Qualitätsjournalismus und unabhängige Forschung.",
+    title: "Für Journalist:innen",
+    body: "Dossiers, Embeds & Exporte (CSV/JSON) – lokal, regional, investigativ.",
   },
   {
-    title: "Für Verwaltungen & öffentliche Stellen",
-    body:
-      "Du trägst Verantwortung für Stadt, Gemeinde, Region oder Fachbehörde und möchtest Beteiligung fair, transparent und effizient organisieren? VoiceOpenGov strukturiert Beteiligungsverfahren, dokumentiert Ergebnisse und macht Entscheidungen nachvollziehbar – von der ersten Eingabe bis zur Umsetzung.",
+    title: "Für Verwaltungen",
+    body: "Ergebnisse mit Mandat, Meilensteinen, Risiken & Wirkung transparent tracken.",
   },
   {
-    title: "Für Politik & Mandatsträger:innen",
-    body:
-      "Du willst zeigen, dass du Verantwortung ernst nimmst und Entscheidungen nicht im Hinterzimmer, sondern gemeinsam mit der Bevölkerung triffst? Unsere Struktur hilft dabei, Mehrheitsmeinungen sauber zu erfassen, Minderheiten fair abzubilden und Beschlüsse erklärbar zu machen – auf allen Ebenen.",
+    title: "Für Politik & Repräsentanten",
+    body: "Direktdemokratische Umfragen nach dem Mehrheitsprinzip, nachvollziehbar moderiert.",
   },
 ];
-
 const MEMBERSHIP_HIGHLIGHT = {
-  title:
-    "Deine Mitgliedschaft ist ein Signal – nicht für eine Partei, sondern für eine neue demokratische Infrastruktur.",
-  body:
-    "Wir wollen VoiceOpenGov als unabhängige, weltweit nutzbare Struktur aufbauen. Um das zu schaffen, brauchen wir planbare, faire Finanzierung – ohne große Equity-Investoren, ohne parteinahe Stiftungen und ohne Lobby-Verpflichtungen. Wir stellen keine Spendenquittungen aus und holen uns kein Geld über Rücksubventionen. Alles, was reinkommt, wird wie normales Einkommen versteuert. So bleiben wir frei in der Ausrichtung: im Auftrag einer Gesellschaft, die nach Mehrheitsprinzip entscheidet – nicht im Auftrag einzelner Interessen.",
-  button: "Mitglied werden",
+  title: "Deine Mitgliedschaft hält VoiceOpenGov unabhängig",
+  body: "Schon ab 5,63 € pro Monat finanzierst du Moderation, Faktenrecherche und Audit-Trails.",
+  button: "Mehr erfahren",
+  overline: "Bau mit uns eine neue Entscheidungsstruktur auf",
 };
-
-const HERO_VIDEO_NOTE = "Direkte Beteiligung in 90 Sekunden erklärt.";
-const HERO_VIDEO_LINK = "Erklärfilm ansehen";
-
+const HERO_VIDEO_NOTE = "Direkte Demokratie in 90 Sekunden.";
+const HERO_VIDEO_LINK = "Mehr erfahren →";
+const AUDIENCE_TITLE = "Für wen VoiceOpenGov gedacht ist";
+const AUDIENCE_LEAD = "Vier Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren.";
 const USP_ITEMS = [
   {
-    title: "Vom Anliegen zur Entscheidung",
-    body:
-      "In etwa einer Minute schilderst du, was dich bewegt. Danach folgt ein klarer Ablauf: Einordnung, Kontext, Abwägung der Optionen und am Ende eine Entscheidung nach gemeinsam vereinbarten Mehrheitsregeln – sichtbar für alle Beteiligten.",
+    title: "Anliegen rein, Ergebnis raus.",
+    body: "In 60 Sekunden einreichen – danach startet das direktdemokratische Verfahren in klaren Schritten bis zum Ergebnis.",
   },
   {
-    title: "Mehr Tiefe als ein einfaches Ja oder Nein",
-    body:
-      "Zu jedem Thema werden Aussagen, Gegenargumente, mögliche Folgen und Zuständigkeiten sichtbar. So wird erkennbar, wer betroffen ist, wer entscheiden kann und welche Wege wirklich zur Wahl stehen.",
+    title: "Mehr als Pro & Contra.",
+    body: "Positionen, Szenarien und Folgen transparent gemacht. Minderheiten sichtbar, Mehrheiten erkennbar.",
   },
   {
-    title: "Automatisches VOG-System als Ordnungshilfe",
-    body:
-      "Das System liest Eingaben und Texte, ordnet sie zu Themen, erkennt Widersprüche und Ergänzungen und weist auf Lücken hin. KI hilft, komplexe Inhalte verständlich aufzubereiten, Filter schützen vor Hass, Rassismus und Desinformation. Technik hilft beim Sortieren – entscheiden tun immer Menschen.",
+    title: "Faktenbasiert & KI-gestützt.",
+    body: "International geprüft, redaktionell kuratiert, wissenschaftlich belegt. Entscheidungen auf belastbaren Fakten.",
   },
   {
-    title: "Aus der Mitte der Gesellschaft gedacht",
-    body:
-      "Wir dokumentieren jede Stufe des Verfahrens, halten unsere Regeln offen und ermöglichen Prüfung von außen. Es geht nicht um Sieger und Besiegte, sondern um tragfähige Entscheidungen für eine gemeinsame Zukunft.",
+    title: "Im Auftrag des Volkes.",
+    body: "Wir moderieren die Verfahren, dokumentieren Audit-Trails und begleiten die Umsetzung öffentlich.",
   },
 ];
-
+const PROCESS_SECTION_TITLE = "Vom Anliegen zur Entscheidung – in klaren Schritten.";
 const QUALITY_SECTION = {
-  title: "Qualität vor Lautstärke.",
-  body:
-    "Sorgfältige Auswertung, offene Verfahren, überprüfbare Auszählungen, dokumentierte Konklusionen und öffentliche Prüfspuren bilden den Kern unseres Qualitätsverständnisses. Zu jeder Entscheidung lässt sich später nachvollziehen, welche Informationen zugrunde lagen, welche Argumente und Zweifel abgewogen wurden und mit welchem Ergebnis entschieden wurde – inklusive der Verantwortung für die Umsetzung. Wir setzen auf nachvollziehbare Technik, nicht auf blinden Algorithmus-Glauben. Unser Ziel ist, dass Menschen das Vertrauen zurückgewinnen, dass Politik und Wissenschaft für alle nachvollziehbar handeln – nicht nur für Expert:innen.",
-  ctaReports: "Themen und Entscheidungen ansehen",
+  title: "Unser Qualitätsstandard",
+  body: "Reproduzierbarkeit, offene Methoden, strenge Quellenarbeit, Fehlerkultur und öffentliche Audit-Trails – nicht als Versprechen, sondern als Betriebsprinzip. Öffentliche Impact-Dashboards und graphbasierte Vertrauensmaße machen jeden Schritt nachvollziehbar.",
+  ctaReports: "Reports ansehen",
   ctaMembers: "Mitglied werden",
 };
-
-// Mehrheit entscheidet – bewusst und informiert, mit Verweis auf VoiceOpenGov
 const MAJORITY_SECTION = {
   title: "Mehrheit entscheidet – informiert, fair und nachvollziehbar",
-  lead:
-    "Am Ende zählt für VoiceOpenGov das Mehrheitsprinzip: Was eine klar informierte Mehrheit der betroffenen Bevölkerung will, soll gelten – im Stadtviertel, im Land und über Grenzen hinweg.",
+  lead: "VoiceOpenGov strukturiert Debatten so, dass Entscheidungen nicht vom lautesten Publikum, sondern von belastbaren Mehrheiten getragen werden.",
   bullets: [
-    "Wer das bisherige System weiterführen möchte, darf das sagen – und wenn eine deutliche Mehrheit in einer Gemeinde, einer Region oder einem Land diese Haltung teilt, respektieren wir das Ergebnis. Niemand wird gedrängt, in ein neues Verfahren zu wechseln.",
-    "Das Verfahren von VoiceOpenGov – mit unserem eDebatte-Werkzeug im Hintergrund – sorgt dafür, dass Behauptungen, Befürchtungen und Hoffnungen getrennt sichtbar werden: mit Begründungen, Gegenstimmen, offenen Fragen und möglichen Folgen. So können Gesellschaften schneller lernen, ohne Menschen zurückzulassen.",
-    "Populistische oder völlig faktenlose Aussagen werden nicht einfach übernommen: Sie müssen sich an den gleichen Anforderungen messen lassen wie jede andere Behauptung – nachvollziehbar für skeptische Menschen ebenso wie für kritische Wissenschaft.",
+    "Symmetrische Darstellung von Pro, Contra und Risiken – keine einseitigen Debatten.",
+    "Quoren und Ablaufpläne, die auf Gemeinde-, Kreis- oder Landesebene angepasst werden können.",
+    "Öffentliche Dokumentation jedes Schritts, damit Mandate und Legitimität überprüfbar bleiben.",
   ],
-  closing:
-    "Moderne Technik kann man hinterfragen – in diesem Verfahren bleibt sie bewusst ein Werkzeug. Das automatische VOG-System hilft nur dabei, alles zu ordnen und Lücken sichtbar zu machen. Die Entscheidungen selbst treffen Menschen, nach gemeinsam vereinbarten Mehrheitsregeln und mit dem Bewusstsein, dass wir alle Teil derselben Menschheit auf dieser Erde sind.",
+  closing: "Mehrheiten entstehen aus nachvollziehbaren Verfahren – nicht aus Stimmungen. Dafür sorgt das VOG-System.",
+};
+const CLOSING_SECTION = {
+  title: "Du willst, dass Entscheidungen besser werden? Fang hier an.",
+  body: "Schließ dich der Bewegung an, stimme mit und bring Themen ein, die wirklich gelöst werden sollen.",
+  primaryCta: "Mitglied werden",
+  secondaryCta: "Aktuelle Abstimmungen",
+  tertiaryCta: "Thema einreichen",
+};
+const UPDATES_FORM = {
+  title: "Updates aus dem System",
+  body: "Kurze E-Mails zu neuen Abstimmungen, Qualitätsreports und offenen Themen – kein Tracking, kein Spam.",
+  emailLabel: "E-Mail (optional anonymisiert)",
+  interestsLabel: "Was interessiert dich besonders? (optional)",
+  submit: "Updates erhalten",
+  success: "Danke! Wir senden dir Updates, sobald es neue Entscheidungen gibt.",
+  error: "Etwas hat nicht geklappt. Bitte später erneut versuchen.",
+  invalid: "Bitte bestätige kurz, dass du ein Mensch bist.",
 };
 
 const HOME_STRINGS = {
@@ -153,6 +148,10 @@ const HOME_STRINGS = {
       de: MEMBERSHIP_HIGHLIGHT.button,
       en: MEMBERSHIP_HIGHLIGHT.button,
     },
+    overline: {
+      de: MEMBERSHIP_HIGHLIGHT.overline,
+      en: MEMBERSHIP_HIGHLIGHT.overline,
+    },
   },
   heroVideoNote: {
     de: HERO_VIDEO_NOTE,
@@ -162,27 +161,21 @@ const HOME_STRINGS = {
     de: HERO_VIDEO_LINK,
     en: HERO_VIDEO_LINK,
   },
+  audienceTitle: {
+    de: AUDIENCE_TITLE,
+    en: AUDIENCE_TITLE,
+  },
+  audienceLead: {
+    de: AUDIENCE_LEAD,
+    en: AUDIENCE_LEAD,
+  },
   uspItems: {
     de: USP_ITEMS,
     en: USP_ITEMS,
   },
-  qualitySection: {
-    title: {
-      de: QUALITY_SECTION.title,
-      en: QUALITY_SECTION.title,
-    },
-    body: {
-      de: QUALITY_SECTION.body,
-      en: QUALITY_SECTION.body,
-    },
-    ctaReports: {
-      de: QUALITY_SECTION.ctaReports,
-      en: QUALITY_SECTION.ctaReports,
-    },
-    ctaMembers: {
-      de: QUALITY_SECTION.ctaMembers,
-      en: QUALITY_SECTION.ctaMembers,
-    },
+  processTitle: {
+    de: PROCESS_SECTION_TITLE,
+    en: PROCESS_SECTION_TITLE,
   },
   majoritySection: {
     title: {
@@ -202,10 +195,84 @@ const HOME_STRINGS = {
       en: MAJORITY_SECTION.closing,
     },
   },
+  qualitySection: {
+    title: {
+      de: QUALITY_SECTION.title,
+      en: QUALITY_SECTION.title,
+    },
+    body: {
+      de: QUALITY_SECTION.body,
+      en: QUALITY_SECTION.body,
+    },
+    ctaReports: {
+      de: QUALITY_SECTION.ctaReports,
+      en: QUALITY_SECTION.ctaReports,
+    },
+    ctaMembers: {
+      de: QUALITY_SECTION.ctaMembers,
+      en: QUALITY_SECTION.ctaMembers,
+    },
+  },
+  closingSection: {
+    title: {
+      de: CLOSING_SECTION.title,
+      en: CLOSING_SECTION.title,
+    },
+    body: {
+      de: CLOSING_SECTION.body,
+      en: CLOSING_SECTION.body,
+    },
+    primaryCta: {
+      de: CLOSING_SECTION.primaryCta,
+      en: CLOSING_SECTION.primaryCta,
+    },
+    secondaryCta: {
+      de: CLOSING_SECTION.secondaryCta,
+      en: CLOSING_SECTION.secondaryCta,
+    },
+    tertiaryCta: {
+      de: CLOSING_SECTION.tertiaryCta,
+      en: CLOSING_SECTION.tertiaryCta,
+    },
+  },
+  updatesForm: {
+    title: {
+      de: UPDATES_FORM.title,
+      en: UPDATES_FORM.title,
+    },
+    body: {
+      de: UPDATES_FORM.body,
+      en: UPDATES_FORM.body,
+    },
+    emailLabel: {
+      de: UPDATES_FORM.emailLabel,
+      en: UPDATES_FORM.emailLabel,
+    },
+    interestsLabel: {
+      de: UPDATES_FORM.interestsLabel,
+      en: UPDATES_FORM.interestsLabel,
+    },
+    submit: {
+      de: UPDATES_FORM.submit,
+      en: UPDATES_FORM.submit,
+    },
+    success: {
+      de: UPDATES_FORM.success,
+      en: UPDATES_FORM.success,
+    },
+    error: {
+      de: UPDATES_FORM.error,
+      en: UPDATES_FORM.error,
+    },
+    invalid: {
+      de: UPDATES_FORM.invalid,
+      en: UPDATES_FORM.invalid,
+    },
+  },
 } as const;
 
 export function getHomeStrings(locale: SupportedLocale | string) {
-  const pick = <T,>(entry: LocaleValue<T>): T => {
+  const pick = <T>(entry: LocaleValue<T>): T => {
     const normalized = (locale ?? DEFAULT_LOCALE) as SupportedLocale;
     return entry[normalized] ?? entry.de;
   };
@@ -225,21 +292,42 @@ export function getHomeStrings(locale: SupportedLocale | string) {
       title: pick(HOME_STRINGS.membershipHighlight.title),
       body: pick(HOME_STRINGS.membershipHighlight.body),
       button: pick(HOME_STRINGS.membershipHighlight.button),
+      overline: pick(HOME_STRINGS.membershipHighlight.overline),
     },
     heroVideoNote: pick(HOME_STRINGS.heroVideoNote),
     heroVideoLink: pick(HOME_STRINGS.heroVideoLink),
+    audienceTitle: pick(HOME_STRINGS.audienceTitle),
+    audienceLead: pick(HOME_STRINGS.audienceLead),
     uspItems: pick(HOME_STRINGS.uspItems),
+    processTitle: pick(HOME_STRINGS.processTitle),
+    majoritySection: {
+      title: pick(HOME_STRINGS.majoritySection.title),
+      lead: pick(HOME_STRINGS.majoritySection.lead),
+      bullets: pick(HOME_STRINGS.majoritySection.bullets),
+      closing: pick(HOME_STRINGS.majoritySection.closing),
+    },
     qualitySection: {
       title: pick(HOME_STRINGS.qualitySection.title),
       body: pick(HOME_STRINGS.qualitySection.body),
       ctaReports: pick(HOME_STRINGS.qualitySection.ctaReports),
       ctaMembers: pick(HOME_STRINGS.qualitySection.ctaMembers),
     },
-    majoritySection: {
-      title: pick(HOME_STRINGS.majoritySection.title),
-      lead: pick(HOME_STRINGS.majoritySection.lead),
-      bullets: pick(HOME_STRINGS.majoritySection.bullets),
-      closing: pick(HOME_STRINGS.majoritySection.closing),
+    closingSection: {
+      title: pick(HOME_STRINGS.closingSection.title),
+      body: pick(HOME_STRINGS.closingSection.body),
+      primaryCta: pick(HOME_STRINGS.closingSection.primaryCta),
+      secondaryCta: pick(HOME_STRINGS.closingSection.secondaryCta),
+      tertiaryCta: pick(HOME_STRINGS.closingSection.tertiaryCta),
+    },
+    updatesForm: {
+      title: pick(HOME_STRINGS.updatesForm.title),
+      body: pick(HOME_STRINGS.updatesForm.body),
+      emailLabel: pick(HOME_STRINGS.updatesForm.emailLabel),
+      interestsLabel: pick(HOME_STRINGS.updatesForm.interestsLabel),
+      submit: pick(HOME_STRINGS.updatesForm.submit),
+      success: pick(HOME_STRINGS.updatesForm.success),
+      error: pick(HOME_STRINGS.updatesForm.error),
+      invalid: pick(HOME_STRINGS.updatesForm.invalid),
     },
   };
 }

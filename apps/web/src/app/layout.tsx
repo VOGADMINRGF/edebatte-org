@@ -1,21 +1,27 @@
-// apps/web/src/app/layout.tsx
-import type { Metadata, Viewport } from "next";
+// E200: Public root layout with locale bootstrap and consent banner.
+import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
 import { LocaleProvider } from "@/context/LocaleContext";
 import { DEFAULT_LOCALE, type SupportedLocale, isSupportedLocale } from "@/config/locales";
 import { SiteHeader } from "./(components)/SiteHeader";
+import { getPrivacyStrings } from "./privacyStrings";
+import { VogCookieBanner } from "@/components/privacy/VogCookieBanner";
+import { CONSENT_COOKIE_NAME, parseConsentCookie } from "@/lib/privacy/consent";
 
 export const metadata: Metadata = {
   title: "VoiceOpenGov",
   description: "eDebatte – Anliegen analysieren, sauber & transparent.",
 };
-export const viewport: Viewport = {
+export const viewport = {
   themeColor: "#06b6d4",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const initialLocale = await detectInitialLocale();
+  const cookieStore = await cookies();
+  const initialLocale = await detectInitialLocale(cookieStore);
+  const initialConsent = parseConsentCookie(cookieStore.get(CONSENT_COOKIE_NAME)?.value);
+  const privacyStrings = getPrivacyStrings(initialLocale);
 
   return (
     <html lang={initialLocale} className="h-full">
@@ -31,10 +37,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <a href="/kontakt" className="font-medium text-slate-800 hover:text-slate-900">
                     Kontakt
                   </a>
+                  <a href="/datenschutz" className="font-medium text-slate-800 hover:text-slate-900">
+                    Datenschutz
+                  </a>
+                  <a href="/ki-nutzung" className="font-medium text-slate-800 hover:text-slate-900">
+                    KI-Nutzung
+                  </a>
+                  <a href="/impressum" className="font-medium text-slate-800 hover:text-slate-900">
+                    Impressum
+                  </a>
                 </div>
               </div>
             </footer>
             <div className="h-[env(safe-area-inset-bottom)]" />
+            <VogCookieBanner strings={privacyStrings} initialConsent={initialConsent} />
           </div>
         </LocaleProvider>
       </body>
@@ -42,8 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   );
 }
 
-async function detectInitialLocale(): Promise<SupportedLocale> {
-  const cookieStore = await cookies();
+async function detectInitialLocale(cookieStore: Awaited<ReturnType<typeof cookies>>): Promise<SupportedLocale> {
   const cookieLocale = cookieStore.get("lang")?.value;
   if (isSupportedLocale(cookieLocale)) return cookieLocale;
 

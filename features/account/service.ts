@@ -6,6 +6,8 @@ import { getUserSignature } from "@core/db/pii/userSignatures";
 import type { AccessTier } from "@features/pricing/types";
 import type {
   AccountOverview,
+  AccountProfileUpdate,
+  AccountPublicFlags,
   AccountSettingsUpdate,
   AccountStats,
   MembershipStatus,
@@ -27,7 +29,11 @@ type UserDoc = {
   profile?: {
     displayName?: string | null;
     locale?: string | null;
+    headline?: string | null;
+    bio?: string | null;
+    topTopics?: string[];
   };
+  publicFlags?: AccountPublicFlags;
   settings?: {
     preferredLocale?: string | null;
     newsletterOptIn?: boolean;
@@ -87,6 +93,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
         tier: 1,
         groups: 1,
         profile: 1,
+        publicFlags: 1,
         settings: 1,
         membership: 1,
         usage: 1,
@@ -115,11 +122,20 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
   const stats = deriveStats(doc);
   const verification = ensureVerificationDefaults(doc.verification as any);
   const hasVogMembership = doc.membership?.status === "active";
+  const profile = {
+    headline: doc.profile?.headline?.trim() || null,
+    bio: doc.profile?.bio?.trim() || null,
+  };
+  const publicFlags = normalizePublicFlags(doc.publicFlags);
+  const topTopics = sanitizeTopTopics(doc.profile?.topTopics ?? []);
 
   return {
     userId: String(doc._id),
     email: doc.email ?? "",
     displayName: deriveDisplayName(doc),
+    profile,
+    publicFlags,
+    topTopics,
     accessTier,
     roles,
     groups,
@@ -182,12 +198,66 @@ export async function updateAccountSettings(
   return getAccountOverview(userId);
 }
 
+export async function updateAccountProfile(
+  userId: string,
+  patch: AccountProfileUpdate,
+): Promise<AccountOverview | null> {
+  const oid = parseObjectId(userId);
+  if (!oid) return null;
+
+  const setOps: Record<string, any> = {};
+  const unsetOps: Record<string, any> = {};
+
+  if (patch.headline !== undefined) {
+    const value = patch.headline?.trim() || null;
+    setOps["profile.headline"] = value;
+  }
+
+  if (patch.bio !== undefined) {
+    const value = patch.bio?.trim() || null;
+    setOps["profile.bio"] = value;
+  }
+
+  if (patch.topTopics !== undefined) {
+    const topics = sanitizeTopTopics(patch.topTopics ?? []);
+    setOps["profile.topTopics"] = topics;
+  }
+
+  if (patch.publicFlags !== undefined) {
+    const flags = normalizePublicFlags(patch.publicFlags);
+    if (Object.keys(flags).length > 0) {
+      setOps.publicFlags = flags;
+    } else {
+      unsetOps.publicFlags = "";
+    }
+  }
+
+  if (Object.keys(setOps).length > 0 || Object.keys(unsetOps).length > 0) {
+    setOps.updatedAt = new Date();
+    const Users = await getCol("users");
+    await Users.updateOne({ _id: oid }, { $set: setOps, ...(Object.keys(unsetOps).length ? { $unset: unsetOps } : {}) });
+  }
+
+  return getAccountOverview(userId);
+}
+
 function parseObjectId(value: string) {
   try {
     return new ObjectId(value);
   } catch {
     return null;
   }
+}
+
+function normalizePublicFlags(flags?: AccountPublicFlags | null): AccountPublicFlags {
+  if (!flags || typeof flags !== "object") return {};
+  const result: AccountPublicFlags = {};
+  ("profile headline bio topTopics".split(" ") as Array<keyof AccountPublicFlags>).forEach((key) => {
+    if (typeof flags[key] === "boolean") {
+      result[key] = flags[key];
+    }
+  });
+  return result;
 }
 
 function deriveDisplayName(doc: UserDoc): string | null {
@@ -242,6 +312,15 @@ function deriveGroups(doc: UserDoc, tier: AccessTier, roles: string[]): string[]
     }
   });
   return Array.from(groups);
+}
+
+function sanitizeTopTopics(topics: unknown): string[] {
+  if (!Array.isArray(topics)) return [];
+  const cleaned = topics
+    .map((topic) => (typeof topic === "string" ? topic.trim() : ""))
+    .filter((topic) => topic.length > 0)
+    .slice(0, 3);
+  return Array.from(new Set(cleaned));
 }
 
 function deriveStats(doc: UserDoc): AccountStats {

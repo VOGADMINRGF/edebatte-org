@@ -31,3 +31,25 @@ Falls du kein Konto angelegt hast, kannst du diese Nachricht ignorieren.
 
   return { subject: "Bitte bestätige deine E-Mail-Adresse", html, text };
 }
+
+export function buildTwoFactorCodeMail({ code }: { code: string }) {
+  const subject = "Dein Login-Code für VoiceOpenGov";
+  const html = `
+    <p>Hallo,</p>
+    <p>dein 2FA-Code für den Login lautet:</p>
+    <p style="font-size:26px;font-weight:700;letter-spacing:4px;">${code}</p>
+    <p>Der Code ist nur wenige Minuten gültig. Falls du den Login nicht gestartet hast, kannst du diese Nachricht ignorieren.</p>
+    <p>– Dein VoiceOpenGov / eDebatte Team</p>
+  `;
+
+  const text = `Hallo,
+
+dein 2FA-Code lautet: ${code}
+Er ist nur wenige Minuten gültig.
+
+Falls du den Login nicht gestartet hast, kannst du diese Nachricht ignorieren.
+
+– VoiceOpenGov / eDebatte`;
+
+  return { subject, html, text };
+}

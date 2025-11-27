@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# LEGACY_KEEP: R&D-Vorlage für künftige Provider-Erweiterungen (ARI/You.com etc.),
+# nicht produktiv verdrahtet. Bitte nur manuell und bewusst anpassen.
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WEB="$ROOT/apps/web"
 FEAT="$ROOT/features"

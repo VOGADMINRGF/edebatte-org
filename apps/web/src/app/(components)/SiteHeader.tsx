@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
+import { HeaderLoginInline } from "@/components/auth/HeaderLoginInline";
+import { useCurrentUser } from "@/hooks/auth";
 
 const NAV_LINKS = [
   //{ href: "/howtoworks/bewegung", label: "Die Bewegung" },
@@ -15,11 +17,14 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [account, setAccount] = useState<{ name: string; email: string } | null>(null);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
     let aborted = false;
-    if (typeof document === "undefined") return;
-    if (!document.cookie.includes("u_id=")) return;
+    if (!user) {
+      setAccount(null);
+      return;
+    }
 
     async function loadAccount() {
       try {
@@ -39,7 +44,7 @@ export function SiteHeader() {
     return () => {
       aborted = true;
     };
-  }, []);
+  }, [user]);
 
   const initials =
     account?.name
@@ -120,12 +125,7 @@ export function SiteHeader() {
               )}
             </div>
           ) : (
-            <a
-              href="/login"
-              className="rounded-full border border-slate-200 px-4 py-1 text-slate-700 transition hover:bg-slate-100"
-            >
-              Login
-            </a>
+            <HeaderLoginInline />
           )}
         </nav>
 

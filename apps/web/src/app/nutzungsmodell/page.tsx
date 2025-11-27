@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { PricingWidget_eDbtt } from "@/features/pricing";
 import { useLocale } from "@/context/LocaleContext";
+import { EDEBATTE_PLANS, MEMBER_DISCOUNT, calcDiscountedPrice } from "@/config/pricing";
 import { getNutzungsStrings } from "./strings";
 
 export default function NutzungsmodellPage() {
@@ -25,7 +25,34 @@ export default function NutzungsmodellPage() {
           </ul>
         </section>
 
-        <PricingWidget_eDbtt />
+        <section className="grid gap-4 md:grid-cols-2">
+          {EDEBATTE_PLANS.map((plan) => {
+            const memberPrice = calcDiscountedPrice(plan.listPrice.amount);
+            return (
+              <article
+                key={plan.id}
+                className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"
+              >
+                <h3 className="text-base font-semibold text-slate-900">{plan.label}</h3>
+                <p className="mt-1 text-sm text-slate-700">{plan.description}</p>
+                <p className="mt-3 text-sm text-slate-700">
+                  Listenpreis: {plan.listPrice.amount.toFixed(2)} € /{" "}
+                  {plan.listPrice.interval === "month" ? "Monat" : "Jahr"}
+                  <br />
+                  <span className="font-medium text-emerald-700">
+                    Mitgliedspreis: {memberPrice.toFixed(2)} € /{" "}
+                    {plan.listPrice.interval === "month" ? "Monat" : "Jahr"} (−
+                    {MEMBER_DISCOUNT.percent}%)
+                  </span>
+                </p>
+                <p className="mt-2 text-xs text-slate-600">
+                  Als VoiceOpenGov-Mitglied erhältst du auf dieses Paket {MEMBER_DISCOUNT.percent}% Nachlass (siehe
+                  Mitgliedschaft unter <a href="/mitglied-werden" className="underline">/mitglied-werden</a>).
+                </p>
+              </article>
+            );
+          })}
+        </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 text-sm text-slate-700">
           <h2 className="text-lg font-semibold text-slate-900">{strings.earnedTitle}</h2>
@@ -37,13 +64,14 @@ export default function NutzungsmodellPage() {
           </ul>
         </section>
 
-        <div className="text-center text-sm text-slate-500">
-          {strings.membershipNote}{" "}
-          <Link href={strings.membershipLink} className="text-emerald-600 underline">
-            {strings.membershipLink}
+        <p className="mt-4 text-xs text-slate-600 text-center">
+          VoiceOpenGov-Mitglied werden? Das ist der einfachste Weg, die Bewegung zu unterstützen und gleichzeitig von
+          Vergünstigungen bei eDebatte und unserem zukünftigen Merchandise-Shop zu profitieren – mehr unter{" "}
+          <Link href="/mitglied-werden" className="underline">
+            /mitglied-werden
           </Link>
           .
-        </div>
+        </p>
       </section>
     </main>
   );

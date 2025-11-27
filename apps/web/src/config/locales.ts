@@ -5,9 +5,9 @@ import {
   SUPPORTED_LOCALES as SUPPORTED_LOCALES_BASE,
   DEFAULT_LOCALE as DEFAULT_LOCALE_BASE,
   isSupportedLocale as isCoreSupportedLocale,
-  type SupportedLocale as CoreSupportedLocale,
 } from "@core/locale/locales";
 
+type CoreSupportedLocale = (typeof SUPPORTED_LOCALES_BASE)[number];
 export type SupportedLocale = CoreSupportedLocale;
 
 export interface LocaleConfig {

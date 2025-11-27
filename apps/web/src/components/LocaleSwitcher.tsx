@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   LOCALE_CONFIG,
   SUPPORTED_LOCALES,
@@ -12,7 +12,7 @@ import { useLocale } from "@/context/LocaleContext";
 export default function LocaleSwitcher() {
   const { locale, setLocale } = useLocale();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = typeof window !== "undefined" ? window.location.pathname : null;
   const [open, setOpen] = React.useState(false);
 
   const current = LOCALE_CONFIG.find((item) => item.code === locale);
@@ -67,7 +67,7 @@ export default function LocaleSwitcher() {
       {open && (
         <div className="absolute right-0 z-30 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg">
           <ul className="space-y-1">
-            {SUPPORTED_LOCALES.map((code) => {
+            {SUPPORTED_LOCALES.map((code: SupportedLocale) => {
               const option = LOCALE_CONFIG.find((cfg) => cfg.code === code);
               const active = code === locale;
               return (

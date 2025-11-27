@@ -1,78 +1,63 @@
-// apps/web/src/app/api/admin/identity/funnel/route.ts
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getCol } from "@core/db/triMongo";
+// LEGACY_KEEP: Alte Funnel-Route; liefert jetzt Telemetrie-Snapshot statt
+// direkter User-Collection. Für neue Auswertungen bitte /admin/telemetry/identity nutzen.
+import { NextRequest, NextResponse } from "next/server";
+import { getIdentityFunnelSnapshot, type IdentityEventName } from "@core/telemetry/identityEvents";
+import { isStaffRequest } from "../../feeds/utils";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-async function isAdmin() {
-  const jar = await cookies();
-  return jar.get("u_role")?.value === "admin";
+function parseRangeDays(value: string | null): number {
+  switch (value) {
+    case "7":
+    case "week":
+      return 7;
+    case "90":
+    case "quarter":
+      return 90;
+    case "30":
+    case "month":
+    default:
+      return 30;
+  }
 }
 
-export async function GET() {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+const STAGES: { key: IdentityEventName; label: string }[] = [
+  { key: "identity_register", label: "Registriert" },
+  { key: "identity_email_verify_confirm", label: "E-Mail bestätigt" },
+  { key: "identity_otb_confirm", label: "OTB bestätigt" },
+  { key: "identity_strong_completed", label: "Strong abgeschlossen" },
+];
+
+export async function GET(req: NextRequest) {
+  if (!isStaffRequest(req)) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  const Users = await getCol("users");
+  try {
+    const { searchParams } = new URL(req.url);
+    const rangeDays = parseRangeDays(searchParams.get("range"));
+    const toDate = new Date();
+    const fromDate = new Date(toDate);
+    fromDate.setDate(toDate.getDate() - (rangeDays - 1));
 
-  const [
-    totalAccounts,
-    emailVerified,
-    onboardingComplete,
-    twoFactorEnabled,
-  ] = await Promise.all([
-    Users.countDocuments({}),
-    Users.countDocuments({
-      $or: [{ verifiedEmail: true }, { emailVerified: true }],
-    }),
-    Users.countDocuments({
-      $or: [
-        { "profile.displayName": { $exists: true, $nin: [null, ""] } },
-        { "profile.locale": { $exists: true, $nin: [null, ""] } },
-        { city: { $exists: true, $nin: [null, ""] } },
-        { region: { $exists: true, $nin: [null, ""] } },
-      ],
-    }),
-    Users.countDocuments({
-      $or: [
-        { "verification.twoFA.enabled": true },
-        { "verification.methods": { $elemMatch: { $in: ["totp", "webauthn"] } } },
-        { "mfa.enabled": true },
-      ],
-    }),
-  ]);
+    const snapshot = await getIdentityFunnelSnapshot(fromDate, toDate);
+    const stages = STAGES.map(({ key, label }) => ({
+      stage: label,
+      value: snapshot.totalsByEvent[key],
+    }));
 
-  const pendingEmail = Math.max(totalAccounts - emailVerified, 0);
-  const pendingOnboarding = Math.max(emailVerified - onboardingComplete, 0);
-  const pending2FA = Math.max(onboardingComplete - twoFactorEnabled, 0);
+    const dropOff = stages.slice(0, -1).map((stage, idx) => {
+      const nextValue = stages[idx + 1]?.value ?? 0;
+      return {
+        label: `${stage.stage} → ${stages[idx + 1]?.stage ?? ""}`.trim(),
+        value: Math.max(stage.value - nextValue, 0),
+      };
+    });
 
-  const stages = [
-    { stage: "Registriert", value: totalAccounts },
-    { stage: "E-Mail bestätigt", value: emailVerified },
-    { stage: "Profil gepflegt", value: onboardingComplete },
-    { stage: "2FA aktiv", value: twoFactorEnabled },
-  ];
-
-  const dropOff = [
-    { label: "E-Mail offen", value: pendingEmail },
-    { label: "Onboarding offen", value: pendingOnboarding },
-    { label: "2FA offen", value: pending2FA },
-  ];
-
-  return NextResponse.json({
-    ok: true,
-    totals: {
-      totalAccounts,
-      emailVerified,
-      onboardingComplete,
-      twoFactorEnabled,
-      pendingEmail,
-      pendingOnboarding,
-      pending2FA,
-    },
-    stages,
-    dropOff,
-  });
+    return NextResponse.json({ ok: true, snapshot, stages, dropOff });
+  } catch (error) {
+    console.error("[api] legacy identity funnel failed", error);
+    return NextResponse.json({ ok: false, error: "identity snapshot failed" }, { status: 500 });
+  }
 }

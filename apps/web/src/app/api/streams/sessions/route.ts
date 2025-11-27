@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
 import { streamSessionsCol } from "@features/stream/db";
 import type { StreamSessionDoc, StreamVisibility } from "@features/stream/types";
+import { resolveSessionStatus } from "@features/stream/types";
 import { requireCreatorContext } from "../utils";
 
 export async function GET(req: NextRequest) {
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     sessions: sessions.map((session) => ({
       ...session,
+      status: resolveSessionStatus(session),
       _id: (session._id as ObjectId)?.toHexString?.() ?? "",
     })),
   });
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
     topicKey: body?.topicKey ?? null,
     isLive: false,
     visibility: (body?.visibility as StreamVisibility) ?? "unlisted",
+    status: "draft",
     createdAt: now,
     updatedAt: now,
   };
