@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
+import { rateLimit } from "@/utils/rateLimit";
 import { streamSessionsCol } from "@features/stream/db";
 import type { StreamSessionDoc, StreamVisibility } from "@features/stream/types";
 import { resolveSessionStatus } from "@features/stream/types";
@@ -36,6 +37,17 @@ export async function POST(req: NextRequest) {
   const ctx = await requireCreatorContext(req);
   if (!ctx) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+  const rl = await rateLimit(`stream:create:${ctx.userId}:${ip}`, 10, 60 * 60 * 1000, {
+    salt: "stream-session",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
+      { status: 429 },
+    );
   }
 
   const body = (await req.json().catch(() => null)) as Partial<StreamSessionDoc> | null;

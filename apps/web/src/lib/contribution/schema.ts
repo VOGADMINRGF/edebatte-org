@@ -1,5 +1,19 @@
-// features/analyze/schemas.ts
 import { z } from "zod";
+import {
+  AnalyzeResultSchema as E150AnalyzeResultSchema,
+  type AnalyzeResult as E150AnalyzeResult,
+  type StatementRecord as E150StatementRecord,
+} from "@features/analyze/schemas";
+
+export { E150AnalyzeResultSchema, E150AnalyzeResult };
+/**
+ * DEPRECATED: Use E150AnalyzeResultSchema/E150AnalyzeResult directly.
+ * Kept as a thin alias for legacy imports.
+ */
+export const AnalyzeResultSchema = E150AnalyzeResultSchema;
+export type AnalyzeResult = E150AnalyzeResult;
+export type StatementRecord = E150StatementRecord;
+export const ANALYZE_JSON_SCHEMA = AnalyzeResultSchema;
 
 export const TopicScoreZ = z.object({
   name: z.string().min(1),

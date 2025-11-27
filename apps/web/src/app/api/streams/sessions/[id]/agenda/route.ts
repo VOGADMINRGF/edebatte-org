@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
+import { rateLimit } from "@/utils/rateLimit";
 import {
   streamAgendaCol,
   streamSessionsCol,
@@ -64,6 +65,16 @@ export async function POST(
 ) {
   const ctx = await requireCreatorContext(req);
   if (!ctx) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+  const rl = await rateLimit(`stream:agenda:add:${ctx.userId}:${ip}`, 30, 60 * 60 * 1000, {
+    salt: "stream-agenda",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
+      { status: 429 },
+    );
+  }
 
   const { id } = await context.params;
   const session = await loadSession(id);
@@ -114,6 +125,16 @@ export async function PATCH(
 ) {
   const ctx = await requireCreatorContext(req);
   if (!ctx) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+  const rl = await rateLimit(`stream:agenda:update:${ctx.userId}:${ip}`, 60, 60 * 60 * 1000, {
+    salt: "stream-agenda",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
+      { status: 429 },
+    );
+  }
   const { id } = await context.params;
   const session = await loadSession(id);
   if (!session) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });

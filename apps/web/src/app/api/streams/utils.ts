@@ -8,6 +8,13 @@ const CREATOR_ROLES = new Set([
   "staff",
   "creator",
 ]);
+const CREATOR_TIERS = new Set([
+  "citizenPro",
+  "citizenUltra",
+  "institutionBasic",
+  "institutionPremium",
+  "staff",
+]);
 
 async function readCookie(name: string): Promise<string | undefined> {
   const raw = await getCookie(name);
@@ -24,12 +31,18 @@ export async function requireCreatorContext(
   req: NextRequest,
 ): Promise<CreatorContext | null> {
   const role = req.cookies.get("u_role")?.value ?? (await readCookie("u_role")) ?? "guest";
+  const tier = req.cookies.get("u_tier")?.value ?? (await readCookie("u_tier"));
+  const verified = req.cookies.get("u_verified")?.value ?? (await readCookie("u_verified")) ?? "0";
   const userId = req.cookies.get("u_id")?.value ?? (await readCookie("u_id"));
   if (!userId) return null;
-  if (!CREATOR_ROLES.has(role)) return null;
+  const hasCreatorRole = CREATOR_ROLES.has(role);
+  const hasCreatorTier = tier ? CREATOR_TIERS.has(tier) : false;
+  const isStaffRole = role === "admin" || role === "superadmin" || role === "moderator" || role === "staff";
+  if (!(hasCreatorRole || hasCreatorTier)) return null;
+  if (!isStaffRole && verified !== "1") return null;
   return {
     userId,
     role,
-    isStaff: role === "admin" || role === "superadmin" || role === "moderator" || role === "staff",
+    isStaff: isStaffRole,
   };
 }

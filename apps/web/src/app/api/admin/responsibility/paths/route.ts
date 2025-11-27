@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import ResponsibilityPath from "@/models/responsibility/Path";
+import { rateLimit } from "@/utils/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const guard = await requireAdmin();
   if (guard) return guard;
+
+  const rl = await rateLimit("admin:responsibility:paths", 30, 60 * 60 * 1000, {
+    salt: "admin",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
+      { status: 429 },
+    );
+  }
 
   const body = await req.json();
   if (!body || typeof body.statementId !== "string" || !Array.isArray(body.nodes)) {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createContribution, getTaskById } from "@core/research";
 import { logger } from "@/utils/logger";
 import { getCookie } from "@/lib/http/typedCookies";
+import { rateLimit } from "@/utils/rateLimit";
 
 async function readCookie(name: string): Promise<string | undefined> {
   const raw = await getCookie(name);
@@ -12,8 +13,23 @@ export async function POST(req: NextRequest, context: any) {
   const params = (context as { params?: { id?: string } })?.params ?? {};
   const taskId = typeof params.id === "string" ? params.id : "";
   const userId = req.cookies.get("u_id")?.value ?? (await readCookie("u_id"));
+  const verified = req.cookies.get("u_verified")?.value ?? (await readCookie("u_verified")) ?? "0";
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (verified !== "1") {
+    return NextResponse.json({ ok: false, error: "verification_required" }, { status: 403 });
+  }
+
+  const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+  const rl = await rateLimit(`research:contrib:${userId}:${ip}`, 10, 60 * 60 * 1000, {
+    salt: "research-contrib",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
+      { status: 429 },
+    );
   }
 
   const body = await req.json().catch(() => ({}));

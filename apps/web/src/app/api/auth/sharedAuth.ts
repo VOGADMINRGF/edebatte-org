@@ -115,10 +115,18 @@ export function applySessionCookies(user: CoreUserAuthSnapshot) {
   const groups = Array.isArray(user.groups) ? user.groups : [];
 
   createSession(String(user._id), primaryRole ? [primaryRole] : []);
-  cookieJar.set("u_id", String(user._id), { path: "/", sameSite: "lax" });
-  if (primaryRole) cookieJar.set("u_role", primaryRole, { path: "/", sameSite: "lax" });
-  cookieJar.set("u_verified", isVerified ? "1" : "0", { path: "/", sameSite: "lax" });
-  if (tier) cookieJar.set("u_tier", String(tier), { path: "/", sameSite: "lax" });
-  if (groups.length) cookieJar.set("u_groups", groups.join(","), { path: "/", sameSite: "lax" });
-  cookieJar.set("u_loc", hasLocation ? "1" : "0", { path: "/", sameSite: "lax" });
+  const secureCookie =
+    process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true";
+  const baseOpts = {
+    path: "/",
+    sameSite: "lax" as const,
+    httpOnly: true,
+    secure: secureCookie,
+  };
+  cookieJar.set("u_id", String(user._id), baseOpts);
+  if (primaryRole) cookieJar.set("u_role", primaryRole, baseOpts);
+  cookieJar.set("u_verified", isVerified ? "1" : "0", baseOpts);
+  if (tier) cookieJar.set("u_tier", String(tier), baseOpts);
+  if (groups.length) cookieJar.set("u_groups", groups.join(","), baseOpts);
+  cookieJar.set("u_loc", hasLocation ? "1" : "0", baseOpts);
 }

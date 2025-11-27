@@ -4,6 +4,8 @@ import {
   analyzeContribution,
   type AnalyzeResultWithMeta,
 } from "@features/analyze/analyzeContribution";
+import { rateLimit } from "@/utils/rateLimit";
+import { logger } from "@/utils/logger";
 import { deriveContextNotes } from "@features/analyze/context";
 import {
   deriveCriticalQuestions,
@@ -11,6 +13,7 @@ import {
 } from "@features/analyze/questionizers";
 import { syncAnalyzeResultToGraph } from "@core/graph";
 import { persistEventualitiesSnapshot } from "@core/eventualities";
+import { maskUserId } from "@core/pii/redact";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
@@ -115,6 +118,14 @@ export async function POST(req: NextRequest): Promise<Response> {
   const text = body.text.trim();
   const userId = req.cookies.get("u_id")?.value ?? null;
   const contributionId = resolveContributionId(body.contributionId, text);
+  const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+
+  const rl = await rateLimit(`analyze:ip:${ip}`, 15, 10 * 60 * 1000, { salt: "analyze" });
+  if (!rl.ok) {
+    return err("RATE_LIMITED", "Too many analyze requests. Please retry later.", 429, {
+      retryInMs: rl.retryIn,
+    });
+  }
   const analyzeInput: AnalyzeJobInput = {
     text,
     locale,
@@ -132,7 +143,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     await finalizeResultPayload(result, analyzeInput);
     return ok({ result }, 200);
   } catch (error) {
-    console.error("[E150] /api/contributions/analyze error", error);
+    logger.error({
+      msg: "analyze.route.error",
+      contributionId,
+      userId: maskUserId(userId),
+      err: error instanceof Error ? error.message : String(error),
+    });
     return formatErrorResponse(normalizeAnalyzerError(error), 500);
   }
 }
@@ -175,7 +191,12 @@ function startAnalyzeSseStream(input: AnalyzeJobInput): Response {
         sendProgress("complete", 100);
         controller.close();
       } catch (error) {
-        console.error("[E150] SSE analyze error", error);
+        logger.error({
+          msg: "analyze.route.sse_error",
+          contributionId: input.contributionId,
+          userId: maskUserId(input.userId ?? null),
+          err: error instanceof Error ? error.message : String(error),
+        });
         const normalized = normalizeAnalyzerError(error);
         sendEvent("error", { code: normalized.code, reason: normalized.message });
         controller.close();
@@ -208,7 +229,11 @@ async function finalizeResultPayload(
     locale: input.locale,
     userId: input.userId,
   }).catch((err) => {
-    console.error("[E150] eventuality persistence failed", err);
+    logger.error({
+      msg: "analyze.route.eventuality_persist_failed",
+      contributionId: input.contributionId,
+      err: err instanceof Error ? err.message : String(err),
+    });
     return null;
   });
 
@@ -226,7 +251,11 @@ async function finalizeResultPayload(
     sourceId: input.contributionId,
     locale: input.locale,
   }).catch((err) => {
-    console.error("[E150] graph sync failed", err);
+    logger.error({
+      msg: "analyze.route.graph_sync_failed",
+      contributionId: input.contributionId,
+      err: err instanceof Error ? err.message : String(err),
+    });
   });
 
   return result;

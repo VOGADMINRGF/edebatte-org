@@ -5,7 +5,12 @@ import { notFound } from "next/navigation";
 
 import StatementDetailClient from "@features/statement/components/StatementDetailClient";
 import ResponsibilityNavigator from "@features/statement/components/ResponsibilityNavigator";
+import {
+  ConsequencesPreviewCard,
+  ResponsibilityPreviewCard,
+} from "@features/statement/components/StatementImpactPreview";
 import { getActors, type ResponsibilityPath } from "@core/responsibility";
+import type { ConsequenceRecord, ResponsibilityRecord } from "@features/analyze/schemas";
 
 type Stats = {
   votesTotal: number;
@@ -42,6 +47,11 @@ export default async function StatementPage({
     votesDisagree: 0,
   };
 
+  const consequences: ConsequenceRecord[] =
+    (doc.analysis?.consequences?.consequences as ConsequenceRecord[] | undefined) ?? [];
+  const responsibilities: ResponsibilityRecord[] =
+    (doc.analysis?.consequences?.responsibilities as ResponsibilityRecord[] | undefined) ?? [];
+
   const responsibilityPaths: ResponsibilityPath[] =
     (doc.analysis?.responsibilityPaths as ResponsibilityPath[] | undefined) ??
     (doc.responsibilityPaths as ResponsibilityPath[] | undefined) ??
@@ -61,6 +71,17 @@ export default async function StatementPage({
       {content && <p className="text-lg leading-relaxed">{content}</p>}
 
       <StatementDetailClient statementId={statementId} initialStats={stats} />
+
+      <ConsequencesPreviewCard
+        consequences={consequences}
+        responsibilities={responsibilities}
+      />
+
+      <ResponsibilityPreviewCard
+        responsibilities={responsibilities}
+        paths={responsibilityPaths}
+        showPathOverlay
+      />
 
       <ResponsibilityNavigator
         paths={responsibilityPaths}

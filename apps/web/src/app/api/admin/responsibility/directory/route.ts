@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import ResponsibilityDirectoryEntry from "@/models/responsibility/DirectoryEntry";
+import { rateLimit } from "@/utils/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,16 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const guard = await requireAdmin();
   if (guard) return guard;
+
+  const rl = await rateLimit("admin:responsibility:directory", 30, 60 * 60 * 1000, {
+    salt: "admin",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
+      { status: 429 },
+    );
+  }
 
   const body = await req.json();
   if (!body || typeof body.actorKey !== "string" || !body.actorKey.trim()) {
