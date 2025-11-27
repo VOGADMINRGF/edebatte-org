@@ -9,11 +9,11 @@ const STRINGS = {
   } as LocaleValue<string>,
   responsibleTitle: { de: "Verantwortlich für den Inhalt:" } as LocaleValue<string>,
   responsibleBody: {
-    de: "VoiceOpenGov – Initiative für digitale Beteiligung\nProjekt in Gründung\nGerichtsstand Berlin\nE-Mail: impressum@voiceopengov.org",
+    de: "VoiceOpenGov – Initiative für digitale Beteiligung\nRicky Gerd Fleischer\nUG (haftungsbeschränkt) in Gründung – ladungsfähige Anschrift ab Januar offiziell\nWohnsitz und Gerichtsstand: Berlin\nE-Mail: impressum@voiceopengov.org",
   } as LocaleValue<string>,
   legalTitle: { de: "Verantwortlich gemäß § 55 Abs. 2 RStV:" } as LocaleValue<string>,
   legalBody: {
-    de: "Redaktionsteam VoiceOpenGov (Ehrenamtlich, demokratisch legitimiert, kollektiv organisiert)",
+    de: "Redaktionsteam VoiceOpenGov (ehrenamtlich, demokratisch legitimiert, kollektiv organisiert)",
   } as LocaleValue<string>,
   disclaimerTitle: { de: "Haftungshinweis:" } as LocaleValue<string>,
   disclaimerBody: {
