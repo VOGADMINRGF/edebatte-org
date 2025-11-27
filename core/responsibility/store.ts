@@ -68,7 +68,7 @@ export async function saveActor(input: SaveActorInput): Promise<ResponsibilityAc
     const result = await col.findOneAndUpdate(
       { _id: id },
       { $set: payload, $setOnInsert: { createdAt: now } },
-      { upsert: true, returnDocument: "after" },
+      { upsert: true, returnDocument: "after", includeResultMetadata: true },
     );
     const doc = result.value ?? ({ _id: id, ...payload, createdAt: now } as ResponsibilityActorDoc);
     return sanitizeDoc(doc);

@@ -7,6 +7,7 @@ declare module "next/link" {
 declare module "next/navigation" {
   export const usePathname: any;
   export const useRouter: any;
+  export const useParams: any;
 }
 
 declare module "@context/LocaleContext" {

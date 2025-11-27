@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { saveActor } from "@core/responsibility";
-import { isStaffRequest } from "../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 import { logger } from "@/utils/logger";
 
 export async function POST(req: NextRequest) {

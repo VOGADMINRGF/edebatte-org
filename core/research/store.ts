@@ -2,6 +2,7 @@ import { ObjectId, coreCol } from "@core/db/triMongo";
 import type { Collection, Filter, WithId } from "mongodb";
 import type {
   ResearchContribution,
+  ResearchContributionDoc,
   ResearchContributionStatus,
   ResearchTask,
   ResearchTaskLevel,
@@ -9,11 +10,6 @@ import type {
 } from "./types";
 
 type ResearchTaskDoc = Omit<ResearchTask, "id"> & { _id: ObjectId };
-type ResearchContributionDoc = Omit<ResearchContribution, "id"> & {
-  _id: ObjectId;
-  taskId: ObjectId;
-  authorId: ObjectId;
-};
 
 type TaskFilter = {
   status?: ResearchTaskStatus;
@@ -102,7 +98,7 @@ export async function saveTask(input: SaveTaskInput): Promise<ResearchTask> {
     const result = await col.findOneAndUpdate(
       { _id: id },
       { $set: payload, $setOnInsert: { createdAt: now } },
-      { upsert: true, returnDocument: "after" },
+      { upsert: true, returnDocument: "after", includeResultMetadata: true },
     );
     const doc = result.value ?? ({ _id: id, ...payload, createdAt: now } as ResearchTaskDoc);
     return sanitizeTask(doc);
@@ -169,7 +165,7 @@ export async function updateContributionStatus(
   const result = await col.findOneAndUpdate(
     { _id: new ObjectId(input.contributionId) },
     { $set: update },
-    { returnDocument: "after" },
+    { returnDocument: "after", includeResultMetadata: true },
   );
 
   return result.value ? sanitizeContribution(result.value) : null;

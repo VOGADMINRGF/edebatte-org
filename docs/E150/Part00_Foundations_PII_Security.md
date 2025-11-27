@@ -230,6 +230,51 @@ keine E-Mails, keine Adressen, keine Zahlungsdaten an Modelle,
 
 Pseudonyme User-IDs nur, wenn unbedingt nötig (z.B. für Personalisierung innerhalb eigener Modelle, nicht für Drittanbieter).
 
+0.2.6 PII – User-Grunddaten (`pii.users`)
+
+Wir speichern persönliche Daten **immer** in der PII-Mongo-Instanz (`pii.users`) und **nie** im Core, wenn sie Rückschlüsse auf die reale Person zulassen.
+
+Struktur (vereinfacht):
+
+- `personal.givenName` – Vorname (Klarname)
+- `personal.familyName` – Nachname (Klarname)
+- `personal.yearOfBirth` – Geburtsjahr (optional)
+- `personal.city` – Wohnort (optional, grob)
+- `personal.profession` – Beruf / Rolle (optional)
+- `personal.pronouns` – Pronomen (optional)
+- `contacts.emailPrimary` – primäre E-Mail (für Login/Benachrichtigungen)
+- `contacts.phone` – Telefonnummer (für SMS/2FA, optional)
+- `bank` – Bank-/Zahlungsdaten (separates Sub-Dokument, siehe Payment-Profil)
+- `flags` – technische Flags (z.B. ob Bankprofil verifiziert)
+
+Wichtig:
+
+- `personal.givenName` und `personal.familyName` sind **immer getrennt** abgelegt.
+- Der im UI angezeigte Name (`displayName`) liegt im Core-User (siehe 0.2.7) und kann ein Pseudonym sein.
+
+0.2.7 Core-Profil vs. PII-Profil
+
+Im Core (`core.users`) halten wir nur solche Daten, die keine direkte Identifizierung im realen Leben erzwingen:
+
+- `displayName` – sichtbarer Name in der Plattform (Pseudonym oder abgeleitet aus PII)
+- `profile.headline` – Kurzbeschreibung (öffentlich, optional)
+- `profile.bio` – kurze „Über mich“-Beschreibung
+- `profile.avatarStyle` – Avatar-Typ (Initialen, abstrakt, Emoji-Set)
+- `profile.topTopics` – bis zu 3 Themen-Schwerpunkte (siehe Themenkatalog)
+- `profile.publicFlags` – Privacy-Schalter für die öffentliche Profilansicht
+
+PII-Felder (Klarname, Stadt, Beruf, Bankdaten, Telefonnummer etc.) bleiben ausschließlich in `pii.users`. Ob bestimmte PII-Informationen im öffentlichen Profil erscheinen dürfen, steuern wir über `profile.publicFlags` im Core.
+
+0.2.8 Privacy-Flags im Profil (`profile.publicFlags`)
+
+- `showRealName` – wenn `true`, darf das UI aus `pii.personal.givenName` + `familyName` einen Realnamen anzeigen.
+- `showCity` – wenn `true`, darf das UI den Wohnort (ggf. grob aggregiert) anzeigen.
+- `showJoinDate` – „Mitglied seit …“.
+- `showEngagementLevel` – Engagement-Level öffentlich anzeigen.
+- `showStats` – Beteiligungszahlen (Swipes, Beiträge etc.) öffentlich anzeigen.
+
+Standard: alle Flags `false`, bis der/die Nutzer:in aktiv zustimmt.
+
 0.3 PII-Kategorien & Schutzniveaus
 
 Zur Priorisierung wird PII in Kategorien sortiert. Beispiel:

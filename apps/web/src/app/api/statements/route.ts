@@ -1,14 +1,17 @@
+import crypto from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
+import { coreCol, ObjectId } from "@core/db/triMongo";
+import { verifyHumanToken } from "@/lib/security/human-token";
+import { incrementRateLimit } from "@/lib/security/rate-limit";
+import { readSession } from "src/utils/session";
 import { analyzeContribution } from "@features/analyze/analyzeContribution";
 const REQUIRE_LOGIN = process.env.REQUIRE_LOGIN === "1";
 export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
-
-import { cookies, headers } from "next/headers";
-import { coreCol, ObjectId } from "@core/db/triMongo";
-import { readSession } from "src/utils/session";
-
 const DEV_DISABLE_CSRF = process.env.DEV_DISABLE_CSRF === "1";
+const RATE_LIMIT_MAX = 8;
+const RATE_LIMIT_WINDOW = 15 * 60; // 15 minutes
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -48,6 +51,13 @@ async function isCsrfValid(req: NextRequest): Promise<boolean> {
 }
 function csrfForbidden() {
   return NextResponse.json({ ok: false, error: "forbidden_csrf" }, { status: 403 });
+}
+
+function hashedClientKey(req: NextRequest) {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() || "unknown";
+  const agent = req.headers.get("user-agent")?.slice(0, 80) || "ua";
+  return crypto.createHash("sha256").update(`statements:${ip}:${agent}`).digest("hex");
 }
 
 // GET – Cursor Pagination + optionale Filter
@@ -131,9 +141,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const userId = (sess as any)?.uid ?? req.cookies.get("u_id")?.value ?? null;
+  const isAnonymous = !userId;
+
   let body: any;
   try { body = await req.json(); }
   catch { return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 }); }
+
+  if (isAnonymous) {
+    const humanToken = typeof body?.humanToken === "string" ? body.humanToken : null;
+    const rateKey = hashedClientKey(req);
+    const attempts = await incrementRateLimit(`public:statements:${rateKey}`, RATE_LIMIT_WINDOW);
+    if (attempts > RATE_LIMIT_MAX) {
+      console.info("[E200] /api/statements ratelimit hit", { key: rateKey, attempts });
+      return NextResponse.json({ ok: false, error: "ratelimit" }, { status: 429 });
+    }
+    if (!humanToken) {
+      return NextResponse.json({ ok: false, error: "missing_token" }, { status: 400 });
+    }
+    const verified = await verifyHumanToken(humanToken);
+    if (!verified) {
+      return NextResponse.json({ ok: false, error: "invalid_token" }, { status: 403 });
+    }
+  }
 
   const rawText = body?.text ?? body?.content ?? "";
   const text = String(rawText).trim().slice(0, 4000);
@@ -159,7 +189,7 @@ export async function POST(req: NextRequest) {
   const doc: any = { analysis,
     title, text, category, language,
     author: null,
-    userId: (sess as any)?.uid ?? null,
+    userId,
     createdAt: now, updatedAt: now,
     factcheckStatus: "queued" as const,
     stats: { views: 0, votesAgree: 0, votesNeutral: 0, votesDisagree: 0, votesTotal: 0 },

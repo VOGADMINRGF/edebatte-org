@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { AccountOverview } from "@features/account/types";
+import type {
+  AccountOverview,
+  AccountProfile,
+  ProfilePublicFlags,
+  ProfileTopTopic,
+} from "@features/account/types";
 import {
   CORE_LOCALES,
   EXTENDED_LOCALES,
   type SupportedLocale,
 } from "@/config/locales";
 import { VERIFICATION_LEVEL_DESCRIPTIONS } from "@features/auth/verificationRules";
+import { TOPIC_CHOICES, type TopicKey } from "@features/interests/topics";
+import { canEditTopTopics, canUseProfileStyles } from "@features/account/capabilities";
+import { getProfilePackageForAccessTier } from "@features/account/profilePackages";
 import {
   canUserChatPublic,
   canUserCreateStream,
@@ -16,15 +24,6 @@ import {
 } from "@/utils/accessTiers";
 
 const LOCALE_OPTIONS = [...CORE_LOCALES, ...EXTENDED_LOCALES];
-const ENGAGEMENT_ORDER = [
-  "interessiert",
-  "engagiert",
-  "begeistert",
-  "brennend",
-  "inspirierend",
-  "leuchtend",
-] as const;
-
 type Props = {
   initialData: AccountOverview;
 };
@@ -34,11 +33,12 @@ export function AccountClient({ initialData }: Props) {
   const [displayName, setDisplayName] = useState(initialData.displayName ?? "");
   const [headline, setHeadline] = useState(initialData.profile?.headline ?? "");
   const [bio, setBio] = useState(initialData.profile?.bio ?? "");
-  const [topTopicInputs, setTopTopicInputs] = useState<string[]>(() =>
-    fillTopicSlots(initialData.topTopics ?? []),
+  const [avatarStyle, setAvatarStyle] = useState<AccountProfile["avatarStyle"]>(
+    initialData.profile?.avatarStyle ?? "initials",
   );
-  const [publicFlags, setPublicFlags] = useState<AccountOverview["publicFlags"]>(
-    initialData.publicFlags ?? {},
+  const [topTopics, setTopTopics] = useState<ProfileTopTopic[]>(initialData.profile?.topTopics ?? []);
+  const [publicFlags, setPublicFlags] = useState<ProfilePublicFlags>(
+    initialData.profile?.publicFlags ?? {},
   );
   const [preferredLocale, setPreferredLocale] = useState<SupportedLocale>(
     initialData.preferredLocale as SupportedLocale,
@@ -55,21 +55,35 @@ export function AccountClient({ initialData }: Props) {
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [signatureSaving, setSignatureSaving] = useState(false);
   const [signatureMessage, setSignatureMessage] = useState<string | null>(null);
+  const profilePackage = data.profilePackage ?? getProfilePackageForAccessTier(data.accessTier);
   const accessContext = {
     accessTier: data.accessTier,
     engagementXp: data.stats.xp,
     engagementLevel: data.stats.engagementLevel,
   };
 
-  function updateTopTopic(index: number, value: string) {
-    setTopTopicInputs((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return fillTopicSlots(next);
+  function toggleTopic(key: TopicKey) {
+    setTopTopics((prev) => {
+      const exists = prev.find((topic) => topic.key === key);
+      if (exists) return prev.filter((topic) => topic.key !== key);
+      if (prev.length >= 3) return prev;
+      const choice = TOPIC_CHOICES.find((topic) => topic.key === key);
+      if (!choice) return prev;
+      return [...prev, { key, title: choice.label, statement: "" }];
     });
   }
 
-  function updatePublicFlag(key: keyof AccountOverview["publicFlags"], value: boolean) {
+  function updateTopicStatement(key: TopicKey, value: string) {
+    setTopTopics((prev) =>
+      prev.map((topic) =>
+        topic.key === key
+          ? { ...topic, statement: value.slice(0, 140) }
+          : topic,
+      ),
+    );
+  }
+
+  function updatePublicFlag(key: keyof ProfilePublicFlags, value: boolean) {
     setPublicFlags((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -80,8 +94,9 @@ export function AccountClient({ initialData }: Props) {
     setNewsletterOptIn(!!overview.newsletterOptIn);
     setHeadline(overview.profile?.headline ?? "");
     setBio(overview.profile?.bio ?? "");
-    setTopTopicInputs(fillTopicSlots(overview.topTopics ?? []));
-    setPublicFlags(overview.publicFlags ?? {});
+    setAvatarStyle(overview.profile?.avatarStyle ?? "initials");
+    setTopTopics(overview.profile?.topTopics ?? []);
+    setPublicFlags(overview.profile?.publicFlags ?? {});
   }
 
   async function reloadOverview() {
@@ -128,7 +143,11 @@ export function AccountClient({ initialData }: Props) {
         body: JSON.stringify({
           headline,
           bio,
-          topTopics: topTopicInputs.map((topic) => topic.trim()).filter(Boolean),
+          avatarStyle,
+          topTopics: topTopics.map((topic) => ({
+            key: topic.key,
+            statement: (topic.statement ?? "").trim() || null,
+          })),
           publicFlags,
         }),
       });
@@ -199,9 +218,8 @@ export function AccountClient({ initialData }: Props) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-  const canEditTopTopics =
-    ENGAGEMENT_ORDER.indexOf(data.stats.engagementLevel as (typeof ENGAGEMENT_ORDER)[number]) >=
-    ENGAGEMENT_ORDER.indexOf("engagiert");
+  const topicsEditable = canEditTopTopics(data.stats.engagementLevel);
+  const stylesEnabled = canUseProfileStyles(data.stats.engagementLevel, profilePackage);
 
   return (
       <div className="space-y-6">
@@ -274,11 +292,12 @@ export function AccountClient({ initialData }: Props) {
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">Profil & Privatsphäre</p>
             <h2 className="text-xl font-semibold text-slate-900">Öffentliche Angaben</h2>
+            <p className="text-xs text-slate-500">Profil-Paket: {profilePackage}</p>
           </div>
           {profileMessage && <span className="text-sm text-slate-500">{profileMessage}</span>}
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
           <label className="text-sm font-semibold text-slate-700">
             Überschrift
             <input
@@ -298,63 +317,115 @@ export function AccountClient({ initialData }: Props) {
               placeholder="Kurzbeschreibung für dein öffentliches Profil"
             />
           </label>
+          <label className="text-sm font-semibold text-slate-700">
+            Avatar-Stil
+            <select
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm"
+              value={avatarStyle ?? "initials"}
+              onChange={(e) => setAvatarStyle(e.target.value as AccountProfile["avatarStyle"])}
+              disabled={!stylesEnabled}
+            >
+              <option value="initials">Initialen</option>
+              <option value="abstract">Abstrakt</option>
+              <option value="emoji">Emoji</option>
+            </select>
+            {!stylesEnabled && (
+              <p className="mt-1 text-xs text-slate-500">
+                Erweiterte Styles ab Level „begeistert“ und Profil-Paket Pro/Premium.
+              </p>
+            )}
+          </label>
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold text-slate-900">Top-Themen (max. 3)</p>
-            {!canEditTopTopics && (
+            {!topicsEditable && (
               <span className="text-xs font-semibold text-amber-700">
                 Top-Themen ab Level „engagiert“ freigeschaltet
               </span>
             )}
           </div>
-          <div className="mt-2 grid gap-2 md:grid-cols-3">
-            {[0, 1, 2].map((idx) => (
-              <input
-                key={idx}
-                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                value={topTopicInputs[idx] ?? ""}
-                onChange={(e) => updateTopTopic(idx, e.target.value)}
-                placeholder={`Top-Thema ${idx + 1}`}
-                disabled={!canEditTopTopics}
-              />
-            ))}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TOPIC_CHOICES.map((topic) => {
+              const selected = topTopics.some((item) => item.key === topic.key);
+              const disabled = !topicsEditable || (!selected && topTopics.length >= 3);
+              return (
+                <button
+                  key={topic.key}
+                  type="button"
+                  onClick={() => toggleTopic(topic.key)}
+                  disabled={disabled}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
+                    selected
+                      ? "bg-slate-900 text-white"
+                      : "bg-white text-slate-700 border border-slate-200"
+                  } ${disabled ? "opacity-50" : ""}`}
+                >
+                  {topic.label}
+                </button>
+              );
+            })}
           </div>
+          {topTopics.length > 0 && (
+            <div className="mt-3 space-y-3">
+              {topTopics.map((topic) => (
+                <div key={topic.key} className="rounded-xl border border-slate-200 bg-white/80 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{topic.title}</p>
+                  <input
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    value={topic.statement ?? ""}
+                    onChange={(e) => updateTopicStatement(topic.key, e.target.value)}
+                    placeholder="Warum ist dir dieses Thema wichtig? (max. 140 Zeichen)"
+                    maxLength={140}
+                    disabled={!topicsEditable}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input
               type="checkbox"
-              checked={publicFlags.profile ?? false}
-              onChange={(e) => updatePublicFlag("profile", e.target.checked)}
+              checked={publicFlags.showRealName ?? false}
+              onChange={(e) => updatePublicFlag("showRealName", e.target.checked)}
             />
-            Öffentliches Profil aktivieren
+            Realname anzeigen
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input
               type="checkbox"
-              checked={publicFlags.headline ?? false}
-              onChange={(e) => updatePublicFlag("headline", e.target.checked)}
+              checked={publicFlags.showCity ?? false}
+              onChange={(e) => updatePublicFlag("showCity", e.target.checked)}
             />
-            Überschrift anzeigen
+            Stadt anzeigen
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input
               type="checkbox"
-              checked={publicFlags.bio ?? false}
-              onChange={(e) => updatePublicFlag("bio", e.target.checked)}
+              checked={publicFlags.showJoinDate ?? false}
+              onChange={(e) => updatePublicFlag("showJoinDate", e.target.checked)}
             />
-            Bio anzeigen
+            Mitglied seit … anzeigen
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input
               type="checkbox"
-              checked={publicFlags.topTopics ?? false}
-              onChange={(e) => updatePublicFlag("topTopics", e.target.checked)}
+              checked={publicFlags.showEngagementLevel ?? false}
+              onChange={(e) => updatePublicFlag("showEngagementLevel", e.target.checked)}
             />
-            Top-Themen anzeigen
+            Engagement-Level anzeigen
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={publicFlags.showStats ?? false}
+              onChange={(e) => updatePublicFlag("showStats", e.target.checked)}
+            />
+            Statistiken anzeigen
           </label>
         </div>
 
@@ -616,10 +687,4 @@ function membershipLabel(status: AccountOverview["vogMembershipStatus"]) {
     default:
       return "Kein aktiver Plan";
   }
-}
-
-function fillTopicSlots(topics: string[]): string[] {
-  const slots = [...topics.filter(Boolean).slice(0, 3)];
-  while (slots.length < 3) slots.push("");
-  return slots;
 }

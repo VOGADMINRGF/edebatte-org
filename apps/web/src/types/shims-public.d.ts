@@ -4,6 +4,7 @@ declare module "next/navigation" {
   export function redirect(url: string): never;
   export function useRouter(): any;
   export function useSearchParams(): any;
+  export function useParams<T = any>(): T;
 }
 
 declare module "next/link" {

@@ -1,6 +1,8 @@
 import { env } from "@/utils/env";
 // apps/web/src/lib/db.ts
+import { prisma } from "@db/web/client";
 import mongoose from "mongoose";
+
 let cached = (global as any).mongoose as {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -8,7 +10,7 @@ let cached = (global as any).mongoose as {
 
 if (!cached) cached = (global as any).mongoose = { conn: null, promise: null };
 
-export default async function dbConnect() {
+export async function dbConnect() {
   if (cached.conn) return cached.conn;
   if (!cached.promise) {
     cached.promise = mongoose
@@ -26,3 +28,6 @@ export default async function dbConnect() {
   cached.conn = await cached.promise;
   return cached.conn;
 }
+
+export { prisma };
+export default prisma;

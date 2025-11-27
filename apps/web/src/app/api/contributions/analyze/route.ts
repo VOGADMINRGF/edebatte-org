@@ -23,8 +23,11 @@ const JSON_HEADERS = {
 const DEFAULT_MAX_CLAIMS = 20;
 
 type SuccessResponse<T extends Record<string, unknown>> = { ok: true } & T;
-type ErrorResponse<T extends Record<string, unknown> = Record<string, never>> =
-  { ok: false; error: string; code: string } & T;
+type ErrorResponse<TExtra extends Record<string, unknown> = Record<string, unknown>> = {
+  ok: false;
+  error: string;
+  code: string;
+} & TExtra;
 
 function ok<T extends Record<string, unknown>>(data: T, status = 200) {
   return new Response(JSON.stringify({ ok: true, ...data } satisfies SuccessResponse<T>), {

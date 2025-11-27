@@ -1,3 +1,5 @@
+import type { ObjectId } from "mongodb";
+
 export type ResearchTaskKind = "question" | "knot" | "eventuality" | "custom";
 export type ResearchTaskLevel = "basic" | "advanced" | "expert";
 export type ResearchTaskStatus = "open" | "in_progress" | "completed" | "archived";
@@ -47,4 +49,11 @@ export interface ResearchContribution {
   updatedAt?: Date | string;
   acceptedAt?: Date | string | null;
   rejectedAt?: Date | string | null;
+}
+
+export interface ResearchContributionDoc
+  extends Omit<ResearchContribution, "id" | "taskId" | "authorId"> {
+  _id: ObjectId;
+  taskId: ObjectId;
+  authorId: ObjectId;
 }

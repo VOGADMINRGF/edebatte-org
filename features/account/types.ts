@@ -1,7 +1,8 @@
-import type { AccessTier } from "@features/pricing/types";
 import type { SupportedLocale } from "@core/locale/locales";
 import type { IdentityMethod, VerificationLevel } from "@core/auth/verificationTypes";
 import type { EngagementLevel } from "@features/user/engagement";
+import type { AccessTier } from "@features/pricing/types";
+import type { TopicKey } from "@features/interests/topics";
 
 export type MembershipStatus = "none" | "active" | "cancelled" | "pending";
 
@@ -37,16 +38,39 @@ export type AccountSignatureInfo = {
   storedAt: string;
 };
 
+export type ProfilePublicFlags = {
+  showRealName?: boolean;
+  showCity?: boolean;
+  showJoinDate?: boolean;
+  showEngagementLevel?: boolean;
+  showStats?: boolean;
+};
+
+export type ProfileTopTopic = {
+  key: TopicKey;
+  title: string;
+  statement?: string | null;
+};
+
+export type AccountProfile = {
+  headline?: string | null;
+  bio?: string | null;
+  avatarStyle?: "initials" | "abstract" | "emoji" | null;
+  topTopics?: ProfileTopTopic[];
+  publicFlags?: ProfilePublicFlags;
+};
+
+export type ProfilePackage = "basic" | "pro" | "premium";
+
 export type AccountOverview = {
   userId: string;
   email: string;
   displayName: string | null;
-  profile: {
-    headline: string | null;
-    bio: string | null;
-  };
-  publicFlags: AccountPublicFlags;
-  topTopics: string[];
+  profile?: AccountProfile;
+  profilePackage?: ProfilePackage;
+  /** Legacy mirrors for backward compatibility */
+  publicFlags?: ProfilePublicFlags;
+  topTopics?: ProfileTopTopic[];
   accessTier: AccessTier;
   roles: string[];
   groups: string[];
@@ -65,13 +89,6 @@ export type AccountOverview = {
   lastLoginAt?: Date | string | null;
 };
 
-export type AccountPublicFlags = {
-  profile?: boolean;
-  headline?: boolean;
-  bio?: boolean;
-  topTopics?: boolean;
-};
-
 export type AccountSettingsUpdate = {
   displayName?: string | null;
   preferredLocale?: SupportedLocale;
@@ -81,6 +98,7 @@ export type AccountSettingsUpdate = {
 export type AccountProfileUpdate = {
   headline?: string | null;
   bio?: string | null;
-  topTopics?: string[];
-  publicFlags?: AccountPublicFlags;
+  avatarStyle?: "initials" | "abstract" | "emoji" | null;
+  topTopics?: { key: TopicKey; statement?: string | null }[] | null;
+  publicFlags?: ProfilePublicFlags | null;
 };

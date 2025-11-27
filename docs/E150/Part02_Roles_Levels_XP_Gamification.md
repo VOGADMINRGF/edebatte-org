@@ -198,6 +198,29 @@ Codex soll:
 - explizite `can()`-Funktionen nutzen (z.B. `canHostStream(user)`),
 - keine verstreuten `if(user.role === ...)` im Code erzeugen.
 
+### 6.3 Profil-Freischaltungen nach Engagement-Level
+
+Engagement-Level schalten **optionale Profil-Funktionen** frei, niemals demokratische Grundrechte oder Teilnahmerechte.
+
+| Feature | Interessiert | Engagiert | Begeistert | Brennend | Inspirierend | Leuchtend |
+| --- | --- | --- | --- | --- | --- | --- |
+| Basisprofil (Avatar, DisplayName) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Profil-Headline setzen | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Kurz-Bio („Über mich“) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Top-3-Themen aus 15 wählen | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| „Warum ist mir dieses Thema wichtig?“ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Profil-Stats anzeigen (opt-in) | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Highlight-Beitrag pinnen | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ |
+| Erweiterte Profil-Styles (Farbschemata) | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ |
+
+Legende: ✅ = verfügbar, ➖ = (noch) nicht verfügbar.
+
+Wichtig:
+
+- diese Freischaltungen sind **reine Komfort-/Darstellungsfeatures**,
+- Top-Themen beziehen sich auf den 15er-Katalog aus `docs/E150/Part06_Themenkatalog_und_Zustaendigkeiten.md`,
+- Rechte zur Beteiligung (Stimmen, Beiträge einreichen, live diskutieren) hängen an Access Tiers / Verifikation, nicht an Gamification.
+
 ---
 
 ## 7. XP-Economy & Anti-Abuse-Mechanik

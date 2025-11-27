@@ -287,6 +287,49 @@ Codex MUSS:
 
 ---
 
+## 15. Profil-Pakete (Basis / Pro / Premium)
+
+Neben den Access Tiers gibt es eine zweite Dimension: **Profil-Pakete**. Sie beschreiben Sichtbarkeit und Gestaltungsmöglichkeiten des Profils und nutzen segment-agnostische Namen – identisch für B2C, B2B und B2G:
+
+- `profileBasic`
+- `profilePro` (erweitert)
+- `profilePremium`
+
+### 15.1 B2C (Bürger:innen)
+
+- **Basic**: Avatar, DisplayName, kurze Bio, Top-3-Themen, „Warum…“-Texte, Opt-in für Stats → deckt praktisch alles ab, was eine Privatperson braucht.
+- **Pro**: Alles aus Basic + Highlight-Beitrag pinnen + einfache Profil-Styles (2–3 Farbschemata).
+- **Premium**: Alles aus Pro + zusätzliche Visuals (z.B. Themen-Badges, Stream-Host-Badge, Organisationen verknüpfen) – nur aktiv, wenn bewusst mehr Sichtbarkeit gewünscht (Creator, Host, Kandidat:in).
+
+### 15.2 B2B / B2G (Organisationen, Kommunen, NGOs)
+
+- **Basic**: Organisationsprofil mit Logo, Kurzbeschreibung, Kontaktkanal, Standard-Themenprofil (Schwerpunkte aus den 15 Kategorien).
+- **Pro**: Zusätzlich Teamliste (öffentliche Ansprechpartner:innen inkl. Profil-Verknüpfungen) und Verlinkung auf eigene Streams/Kampagnen.
+- **Premium**: Dashboard-Features, Deep-Links in Entscheidungen, ggf. Co-Branding im Profil-Bereich.
+
+### 15.3 Regeln
+
+- Profil-Paket entscheidet nur über **Darstellung und Komfort** – nie darüber, ob jemand abstimmen oder sich beteiligen darf.
+- Marketing-Labels (z.B. „Starter“, „Plus“, „Institution Gold“) dürfen die technische Paket-Zuordnung nicht verändern.
+
+## 16. Verbindung von Access Tier und Profil-Paket
+
+Standard-Zuordnungen (anpassbar in der Pricing-Matrix, aber einheitlich benannt):
+
+- B2C:
+  - `public` → `profileBasic`
+  - `citizenBasic` → `profileBasic`
+  - `citizenPremium` → `profilePro`
+  - `citizenPro` / `citizenUltra` → `profilePremium`
+
+- B2G / B2B:
+  - `institutionBasic` → `profileBasic`
+  - `institutionPremium` → `profilePro` oder `profilePremium` (vertragsabhängig)
+
+Diese Zuordnungen müssen in allen Segmenten konsistent sein und spiegeln die Darstellungs-Ebene des Profils wider, nicht die demokratischen Rechte.
+
+---
+
 Part 03 bildet die Grundlage für:
 
 - Part 04 (B2G / B2B Modelle & Abrechnung),

@@ -6,13 +6,14 @@ Dieses Dokument bündelt, welche Pfade (Part00–Part15) noch offen sind und wel
 
 ## Status-Übersicht der Pfade 00–15
 
-- **Part00 Foundations / PII:** Fundament steht, weiter nichts offen, aber PII-Guardrails stets einhalten (siehe `docs/PII_ZONES_E150.md`).
-- **Part01 Systemvision / Governance:** Leitplanken definiert, aktuell keine Umsetzungsaufgabe.
-- **Part02 Rollen / XP / Gamification:** XP-Anbindung benötigt noch Research-/Streams-/Campaign-Hooks (siehe Blöcke E, F, G).
-- **Part03 Access Tiers & Pricing:** Grundlogik aktiv; Folgeaufgaben nur, wenn weitere Produkte/Discounts hinzukommen.
-- **Part04 B2G/B2B Modelle:** Warten auf Campaigns/Streams-Implementierung (Block F/G) für echten Pilotbetrieb.
+- **Part00 Foundations / PII:** PII-Guardrails plus Klarname-Trennung (givenName/familyName) und Privacy-Flags dokumentiert; Migration/Aufsplitten alter Felder offen (siehe Identity & Profile Tasks).
+- **Part01 Systemvision / Governance:** Leitplanken + 15 Themenkategorien als Backbone verankert.
+- **Part02 Rollen / XP / Gamification:** XP-Anbindung benötigt noch Research-/Streams-/Campaign-Hooks (siehe Blöcke E, F, G); Profil-Freischaltungen pro Engagement-Level dokumentiert, UI-Gating offen.
+- **Part03 Access Tiers & Pricing:** Grundlogik aktiv; Profil-Pakete (profileBasic/Pro/Premium) als Darstellungs-Dimension ergänzt, Mapping zu Tiers umzusetzen.
+- **Part04 B2G/B2B Modelle:** Begriffe mit Profil-Paket-Namen harmonisiert; warten auf Campaigns/Streams-Implementierung (Block F/G) für echten Pilotbetrieb.
 - **Part05 Orchestrator (Block A):** Gemini-Provider, rollenspezifische Prompts und Health/Score fehlen noch.
-- **Part06 Consequences (Block B):** Modelle, Persistenz und UI (Responsibility Navigator) stehen aus.
+- **Part06 Consequences (Block B):** Modelle, Persistenz und UI (Responsibility Navigator) stehen aus.  
+- **Part06 Themenkatalog & Zuständigkeiten:** Neu angelegt, 15 Hauptkategorien verbindlich; `TOPIC_CHOICES`-Abgleich in Profil/Onboarding/Filter offen.
 - **Part07 Graph & Reports (Block C):** Zentrale Graph-Schicht und Report-Adapter fehlen; AnalyzeResult-Sync offen.
 - **Part08 Eventualities (Block D):** Eventuality-/DecisionTree-Typen, Analyzer-Prompts, Persistenz und UI fehlen.
 - **Part09 Research Workflow (Block E/R2):** Tasks/Contributions vorhanden; offen sind Seeding aus Questions/Knots, Filter/Sortierung, Contributor-Feedback, Rückfluss in Statements/Graph und Anti-Spam.
@@ -43,5 +44,35 @@ Dieses Dokument bündelt, welche Pfade (Part00–Part15) noch offen sind und wel
 3. **Block C & D parallel planen** (Part07/08): Graph-Sync plus Eventualities-Typen/Prompts/UI.
 4. **Research R2 priorisieren** (Part09): Seeding, Filter, Contributor-Feedback, Rückfluss, Anti-Spam.
 5. **Block F/G/H** (Part11/12/13): Streams/Campaigns/I18N-A11y-Social, sobald Basis aus A–D steht.
+
+### Identity & Profile (aus Part00–04 abgeleitet)
+
+Offene Tasks:
+
+1. **PII-Schema um Vor-/Nachname erweitern**  
+   - `pii.users.personal.givenName` + `familyName` einführen.  
+   - Alle alten Felder `name` o.ä. in Migration aufsplitten.  
+   - Core-User `displayName` so anpassen, dass er nie direkt PII speichert, sondern nur ein abgeleitetes Label.
+
+2. **Profil-Datenstruktur in Core einführen**  
+   - `core.users.profile` mit: `headline`, `bio`, `avatarStyle`, `topTopics[]` (max. 3 aus 15 Hauptkategorien), `publicFlags.*` (siehe Part00).  
+   - API-Routen für `/api/account/profile` (GET/PATCH).
+
+3. **TOPIC_CHOICES an 15 Kategorien ausrichten**  
+   - Zentrale Definition `TOPIC_CHOICES` in `features/interests/topics.ts`.  
+   - Verwendung in Profil-Editor, Onboarding, Filter-Komponenten.
+
+4. **Profil-Freischaltungen nach Engagement-Level umsetzen**  
+   - UI-Gating im Profil-Editor: Top-Themen erst ab Level „engagiert“, Highlight-Beitrag + Styles ab „begeistert“.  
+   - Gamification-Logik nutzt nur XP, niemals personenbezogene PII.
+
+5. **Profil-Pakete und Pricing verknüpfen**  
+   - Mapping Access Tier → Profil-Paket wie in Part03.  
+   - B2C / B2B / B2G verwenden die gleichen Paketnamen (`profileBasic`, `profilePro`, `profilePremium`).
+
+6. **Account-/Profil-Seiten aufräumen**  
+   - `/account` als private Einstellungsseite (PII-gebunden, nicht öffentlich).  
+   - `/profile` als öffentliche Visitenkarte, die nur freigegebene Felder zeigt.  
+   - Hinweis im UI: „Du siehst dein Profil so, wie andere es sehen.“
 
 Diese Liste ist verbindlich für die nächsten Codex-Runs. Bei jedem Run den aktuell offenen Block aus Part14 wählen und die „Definition of Done“ erfüllen, bevor zum nächsten Pfad gewechselt wird. Sobald ein Block abgeschlossen ist, den Status im obigen Table auf **Done** setzen; aktuell sind alle Blöcke offen, d. h. es ist noch nichts erledigt.

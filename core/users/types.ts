@@ -15,6 +15,21 @@ export type CoreUserProfile = {
   displayName?: string | null;
   locale?: string | null;
   location?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  avatarStyle?: "initials" | "abstract" | "emoji" | null;
+  topTopics?: Array<{
+    key?: string;
+    title?: string;
+    statement?: string | null;
+  }>;
+  publicFlags?: {
+    showRealName?: boolean;
+    showCity?: boolean;
+    showJoinDate?: boolean;
+    showEngagementLevel?: boolean;
+    showStats?: boolean;
+  };
 };
 
 export type CoreUserSettings = {

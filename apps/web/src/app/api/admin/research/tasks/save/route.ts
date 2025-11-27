@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { saveTask } from "@core/research";
 import { logger } from "@/utils/logger";
-import { isStaffRequest } from "../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 export async function POST(req: NextRequest) {
   if (!isStaffRequest(req)) {

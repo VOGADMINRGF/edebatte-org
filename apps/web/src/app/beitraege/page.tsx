@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { HumanCheck } from "@/components/security/HumanCheck";
 
 type Item = {
   id: string;
@@ -15,6 +16,8 @@ export default function BeitraegePage() {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
+  const [humanToken, setHumanToken] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function load() {
     setList(await fetch("/api/statements").then((r) => r.json()));
@@ -25,18 +28,39 @@ export default function BeitraegePage() {
 
   async function create() {
     setErr("");
+    if (!humanToken) {
+      setErr("Bitte kurz die Mensch-Bestätigung ausfüllen.");
+      return;
+    }
+    setIsSubmitting(true);
     const r = await fetch("/api/statements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, text }),
+      body: JSON.stringify({ title, text, humanToken }),
     });
-    if (!r.ok) {
-      setErr((await r.json()).error || "Fehlgeschlagen");
-      return;
+    try {
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 403 || data?.error === "invalid_token") {
+          setHumanToken(null);
+          setErr("Bestätigung abgelaufen. Bitte kurz erneut bestätigen.");
+          return;
+        }
+        if (r.status === 429 || data?.error === "ratelimit") {
+          setErr("Zu viele Versuche. Bitte in ein paar Minuten erneut probieren.");
+          return;
+        }
+        setErr(data?.error || "Fehlgeschlagen");
+        return;
+      }
+      setErr("");
+      setTitle("");
+      setText("");
+      setHumanToken(null);
+      await load();
+    } finally {
+      setIsSubmitting(false);
     }
-    setTitle("");
-    setText("");
-    await load();
   }
 
   return (
@@ -57,12 +81,23 @@ export default function BeitraegePage() {
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
+        <div className="pt-2">
+          <HumanCheck
+            formId="public-contribution"
+            onSolved={({ token }) => {
+              setHumanToken(token);
+              setErr("");
+            }}
+            onError={() => setHumanToken(null)}
+          />
+        </div>
         {err && <div className="text-red-600 text-sm">{err}</div>}
         <button
           className="bg-black text-white px-3 py-2 rounded"
           onClick={create}
+          disabled={isSubmitting}
         >
-          Beitrag erstellen
+          {isSubmitting ? "Sende..." : "Beitrag erstellen"}
         </button>
       </div>
 

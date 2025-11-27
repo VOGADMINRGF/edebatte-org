@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { callE150Orchestrator } from "@features/ai/orchestratorE150";
 import { callOpenAIJson } from "@features/ai";
-import { isStaffRequest } from "../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 const SMOKE_SYSTEM_PROMPT =
   "You are the E150 orchestration smoke-tester. Respond exactly with 'OK'.";

@@ -3,6 +3,7 @@ import { ObjectId } from "@core/db/triMongo";
 import { NextResponse } from "next/server";
 import { readSession } from "@/utils/session";
 import { coreCol } from "@core/db/db/triMongo";
+import { getEngagementLevel } from "@features/user/engagement";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ type UserDoc = {
   accessTier?: string | null;
   b2cPlanId?: string | null;
   engagementXp?: number | null;
+  stats?: { xp?: number | null; engagementLevel?: string | null; contributionCredits?: number | null };
+  usage?: { xp?: number | null; contributionCredits?: number | null };
   vogMembershipStatus?: string | null;
 };
 
@@ -35,6 +38,12 @@ export async function GET() {
       ? doc.roles.map((r: any) => (typeof r === "string" ? r : r?.role)).filter(Boolean)
       : [];
 
+    const xp = doc.engagementXp ?? doc.stats?.xp ?? doc.usage?.xp ?? 0;
+    const engagementLevel = doc.stats?.engagementLevel || getEngagementLevel(xp ?? 0);
+    const contributionCredits =
+      doc.stats?.contributionCredits ?? doc.usage?.contributionCredits ?? null;
+    const planSlug = doc.b2cPlanId ?? null;
+
     return NextResponse.json(
       {
         user: {
@@ -45,6 +54,9 @@ export async function GET() {
           accessTier: doc.accessTier ?? null,
           b2cPlanId: doc.b2cPlanId ?? null,
           engagementXp: doc.engagementXp ?? null,
+          engagementLevel: engagementLevel ?? null,
+          contributionCredits,
+          planSlug,
           vogMembershipStatus: doc.vogMembershipStatus ?? null,
         },
       },

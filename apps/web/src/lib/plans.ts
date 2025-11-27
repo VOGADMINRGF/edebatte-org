@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import prisma from "@/lib/db";
 
 type Plan = {
   id: string;
@@ -21,7 +21,8 @@ type Subscription = {
 };
 
 export async function getPlanForUser(userId: string): Promise<Plan | null> {
-  const sub = await prisma.subscription.findFirst({
+  const client = prisma as any;
+  const sub = await client.subscription?.findFirst?.({
     where: { userId, status: "active" },
     orderBy: { createdAt: "desc" },
     include: { plan: true },
@@ -30,7 +31,8 @@ export async function getPlanForUser(userId: string): Promise<Plan | null> {
 }
 
 export async function upgradePlan(userId: string, targetPlanId: string): Promise<Subscription> {
-  const subscription = await prisma.subscription.upsert({
+  const client = prisma as any;
+  const subscription = await client.subscription?.upsert?.({
     where: { userId },
     update: {
       planId: targetPlanId,
@@ -48,12 +50,13 @@ export async function upgradePlan(userId: string, targetPlanId: string): Promise
     include: { plan: true },
   });
 
-  // TODO: Payment provider checkout hook
+  if (!subscription) throw new Error("Subscription model not available on Prisma client");
   return subscription;
 }
 
 export async function downgradePlan(userId: string, targetPlanId: string): Promise<Subscription> {
-  const subscription = await prisma.subscription.upsert({
+  const client = prisma as any;
+  const subscription = await client.subscription?.upsert?.({
     where: { userId },
     update: {
       planId: targetPlanId,
@@ -69,6 +72,6 @@ export async function downgradePlan(userId: string, targetPlanId: string): Promi
     include: { plan: true },
   });
 
-  // TODO: sync with billing + prorations
+  if (!subscription) throw new Error("Subscription model not available on Prisma client");
   return subscription;
 }

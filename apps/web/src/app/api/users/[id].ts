@@ -1,5 +1,5 @@
 // apps/web/src/app/api/users/[id].ts
-import dbConnect from "@/lib/db";
+import { dbConnect } from "@/lib/db";
 import UserProfile from "@/models/pii/UserProfile";
 
 export default async function handler(req: any, res: any) {

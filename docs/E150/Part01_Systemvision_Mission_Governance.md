@@ -291,6 +291,39 @@ Zusammenfassend soll Codex bei allen zukünftigen Aufgaben:
 Part 01 ist damit der **wertemäßige Rahmen**.
 Part 02 ff. konkretisieren, wie diese Werte in Rollen, XP-System, Pricing, Orchestrator, Graph, Streams und Admin-Oberflächen umgesetzt werden.
 
+## 11. Themenkatalog & Zuständigkeiten (15 Hauptkategorien)
+
+Alle Anliegen, Beiträge und Profil-Themen werden in **15 Hauptkategorien** eingeordnet, die sich an realen Zuständigkeiten orientieren (Ministerien, Parlamente, Kommunen, EU). Der vollständige Themenkatalog ist in `docs/E150/Part06_Themenkatalog_und_Zustaendigkeiten.md` beschrieben.
+
+Ziele:
+
+- Bürger:innen verstehen besser, **wer** für welches Thema zuständig ist.
+- Wir können Anliegen entlang der realen Entscheidungswege auffächern.
+- Profil-Themen spiegeln nicht nur „Interessen“, sondern auch das Verständnis von Verantwortung.
+
+Die 15 Kategorien (Arbeitstitel, Feintuning später):
+
+1. Demokratie & Wahlen
+2. Haushalt & Finanzen
+3. Arbeit & Wirtschaft
+4. Soziales & Familie
+5. Bildung & Forschung
+6. Gesundheit & Pflege
+7. Klima & Umwelt
+8. Energie & Infrastruktur
+9. Mobilität & Stadtentwicklung
+10. Inneres & Sicherheit
+11. Justiz & Recht
+12. Migration & Integration
+13. Digitalisierung & Medien
+14. Europa & Außenpolitik
+15. Kommunales & Lebensumfeld (Rathaus, Stadt, Kreis)
+
+Vorgabe:
+
+- `TOPIC_CHOICES` in Code und Profil-Funktionen müssen sich **immer** aus diesen 15 Kategorien ableiten.
+- Zusätzliche Tags/Unterthemen sind erlaubt, hängen aber immer an einer der 15 Hauptkategorien.
+
 ### Aktueller B2C-Stand (VoiceOpenGov + eDebatte)
 
 - B2C-Tiers der App: **eDebatte Basis (0 €), Erweitert, Premium** – Preise und Labels liegen zentral in `apps/web/src/config/pricing.ts`.

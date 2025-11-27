@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { findEvidenceClaims } from "@core/evidence/query";
 import { getRegionName } from "@core/regions/regionTranslations";
 import type { SupportedLocale } from "@core/locale/locales";
-import { isStaffRequest } from "../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 export async function GET(req: NextRequest) {
   if (!isStaffRequest(req)) {

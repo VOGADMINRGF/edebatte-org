@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import dbConnect from "@/lib/db";
+import { dbConnect } from "@/lib/db";
 import Contribution from "@/models/Contribution";
 import { getCol, ObjectId } from "@core/db/triMongo";
 import type { AccessTier } from "@features/pricing/types";

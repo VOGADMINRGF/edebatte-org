@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getEffectiveRoutePolicies, countRouteOverrides } from "@core/access/db";
-import { isStaffRequest } from "../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 export async function GET(req: NextRequest) {
   if (!isStaffRequest(req)) {

@@ -15,6 +15,7 @@ export default [
       "src/shims/**",
       "src/types/generated/**",
       ".next/**",
+      "dist/**",
       "node_modules/**",
     ],
   },

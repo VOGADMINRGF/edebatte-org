@@ -1,5 +1,5 @@
 // apps/web/src/app/api/user-demographics/[id].ts
-import dbConnect from "@/lib/db";
+import { dbConnect } from "@/lib/db";
 import UserDemographics from "@/models/pii/UserDemographics";
 
 export default async function handler(req: any, res: any) {

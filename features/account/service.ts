@@ -6,14 +6,34 @@ import { getUserSignature } from "@core/db/pii/userSignatures";
 import type { AccessTier } from "@features/pricing/types";
 import type {
   AccountOverview,
+  AccountProfile,
   AccountProfileUpdate,
-  AccountPublicFlags,
   AccountSettingsUpdate,
   AccountStats,
   MembershipStatus,
   PricingTier,
+  ProfilePublicFlags,
+  ProfileTopTopic,
 } from "./types";
+import { TOPIC_CHOICES, TOPIC_LABEL_BY_KEY, type TopicKey } from "@features/interests/topics";
 import { getEngagementLevel, swipesUntilNextCredit } from "@features/user/engagement";
+import { getProfilePackageForAccessTier } from "./profilePackages";
+
+const RESEARCH_XP_AWARD = 25;
+
+export async function awardResearchXp(userId: string, _taskId?: string): Promise<void> {
+  const oid = parseObjectId(userId);
+  if (!oid) return;
+
+  const Users = await getCol("users");
+  await Users.updateOne(
+    { _id: oid },
+    {
+      $inc: { "usage.xp": RESEARCH_XP_AWARD, "stats.xp": RESEARCH_XP_AWARD },
+      $set: { updatedAt: new Date() },
+    },
+  );
+}
 
 type UserDoc = {
   _id: ObjectId;
@@ -31,9 +51,11 @@ type UserDoc = {
     locale?: string | null;
     headline?: string | null;
     bio?: string | null;
-    topTopics?: string[];
+    avatarStyle?: "initials" | "abstract" | "emoji" | null;
+    topTopics?: Array<{ key?: string; title?: string; statement?: string | null }>;
+    publicFlags?: ProfilePublicFlags;
   };
-  publicFlags?: AccountPublicFlags;
+  publicFlags?: ProfilePublicFlags;
   settings?: {
     preferredLocale?: string | null;
     newsletterOptIn?: boolean;
@@ -122,20 +144,17 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
   const stats = deriveStats(doc);
   const verification = ensureVerificationDefaults(doc.verification as any);
   const hasVogMembership = doc.membership?.status === "active";
-  const profile = {
-    headline: doc.profile?.headline?.trim() || null,
-    bio: doc.profile?.bio?.trim() || null,
-  };
-  const publicFlags = normalizePublicFlags(doc.publicFlags);
-  const topTopics = sanitizeTopTopics(doc.profile?.topTopics ?? []);
+  const profile = deriveProfile(doc);
+  const profilePackage = getProfilePackageForAccessTier(accessTier);
 
   return {
     userId: String(doc._id),
     email: doc.email ?? "",
     displayName: deriveDisplayName(doc),
     profile,
-    publicFlags,
-    topTopics,
+    profilePackage,
+    publicFlags: profile.publicFlags,
+    topTopics: profile.topTopics,
     accessTier,
     roles,
     groups,
@@ -218,16 +237,22 @@ export async function updateAccountProfile(
     setOps["profile.bio"] = value;
   }
 
+  if (patch.avatarStyle !== undefined) {
+    setOps["profile.avatarStyle"] = patch.avatarStyle ?? null;
+  }
+
   if (patch.topTopics !== undefined) {
-    const topics = sanitizeTopTopics(patch.topTopics ?? []);
+    const topics = patch.topTopics === null ? [] : sanitizeTopTopics(patch.topTopics ?? []);
     setOps["profile.topTopics"] = topics;
   }
 
   if (patch.publicFlags !== undefined) {
     const flags = normalizePublicFlags(patch.publicFlags);
     if (Object.keys(flags).length > 0) {
-      setOps.publicFlags = flags;
+      setOps["profile.publicFlags"] = flags;
+      unsetOps.publicFlags = "";
     } else {
+      unsetOps["profile.publicFlags"] = "";
       unsetOps.publicFlags = "";
     }
   }
@@ -249,10 +274,14 @@ function parseObjectId(value: string) {
   }
 }
 
-function normalizePublicFlags(flags?: AccountPublicFlags | null): AccountPublicFlags {
+function normalizePublicFlags(flags?: ProfilePublicFlags | null): ProfilePublicFlags {
   if (!flags || typeof flags !== "object") return {};
-  const result: AccountPublicFlags = {};
-  ("profile headline bio topTopics".split(" ") as Array<keyof AccountPublicFlags>).forEach((key) => {
+  const result: ProfilePublicFlags = {};
+  (
+    ["showRealName", "showCity", "showJoinDate", "showEngagementLevel", "showStats"] as Array<
+      keyof ProfilePublicFlags
+    >
+  ).forEach((key) => {
     if (typeof flags[key] === "boolean") {
       result[key] = flags[key];
     }
@@ -282,6 +311,16 @@ function deriveRoles(doc: UserDoc): string[] {
   }
   if (doc.role) return [doc.role];
   return ["user"];
+}
+
+function deriveProfile(doc: UserDoc): AccountProfile {
+  return {
+    headline: doc.profile?.headline?.trim() || null,
+    bio: doc.profile?.bio?.trim() || null,
+    avatarStyle: doc.profile?.avatarStyle ?? null,
+    topTopics: sanitizeTopTopics(doc.profile?.topTopics ?? []),
+    publicFlags: normalizePublicFlags(doc.profile?.publicFlags ?? doc.publicFlags),
+  };
 }
 
 function deriveTier(doc: UserDoc): AccessTier {
@@ -314,13 +353,55 @@ function deriveGroups(doc: UserDoc, tier: AccessTier, roles: string[]): string[]
   return Array.from(groups);
 }
 
-function sanitizeTopTopics(topics: unknown): string[] {
+function sanitizeTopTopics(topics: unknown): ProfileTopTopic[] {
   if (!Array.isArray(topics)) return [];
-  const cleaned = topics
-    .map((topic) => (typeof topic === "string" ? topic.trim() : ""))
-    .filter((topic) => topic.length > 0)
-    .slice(0, 3);
-  return Array.from(new Set(cleaned));
+  const result: ProfileTopTopic[] = [];
+  const seen = new Set<TopicKey>();
+  for (const entry of topics) {
+    const topic = resolveTopic(entry);
+    if (!topic || seen.has(topic.key)) continue;
+    seen.add(topic.key);
+    result.push(topic);
+    if (result.length >= 3) break;
+  }
+  return result;
+}
+
+function resolveTopic(raw: unknown): ProfileTopTopic | null {
+  if (!raw) return null;
+  let key: TopicKey | null = null;
+  let statement: string | null | undefined;
+
+  if (typeof raw === "string") {
+    key = matchTopicKey(raw);
+  } else if (typeof raw === "object") {
+    const anyRaw = raw as any;
+    if (typeof anyRaw.key === "string") key = matchTopicKey(anyRaw.key);
+    else if (typeof anyRaw.title === "string") key = matchTopicKey(anyRaw.title);
+    if (typeof anyRaw.statement === "string") {
+      const trimmed = anyRaw.statement.trim().slice(0, 140);
+      statement = trimmed.length > 0 ? trimmed : null;
+    }
+  }
+
+  if (!key) return null;
+  const title = TOPIC_LABEL_BY_KEY[key];
+  return {
+    key,
+    title: title ?? key,
+    statement,
+  };
+}
+
+function matchTopicKey(raw: string): TopicKey | null {
+  const normalized = raw.trim().toLowerCase();
+  if (!normalized) return null;
+  const match = TOPIC_CHOICES.find(
+    (topic) =>
+      topic.key === normalized ||
+      topic.label.toLowerCase() === normalized,
+  );
+  return match ? match.key : null;
 }
 
 function deriveStats(doc: UserDoc): AccountStats {

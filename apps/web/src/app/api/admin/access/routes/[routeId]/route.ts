@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getEffectiveRoutePolicy, upsertRoutePolicy } from "@core/access/db";
 import type { AccessGroup, RouteId } from "@features/access/types";
-import { isStaffRequest } from "../../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 export async function PATCH(
   req: NextRequest,

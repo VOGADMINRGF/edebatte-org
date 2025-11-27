@@ -1,9 +1,0 @@
-# generierte Prisma-Typen/Runtime
-src/db/**
-# disabled Screens/Experimente
-src/_disabled/**
-# build output
-.next/**
-dist/**
-# declaration files generell
-**/*.d.ts

@@ -40,6 +40,7 @@ declare function asFn<T=any>(x:any): any;
 // next/navigation hook fallback (falls alte Next-Version)
 declare module "next/navigation" {
   export function usePathname(): string;
+  export function useParams<T=any>(): T;
 }
 
 

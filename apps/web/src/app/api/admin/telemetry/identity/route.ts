@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIdentityFunnelSnapshot } from "@core/telemetry/identityEvents";
-import { isStaffRequest } from "../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

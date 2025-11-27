@@ -9,7 +9,10 @@ export type AuthUser = {
   roles: string[];
   accessTier: string | null;
   b2cPlanId: string | null;
+  planSlug: string | null;
   engagementXp: number | null;
+  engagementLevel: string | null;
+  contributionCredits: number | null;
   vogMembershipStatus: string | null;
 };
 

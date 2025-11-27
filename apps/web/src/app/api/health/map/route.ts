@@ -1,7 +1,6 @@
 import { coreCol } from "@core/db/triMongo";
 // apps/web/src/app/api/health/map/route.ts
 import { NextResponse } from "next/server";
-import getDb from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 

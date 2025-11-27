@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AccountOverview } from "@features/account/types";
+import { getProfilePackageForAccessTier } from "@features/account/profilePackages";
 
 export default function UserProfile() {
   const [data, setData] = useState<AccountOverview | null>(null);
@@ -58,18 +59,22 @@ export default function UserProfile() {
   }
 
   const stats = data.stats;
+  const profile = data.profile ?? {};
   const displayName = data.displayName || data.email || "Bürger:in";
   const plan = data.accessTier;
-  const publicFlags = data.publicFlags ?? {};
-  const profileAllowed = publicFlags.profile ?? false;
-  const headlineAllowed = profileAllowed && (publicFlags.headline ?? false);
-  const bioAllowed = profileAllowed && (publicFlags.bio ?? false);
-  const topicsAllowed = profileAllowed && (publicFlags.topTopics ?? false);
+  const profilePackage = data.profilePackage ?? getProfilePackageForAccessTier(plan);
+  const publicFlags = profile.publicFlags ?? {};
+  const showStats = publicFlags.showStats ?? false;
+  const showEngagementLevel = publicFlags.showEngagementLevel ?? false;
+  const showJoinDate = publicFlags.showJoinDate ?? false;
+  const topTopics = profile.topTopics ?? [];
   const hasPublicContent =
-    profileAllowed &&
-    ((headlineAllowed && !!data.profile?.headline) ||
-      (bioAllowed && !!data.profile?.bio) ||
-      (topicsAllowed && data.topTopics.length > 0));
+    !!profile.headline ||
+    !!profile.bio ||
+    topTopics.length > 0 ||
+    showStats ||
+    showEngagementLevel ||
+    showJoinDate;
 
   return (
     <div className="space-y-8">
@@ -84,7 +89,8 @@ export default function UserProfile() {
             <p className="text-sm text-slate-500">{data.email}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700">
-            Aktiver Plan: <span className="font-semibold">{plan}</span>
+            <div>Aktiver Plan: <span className="font-semibold">{plan}</span></div>
+            <div className="text-xs text-slate-500">Profil-Paket: {profilePackage}</div>
           </div>
         </div>
 
@@ -125,39 +131,50 @@ export default function UserProfile() {
 
       <section className="rounded-4xl border border-slate-200 bg-white/90 p-6 shadow-sm">
         <h2 className="text-2xl font-semibold text-slate-900">Profil & Sichtbarkeit</h2>
-        {!profileAllowed && (
-          <p className="mt-2 text-sm text-slate-600">Dein öffentliches Profil ist aktuell deaktiviert.</p>
-        )}
-
-        {profileAllowed && hasPublicContent ? (
+        {hasPublicContent ? (
           <div className="mt-4 space-y-3 text-sm text-slate-700">
-            {headlineAllowed && data.profile?.headline && (
-              <p className="text-base font-semibold text-slate-900">{data.profile.headline}</p>
+            {profile.headline && (
+              <p className="text-base font-semibold text-slate-900">{profile.headline}</p>
             )}
-            {bioAllowed && data.profile?.bio && <p className="text-slate-700">{data.profile.bio}</p>}
-            {topicsAllowed && (
+            {profile.bio && <p className="text-slate-700">{profile.bio}</p>}
+            {topTopics.length > 0 && (
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">Top-Themen</p>
-                {data.topTopics.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {data.topTopics.map((topic) => (
-                      <span
-                        key={topic}
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-500">Noch keine Top-Themen freigegeben.</p>
-                )}
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  {topTopics.map((topic) => (
+                    <div
+                      key={topic.key}
+                      className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3"
+                    >
+                      <p className="text-sm font-semibold text-slate-900">{topic.title}</p>
+                      {topic.statement && <p className="text-xs text-slate-600">{topic.statement}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {showEngagementLevel && (
+              <p className="text-xs text-slate-500">Engagement-Level: {stats.engagementLevel}</p>
+            )}
+            {showJoinDate && data.createdAt && (
+              <p className="text-xs text-slate-500">
+                Mitglied seit {new Date(data.createdAt).toLocaleDateString("de-DE")}
+              </p>
+            )}
+            {showStats && (
+              <div className="grid gap-2 md:grid-cols-2">
+                <StatCard label="XP & Level" value={`${stats.xp} XP`} hint={`Engagement-Level: ${stats.engagementLevel}`} />
+                <StatCard
+                  label="Swipes gesamt"
+                  value={stats.swipeCountTotal}
+                  hint={`Noch ${stats.nextCreditIn} Swipes bis zum nächsten Credit`}
+                />
               </div>
             )}
           </div>
-        ) : profileAllowed ? (
+        ) : (
           <p className="mt-2 text-sm text-slate-600">Es sind noch keine öffentlichen Angaben hinterlegt.</p>
-        ) : null}
+        )}
       </section>
 
       <section className="rounded-4xl border border-slate-200 bg-white/90 p-6 shadow-sm">

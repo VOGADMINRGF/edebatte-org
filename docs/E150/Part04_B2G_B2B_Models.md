@@ -15,6 +15,8 @@ Ziele:
 - zentrale Organisationstabellen und Plan-Enums für Codex,
 - Interoperabilität mit XP-, Pricing- & Stream-Mechaniken (Part 02/03).
 
+Hinweis: Dieses Dokument verwendet die Profil-Paket-Namen aus Part03 (`profileBasic`, `profilePro`, `profilePremium`). Eigene Marketing-Begriffe (z.B. „Starter“, „Plus“, „Institution Gold“) sind reine UI-/Kommunikationslabels und **ändern nicht** die technische Paket-Zuordnung.
+
 Dieser Part bildet die Grundlage für:
 
 - Kampagnen (Part10),

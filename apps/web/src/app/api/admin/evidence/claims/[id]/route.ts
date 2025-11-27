@@ -3,7 +3,7 @@ import { ObjectId } from "@core/db/triMongo";
 import { getEvidenceClaimById } from "@core/evidence/query";
 import { evidenceClaimsCol } from "@core/evidence/db";
 import type { EvidenceClaimDoc } from "@core/evidence/types";
-import { isStaffRequest } from "../../../feeds/utils";
+import { isStaffRequest } from "@/app/api/admin/feeds/utils";
 
 export async function GET(
   req: NextRequest,
