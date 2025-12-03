@@ -57,10 +57,14 @@ export default function AnalyzeShell() {
       });
 
       setStage(3);
-      const data: ApiResponse = await res.json();
+      const data: ApiResponse | null = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setNote("Ups – das hat nicht geklappt. Bitte nochmal versuchen oder unseren Support kontaktieren.");
+        setNote(
+          data?.message ||
+            data?.error ||
+            `Ups – das hat nicht geklappt (HTTP ${res.status}). Bitte nochmal versuchen oder unseren Support kontaktieren.`,
+        );
         setBusy(false);
         return;
       }

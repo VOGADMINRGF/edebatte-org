@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { derivePuzzle } from "@/lib/security/human-puzzle";
+import { safeRandomId } from "@core/utils/random";
 
 interface HumanCheckProps {
   formId?: string;
@@ -17,7 +18,7 @@ export function HumanCheck({ formId = "public-updates", onSolved, onError }: Hum
   const [message, setMessage] = useState<string | null>(null);
   const startRef = useRef<number>(performance.now());
 
-  const puzzleSeed = useMemo(() => crypto.randomUUID(), []);
+  const puzzleSeed = useMemo(() => safeRandomId(), []);
   const puzzle = useMemo(() => derivePuzzle(puzzleSeed), [puzzleSeed]);
 
   const handleVerify = async (e: React.FormEvent) => {

@@ -2,10 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import {
-  MEMBER_DISCOUNT,
-  calcDiscountedPrice,
-} from "@/config/pricing";
+import { MEMBER_DISCOUNT, calcDiscountedPrice } from "@/config/pricing";
 import type { EDebattePlan, VOGMembershipPlan } from "@/config/pricing";
 import { useLocale } from "@/context/LocaleContext";
 import { getMembershipStrings } from "./strings";
@@ -72,26 +69,36 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
   );
   const [rhythm, setRhythm] = React.useState<Rhythm>("monthly");
 
+  // Hinweis, wenn man am Betrag spielt, aber keine Mitgliedschaft gewählt ist
+  const [membershipHint, setMembershipHint] = React.useState<string | null>(
+    null,
+  );
+
   const net = parseEuro(householdNet) ?? 0;
   const rent = parseEuro(warmRent) ?? 0;
   const available = Math.max(0, net - rent);
   const size =
     Number.isFinite(householdSize) && householdSize > 0 ? householdSize : 1;
 
+  // 1 % vom frei verfügbaren Einkommen pro Person
   const suggestedRaw =
     available > 0
       ? (available * 0.01) / size
-      : membershipPlan.suggestedPerPersonPerMonth; // 1 % vom frei verfügbaren Einkommen
+      : membershipPlan.suggestedPerPersonPerMonth;
 
   const suggestedPerPerson = Math.max(
     membershipPlan.suggestedPerPersonPerMonth,
     Math.round(suggestedRaw * 100) / 100,
   );
 
-  const effectivePerPerson = Math.max(
+  // Rohbetrag pro Person (unabhängig davon, ob Mitgliedschaft gewählt ist)
+  const rawPerPerson = Math.max(
     membershipPlan.suggestedPerPersonPerMonth,
     amountPerPerson || 0,
   );
+
+  // Nur wenn eine Mitgliedschaft gewählt ist, zählt der Betrag effektiv.
+  const effectivePerPerson = withMembership ? rawPerPerson : 0;
   const membershipBaseTotal = effectivePerPerson * size; // Basisbetrag aus dem Rechner
 
   // Rabatt-Regel: laufende Mitgliedschaft ab Basisbetrag (gleiches Recht für alle)
@@ -107,9 +114,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
   const hasApp = withEdebate && !!selectedPlan;
 
   const appListPrice =
-    hasApp && selectedPlan
-      ? getPlanPrice(selectedPlan, billingInterval)
-      : 0;
+    hasApp && selectedPlan ? getPlanPrice(selectedPlan, billingInterval) : 0;
 
   const appPriceAfterMember =
     hasApp && memberDiscountPercent > 0
@@ -183,6 +188,28 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
     router.push(`/mitglied-antrag?${params.toString()}`);
   }
 
+  // Hilfsfunktion: passenden Hinweistext bauen
+  function buildMembershipHint(currentRhythm: Rhythm): string {
+    if (currentRhythm === "monthly") {
+      return "Hinweis: Damit dieser Betrag als laufende Mitgliedschaft zählt – und der Mitgliederrabatt für eDebatte greifen kann – aktiviere bitte oben die VoiceOpenGov-Mitgliedschaft.";
+    }
+    return "HDu hast eine einmalige Gutschrift ausgewählt – vielen Dank, dein Beitrag hilft uns sehr beim Aufbau von VoiceOpenGov. Diese Gutschrift zählt noch nicht als laufende Mitgliedschaft; wenn du später Mitglied werden möchtest, melde dich jederzeit unter members@voiceopengov.org"
+;
+  }
+
+  // Hilfsfunktion: Betrag setzen + ggf. Hinweis anwerfen
+  function applyAmount(newAmount: number) {
+    setAmountPerPerson(newAmount);
+    if (!withMembership && newAmount > 0) {
+      setMembershipHint(buildMembershipHint(rhythm));
+    } else if (withMembership) {
+      setMembershipHint(null);
+    }
+  }
+
+  // Anzeige-Wert für „Beitrag pro Person“ in der Summary
+  const displayPerPerson = withMembership ? effectivePerPerson : 0;
+
   return (
     <>
       {/* Hero / Einordnung */}
@@ -208,7 +235,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
           <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-900 md:text-sm">
             <p className="font-semibold">{strings.transparencyTitle}</p>
             <p
-              className="mt-1"
+              className="mt-1 whitespace-pre-line"
               dangerouslySetInnerHTML={{ __html: strings.transparencyBody }}
             />
           </div>
@@ -258,7 +285,16 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   gleiche VOG-Member-Goodie.
                 </>
               }
-              onClick={() => setWithMembership((v) => !v)}
+              onClick={() =>
+                setWithMembership((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    // Hinweis zurücksetzen, wenn Mitgliedschaft aktiv wird
+                    setMembershipHint(null);
+                  }
+                  return next;
+                })
+              }
             />
             <ToggleCard
               active={withEdebate}
@@ -282,7 +318,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="text-sm font-semibold text-slate-900">
-                  eDebatte-Paket wählen
+                  eDebatte-Paket wählen (Vorbestellung!)
                 </h2>
                 <p className="text-[11px] text-slate-500">
                   Preise sind Richtwerte während der Pilotphase.
@@ -471,7 +507,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAmountPerPerson(suggestedPerPerson)}
+                  onClick={() => applyAmount(suggestedPerPerson)}
                   className="rounded-full border border-sky-300 bg-sky-50 px-4 py-1.5 text-xs font-semibold text-sky-800 shadow-sm hover:bg-sky-100"
                 >
                   {strings.suggestionButton}
@@ -489,7 +525,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                       <button
                         key={amount}
                         type="button"
-                        onClick={() => setAmountPerPerson(amount)}
+                        onClick={() => applyAmount(amount)}
                         className={
                           "rounded-full border px-3 py-1 text-xs font-semibold shadow-sm transition " +
                           (Math.abs(amountPerPerson - amount) < 0.01
@@ -505,10 +541,10 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     <input
                       type="number"
                       inputMode="decimal"
-                      className="w-24 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                      className="w-36 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                       value={amountPerPerson.toString().replace(".", ",")}
                       onChange={(e) =>
-                        setAmountPerPerson(
+                        applyAmount(
                           parseEuro(e.target.value) ??
                             membershipPlan.suggestedPerPersonPerMonth,
                         )
@@ -519,6 +555,11 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     </span>
                   </div>
                 </div>
+                {membershipHint && !withMembership && (
+                  <p className="mt-1 text-[11px] text-sky-800">
+                    {membershipHint}
+                  </p>
+                )}
               </div>
 
               {/* Haushaltsgröße & Rhythmus */}
@@ -546,7 +587,12 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setRhythm("monthly")}
+                      onClick={() => {
+                        setRhythm("monthly");
+                        if (!withMembership && amountPerPerson > 0) {
+                          setMembershipHint(buildMembershipHint("monthly"));
+                        }
+                      }}
                       className={
                         "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold " +
                         (rhythm === "monthly"
@@ -558,7 +604,12 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRhythm("once")}
+                      onClick={() => {
+                        setRhythm("once");
+                        if (!withMembership && amountPerPerson > 0) {
+                          setMembershipHint(buildMembershipHint("once"));
+                        }
+                      }}
                       className={
                         "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold " +
                         (rhythm === "once"
@@ -582,8 +633,11 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                 <div className="flex justify-between gap-3">
                   <dt>{strings.summaryPerPerson}</dt>
                   <dd className="font-medium">
-                    {formatEuro(effectivePerPerson)}{" "}
-                    {rhythm === "monthly" ? "· monatlich" : "· einmalig"}
+                    {formatEuro(displayPerPerson)}
+                    {withMembership &&
+                      (rhythm === "monthly"
+                        ? " · monatlich"
+                        : " · einmalig")}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
@@ -609,8 +663,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                       <span className="mt-1 block text-[11px] text-slate-500">
                         {billingInterval === "monthly"
                           ? "Abrechnung monatlich."
-                          : "Abrechnung jährlich (inkl. 8 % Skonto auf den App-Preis)."}
-                        {" "}
+                          : "Abrechnung jährlich (inkl. 8 % Skonto auf den App-Preis)."}{" "}
                         {memberDiscountPercent > 0
                           ? `VOG Member-Rabatt (−${memberDiscountPercent} %) ist im Betrag berücksichtigt.`
                           : `VOG Member-Rabatt (−${MEMBER_DISCOUNT.percent} % auf den App-Preis) greift, wenn du eine laufende Mitgliedschaft ab Basisbetrag wählst.`}
@@ -621,9 +674,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   <div className="flex justify-between gap-3">
                     <dt>eDebatte:</dt>
                     <dd className="font-medium">
-                      {withEdebate
-                        ? "Ja, Paket bitte noch wählen"
-                        : "Nein"}
+                      {withEdebate ? "Ja, Paket bitte noch wählen" : "Nein"}
                     </dd>
                   </div>
                 )}
@@ -645,8 +696,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   <p className="mt-1 text-xs font-medium text-sky-900">
                     + {formatEuro(oneOffMembershipAmount)}{" "}
                     <span className="font-normal">
-                      einmalige Gutschrift für VoiceOpenGov
-                      {" "} (ohne steuerliche Absetzbarkeit)
+                      einmalige Gutschrift für VoiceOpenGov (ohne steuerliche
+                      Absetzbarkeit)
                     </span>
                   </p>
                 )}
@@ -654,6 +705,13 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                 <p className="mt-1 text-[11px] text-sky-800">
                   {strings.summaryBoxNote}
                 </p>
+                {!withMembership && amountPerPerson > 0 && (
+                  <p className="mt-2 text-[11px] text-sky-900">
+                    {rhythm === "monthly"
+                      ? strings.summaryMembershipHintMonthly
+                      : strings.summaryMembershipHintOnce}
+                  </p>
+                )}
               </div>
 
               <button

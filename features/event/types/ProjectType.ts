@@ -1,17 +1,16 @@
+export type ProjectStatus = "planned" | "active" | "completed" | "archived";
+
 /**
  * Projekttyp/Event für Aktionen, Kampagnen, Veranstaltungen.
  */
-export interface Project {
-    id: string;
-    name: string;
-    description: string;
-    startDate: string;                        // ISO-String
-    endDate?: string;
-    region?: string;
-    organizerIds: string[];
-    participants?: string[];
-    status: 'planned' | 'active' | 'completed' | 'archived';
-    createdAt: string;
-    updatedAt?: string;
-  }
-  
+export type Project = {
+  id: string;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate?: string;
+  region?: string;
+  organizerIds: string[];
+  status: ProjectStatus;
+  createdAt: string;
+};

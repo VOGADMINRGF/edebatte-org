@@ -1,5 +1,5 @@
 // apps/web/src/app/api/contributions/analyze/route.ts
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   analyzeContribution,
   type AnalyzeResultWithMeta,
@@ -15,28 +15,22 @@ import { syncAnalyzeResultToGraph } from "@core/graph";
 import { persistEventualitiesSnapshot } from "@core/eventualities";
 import { maskUserId } from "@core/pii/redact";
 import crypto from "node:crypto";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const JSON_HEADERS = {
-  "content-type": "application/json; charset=utf-8",
-} as const;
 
 const DEFAULT_MAX_CLAIMS = 20;
 
 type SuccessResponse<T extends Record<string, unknown>> = { ok: true } & T;
 type ErrorResponse<TExtra extends Record<string, unknown> = Record<string, unknown>> = {
   ok: false;
-  error: string;
-  code: string;
+  errorCode: string;
+  message: string;
 } & TExtra;
 
 function ok<T extends Record<string, unknown>>(data: T, status = 200) {
-  return new Response(JSON.stringify({ ok: true, ...data } satisfies SuccessResponse<T>), {
-    status,
-    headers: JSON_HEADERS,
-  });
+  return NextResponse.json({ ok: true, ...data } satisfies SuccessResponse<T>, { status });
 }
 
 function err(
@@ -45,29 +39,51 @@ function err(
   status = 500,
   extra: Record<string, unknown> = {},
 ) {
-  return new Response(
-    JSON.stringify({ ok: false, code, error: message, ...extra } satisfies ErrorResponse),
-    {
-      status,
-      headers: JSON_HEADERS,
-    },
+  return NextResponse.json(
+    { ok: false, errorCode: code, message, ...extra } satisfies ErrorResponse,
+    { status },
   );
 }
 
-type NormalizedAnalyzerError = { code: string; message: string };
+type NormalizedAnalyzerError = { code: string; message: string; status?: number };
 
 function formatErrorResponse(error: NormalizedAnalyzerError, status = 500) {
-  return err(error.code, error.message, status);
+  return err(error.code, error.message, error.status ?? status);
 }
 
-type AnalyzeBody = {
-  text: string;
-  locale?: string;
-  maxClaims?: number;
-  stream?: boolean;
-  live?: boolean;
-  contributionId?: string;
-};
+const AnalyzeRequestSchema = z
+  .object({
+    text: z.string().min(1).max(10_000).optional(),
+    locale: z.string().min(2).max(8).optional(),
+    maxClaims: z.number().int().min(1).max(50).optional(),
+    stream: z.boolean().optional(),
+    live: z.boolean().optional(),
+    contributionId: z.string().min(3).max(100).optional(),
+    test: z.string().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.test === "ping") return;
+    if (!val.text || !val.text.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Feld 'text' ist erforderlich.",
+        path: ["text"],
+      });
+      return;
+    }
+    if (val.text.trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_small,
+        minimum: 10,
+        inclusive: true,
+        type: "string",
+        message: "Der Beitrag ist zu kurz (mindestens 10 Zeichen).",
+        path: ["text"],
+      });
+    }
+  });
+
+type AnalyzeBody = z.infer<typeof AnalyzeRequestSchema>;
 
 type AnalyzeJobInput = {
   text: string;
@@ -101,21 +117,32 @@ function sanitizeMaxClaims(maxClaims?: number): number {
  * - SSE: progress/result/error-events mit identischem Result-Shape
  */
 export async function POST(req: NextRequest): Promise<Response> {
-  let body: AnalyzeBody | null = null;
-
+  let rawBody: unknown;
   try {
-    body = await req.json();
+    rawBody = await req.json();
   } catch {
-    return err("INVALID_JSON", "Invalid JSON body", 400);
+    return err("INVALID_JSON", "Ungültiger JSON-Body.", 400);
   }
 
-  if (!body || typeof body.text !== "string" || !body.text.trim()) {
-    return err("MISSING_TEXT", "Missing 'text' in request body", 400);
+  const parsed = AnalyzeRequestSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return err(
+      "BAD_INPUT",
+      parsed.error?.issues?.[0]?.message ?? "Ungültige Eingabe für die Analyse.",
+      400,
+      { issues: parsed.error.issues },
+    );
+  }
+
+  const body = parsed.data;
+
+  if (body.test === "ping") {
+    return ok({ result: { ping: "pong" } });
   }
 
   const locale = sanitizeLocale(body.locale);
   const maxClaims = sanitizeMaxClaims(body.maxClaims);
-  const text = body.text.trim();
+  const text = body.text!.trim();
   const userId = req.cookies.get("u_id")?.value ?? null;
   const contributionId = resolveContributionId(body.contributionId, text);
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
@@ -143,13 +170,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     await finalizeResultPayload(result, analyzeInput);
     return ok({ result }, 200);
   } catch (error) {
+    console.error("[contributions/analyze] failed", error);
     logger.error({
       msg: "analyze.route.error",
       contributionId,
       userId: maskUserId(userId),
       err: error instanceof Error ? error.message : String(error),
     });
-    return formatErrorResponse(normalizeAnalyzerError(error), 500);
+    return formatErrorResponse(normalizeAnalyzerError(error), 502);
   }
 }
 
@@ -316,17 +344,37 @@ function normalizeAnalyzerError(error: unknown): NormalizedAnalyzerError {
         ? error
         : "";
 
+  if (message.includes("Orchestrator") && message.includes("Kein aktiver Provider")) {
+    return {
+      code: "NO_ANALYZE_PROVIDER",
+      message:
+        "AnalyzeContribution: Kein KI-Provider konfiguriert. Bitte wende dich an das VoiceOpenGov-Team.",
+      status: 503,
+    };
+  }
+
+  if (/OPENAI_API_KEY fehlt/i.test(message) || /API_KEY fehlt/i.test(message)) {
+    return {
+      code: "MISSING_ENV",
+      message:
+        "AnalyzeContribution: Ein notwendiger API-Schlüssel fehlt auf dem Server.",
+      status: 500,
+    };
+  }
+
   if (message.includes("KI-Antwort war kein gültiges JSON")) {
     return {
       code: "INVALID_AI_RESPONSE",
       message:
         "AnalyzeContribution: KI-Antwort war kein gültiges JSON. Bitte später erneut versuchen.",
+      status: 502,
     };
   }
   return {
     code: "ANALYZE_FAILED",
     message:
       "AnalyzeContribution: Fehler im Analyzer. Bitte später erneut versuchen.",
+    status: 502,
   };
 }
 

@@ -1,19 +1,35 @@
 // features/vote/components/VoteButton.tsx
 "use client";
+
 import { useState } from "react";
+import { safeRandomId } from "@core/utils/random";
 
 type Val = "agree" | "neutral" | "disagree";
 type Summary = { agree: number; neutral: number; disagree: number };
 
 function ensureFp(): string {
   try {
-    const uuid = typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-    let fp = localStorage.getItem("vog_fp");
-    if (!fp) { fp = uuid; localStorage.setItem("vog_fp", fp); }
+    // robuste Fallback-ID: nutzt intern crypto/random, falls vorhanden
+    const uuid = safeRandomId();
+
+    // sollte in einem Client-Component immer vorhanden sein,
+    // aber wir guard-en trotzdem für Sicherheit / Tests
+    if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+      return uuid;
+    }
+
+    let fp =
+      window.localStorage.getItem("vog_fp") ||
+      uuid; // durch "|| uuid" ist der Typ sicher string
+
+    if (!window.localStorage.getItem("vog_fp")) {
+      window.localStorage.setItem("vog_fp", fp);
+    }
+
     return fp;
-  } catch { return "fp-unavailable"; }
+  } catch {
+    return "fp-unavailable";
+  }
 }
 
 const baseBtn =
@@ -56,7 +72,10 @@ function VoteButton({
 
     try {
       const fp = ensureFp();
-      const headers: Record<string, string> = { "Content-Type": "application/json", "x-fp": fp };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-fp": fp,
+      };
       if (userHash) headers["x-user-hash"] = userHash;
 
       const r = await fetch("/api/votes/cast", {
@@ -64,7 +83,8 @@ function VoteButton({
         headers,
         body: JSON.stringify({ statementId, value }),
       });
-      const j = await r.json().catch(() => ({}));
+
+      const j = await r.json().catch(() => ({} as any));
       if (!r.ok || !j?.ok) throw new Error(j?.error || "Vote fehlgeschlagen");
 
       // SERVER-KONTRAKT: { ok, data: { agree, neutral, disagree }, meta: {...} }
@@ -127,13 +147,20 @@ function VoteButton({
       {voted && (
         <span className="text-sm text-gray-600">
           Danke für deine Stimme{summary ? "!" : "."}
-          {summary && <> Aktuelle Stimmen: 👍 {summary.agree} | 🤔 {summary.neutral} | 👎 {summary.disagree}</>}
+          {summary && (
+            <>
+              {" "}
+              Aktuelle Stimmen: 👍 {summary.agree} | 🤔 {summary.neutral} | 👎{" "}
+              {summary.disagree}
+            </>
+          )}
         </span>
       )}
 
       {!voted && summary && (
         <span className="text-xs text-gray-500">
-          Aktuell: 👍 {summary.agree} | 🤔 {summary.neutral} | 👎 {summary.disagree}
+          Aktuell: 👍 {summary.agree} | 🤔 {summary.neutral} | 👎{" "}
+          {summary.disagree}
         </span>
       )}
     </div>

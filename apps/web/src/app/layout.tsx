@@ -8,6 +8,7 @@ import { SiteHeader } from "./(components)/SiteHeader";
 import { getPrivacyStrings } from "./privacyStrings";
 import { VogCookieBanner } from "@/components/privacy/VogCookieBanner";
 import { CONSENT_COOKIE_NAME, parseConsentCookie } from "@/lib/privacy/consent";
+import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "VoiceOpenGov",
@@ -30,25 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="flex min-h-screen flex-col">
             <SiteHeader />
             <main className="flex-1">{children}</main>
-            <footer className="border-t bg-white/70 backdrop-blur">
-              <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-neutral-600 md:flex-row md:items-center md:justify-between">
-                <span>© 2025 VoiceOpenGov</span>
-                <div className="flex items-center gap-4">
-                  <a href="/kontakt" className="font-medium text-slate-800 hover:text-slate-900">
-                    Kontakt
-                  </a>
-                  <a href="/datenschutz" className="font-medium text-slate-800 hover:text-slate-900">
-                    Datenschutz
-                  </a>
-                  <a href="/ki-nutzung" className="font-medium text-slate-800 hover:text-slate-900">
-                    KI-Nutzung
-                  </a>
-                  <a href="/impressum" className="font-medium text-slate-800 hover:text-slate-900">
-                    Impressum
-                  </a>
-                </div>
-              </div>
-            </footer>
+            <SiteFooter />
             <div className="h-[env(safe-area-inset-bottom)]" />
             <VogCookieBanner strings={privacyStrings} initialConsent={initialConsent} />
           </div>

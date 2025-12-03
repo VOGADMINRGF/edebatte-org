@@ -1,185 +1,197 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import LocaleSwitcher from "@/components/LocaleSwitcher";
+import { useState } from "react";
+import Link from "next/link";
 import { HeaderLoginInline } from "@/components/auth/HeaderLoginInline";
+import { useLocale } from "@/context/LocaleContext";
 import { useCurrentUser } from "@/hooks/auth";
 
-const NAV_LINKS = [
-  //{ href: "/howtoworks/bewegung", label: "Die Bewegung" },
-  //{ href: "/howtoworks/edebatte", label: "eDebatte" },
-  //{ href: "/swipe", label: "Zum Swipe" },
-  //{ href: "/statements/new", label: "Beitrag verfassen" },
-  //{ href: "/evidence/global", label: "Evidence" },
+type NavItem = {
+  href: string;
+  label: string;
+  description: string;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/swipe",
+    label: "Swipe",
+    description: "Beiträge abstimmen",
+  },
+  {
+    href: "/statements",
+    label: "Statements",
+    description: "Beiträge verfassen",
+  },
+  {
+    href: "/streams",
+    label: "Streams",
+    description: "Themen vortragen & anschauen",
+  },
+  {
+    href: "/reports",
+    label: "Reports",
+    description: "Aktuelles aus der Region",
+  },
 ];
 
 export function SiteHeader() {
-  const [open, setOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [account, setAccount] = useState<{ name: string; email: string } | null>(null);
+  const { locale } = useLocale();
   const { user } = useCurrentUser();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    let aborted = false;
-    if (!user) {
-      setAccount(null);
-      return;
-    }
-
-    async function loadAccount() {
-      try {
-        const res = await fetch("/api/account/overview", { cache: "no-store" });
-        if (!res.ok) return;
-        const body = await res.json().catch(() => ({}));
-        if (!body?.overview || aborted) return;
-        setAccount({
-          name: body.overview.displayName || body.overview.email,
-          email: body.overview.email,
-        });
-      } catch {
-        /* ignore */
-      }
-    }
-    loadAccount();
-    return () => {
-      aborted = true;
-    };
-  }, [user]);
-
-  const initials =
-    account?.name
-      ?.split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "DU";
-
-  async function handleLogout() {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      window.location.href = "/";
-    }
-  }
+  const localeLabel = (locale || "de").toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 bg-gradient-to-r from-white via-white/90 to-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 border-b border-white/40 shadow-[0_5px_20px_rgba(15,23,42,0.06)]">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <a
-          href="/"
-          className="text-lg font-bold tracking-tight drop-shadow-sm"
-          style={{
-            backgroundImage: "linear-gradient(120deg,var(--brand-cyan),var(--brand-blue))",
-            WebkitBackgroundClip: "text",
-            color: "transparent",
-          }}
-        >
-          VoiceOpenGov
-        </a>
+    <header className="sticky top-0 z-40 border-b border-slate-100/80 bg-white/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        {/* Logo / Brand */}
+        <Link href="/" className="flex items-center gap-2">
+          <span
+            className="text-lg font-extrabold leading-tight tracking-tight"
+            style={{
+              backgroundImage:
+                "linear-gradient(120deg,var(--brand-cyan),var(--brand-blue))",
+              WebkitBackgroundClip: "text",
+              color: "transparent",
+            }}
+          >
+            VoiceOpenGov
+          </span>
+        </Link>
 
-        <nav className="hidden items-center gap-3 text-sm font-semibold text-slate-700 md:flex">
-          {NAV_LINKS.map((item) => (
-            <a
+        {/* Desktop-Navigation */}
+        <nav
+          className="hidden items-center gap-4 text-sm font-semibold text-slate-700 lg:flex"
+          aria-label="Hauptnavigation"
+        >
+          {NAV_ITEMS.map((item) => (
+            <Link
               key={item.href}
               href={item.href}
-              className="rounded-full px-3 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+              title={`${item.label} – ${item.description}`}
+              aria-label={`${item.label} – ${item.description}`}
+              className="rounded-full px-3 py-1.5 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
             >
               {item.label}
-            </a>
+            </Link>
           ))}
-          <LocaleSwitcher />
-          <a
+
+          {/* Mitglied werden (Desktop) */}
+          <Link
             href="/mitglied-werden"
-            className="rounded-full bg-brand-grad px-4 py-1.5 text-white shadow-[0_10px_30px_rgba(16,185,129,0.35)]"
+            className="rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-1.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(56,189,248,0.35)] hover:brightness-105"
           >
             Mitglied werden
-          </a>
-          {account ? (
-            <div className="relative" onMouseLeave={() => setAccountMenuOpen(false)}>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm"
-                onClick={() => setAccountMenuOpen((v) => !v)}
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white">
-                  {initials}
-                </span>
-                Mein Konto
-              </button>
-              {accountMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-200 bg-white p-2 text-sm shadow-lg">
-                  <a
-                    href="/account"
-                    className="block rounded-xl px-3 py-2 text-slate-700 transition hover:bg-slate-100"
-                    onClick={() => setAccountMenuOpen(false)}
-                  >
-                    Profil öffnen
-                  </a>
-                  <button
-                    className="block w-full rounded-xl px-3 py-2 text-left text-rose-600 transition hover:bg-rose-50"
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
+          </Link>
+
+          {/* Login / Konto */}
+          {user ? (
+            <Link
+              href="/account"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
+            >
+              Konto
+            </Link>
           ) : (
             <HeaderLoginInline />
           )}
         </nav>
 
-        <div className="flex items-center gap-2 md:hidden">
-          <LocaleSwitcher />
+        {/* Rechts: Locale-Badge + Hamburger (Mobile/Tablet) */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <span
+            aria-label={`Sprache: ${localeLabel}`}
+            className="text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+          >
+            {localeLabel}
+          </span>
           <button
             type="button"
-            className="rounded-full border border-slate-300/70 bg-white/80 p-2 text-slate-700 shadow-sm"
-            onClick={() => setOpen((v) => !v)}
             aria-label="Navigation öffnen"
+            onClick={() => setMobileOpen((v) => !v)}
+            className="inline-flex items-center justify-center rounded-full border border-slate-300/80 bg-white/90 p-2 text-slate-700 shadow-sm"
           >
-            ☰
+            <span className="sr-only">Menü</span>
+            <svg
+              aria-hidden="true"
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M4 7h16M4 12h16M4 17h10"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
       </div>
 
-      {open && (
-        <div className="border-t border-slate-200 bg-white/95 shadow-sm md:hidden">
-          <div className="flex flex-col gap-3 px-4 py-4 text-sm font-semibold text-slate-700">
+      {/* Mobile-Drawer */}
+      {mobileOpen && (
+        <div className="border-t border-slate-100/80 bg-white/95 lg:hidden">
+          <div className="mx-auto max-w-6xl px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wide text-slate-500">Navigation</span>
-              <LocaleSwitcher />
+              <span className="text-xs uppercase tracking-wide text-slate-500">
+                Navigation
+              </span>
+              <span
+                aria-label={`Sprache: ${localeLabel}`}
+                className="text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+              >
+                {localeLabel}
+              </span>
             </div>
-            <div className="flex flex-col gap-2">
-              {NAV_LINKS.map((item) => (
-                <a key={item.href} href={item.href} onClick={() => setOpen(false)}>
-                  {item.label}
-                </a>
-              ))}
-            </div>
-            <a
-              href="/mitglied-werden"
-              className="rounded-full bg-brand-grad px-4 py-2 text-center text-white shadow-[0_10px_25px_rgba(16,185,129,0.35)]"
-              onClick={() => setOpen(false)}
+
+            <nav
+              aria-label="Mobile Navigation"
+              className="flex flex-col gap-2 text-sm font-semibold text-slate-800"
             >
-              Mitglied werden
-            </a>
-            {account ? (
-              <a
-                href="/account"
-                className="rounded-full border border-slate-200 px-4 py-2 text-center text-slate-700"
-                onClick={() => setOpen(false)}
+              {NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-left hover:border-sky-300 hover:bg-sky-50"
+                >
+                  <span className="block text-sm font-semibold">
+                    {item.label}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] font-normal text-slate-600">
+                    {item.description}
+                  </span>
+                </Link>
+              ))}
+
+              <Link
+                href="/mitglied-werden"
+                onClick={() => setMobileOpen(false)}
+                className="mt-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-center text-sm font-semibold text-white shadow-[0_10px_25px_rgba(56,189,248,0.4)]"
               >
-                Mein Konto
-              </a>
-            ) : (
-              <a
-                href="/login"
-                className="rounded-full border border-slate-200 px-4 py-2 text-center text-slate-700"
-                onClick={() => setOpen(false)}
-              >
-                Login
-              </a>
-            )}
+                Mitglied werden
+              </Link>
+
+              {user ? (
+                <Link
+                  href="/account"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
+                >
+                  Konto
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
+                >
+                  Login
+                </Link>
+              )}
+            </nav>
           </div>
         </div>
       )}

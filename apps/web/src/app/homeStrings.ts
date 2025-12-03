@@ -3,22 +3,37 @@ import { DEFAULT_LOCALE, type SupportedLocale } from "@/config/locales";
 
 type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
 
+/**
+ * HERO / INTRO
+ */
+
 const HERO_CHIPS = ["Direktdemokratisch", "Lokal", "National", "Global"];
-const HERO_LINES = ["Weniger reden.", "Mehr entscheiden."];
-const HERO_ACCENT = "Dein Anliegen";
-const HERO_SUFFIX = "– unsere Struktur.";
+
+const HERO_LINES = ["Unser Auftrag."]; // zweite Zeile kommt als Accent
+const HERO_ACCENT = "Direkte Demokratie";
+const HERO_SUFFIX = "– lokal, national und global.";
+
 const HERO_INTRO =
-  "VoiceOpenGov verbindet Bürger:innen, Verwaltung und Journalist:innen. KI-orchestriert bündeln wir Quellen, Gegenquellen und Unsicherheiten in einem Evidenz-Graphen, stimmen fair ab und begleiten die Umsetzung öffentlich nachvollziehbar.";
+  "Politische Entscheidungen betreffen unseren Alltag überall auf der Welt – doch oft werden wir nur selten gefragt. VoiceOpenGov ergänzt Parlamente um eine digitale Ebene der Mitbestimmung: Menschen können Themen einbringen, fundierte Argumente sehen und gemeinsam Entscheidungen treffen – in Städten, Gemeinden, Regionen und darüber hinaus. Wir verbinden Bürger:innen, Verwaltungen, Medien und Wissenschaft aus unterschiedlichen Regionen und Kulturen und machen jeden Schritt des Verfahrens offen nachvollziehbar – mit Blick auf soziale Gerechtigkeit und ökologische Zukunftsfähigkeit.";
+
 const HERO_BULLETS = [
-  "<strong>Transparente Verfahren:</strong> Jede Quelle und jeder Schritt sind einsehbar.",
-  "<strong>Faire Debatten:</strong> Pro & Contra werden symmetrisch moderiert; Dominanz einzelner Stimmen wird verhindert.",
-  "<strong>Regionale Legitimität:</strong> Entscheidungen lassen sich auf Gemeinden, Kreise oder Länder begrenzen.",
+  "<strong>Direkt beteiligt:</strong> Themen einreichen, Argumente prüfen und mitentscheiden – vom Handy oder Laptop, alleine oder gemeinsam mit deiner Community.",
+  "<strong>Transparent statt intransparent:</strong> Von Quellen über Argumente bis zu Ergebnissen ist jeder Schritt einsehbar – auch für internationale Partner:innen und Medien.",
+  "<strong>Inklusive & global gedacht:</strong> Verfahren können an Sprachen, Regionen und Quoren angepasst werden, damit vielfältige Perspektiven sichtbar bleiben und starke Mehrheiten entstehen.",
 ];
+
 const HERO_CTAS = {
   primary: "Mitglied werden",
-  secondary: "Jetzt abstimmen",
-  tertiary: "Thema einreichen",
+  secondary: "Jetzt mitbestimmen",
 };
+
+const HERO_CTA_NOTE =
+  "Keine Parteibindung, kein Datenverkauf. Mitgliedschaften sind monatlich kündbar – Abstimmungen bleiben kostenlos.";
+
+/**
+ * AUDIENCE / ROLLEN
+ */
+
 const HERO_CARDS = [
   {
     title: "Für Bürger:innen",
@@ -34,71 +49,122 @@ const HERO_CARDS = [
   },
   {
     title: "Für Politik & Repräsentanten",
-    body: "Direktdemokratische Umfragen nach dem Mehrheitsprinzip, nachvollziehbar moderiert.",
+    body: "Direktdemokratische Verfahren nach dem Mehrheitsprinzip, nachvollziehbar moderiert.",
   },
 ];
+
+/**
+ * MEMBERSHIP
+ */
+
 const MEMBERSHIP_HIGHLIGHT = {
   title: "Deine Mitgliedschaft hält VoiceOpenGov unabhängig",
-  body: "Schon ab 5,63 € pro Monat finanzierst du Moderation, Faktenrecherche und Audit-Trails.",
+  body: "Schon ab 5,63 € pro Monat finanzierst du Moderation, Faktenrecherche und unseren Evidenz-Graphen – das offene Faktennetz, auf dem nachvollziehbare Entscheidungen für Mensch und Umwelt aufbauen.",
   button: "Mehr erfahren",
   overline: "Bau mit uns eine neue Entscheidungsstruktur auf",
 };
-const HERO_VIDEO_NOTE = "Direkte Demokratie in 90 Sekunden.";
+
+/**
+ * HERO-VIDEO / QUICK EXPLAINER
+ */
+
+const HERO_VIDEO_NOTE = "Direkte Demokratie in 90 Sekunden.";
 const HERO_VIDEO_LINK = "Mehr erfahren →";
+
+/**
+ * AUDIENCE
+ */
+
 const AUDIENCE_TITLE = "Für wen VoiceOpenGov gedacht ist";
-const AUDIENCE_LEAD = "Vier Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren.";
+const AUDIENCE_LEAD =
+  "Vier Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren und gut dokumentierte Mehrheiten.";
+
+/**
+ * USP / VERFAHREN / EVIDENZ-GRAPH
+ */
+
 const USP_ITEMS = [
   {
     title: "Anliegen rein, Ergebnis raus.",
-    body: "In 60 Sekunden einreichen – danach startet das direktdemokratische Verfahren in klaren Schritten bis zum Ergebnis.",
+    body: "In 60 Sekunden einreichen – danach startet ein klar strukturiertes Verfahren mit definierten Schritten bis zur Entscheidung.",
   },
   {
     title: "Mehr als Pro & Contra.",
-    body: "Positionen, Szenarien und Folgen transparent gemacht. Minderheiten sichtbar, Mehrheiten erkennbar.",
+    body: "Positionen, Szenarien und Folgen werden strukturiert aufbereitet. Minderheiten bleiben sichtbar, Mehrheiten werden erkennbar.",
   },
   {
-    title: "Faktenbasiert & KI-gestützt.",
-    body: "International geprüft, redaktionell kuratiert, wissenschaftlich belegt. Entscheidungen auf belastbaren Fakten.",
+    title: "Evidenz-Graph statt Meinungsrauschen.",
+    body: "Unser Evidenz-Graph verknüpft Quellen, Argumente, Annahmen und Wirkungen zu einem Faktennetz. So wird sichtbar, worauf Entscheidungen wirklich beruhen – wissenschaftlich anschlussfähig und für alle überprüfbar.",
   },
   {
-    title: "Im Auftrag des Volkes.",
-    body: "Wir moderieren die Verfahren, dokumentieren Audit-Trails und begleiten die Umsetzung öffentlich.",
+    title: "Im Auftrag der Öffentlichkeit.",
+    body: "Wir moderieren Verfahren, dokumentieren Audit-Trails und begleiten die Umsetzung transparent – als Infrastruktur für demokratische Entscheidungen, nicht als Partei.",
   },
 ];
+
+/**
+ * PROCESS
+ */
+
 const PROCESS_SECTION_TITLE = "Vom Anliegen zur Entscheidung – in klaren Schritten.";
+
+/**
+ * QUALITY / STANDARD
+ */
+
 const QUALITY_SECTION = {
   title: "Unser Qualitätsstandard",
-  body: "Reproduzierbarkeit, offene Methoden, strenge Quellenarbeit, Fehlerkultur und öffentliche Audit-Trails – nicht als Versprechen, sondern als Betriebsprinzip. Öffentliche Impact-Dashboards und graphbasierte Vertrauensmaße machen jeden Schritt nachvollziehbar.",
-  ctaReports: "Reports ansehen",
-  ctaMembers: "Mitglied werden",
+  body: "Offene Methoden, sorgfältige Quellenarbeit, Fehlerkultur und öffentliche Audit-Trails sind bei VoiceOpenGov Betriebsprinzip. Der Evidenz-Graph – unser graphbasiertes Faktennetz – und transparente Vertrauensmaße machen nachvollziehbar, wie Aussagen zustande kommen und wie belastbar sie sind. Impact-Dashboards zeigen, welche Entscheidungen getroffen wurden und welche sozialen und ökologischen Wirkungen sich daraus ergeben.",
+  ctaFaq: "FAQ ansehen",
 };
+
+/**
+ * MAJORITY / LEGITIMITÄT
+ */
+
 const MAJORITY_SECTION = {
   title: "Mehrheit entscheidet – informiert, fair und nachvollziehbar",
-  lead: "VoiceOpenGov strukturiert Debatten so, dass Entscheidungen nicht vom lautesten Publikum, sondern von belastbaren Mehrheiten getragen werden.",
+  lead: "VoiceOpenGov strukturiert Debatten so, dass Entscheidungen nicht vom lautesten Publikum, sondern von nachvollziehbar informierten Mehrheiten getragen werden.",
   bullets: [
     "Symmetrische Darstellung von Pro, Contra und Risiken – keine einseitigen Debatten.",
-    "Quoren und Ablaufpläne, die auf Gemeinde-, Kreis- oder Landesebene angepasst werden können.",
-    "Öffentliche Dokumentation jedes Schritts, damit Mandate und Legitimität überprüfbar bleiben.",
+    "Quoren und Ablaufpläne, die auf Gemeinde-, Kreis- oder Landesebene angepasst werden können – bis hin zu qualifizierten Mehrheiten wie zwei Dritteln.",
+    "Öffentliche Dokumentation jedes Schritts, damit Mandate, Legitimität und Umsetzung überprüfbar bleiben.",
   ],
-  closing: "Mehrheiten entstehen aus nachvollziehbaren Verfahren – nicht aus Stimmungen. Dafür sorgt das VOG-System.",
+  closing:
+    "Mehrheiten entstehen aus nachvollziehbaren Verfahren – nicht aus spontanen Stimmungen. VoiceOpenGov liefert dafür die Infrastruktur.",
 };
+
+/**
+ * CLOSING / BEWEGUNG
+ */
+
 const CLOSING_SECTION = {
   title: "Du willst, dass Entscheidungen besser werden? Fang hier an.",
-  body: "Schließ dich der Bewegung an, stimme mit und bring Themen ein, die wirklich gelöst werden sollen.",
+  body: "Schließ dich der Bewegung an, stimme mit und bring Themen ein, die wirklich gelöst werden sollen – für deine Region und für eine gerechtere, nachhaltigere Welt.",
   primaryCta: "Mitglied werden",
   secondaryCta: "Aktuelle Abstimmungen",
   tertiaryCta: "Thema einreichen",
 };
+
+/**
+ * UPDATES / DOUBLE-OPT-IN
+ */
+
 const UPDATES_FORM = {
   title: "Updates aus dem System",
-  body: "Kurze E-Mails zu neuen Abstimmungen, Qualitätsreports und offenen Themen – kein Tracking, kein Spam.",
+  body: "Kurze E-Mails zu neuen Abstimmungen, Qualitätsreports und offenen Themen – kein Tracking, kein Spam. Du bestätigst deine Anmeldung per Double-Opt-in und kannst sie jederzeit beenden.",
   emailLabel: "E-Mail (optional anonymisiert)",
   interestsLabel: "Was interessiert dich besonders? (optional)",
   submit: "Updates erhalten",
-  success: "Danke! Wir senden dir Updates, sobald es neue Entscheidungen gibt.",
+  success:
+    "Danke! Bitte bestätige noch kurz deine E-Mail-Adresse – den Link dazu haben wir dir soeben geschickt.",
   error: "Etwas hat nicht geklappt. Bitte später erneut versuchen.",
   invalid: "Bitte bestätige kurz, dass du ein Mensch bist.",
 };
+
+/**
+ * LOCALE-BUNDLE
+ */
 
 const HOME_STRINGS = {
   heroChips: {
@@ -130,6 +196,10 @@ const HOME_STRINGS = {
   heroCtas: {
     de: HERO_CTAS,
     en: HERO_CTAS,
+  },
+  heroCtaNote: {
+    de: HERO_CTA_NOTE,
+    en: HERO_CTA_NOTE,
   },
   heroCards: {
     de: HERO_CARDS,
@@ -204,13 +274,9 @@ const HOME_STRINGS = {
       de: QUALITY_SECTION.body,
       en: QUALITY_SECTION.body,
     },
-    ctaReports: {
-      de: QUALITY_SECTION.ctaReports,
-      en: QUALITY_SECTION.ctaReports,
-    },
-    ctaMembers: {
-      de: QUALITY_SECTION.ctaMembers,
-      en: QUALITY_SECTION.ctaMembers,
+    ctaFaq: {
+      de: QUALITY_SECTION.ctaFaq,
+      en: QUALITY_SECTION.ctaFaq,
     },
   },
   closingSection: {
@@ -272,7 +338,7 @@ const HOME_STRINGS = {
 } as const;
 
 export function getHomeStrings(locale: SupportedLocale | string) {
-  const pick = <T>(entry: LocaleValue<T>): T => {
+  const pick = <T,>(entry: LocaleValue<T>): T => {
     const normalized = (locale ?? DEFAULT_LOCALE) as SupportedLocale;
     return entry[normalized] ?? entry.de;
   };
@@ -287,6 +353,7 @@ export function getHomeStrings(locale: SupportedLocale | string) {
     heroIntro: pick(HOME_STRINGS.heroIntro),
     heroBullets: pick(HOME_STRINGS.heroBullets),
     heroCtas: pick(HOME_STRINGS.heroCtas),
+    heroCtaNote: pick(HOME_STRINGS.heroCtaNote),
     heroCards: pick(HOME_STRINGS.heroCards),
     membershipHighlight: {
       title: pick(HOME_STRINGS.membershipHighlight.title),
@@ -309,8 +376,7 @@ export function getHomeStrings(locale: SupportedLocale | string) {
     qualitySection: {
       title: pick(HOME_STRINGS.qualitySection.title),
       body: pick(HOME_STRINGS.qualitySection.body),
-      ctaReports: pick(HOME_STRINGS.qualitySection.ctaReports),
-      ctaMembers: pick(HOME_STRINGS.qualitySection.ctaMembers),
+      ctaFaq: pick(HOME_STRINGS.qualitySection.ctaFaq),
     },
     closingSection: {
       title: pick(HOME_STRINGS.closingSection.title),

@@ -17,6 +17,7 @@ export type PiiProfilePatch = {
   familyName?: string | null;
   fullName?: string | null;
   birthDate?: string | null;
+  username?: string | null;
   address?: {
     street?: string | null;
     postalCode?: string | null;
@@ -37,6 +38,11 @@ export async function upsertPiiProfile(userId: ObjectId, patch: PiiProfilePatch)
     updatedAt: now,
     userId,
   };
+
+  const trimmedUsername = typeof patch.username === "string" ? patch.username.trim() : "";
+  if (trimmedUsername.length > 0) {
+    setOps.username = trimmedUsername;
+  }
 
   assignIfDefined(setOps, "contacts.emailPrimary", patch.email?.toLowerCase() ?? patch.email);
   assignIfDefined(setOps, "contacts.phone", patch.phone ?? null, patch.phone !== undefined);

@@ -53,10 +53,17 @@ export default function AnalyzePanel() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text, maxClaims: 5, locale: "de" }),
       });
-      const aJson: AnalyzeOut = await aRes.json().catch(() => ({ ok: false, error: "NO_JSON" } as any));
+      const aJson: AnalyzeOut | null = await aRes.json().catch(() => null);
 
-      if (!aRes.ok || !aJson.ok || !Array.isArray(aJson.claims)) {
-        throw new Error(aJson?.error || `Analyze HTTP ${aRes.status}`);
+      if (!aRes.ok || !aJson?.ok || !Array.isArray(aJson.claims)) {
+        throw new Error(
+          aJson?.message ||
+            aJson?.error ||
+            `Analyze HTTP ${aRes.status}`,
+        );
+      }
+      if (!aJson) {
+        throw new Error("Analyse lieferte keine Daten.");
       }
 
       // Hinweis für UI, falls Fallback/Timeout o.ä.
@@ -70,30 +77,50 @@ export default function AnalyzePanel() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ locale: "de", claims: aJson.claims }),
       });
-      const rJson: RefineOut = await rRes.json().catch(() => ({
+      const fallbackDraftIndexes = aJson.claims!.map((_, i) => i).slice(1);
+      const rJson: RefineOut | null = await rRes.json().catch(() => ({
         ok: false,
         degraded: true,
         primaryIndex: 0,
         claims: aJson.claims!,
-        draftIndexes: aJson.claims!.map((_, i) => i).slice(1),
+        draftIndexes: fallbackDraftIndexes,
         reason: "NO_JSON",
       }));
+      const safeRefine = rJson ?? {
+        ok: false,
+        degraded: true,
+        primaryIndex: 0,
+        claims: aJson.claims!,
+        draftIndexes: fallbackDraftIndexes,
+        reason: "EMPTY_RESPONSE",
+      };
 
       // Wenn refine scheitert: nutze Analyze-Ergebnis, Primary=0
       const usePrimaryIdx =
-        rRes.ok && rJson.ok && Array.isArray(rJson.claims) && typeof rJson.primaryIndex === "number"
-          ? Math.min(Math.max(0, rJson.primaryIndex), Math.max(0, rJson.claims.length - 1))
+        rRes.ok &&
+        safeRefine.ok &&
+        Array.isArray(safeRefine.claims) &&
+        typeof safeRefine.primaryIndex === "number"
+          ? Math.min(
+              Math.max(0, safeRefine.primaryIndex),
+              Math.max(0, safeRefine.claims.length - 1),
+            )
           : 0;
 
-      const finalClaims = rRes.ok && rJson.ok && Array.isArray(rJson.claims) ? rJson.claims : aJson.claims!;
+      const finalClaims =
+        rRes.ok && safeRefine.ok && Array.isArray(safeRefine.claims)
+          ? safeRefine.claims
+          : aJson.claims!;
       const draftsIdx =
-        rRes.ok && rJson.ok && Array.isArray(rJson.draftIndexes) ? rJson.draftIndexes : finalClaims.map((_, i) => i).slice(1);
+        rRes.ok && safeRefine.ok && Array.isArray(safeRefine.draftIndexes)
+          ? safeRefine.draftIndexes
+          : finalClaims.map((_, i) => i).slice(1);
 
       setPrimary(finalClaims[usePrimaryIdx] ?? null);
       setDrafts(draftsIdx.filter((i) => i !== usePrimaryIdx).map((i) => finalClaims[i]).filter(Boolean));
 
-      if (rJson.degraded) {
-        setNotes(`Refine lief degradiert (${rJson.reason ?? "unbekannt"}).`);
+      if (safeRefine.degraded) {
+        setNotes(`Refine lief degradiert (${safeRefine.reason ?? "unbekannt"}).`);
       }
     } catch (e: any) {
       setError(e?.message || String(e));

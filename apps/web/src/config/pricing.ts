@@ -7,7 +7,7 @@ export type VOGMembershipPlan = {
   suggestedPerPersonPerMonth: number;
 };
 
-export type EDebattePlanId = "edb-start" | "edb-pro";
+export type EDebattePlanId = "edb-basis" | "edb-start" | "edb-pro";
 
 export type EDebattePlan = {
   id: EDebattePlanId;
@@ -17,6 +17,11 @@ export type EDebattePlan = {
     amount: number;
     interval: BillingInterval;
   };
+  /**
+   * Hilfsflag für UI/Anzeige – z. B. Badge „kostenfrei“,
+   * Rabattberechnung ignoriert freie Pakete automatisch.
+   */
+  isFree?: boolean;
 };
 
 export type DiscountRule = {
@@ -37,6 +42,14 @@ export const VOG_MEMBERSHIP_PLAN: VOGMembershipPlan = {
 
 export const EDEBATTE_PLANS: EDebattePlan[] = [
   {
+    id: "edb-basis",
+    label: "eDebatte Basis",
+    description:
+      "Kostenfreier Einstieg: Themen einreichen, Inhalte ansehen, Community kennenlernen – ohne laufende Gebühren.",
+    listPrice: { amount: 0, interval: "month" },
+    isFree: true,
+  },
+  {
     id: "edb-start",
     label: "eDebatte Start",
     description:
@@ -56,7 +69,7 @@ export const MEMBER_DISCOUNT: DiscountRule = {
   id: "member-25",
   label: "25 % Mitgliederrabatt",
   description:
-    "VoiceOpenGov-Mitglieder erhalten 25 % Nachlass auf eDebatte-Pakete und den zukünftigen Merchandise-Shop.",
+    "VoiceOpenGov-Mitglieder erhalten 25 % Nachlass auf kostenpflichtige eDebatte-Pakete und den zukünftigen Merchandise-Shop.",
   percent: 25,
   appliesTo: ["edebatte", "merch"],
 };
@@ -65,5 +78,6 @@ export function calcDiscountedPrice(
   listPrice: number,
   discountPercent: number = MEMBER_DISCOUNT.percent,
 ): number {
+  if (listPrice <= 0) return 0;
   return Math.round(listPrice * (1 - discountPercent / 100) * 100) / 100;
 }

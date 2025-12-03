@@ -403,13 +403,26 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
         body: JSON.stringify({ text, locale }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}`);
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
       }
 
-      const result: AnalyzeResult = (data.result ?? data) as AnalyzeResult;
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            `Analyse fehlgeschlagen (HTTP ${res.status}).`,
+        );
+      }
+
+      const resultPayload = data.result ?? data;
+      if (!resultPayload) {
+        throw new Error("Analyse lieferte keine Ergebnisse.");
+      }
+      const result: AnalyzeResult = resultPayload as AnalyzeResult;
 
       const rawNotes: any[] = Array.isArray((result as any).notes)
         ? (result as any).notes

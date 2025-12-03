@@ -1,7 +1,7 @@
 // features/event/components/ProjectList.tsx
-console.log("ProjectList RENDERT");
+import type { Project } from "../types/ProjectType";
 
-import { Project } from "../types/ProjectType";
+console.log("ProjectList RENDERT");
 
 export function ProjectList({ projects }: { projects: Project[] }) {
   return (

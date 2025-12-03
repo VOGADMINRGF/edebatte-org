@@ -15,13 +15,19 @@ export default async function MitgliedAntragPage({
 }) {
   const cookieStore = cookies();
   const userId = cookieStore.get("u_id")?.value;
+
+  // ⬇️ NEU: Wenn kein Login, zuerst zur Registrierung (mit Rücksprung)
   if (!userId) {
-    redirect(`/login?next=${encodeURIComponent("/mitglied-antrag")}`);
+    const next = encodeURIComponent("/mitglied-antrag");
+    redirect(`/register?next=${next}`);
   }
 
-  const overview = await getAccountOverview(userId);
+  const overview = await getAccountOverview(userId!);
+
+  // Falls aus irgendeinem Grund kein Overview geladen werden kann:
   if (!overview) {
-    redirect(`/login?next=${encodeURIComponent("/mitglied-antrag")}`);
+    const next = encodeURIComponent("/mitglied-antrag");
+    redirect(`/login?next=${next}`);
   }
 
   const initialIntent = parseIntent(searchParams);
