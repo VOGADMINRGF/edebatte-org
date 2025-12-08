@@ -1,7 +1,7 @@
 "use client";
 // E200: Lightweight anti-bot check with honeypot, puzzle, and time heuristic.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { derivePuzzle } from "@/lib/security/human-puzzle";
 import { safeRandomId } from "@core/utils/random";
 
@@ -16,17 +16,25 @@ export function HumanCheck({ formId = "public-updates", onSolved, onError }: Hum
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState<"idle" | "checking" | "solved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const startRef = useRef<number>(performance.now());
+  const startRef = useRef<number | null>(null);
+  const [puzzleSeed, setPuzzleSeed] = useState<string | null>(null);
 
-  const puzzleSeed = useMemo(() => safeRandomId(), []);
-  const puzzle = useMemo(() => derivePuzzle(puzzleSeed), [puzzleSeed]);
+  useEffect(() => {
+    // Erst auf dem Client einen Seed erzeugen, damit SSR/CSR übereinstimmen.
+    const seed = safeRandomId();
+    setPuzzleSeed(seed);
+    startRef.current = performance.now();
+  }, []);
+
+  const puzzle = useMemo(() => (puzzleSeed ? derivePuzzle(puzzleSeed) : null), [puzzleSeed]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("checking");
     setMessage(null);
 
-    const timeToSolve = Math.max(0, Math.floor(performance.now() - startRef.current));
+    const startedAt = startRef.current ?? performance.now();
+    const timeToSolve = Math.max(0, Math.floor(performance.now() - startedAt));
 
     try {
       const res = await fetch("/api/security/verify-human", {
@@ -59,6 +67,14 @@ export function HumanCheck({ formId = "public-updates", onSolved, onError }: Hum
       onError?.(err instanceof Error ? err.message : "unknown");
     }
   };
+
+  if (!puzzle) {
+    return (
+      <div className="space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 text-xs text-emerald-800">
+        Lade kurze Bestätigung …
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleVerify} className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-4">

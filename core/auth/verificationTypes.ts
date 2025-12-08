@@ -5,6 +5,7 @@ export type IdentityMethod =
   | "email_code"
   | "sms_tan"
   | "otb_app"
+  | "otp_app"
   | "eid_scan"
   | "id_upload"
   | "offline_code";

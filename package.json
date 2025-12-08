@@ -40,7 +40,10 @@
     "lint:web": "pnpm -C apps/web exec eslint --cache --cache-location .eslintcache --config apps/web/eslint.config.js 'apps/web/src/**/*.{ts,tsx}'",
     "tc:web:w": "pnpm -C apps/web exec tsc -w -p tsconfig.json --noEmit",
     "tc:web:watch": "pnpm -C apps/web exec tsc -w --noEmit -p tsconfig.json",
-    "repo:fix": "node tools/repo-fixes/fix_all.mjs"
+    "repo:fix": "node tools/repo-fixes/fix_all.mjs",
+    "smoke:analyze": "tsx scripts/smoke_e150_analyze.ts",
+    "smoke:swipe": "tsx scripts/smoke_e150_swipe.ts",
+    "membership:dunning": "tsx scripts/membership_dunning.ts"
   },
   "pnpm": {
     "overrides": {

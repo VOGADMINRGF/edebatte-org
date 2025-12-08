@@ -20,7 +20,10 @@ export type PiiUserCredentials = {
   twoFactorEnabled?: boolean;
   twoFactorMethod?: TwoFactorMethod | null;
   otpSecret?: string | null;
+  otpTempSecret?: string | null;
   recoveryCodes?: string[] | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export type TwoFactorChallengeDoc = {

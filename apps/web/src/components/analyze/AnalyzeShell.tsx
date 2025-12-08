@@ -6,7 +6,15 @@ import { buildPyramid } from "@features/analyze/pyramid";
 type ApiResponse = {
   ok: boolean;
   degraded?: boolean;
+  fallback?: boolean;
   reason?: string | null;
+  message?: string | null;
+  error?: string | null;
+  errorCode?: string | null;
+  result?: {
+    claims?: any[];
+    statements?: any[];
+  };
   frames?: any;
   claims?: any[];
   statements?: any[];
@@ -69,16 +77,24 @@ export default function AnalyzeShell() {
         return;
       }
 
+      const claims = data.result?.claims ?? data.claims;
+      const statements = data.result?.statements ?? data.statements;
+      if (!Array.isArray(claims)) {
+        setNote("Analyse ergab keine Claims. Bitte versuche einen anderen Text oder kontaktiere den Support.");
+        setBusy(false);
+        return;
+      }
+
       const { previews } = buildPyramid({
-        claims: data.claims,
-        statements: data.statements,
+        claims,
+        statements,
       });
 
       setCarousel(previews);
       setStage(4);
       setThanks(true);
 
-      if (data.degraded) {
+      if (data.degraded || data.fallback) {
         setNote("Hinweis: Analyse lief im Fallback. Falls das Ergebnis komisch wirkt, probiere es bitte erneut.");
       }
     } catch {

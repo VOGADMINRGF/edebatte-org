@@ -20,6 +20,8 @@ type AnalyzeOut = {
   reason?: string;
   budgetMs?: number;
   error?: string;
+  message?: string;
+  errorCode?: string;
 };
 
 type RefineOut = {

@@ -1,71 +1,93 @@
+"use client";
+
+import { useLocale } from "@/context/LocaleContext";
+import { getPrivacyStrings } from "./strings";
+
 export default function DatenschutzPage() {
+  const { locale } = useLocale();
+  const strings = getPrivacyStrings(locale);
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-16 space-y-10">
-      <header className="space-y-4 text-center">
-        <h1 className="text-3xl font-bold text-coral">Datenschutz</h1>
-        <p className="text-lg text-gray-700">
-          VoiceOpenGov ist eine Initiative – keine Partei, kein Verein und keine Stiftung. Wir behandeln
-          personenbezogene Daten so sparsam wie möglich und passen diese Hinweise laufend an die rechtliche
-          Prüfung an.
-        </p>
-      </header>
+    <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
+      <section className="mx-auto max-w-5xl px-4 pt-14">
+        <div className="rounded-3xl bg-white/90 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 md:p-10">
+          <header className="space-y-3 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+              Datenschutz
+            </p>
+            <h1 className="text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">
+              {strings.title}
+            </h1>
+            <p className="text-sm leading-relaxed text-slate-700 md:text-base">
+              {strings.intro}
+            </p>
+          </header>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">Welche Daten wir verarbeiten</h2>
-        <ul className="list-disc space-y-2 pl-6 text-gray-700">
-          <li>
-            <strong>Account:</strong> Basisangaben wie E-Mail, Login-Informationen, optionale Profilfelder.
-          </li>
-          <li>
-            <strong>Nutzung:</strong> Log- und Telemetriedaten für Stabilität und Sicherheit.
-          </li>
-          <li>
-            <strong>Abstimmung &amp; Beteiligung:</strong> Stimmen, Beiträge, Kontextkarten und Bewertungen.
-          </li>
-          <li>
-            <strong>Inhalte:</strong> Texte, Dateien und Metadaten, die du übermittelst.
-          </li>
-        </ul>
-      </section>
+          <div className="mt-8 grid gap-4">
+            <InfoCard title={strings.controllerTitle} body={strings.controllerBody} />
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">Cookies und Einwilligungen</h2>
-        <p className="text-gray-700">
-          Wir unterscheiden zwischen essentiellen Cookies (Login, Sicherheit, Lastverteilung) und optionalen
-          Cookies für Analyse oder Komfort. Details und Links findest du auch im Cookie-Banner. Für sensible
-          öffentliche Formulare (z. B. Updates, Beiträge) nutzen wir HumanCheck-Token, um Missbrauch zu
-          verhindern.
-        </p>
-      </section>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {strings.dataTitle}
+              </p>
+              <ul className="mt-2 space-y-2">
+                {strings.dataPoints.map((item) => (
+                  <li key={item.label}>
+                    <span className="font-semibold">{item.label}:</span> {item.description}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">KI- und API-Nutzung</h2>
-        <p className="text-gray-700">
-          Wir setzen ausgewählte KI-Provider ein, um Texte zu analysieren, zu strukturieren oder zu übersetzen.
-          Details findest du unter <a className="text-coral underline" href="/ki-nutzung">/ki-nutzung</a>. KI
-          trifft keine Entscheidungen allein; Guardrails und Prüfungen folgen den Prinzipien aus E150/E200.
-        </p>
-      </section>
+            <InfoCard title={strings.cookiesTitle} body={strings.cookiesBody} />
+            <InfoCard title={strings.aiTitle} body={strings.aiBody} />
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">Deine Rechte</h2>
-        <p className="text-gray-700">
-          Du kannst Auskunft, Berichtigung oder Löschung deiner Daten verlangen. Wende dich dafür an die unten
-          genannte Kontaktadresse. Wir prüfen jedes Anliegen so schnell wie möglich.
-        </p>
-      </section>
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-800 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {strings.rightsTitle}
+              </p>
+              <p className="mt-1">{strings.rightsIntro}</p>
+              <ul className="mt-2 list-disc space-y-2 pl-5">
+                {strings.rightsPoints.map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
+              </ul>
+              <p className="mt-2 whitespace-pre-line text-slate-700">
+                {strings.rightsComplaintHint}
+              </p>
+            </div>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">Kontakt</h2>
-        <p className="text-gray-700">
-          VoiceOpenGov Initiative<br />
-          Kontakt-E-Mail: <a className="text-coral underline" href="mailto:privacy@voiceopengov.org">privacy@voiceopengov.org</a>
-        </p>
-        <p className="text-gray-700">
-          Diese Hinweise werden laufend aktualisiert und rechtlich geprüft. Wenn etwas unklar ist, melde dich
-          bitte direkt bei uns.
-        </p>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {strings.contactTitle}
+              </p>
+              <p className="whitespace-pre-line">{strings.contactBody}</p>
+              <p className="pt-2">
+                Kontakt-E-Mail:{" "}
+                <a
+                  className="font-semibold text-sky-700 underline underline-offset-4"
+                  href={`mailto:${strings.contactEmail}`}
+                >
+                  {strings.contactEmail}
+                </a>
+              </p>
+              <p className="mt-1 text-slate-700">
+                Diese Hinweise werden laufend aktualisiert und rechtlich überprüft, sobald sich unser
+                Angebot oder die Rechtslage ändert.
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
+  );
+}
+
+function InfoCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-800 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      <p className="mt-2 whitespace-pre-line">{body}</p>
+    </div>
   );
 }

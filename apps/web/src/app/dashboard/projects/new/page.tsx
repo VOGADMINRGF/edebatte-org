@@ -1,4 +1,4 @@
-import ProjectForm from "@/features/event/components/ProjectForm";
+import ProjectForm from "@features/event/components/ProjectForm";
 
 export default function NewProjectPage() {
   return (
@@ -9,4 +9,3 @@ export default function NewProjectPage() {
     </main>
   );
 }
-

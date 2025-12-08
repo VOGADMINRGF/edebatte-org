@@ -5,10 +5,14 @@ import { ObjectId } from "@core/db/triMongo";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
-import { coreCol } from "@core/db/db/triMongo";
+import { coreCol, piiCol } from "@core/db/db/triMongo";
 
-import { authenticator } from "otplib";
 import { publicHost } from "@/utils/publicOrigin";
+import {
+  CREDENTIAL_COLLECTION,
+  type PiiUserCredentials,
+} from "../../sharedAuth";
+import { generateTotpSecret } from "../totpHelpers";
 
 async function readCookie(name: string): Promise<string | undefined> {
   const raw = await getCookie(name);
@@ -18,6 +22,7 @@ async function readCookie(name: string): Promise<string | undefined> {
 export async function POST(_req: NextRequest) {
   try {
     const uid = await readCookie("u_id");
+    console.log("[totp/initiate] session", { userId: uid });
     if (!uid || !ObjectId.isValid(uid)) {
       return NextResponse.json(
         { ok: false, error: "UNAUTHORIZED" },
@@ -37,14 +42,32 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    const secret = authenticator.generateSecret();
+    // Statt otplib: eigenes, sauberes Base32-Secret
+    const secret = generateTotpSecret(); // ~160 Bit
     const issuer = encodeURIComponent("VoiceOpenGov");
     const label = encodeURIComponent(`${publicHost()}:${user.email}`);
     const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&digits=6&period=30`;
 
-    await Users.updateOne(
-      { _id: new ObjectId(uid) },
-      { $set: { "verification.twoFA.temp": secret, updatedAt: new Date() } },
+    const credentialsCol =
+      await piiCol<PiiUserCredentials>(CREDENTIAL_COLLECTION);
+    const credentials = await credentialsCol.findOne({
+      coreUserId: new ObjectId(uid),
+    });
+    if (!credentials) {
+      return NextResponse.json(
+        { ok: false, error: "CREDENTIALS_NOT_FOUND" },
+        { status: 409 },
+      );
+    }
+
+    await credentialsCol.updateOne(
+      { _id: credentials._id },
+      {
+        $set: {
+          otpTempSecret: secret,
+          updatedAt: new Date(),
+        },
+      },
     );
 
     return NextResponse.json({
@@ -55,6 +78,7 @@ export async function POST(_req: NextRequest) {
       label: `${publicHost()}:${user.email}`,
     });
   } catch (e: any) {
+    console.error("TOTP initiate failed", e);
     return NextResponse.json(
       { ok: false, error: e?.message ?? "TOTP_INIT_FAILED" },
       { status: 500 },

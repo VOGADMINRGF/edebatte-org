@@ -8,7 +8,7 @@ type LocaleStringArray = Record<"de", string[]> & Partial<Record<SupportedLocale
 const STRINGS = {
   heroTitle: { de: "Mitglied werden – Teil der Bewegung" } as LocaleString,
   heroIntro: {
-    de: "VoiceOpenGov ist eine unabhängige, weltweit wachsende Initiative. Deine Mitgliedschaft finanziert Moderation, den Evidenz-Graphen, Infrastruktur und öffentliche Audit-Trails – nicht Werbung, Paywalls oder parteipolitische Kampagnen.",
+    de: "VoiceOpenGov ist die Bewegung hinter eDebatte – eine unabhängige, über Grenzen hinaus wachsende Initiative für digitale, direktdemokratische Beteiligung. Deine Mitgliedschaft trägt die gemeinsame Vision und finanziert die dafür nötige Infrastruktur. Wir handeln bewusst unabhängig; wie wir das absichern, erfährst du in unserem Transparenzbericht. eDebatte ist das Werkzeug, in dem diese Beteiligung stattfindet. Es steht allen offen – unabhängig von Herkunft, Religion oder politischer Überzeugung. Ziel ist es, mehrheitsfähige Entscheidungen vorzubereiten und zugleich Kompromisse, Minderheitenpositionen und mögliche Folgen sichtbar zu machen. VoiceOpenGov ist das Dach darüber: die Gemeinschaft, die Regeln, Qualität und Weiterentwicklung trägt. Mit deiner Mitgliedschaft hilfst du, dieses Werkzeug dauerhaft unabhängig und gemeinwohlorientiert zu halten.",
   } as LocaleString,
 
   transparencyTitle: { de: "Wichtiger Hinweis zur Transparenz" } as LocaleString,
@@ -19,24 +19,24 @@ const STRINGS = {
   enableTitle: { de: "Was du mit deiner Mitgliedschaft ermöglichst" } as LocaleString,
   enableList: {
     de: [
-      "Moderierte, nachvollziehbare Verfahren mit klaren Regeln, Pro/Contra-Darstellungen, Quellenarbeit und öffentlichen Audit-Trails.",
-      "Einen offenen Evidenz-Graphen, der Quellen, Argumente, Annahmen und Wirkungen zu einem belastbaren Faktennetz verbindet.",
-      "Unabhängigen Betrieb der Plattform sowie Bildungs- und Beteiligungsformate für Schulen, Kommunen und Initiativen – damit demokratische Praxis vor Ort gestärkt wird.",
+      "Du wirst Mitglied bei VoiceOpenGov, weil du möchtest, dass eDebatte überall auf der Welt eingesetzt werden kann – überall dort, wo Menschen gemeinsam Entscheidungen treffen müssen. Uns interessieren keine territorialen Ansprüche, sondern das Hier und Jetzt: Menschen, die ihre Lebensrealität einbringen und auf Augenhöhe verhandeln.",
+      "Deine Mitgliedschaft finanziert den weiteren Ausbau von eDebatte, sichert faire Gehälter und Lebensunterhalt für das Team und ermöglicht eine stabile, unabhängige Infrastruktur. So bleibt eDebatte weltweit als Werkzeug für alle offen – getragen von vielen Bürger:innen statt von einzelnen Großinteressen. Wie wir mit diesen Mitteln umgehen, legen wir im Transparenzbericht offen.",
     ],
   } as LocaleStringArray,
 
   tiersTitle: { de: "Orientierung für Mitgliedsstufen" } as LocaleString,
-  tiersIntro: {
-    de: "Du kannst jeden anderen Betrag wählen – diese Stufen dienen nur als Orientierung, was dein Beitrag ungefähr ermöglicht:",
-  } as LocaleString,
-  tiersList: {
-    de: [
-      "<strong>5,63 €</strong> – Basis: demokratische Grundversorgung mittragen, orientiert am sozial verträglichen Mindestbeitrag.",
-      "<strong>10 €</strong> – Aktiv: mehr Moderationszeit, bessere Begleitung von Abstimmungen und Auswertungen.",
-      "<strong>25 €</strong> – Engagement: Testphasen und Formate in neuen Regionen (Kommunen, Schulen, Initiativen) ermöglichen.",
-      "<strong>50 €+</strong> – Solidarisch: niedrigere Beiträge für andere querfinanzieren, etwa für Menschen mit geringem Einkommen.",
-    ],
-  } as LocaleStringArray,
+tiersIntro: {
+  de: "Du kannst jeden anderen Beitrag wählen – diese Stufen dienen nur als Orientierung, was dein Beitrag ungefähr ermöglicht.",
+} as LocaleString,
+tiersList: {
+  de: [
+    "<strong>5,63 €</strong> – Basis: Newsletter, Mitgliederverzeichnis und bis zu 25 % Nachlass auf eDebatte-Pakete und Merchandise.",
+    "<strong>10 €</strong> – Aktiv: vertiefende Infos, ausgewählte Themen und Materialien, auf Wunsch auch per Post.",
+    "<strong>25 €</strong> – Engagement (regional): Einladungen zu Betas, Tests und Formaten, damit eDebatte in deiner Region sichtbar wird.",
+    "<strong>50 €+</strong> – Solidarisch: Unabhängigkeit stärken, niedrigere Beiträge für andere ermöglichen und Team & Infrastruktur langfristig sichern.",
+  ],
+} as LocaleStringArray,
+
 
   calculatorTitle: { de: "Beitrag berechnen – VoiceOpenGov" } as LocaleString,
   calculatorIntro: {
@@ -60,6 +60,7 @@ const STRINGS = {
   rhythmLabel: { de: "Rhythmus" } as LocaleString,
   rhythmMonthly: { de: "monatlich" } as LocaleString,
   rhythmOnce: { de: "einmalig" } as LocaleString,
+  rhythmYearly: { de: "jährlich" } as LocaleString,
 
   skillsLabel: { de: "Fähigkeiten (optional)" } as LocaleString,
   skillsPlaceholder: { de: "z. B. Moderation, Design, Tech …" } as LocaleString,
@@ -179,6 +180,7 @@ export function getMembershipStrings(locale: SupportedLocale | string) {
     rhythmLabel: pick(STRINGS.rhythmLabel, locale),
     rhythmMonthly: pick(STRINGS.rhythmMonthly, locale),
     rhythmOnce: pick(STRINGS.rhythmOnce, locale),
+    rhythmYearly: pick(STRINGS.rhythmYearly, locale),
     skillsLabel: pick(STRINGS.skillsLabel, locale),
     skillsPlaceholder: pick(STRINGS.skillsPlaceholder, locale),
     summaryTitle: pick(STRINGS.summaryTitle, locale),

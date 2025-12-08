@@ -339,3 +339,14 @@ Offen:
 - R2.3: Contributor-Feedback (Status + Review-Notizen, einfache Notifications)
 - R2.4: Rückfluss in Statements/Graph (akzeptierte Contributions → Knowledge/Impact)
 - R2.5: Anti-Spam-Maßnahmen (Rate Limits, Cooldowns, min. Engagement-Level)
+
+### Block M – Membership Apply (Snapshot & Payment)
+Update: Admin mark-paid/cancel, Overview-API + Dashboard, Dunning-Script (Reminder 1/2/final), Rhythmus yearly, PaymentInfo/Copy im Account. Offene Punkte: echtes Household-Lock/Objekt, Monitoring/Events, ggf. Payment-Modal/CTA verfeinern.
+
+Status: Baseline implementiert.
+
+- /api/memberships/apply erzeugt ein MembershipApplication mit Status `waiting_payment`, Payment-Reference `VOG-xxxxxx` und optionalem eDebatte-Block.  
+- Nutzer-Snapshot (`user.membership`) enthält Status, amountPerMonth, rhythm, householdSize/peopleCount, edebatte, paymentMethod, paymentReference, submittedAt.  
+- Bestätigungs-Mails: an Nutzer inkl. Zahlungsinfo/Verwendungszweck, optionaler eDebatte-Vorbestellung; an Admin (MAIL_ADMIN_TO) mit Betrag/Haushalt/Payment-Reference.  
+- Account-Seite zeigt Status inkl. „Zahlung ausstehend“-Hinweis bei waiting_payment; Thank-you-Banner bei redirect `?membership=thanks`.  
+- Offene Punkte: Zahlungs-UI/CTA im Account ausbauen (z. B. IBAN/Paypal-Link), Membership-Status auf „active“ heben nach Zahlungseingang, Admin-UI für Statuswechsel.

@@ -4,7 +4,14 @@ import type { EngagementLevel } from "@features/user/engagement";
 import type { AccessTier } from "@features/pricing/types";
 import type { TopicKey } from "@features/interests/topics";
 
-export type MembershipStatus = "none" | "active" | "cancelled" | "pending";
+export type MembershipStatus =
+  | "none"
+  | "submitted"
+  | "pending"
+  | "waiting_payment"
+  | "active"
+  | "cancelled"
+  | "household_locked";
 
 export type PricingTier =
   | "free"
@@ -77,6 +84,34 @@ export type AccountOverview = {
   groups: string[];
   vogMembershipStatus: MembershipStatus;
   hasVogMembership: boolean;
+  membershipSnapshot?: {
+    status: MembershipStatus;
+    amountPerMonth?: number | null;
+    rhythm?: "monthly" | "once" | "yearly" | null;
+    householdSize?: number | null;
+    peopleCount?: number | null;
+    submittedAt?: string | null;
+    applicationId?: string | null;
+    paymentMethod?: "sepa" | "bank_transfer" | "paypal" | "other" | null;
+    paymentReference?: string | null;
+    paymentInfo?: {
+      method: "bank_transfer";
+      reference: string;
+      bankRecipient: string;
+      bankIbanMasked: string;
+      bankBic?: string | null;
+      bankName?: string | null;
+      accountMode?: "private_preUG" | "org_postUG";
+      mandateStatus?: string | null;
+    } | null;
+    edebatte?: {
+      enabled: boolean;
+      planKey?: string | null;
+      finalPricePerMonth?: number | null;
+      billingMode?: string | null;
+      discountPercent?: number | null;
+    } | null;
+  } | null;
   pricingTier: PricingTier;
   stats: AccountStats;
   preferredLocale: SupportedLocale;

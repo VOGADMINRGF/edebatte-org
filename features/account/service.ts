@@ -148,6 +148,44 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
   const hasVogMembership = doc.membership?.status === "active";
   const profile = deriveProfile(doc);
   const profilePackage = getProfilePackageForAccessTier(accessTier);
+  const membershipSnapshot = doc.membership
+    ? {
+        status: (doc.membership as any).status ?? "none",
+        amountPerMonth: (doc.membership as any).amountPerMonth ?? null,
+        rhythm: (doc.membership as any).rhythm ?? null,
+        householdSize: (doc.membership as any).householdSize ?? null,
+        peopleCount: (doc.membership as any).peopleCount ?? null,
+        submittedAt: (doc.membership as any).submittedAt
+          ? new Date((doc.membership as any).submittedAt).toISOString()
+          : null,
+        applicationId: (doc.membership as any).applicationId
+          ? String((doc.membership as any).applicationId)
+          : null,
+        paymentMethod: (doc.membership as any).paymentMethod ?? null,
+        paymentReference: (doc.membership as any).paymentReference ?? null,
+        paymentInfo: (doc.membership as any).paymentInfo
+          ? {
+              method: (doc.membership as any).paymentInfo.method ?? "bank_transfer",
+              reference: (doc.membership as any).paymentInfo.reference ?? "",
+              bankRecipient: (doc.membership as any).paymentInfo.bankRecipient ?? "",
+              bankIbanMasked: (doc.membership as any).paymentInfo.bankIbanMasked ?? "",
+              bankBic: (doc.membership as any).paymentInfo.bankBic ?? null,
+              bankName: (doc.membership as any).paymentInfo.bankName ?? null,
+              accountMode: (doc.membership as any).paymentInfo.accountMode ?? null,
+              mandateStatus: (doc.membership as any).paymentInfo.mandateStatus ?? null,
+            }
+          : null,
+        edebatte: (doc.membership as any).edebatte
+          ? {
+              enabled: !!(doc.membership as any).edebatte.enabled,
+              planKey: (doc.membership as any).edebatte.planKey ?? null,
+              finalPricePerMonth: (doc.membership as any).edebatte.finalPricePerMonth ?? null,
+              billingMode: (doc.membership as any).edebatte.billingMode ?? null,
+              discountPercent: (doc.membership as any).edebatte.discountPercent ?? null,
+            }
+          : null,
+      }
+    : null;
 
   return {
     userId: String(doc._id),
@@ -163,6 +201,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
     groups,
     vogMembershipStatus: doc.membership?.status ?? "none",
     hasVogMembership,
+    membershipSnapshot,
     pricingTier: derivePricingTier(doc, accessTier),
     stats,
     preferredLocale,

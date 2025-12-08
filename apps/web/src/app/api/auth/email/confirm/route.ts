@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import jwt from "jsonwebtoken";
-import { env } from "@/utils/env";
 import { getCol, ObjectId } from "@core/db/triMongo";
 import { consumeEmailVerificationToken } from "@core/auth/emailVerificationService";
 import { ensureVerificationDefaults } from "@core/auth/verificationTypes";
 import { logIdentityEvent } from "@core/telemetry/identityEvents";
+import { applySessionCookies, type CoreUserAuthSnapshot } from "../../sharedAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,32 +34,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "user_not_found" }, { status: 404 });
   }
 
-  if (!env.JWT_SECRET) {
-    return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 500 });
-  }
+  const verification = ensureVerificationDefaults(consumption.verification ?? user.verification);
+  const snapshot: CoreUserAuthSnapshot = {
+    _id: user._id as ObjectId,
+    role: user.role,
+    roles: (user as any).roles,
+    groups: (user as any).groups,
+    accessTier: (user as any).accessTier,
+    profile: (user as any).profile,
+    verification,
+  };
+  applySessionCookies(snapshot);
 
-  const verification = ensureVerificationDefaults(user.verification);
-  const sessionToken = jwt.sign({ t: "session", sub: String(consumption.userId) }, env.JWT_SECRET, {
-    expiresIn: `${Number(env.SESSION_TTL_DAYS ?? 7)}d`,
-  });
-
-  const res = NextResponse.json({ ok: true, next: "/register/identity" });
-  res.cookies.set("session", sessionToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: Number(env.SESSION_TTL_DAYS ?? 7) * 24 * 3600,
-  });
-  res.cookies.set("u_id", String(consumption.userId), { path: "/", sameSite: "lax" });
-  res.cookies.set("u_role", (user.role as string) || "verified", { path: "/", sameSite: "lax" });
-  res.cookies.set("u_verified", verification.level !== "none" ? "1" : "0", {
-    path: "/",
-    sameSite: "lax",
-  });
   await logIdentityEvent("identity_email_verify_confirm", {
     userId: String(consumption.userId),
   });
 
-  return res;
+  return NextResponse.json({ ok: true, next: "/register/identity" });
 }

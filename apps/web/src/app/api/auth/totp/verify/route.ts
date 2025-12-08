@@ -7,9 +7,16 @@ import { NextResponse } from "next/server";
 import { getCookie } from "@/lib/http/typedCookies";
 import { coreCol, piiCol } from "@core/db/db/triMongo";
 
-import { authenticator } from "otplib";
+import { ensureVerificationDefaults, upgradeVerificationLevel } from "@core/auth/verificationTypes";
+import { logIdentityEvent } from "@core/telemetry/identityEvents";
+import {
+  applySessionCookies,
+  CREDENTIAL_COLLECTION,
+  type CoreUserAuthSnapshot,
+  type PiiUserCredentials,
+} from "../../sharedAuth";
+import { verifyTotpToken } from "../totpHelpers";
 
-// Helper: getCookie kann string oder { value } liefern
 async function readCookie(name: string): Promise<string | undefined> {
   const raw = await getCookie(name);
   return typeof raw === "string" ? raw : (raw as any)?.value;
@@ -18,6 +25,7 @@ async function readCookie(name: string): Promise<string | undefined> {
 export async function POST(req: NextRequest) {
   try {
     const uid = await readCookie("u_id");
+    console.log("[totp/verify] session", { userId: uid });
     if (!uid || !ObjectId.isValid(uid)) {
       return NextResponse.json(
         { ok: false, error: "UNAUTHORIZED" },
@@ -35,21 +43,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const Users = await coreCol("users");
+    const Users =
+      await coreCol<CoreUserAuthSnapshot & { email?: string | null }>("users");
     const user = await Users.findOne(
       { _id: new ObjectId(uid) },
-      { projection: { verification: 1, role: 1, email: 1 } },
+      {
+        projection: {
+          verification: 1,
+          role: 1,
+          roles: 1,
+          groups: 1,
+          accessTier: 1,
+          profile: 1,
+          email: 1,
+        },
+      },
     );
 
-    const secret = user?.verification?.twoFA?.temp;
-    if (!secret) {
+    const credentialsCol =
+      await piiCol<PiiUserCredentials>(CREDENTIAL_COLLECTION);
+    const credentials = await credentialsCol.findOne({
+      coreUserId: new ObjectId(uid),
+    });
+    const secret = credentials?.otpTempSecret;
+    if (!secret || !user) {
       return NextResponse.json(
         { ok: false, error: "NO_PENDING_2FA" },
         { status: 400 },
       );
     }
 
-    const isValid = authenticator.check(String(code), String(secret));
+    const isValid = verifyTotpToken(String(code), String(secret));
     if (!isValid) {
       return NextResponse.json(
         { ok: false, error: "INVALID_CODE" },
@@ -57,41 +81,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Erfolgreich: 2FA aktivieren, secret final speichern und temp entfernen
+    // Erfolgreich: 2FA aktivieren, Secret final speichern und temp entfernen
+    const verification = ensureVerificationDefaults(user.verification as any);
+    const now = new Date();
+    const methods = new Set<string>(verification.methods ?? []);
+    methods.add("otp_app");
+    const nextVerification: any = {
+      ...verification,
+      level: upgradeVerificationLevel(verification.level, "soft"),
+      methods: Array.from(methods),
+      lastVerifiedAt: now,
+      twoFA: {
+        ...(verification as any).twoFA,
+        enabled: true,
+        method: "totp",
+      },
+    };
+
     await Users.updateOne(
       { _id: new ObjectId(uid) },
       {
         $set: {
-          "verification.twoFA.enabled": true,
-          "verification.twoFA.method": "totp",
-          "verification.twoFA.secret": secret, // final übernehmen
+          verification: nextVerification,
           role: "verified",
-          updatedAt: new Date(),
+          updatedAt: now,
         },
-        $unset: { "verification.twoFA.temp": "" },
       },
     );
 
-    const credentials = await piiCol("user_credentials");
-    await credentials.updateOne(
-      { coreUserId: new ObjectId(uid) },
+    await credentialsCol.updateOne(
+      { _id: credentials._id },
       {
         $set: {
-          coreUserId: new ObjectId(uid),
-          email: user.email ?? null,
+          otpSecret: secret,
+          otpTempSecret: null,
           twoFactorEnabled: true,
           twoFactorMethod: "otp",
-          otpSecret: secret,
+          updatedAt: now,
         },
       },
-      { upsert: true },
     );
 
-    const res = NextResponse.json({ ok: true });
-    res.cookies.set("u_role", "verified", { path: "/", sameSite: "lax" });
-    res.cookies.set("u_verified", "1", { path: "/", sameSite: "lax" });
-    return res;
+    await logIdentityEvent("identity_totp_confirmed", { userId: uid });
+
+    const sessionUser: CoreUserAuthSnapshot = {
+      ...user,
+      _id: new ObjectId(uid),
+      verification: nextVerification,
+      role: user.role ?? "verified",
+    };
+    applySessionCookies(sessionUser);
+
+    return NextResponse.json({ ok: true, next: "/account" });
   } catch (e: any) {
+    console.error("TOTP verify failed", e);
     return NextResponse.json(
       { ok: false, error: e?.message ?? "TOTP_VERIFY_FAILED" },
       { status: 500 },

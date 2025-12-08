@@ -1,4 +1,4 @@
-import { ObjectId, piiCol } from "@core/db/triMongo";
+import { ObjectId, piiCol } from "../db/triMongo";
 import type { PiiUser } from "./userTypes";
 
 const COLLECTION = "user_profiles";
@@ -18,6 +18,9 @@ export type PiiProfilePatch = {
   fullName?: string | null;
   birthDate?: string | null;
   username?: string | null;
+  household?: {
+    size?: number | null;
+  };
   address?: {
     street?: string | null;
     postalCode?: string | null;
@@ -37,6 +40,10 @@ export async function upsertPiiProfile(userId: ObjectId, patch: PiiProfilePatch)
   const setOps: Record<string, any> = {
     updatedAt: now,
     userId,
+  };
+  const setOnInsert: Record<string, any> = {
+    createdAt: now,
+    username: `uid-${userId.toHexString()}`,
   };
 
   const trimmedUsername = typeof patch.username === "string" ? patch.username.trim() : "";
@@ -68,11 +75,20 @@ export async function upsertPiiProfile(userId: ObjectId, patch: PiiProfilePatch)
     );
   }
 
+  if (patch.household) {
+    assignIfDefined(
+      setOps,
+      "household.size",
+      patch.household.size ?? null,
+      patch.household.size !== undefined,
+    );
+  }
+
   await col.updateOne(
     { userId },
     {
       $set: setOps,
-      $setOnInsert: { createdAt: now },
+      $setOnInsert: setOnInsert,
     },
     { upsert: true },
   );
@@ -80,15 +96,35 @@ export async function upsertPiiProfile(userId: ObjectId, patch: PiiProfilePatch)
 
 export async function ensureBasicPiiProfile(
   userId: ObjectId,
-  opts: { email?: string | null; displayName?: string | null },
+  opts: {
+    email?: string | null;
+    displayName?: string | null;
+    givenName?: string | null;
+    familyName?: string | null;
+    birthDate?: string | null;
+    householdSize?: number | null;
+  },
 ) {
-  if (!opts.email && !opts.displayName) return;
+  if (!opts.email && !opts.displayName && !opts.givenName && !opts.familyName) return;
   const parsed = splitName(opts.displayName);
+  const givenName = opts.givenName ?? parsed.givenName ?? null;
+  const familyName = opts.familyName ?? parsed.familyName ?? null;
+  const fullName =
+    opts.displayName?.trim() ||
+    [givenName ?? "", familyName ?? ""].map((part) => part?.trim()).filter(Boolean).join(" ") ||
+    parsed.fullName ||
+    null;
+
   await upsertPiiProfile(userId, {
     email: opts.email ?? null,
-    givenName: parsed.givenName ?? null,
-    familyName: parsed.familyName ?? null,
-    fullName: parsed.fullName ?? null,
+    givenName,
+    familyName,
+    fullName,
+    birthDate: opts.birthDate ?? null,
+    household:
+      typeof opts.householdSize === "number"
+        ? { size: opts.householdSize }
+        : undefined,
   });
 }
 

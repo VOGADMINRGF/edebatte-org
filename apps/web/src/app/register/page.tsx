@@ -1,17 +1,20 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { RegisterPageClient } from "./RegisterPageClient";
+import type { Metadata } from "next";
+import RegisterPageClient from "./RegisterPageClient";
 
-export default function RegisterPage() {
-  const cookieStore = cookies();
-  const hasSession =
-    !!cookieStore.get("u_id")?.value ||
-    !!cookieStore.get("session_token")?.value ||
-    !!cookieStore.get("session")?.value;
+export const metadata: Metadata = {
+  title: "Neues Konto anlegen – VoiceOpenGov",
+};
 
-  if (hasSession) {
-    redirect("/account");
-  }
+type Props = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
-  return <RegisterPageClient />;
+export default function RegisterPage({ searchParams }: Props) {
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <section className="mx-auto max-w-4xl px-4 py-10">
+        <RegisterPageClient searchParams={searchParams} />
+      </section>
+    </main>
+  );
 }

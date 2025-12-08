@@ -83,3 +83,8 @@ Offene Tasks:
    - Hinweis im UI: „Du siehst dein Profil so, wie andere es sehen.“
 
 Diese Liste ist verbindlich für die nächsten Codex-Runs. Bei jedem Run den aktuell offenen Block aus Part14 wählen und die „Definition of Done“ erfüllen, bevor zum nächsten Pfad gewechselt wird. Sobald ein Block abgeschlossen ist, den Status im obigen Table auf **Done** setzen; aktuell sind alle Blöcke offen, d. h. es ist noch nichts erledigt.
+
+Safe-Mode Checks (Membership/Payment):
+- Admin-Verbuchen (`mark-paid`) und Kündigung (`cancel`) funktionieren, setzen user.membership-Status korrekt.
+- Dunning-Job läuft trocken (keine Orders → no-op) und setzt bei Fälligkeit Reminder-Level / Auto-Cancel.
+- /account zeigt korrekten Status inkl. PaymentInfo (masked) ohne PII-Leak; Copy-Buttons ok.

@@ -77,6 +77,7 @@ const AnalyzeRequestSchema = z
         minimum: 10,
         inclusive: true,
         type: "string",
+        origin: "string",
         message: "Der Beitrag ist zu kurz (mindestens 10 Zeichen).",
         path: ["text"],
       });
@@ -177,7 +178,24 @@ export async function POST(req: NextRequest): Promise<Response> {
       userId: maskUserId(userId),
       err: error instanceof Error ? error.message : String(error),
     });
-    return formatErrorResponse(normalizeAnalyzerError(error), 502);
+    const normalized = normalizeAnalyzerError(error);
+    if (
+      shouldUseFallback(normalized.code) &&
+      process.env.E150_ANALYZE_FALLBACK === "1"
+    ) {
+      const fallback = buildFallbackResult(analyzeInput, normalized.code);
+      return NextResponse.json(
+        {
+          ok: false,
+          fallback: true,
+          errorCode: normalized.code,
+          message: normalized.message,
+          result: fallback,
+        },
+        { status: normalized.status ?? 502 },
+      );
+    }
+    return formatErrorResponse(normalized, normalized.status ?? 502);
   }
 }
 
@@ -375,6 +393,67 @@ function normalizeAnalyzerError(error: unknown): NormalizedAnalyzerError {
     message:
       "AnalyzeContribution: Fehler im Analyzer. Bitte später erneut versuchen.",
     status: 502,
+  };
+}
+
+const FALLBACK_ELIGIBLE_CODES = new Set([
+  "NO_ANALYZE_PROVIDER",
+  "MISSING_ENV",
+  "INVALID_AI_RESPONSE",
+  "ANALYZE_FAILED",
+]);
+
+function shouldUseFallback(code: string) {
+  return FALLBACK_ELIGIBLE_CODES.has(code);
+}
+
+function buildFallbackResult(
+  input: AnalyzeJobInput,
+  reason: string,
+): AnalyzeResultWithMeta {
+  const sentences = input.text
+    .split(/[\n\r\.!?]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const fallbackClaims =
+    sentences.length > 0
+      ? sentences
+      : [input.text.trim().slice(0, 240)];
+
+  const claims = fallbackClaims.slice(0, input.maxClaims).map((sentence, idx) => ({
+    id: `fb-${input.contributionId}-${idx + 1}`,
+    text: sentence,
+    title: sentence.slice(0, 60) || `Statement ${idx + 1}`,
+    responsibility: "unbestimmt",
+    importance: 3,
+    stance: "neutral" as const,
+  }));
+
+  return {
+    mode: "E150",
+    sourceText: input.text,
+    language: input.locale,
+    claims,
+    notes: [
+      {
+        id: `note-fallback`,
+        text:
+          "Fallback-Analyse: Der KI-Orchestrator war nicht verfügbar. Die Aussagen wurden automatisch aus deinem Text extrahiert.",
+        kind: reason,
+      },
+    ],
+    questions: [],
+    knots: [],
+    consequences: { consequences: [], responsibilities: [] },
+    responsibilityPaths: [],
+    eventualities: [],
+    decisionTrees: [],
+    _meta: {
+      provider: "fallback",
+      model: reason,
+      pipeline: "contribution_analyze",
+    },
   };
 }
 

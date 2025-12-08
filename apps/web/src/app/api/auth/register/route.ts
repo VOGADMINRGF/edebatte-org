@@ -16,6 +16,12 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   name: z.string().min(2).max(120),
+  firstName: z.string().min(1).max(120).optional(),
+  lastName: z.string().min(1).max(160).optional(),
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   email: z.string().email(),
   password: z.string().min(12),
   preferredLocale: z.string().optional(),
@@ -28,13 +34,24 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   }
+
   const body = parsed.data;
   const email = body.email.trim().toLowerCase();
   const locale = normalizeLocale(body.preferredLocale);
+  const givenName = body.firstName?.trim() || undefined;
+  const familyName = body.lastName?.trim() || undefined;
+  const birthDate = body.birthDate?.trim() || undefined;
+  const displayName = body.name.trim();
 
   if (!isPasswordStrong(body.password)) {
     return NextResponse.json({ error: "weak_password" }, { status: 400 });
   }
+
+  const url = new URL(req.url);
+  const householdSizeRaw = url.searchParams.get("householdSize");
+  const householdSize = householdSizeRaw
+    ? Math.max(1, Math.min(10, Number(householdSizeRaw) || 1))
+    : 1;
 
   const Users = await getCol("users");
   const existing = await Users.findOne(
@@ -50,14 +67,14 @@ export async function POST(req: NextRequest) {
   const passwordHash = await hashPassword(body.password);
   const baseDoc = {
     email,
-    name: body.name.trim(),
+    name: displayName,
     passwordHash,
     role: "user",
     verifiedEmail: false,
     emailVerified: false,
     accessTier: "citizenBasic",
     profile: {
-      displayName: body.name.trim(),
+      displayName,
       locale,
     },
     settings: {
@@ -106,17 +123,53 @@ export async function POST(req: NextRequest) {
   );
 
   const { rawToken } = await createEmailVerificationToken(userId, email);
-  await ensureBasicPiiProfile(userId, { email, displayName: body.name });
-  await logIdentityEvent("identity_register", {
-    userId: String(userId),
-    meta: { email },
-  });
-  const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
-  const verifyUrl = `${origin.replace(/\/$/, "")}/register/verify-email?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
+
+  let piiProfileError: string | null = null;
+  try {
+    await ensureBasicPiiProfile(userId, {
+      email,
+      displayName,
+      givenName,
+      familyName,
+      birthDate: birthDate ?? null,
+      householdSize: householdSize > 1 ? householdSize : undefined,
+    });
+  } catch (err) {
+    piiProfileError =
+      err instanceof Error ? err.message : String(err ?? "unknown error");
+    console.error("[register] ensureBasicPiiProfile failed", err);
+  }
+
+  try {
+    await logIdentityEvent("identity_register", {
+      userId: String(userId),
+      meta: {
+        email,
+        householdSize: householdSize > 1 ? householdSize : undefined,
+        piiProfileError,
+      },
+    });
+  } catch (telemetryErr) {
+    console.error(
+      "[register] logIdentityEvent(identity_register) failed",
+      telemetryErr,
+    );
+  }
+
+  const origin =
+    process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const verifyUrl = `${origin.replace(
+    /\/$/,
+    "",
+  )}/register/verify-email?token=${encodeURIComponent(
+    rawToken,
+  )}&email=${encodeURIComponent(email)}`;
+
   const mail = buildVerificationMail({
     verifyUrl,
     displayName: body.name.trim(),
   });
+
   await sendMail({
     to: email,
     subject: mail.subject,

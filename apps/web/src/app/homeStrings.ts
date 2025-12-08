@@ -23,8 +23,8 @@ const HERO_BULLETS = [
 ];
 
 const HERO_CTAS = {
-  primary: "Mitglied werden",
-  secondary: "Jetzt mitbestimmen",
+  primary: "Mitmachen",
+  secondary: "Abstimmen",
 };
 
 const HERO_CTA_NOTE =

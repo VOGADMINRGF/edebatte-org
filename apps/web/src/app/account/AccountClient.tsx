@@ -29,9 +29,10 @@ import { useCurrentUser } from "@/hooks/auth";
 const LOCALE_OPTIONS = [...CORE_LOCALES, ...EXTENDED_LOCALES];
 type Props = {
   initialData: AccountOverview;
+  membershipNotice?: boolean;
 };
 
-export function AccountClient({ initialData }: Props) {
+export function AccountClient({ initialData, membershipNotice }: Props) {
   const [data, setData] = useState<AccountOverview>(initialData);
   const [displayName, setDisplayName] = useState(initialData.displayName ?? "");
   const [headline, setHeadline] = useState(initialData.profile?.headline ?? "");
@@ -69,6 +70,8 @@ export function AccountClient({ initialData }: Props) {
   };
   const currentPlan = data.planSlug ?? data.accessTier;
   const currentPlanLimit = LIMITS[data.accessTier]?.contributionsPerMonth ?? 0;
+  const membership = data.membershipSnapshot;
+  const membershipStatus = membership?.status ?? data.vogMembershipStatus;
 
   function toggleTopic(key: TopicKey) {
     setTopTopics((prev) => {
@@ -253,7 +256,25 @@ export function AccountClient({ initialData }: Props) {
   const stylesEnabled = canUseProfileStyles(data.stats.engagementLevel, profilePackage);
 
   return (
-      <div className="space-y-6">
+    <div className="space-y-6">
+      {membershipNotice && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <p className="font-semibold">Mitgliedsantrag eingegangen</p>
+          <p className="mt-1">
+            Danke für deinen Antrag. Falls du Zahlungsinformationen brauchst, findest du sie in der
+            Bestätigungs-Mail. Sobald der Beitrag eingegangen ist, bestätigen wir deine Mitgliedschaft.
+          </p>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
+        <span className="rounded-full bg-slate-100 px-3 py-1">
+          Mitgliedschaft: {membershipLabel(membershipStatus)}
+        </span>
+        <span className="rounded-full bg-slate-100 px-3 py-1">
+          App-Nutzung: {currentPlan ?? "unbekannt"}
+        </span>
+      </div>
+
         <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-xl font-semibold text-white">
@@ -521,22 +542,134 @@ export function AccountClient({ initialData }: Props) {
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Mitgliedschaft</p>
           <h3 className="text-lg font-semibold text-slate-900">VoiceOpenGov</h3>
-          <p className="mt-2 text-sm text-slate-600">
-            Status:{" "}
-            <span className="font-semibold text-slate-900">
-              {membershipLabel(data.vogMembershipStatus)}
-            </span>
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Pricing-Tier: <span className="font-semibold text-slate-900">{data.pricingTier}</span>
-          </p>
+          <div className="mt-3 space-y-2 text-sm text-slate-700">
+            <p>
+              Status:{" "}
+              <span className="font-semibold text-slate-900">
+                {membershipLabel(membershipStatus)}
+              </span>
+            </p>
+            {membership?.amountPerMonth ? (
+              <p>
+                Beitrag:{" "}
+                <span className="font-semibold text-slate-900">
+                  {formatEuro(membership.amountPerMonth)}{" "}
+                  {membership.rhythm === "once"
+                    ? "(einmalig)"
+                    : membership.rhythm === "yearly"
+                      ? "/ Jahr"
+                      : "/ Monat"}
+                </span>
+                {membership.householdSize ? ` · Haushalt: ${membership.householdSize}` : null}
+              </p>
+            ) : (
+              <p className="text-slate-600">
+                Noch kein Beitrag hinterlegt. Starte deinen Mitgliedsantrag, um die Bewegung zu
+                unterstützen.
+              </p>
+            )}
+            {membership?.edebatte?.enabled && membership.edebatte.finalPricePerMonth ? (
+              <p>
+                eDebatte-Vorbestellung:{" "}
+                <span className="font-semibold">
+                  {membership.edebatte.planKey ?? "Paket"} ·{" "}
+                  {formatEuro(membership.edebatte.finalPricePerMonth)} / Monat
+                </span>
+              </p>
+            ) : null}
+            {membership?.paymentInfo && membershipStatus === "waiting_payment" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <p className="font-semibold">Zahlung ausstehend</p>
+                <p>
+                  Bitte überweise deinen Beitrag an {membership.paymentInfo.bankRecipient}{" "}
+                  {membership.paymentInfo.bankName ? `(${membership.paymentInfo.bankName})` : ""}.
+                </p>
+                <p>
+                  IBAN: <span className="font-semibold">{membership.paymentInfo.bankIbanMasked}</span>{" "}
+                  {membership.paymentInfo.bankBic ? `· BIC ${membership.paymentInfo.bankBic}` : ""}
+                </p>
+                <p>
+                  Verwendungszweck:{" "}
+                  <span className="font-semibold">{membership.paymentInfo.reference}</span>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigator?.clipboard?.writeText?.(membership.paymentInfo.bankIbanMasked)}
+                    className="rounded-full border border-amber-300 px-3 py-1 font-semibold text-amber-900 hover:border-amber-400"
+                  >
+                    IBAN kopieren
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigator?.clipboard?.writeText?.(membership.paymentInfo.reference)}
+                    className="rounded-full border border-amber-300 px-3 py-1 font-semibold text-amber-900 hover:border-amber-400"
+                  >
+                    Verwendungszweck kopieren
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-amber-900">
+                  Aufbauphase {membership.paymentInfo.accountMode === "private_preUG" ? "Privatkonto" : "Org-Konto"}; keine Spendenquittung, i.d.R. nicht absetzbar.
+                  <span
+                    className="ml-1 cursor-help text-amber-700"
+                    title="Beiträge fließen aktuell in Entwicklung, Server/Produktion, Lebensunterhalt in der Aufbauphase und Rücklagen für die Gründung der gUG/UG."
+                  >
+                    ℹ︎
+                  </span>
+                </p>
+              </div>
+            )}
+            {membershipStatus === "active" && membership?.amountPerMonth && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                Aktive Mitgliedschaft – {formatEuro(membership.amountPerMonth)}{" "}
+                {membership.rhythm === "yearly" ? "/ Jahr" : membership.rhythm === "once" ? "(einmalig)" : "/ Monat"}
+                {membership.householdSize ? ` · ${membership.householdSize} Personen` : ""}. Zahlung läuft als Dauerüberweisung auf das hinterlegte Konto.
+                <span
+                  className="ml-1 cursor-help text-emerald-700"
+                  title="Mittelverwendung: Entwicklung, Betrieb/Server, Produktionskosten, Lebensunterhalt in der Aufbauphase, Rücklagen für gUG/UG."
+                >
+                  ℹ︎
+                </span>
+              </div>
+            )}
+            {["cancelled", "household_locked"].includes(membershipStatus) && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <p className="font-semibold text-slate-900">
+                  Mitgliedschaft aktuell inaktiv / Haushalt gesperrt.
+                </p>
+                <p className="mt-1">
+                  Du kannst jederzeit neu beantragen, wenn du die Mitgliedschaft reaktivieren möchtest.
+                </p>
+                <Link
+                  href="/mitglied-werden"
+                  className="mt-2 inline-flex rounded-full bg-sky-600 px-3 py-1 font-semibold text-white"
+                >
+                  Neu beantragen
+                </Link>
+              </div>
+            )}
+          </div>
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
-            <Link href="/unterstuetzen" className="rounded-full border border-slate-300 px-4 py-1 font-semibold">
+            <Link
+              href="/unterstuetzen"
+              className="rounded-full border border-slate-300 px-4 py-1 font-semibold"
+            >
               Unterstützen
             </Link>
-            <Link href="/mitglied-werden" className="rounded-full bg-emerald-500 px-4 py-1 font-semibold text-white">
+            <Link
+              href="/mitglied-werden"
+              className="rounded-full bg-emerald-500 px-4 py-1 font-semibold text-white"
+            >
               Mitglied werden
             </Link>
+            {membershipStatus === "waiting_payment" && (
+              <Link
+                href="/mitglied-antrag"
+                className="rounded-full border border-emerald-300 px-4 py-1 font-semibold text-emerald-700"
+              >
+                Zahlungsinfos ansehen
+              </Link>
+            )}
           </div>
         </div>
 
@@ -661,7 +794,7 @@ export function AccountClient({ initialData }: Props) {
       <section className="mt-8 space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Plan & Limits</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">App-Nutzung & Limits</p>
             <h3 className="text-lg font-semibold text-slate-900">
               Dein aktueller Plan: {currentPlan ?? "unbekannt"}
             </h3>
@@ -763,13 +896,28 @@ export function AccountClient({ initialData }: Props) {
 
 function membershipLabel(status: AccountOverview["vogMembershipStatus"]) {
   switch (status) {
+    case "submitted":
+      return "Eingereicht";
     case "active":
       return "Aktiv";
     case "pending":
       return "In Prüfung";
+    case "waiting_payment":
+      return "Zahlung ausstehend";
     case "cancelled":
       return "Beendet";
+    case "household_locked":
+      return "Haushalt gesperrt";
     default:
       return "Kein aktiver Plan";
   }
+}
+
+function formatEuro(value: number | null | undefined) {
+  if (value === null || value === undefined) return "";
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+  }).format(value);
 }

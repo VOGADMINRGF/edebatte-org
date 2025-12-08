@@ -263,9 +263,6 @@
   "/team": {
     "access": "public"
   },
-  "/testinput": {
-    "access": "public"
-  },
   "/unterstuetzen": {
     "access": "public"
   },

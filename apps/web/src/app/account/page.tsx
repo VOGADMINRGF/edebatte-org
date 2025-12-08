@@ -7,7 +7,11 @@ export const metadata = {
   title: "Mein Konto · VoiceOpenGov",
 };
 
-export default async function AccountPage() {
+type Props = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+export default async function AccountPage({ searchParams }: Props) {
   const cookieStore = await cookies();
   const userId = cookieStore.get("u_id")?.value;
   if (!userId) {
@@ -18,6 +22,9 @@ export default async function AccountPage() {
   if (!overview) {
     redirect(`/login?next=${encodeURIComponent("/account")}`);
   }
+
+  const membershipNotice =
+    typeof searchParams?.membership === "string" && searchParams.membership === "thanks";
 
   // TODO: PageView Telemetrie für Account-Seite ergänzen, sobald globales Event-Logging steht.
   return (
@@ -31,7 +38,7 @@ export default async function AccountPage() {
             Newsletter-Einstellungen anpassen.
           </p>
         </header>
-        <AccountClient initialData={overview} />
+        <AccountClient initialData={overview} membershipNotice={membershipNotice} />
       </div>
     </main>
   );

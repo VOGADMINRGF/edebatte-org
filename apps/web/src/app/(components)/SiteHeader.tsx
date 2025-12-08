@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { HeaderLoginInline } from "@/components/auth/HeaderLoginInline";
 import { useLocale } from "@/context/LocaleContext";
 import { useCurrentUser } from "@/hooks/auth";
 
@@ -14,24 +13,28 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    href: "/swipe",
-    label: "Swipe",
-    description: "Beiträge abstimmen",
+    href: "/mitglied-werden",
+    label: "Swipes",
+    description:
+      "Themen & Positionen bewerten – Schnell-Abstimmungen zu laufenden eDebatte-Themen (Vorverkauf unter „Mitmachen“).",
   },
   {
-    href: "/statements",
+    href: "/mitglied-werden",
     label: "Statements",
-    description: "Beiträge verfassen",
+    description:
+      "Eigene Positionen einbringen – deine Argumente & Vorschläge zu aktuellen eDebatte-Themen.",
   },
   {
-    href: "/streams",
+    href: "/mitglied-werden",
     label: "Streams",
-    description: "Themen vortragen & anschauen",
+    description:
+      "Themen live diskutieren – Themen als Stream vorstellen und gemeinsam vertiefen.",
   },
   {
-    href: "/reports",
+    href: "/mitglied-werden",
     label: "Reports",
-    description: "Aktuelles aus der Region",
+    description:
+      "Übersichten & Ergebnisse – Reports zu Themen, Abstimmungen und Beteiligung in deiner Region.",
   },
 ];
 
@@ -40,7 +43,10 @@ export function SiteHeader() {
   const { user } = useCurrentUser();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const localeLabel = (locale || "de").toUpperCase();
+  const localeLabel = useMemo(
+    () => (locale || "de").toUpperCase(),
+    [locale],
+  );
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-100/80 bg-white/90 backdrop-blur-md">
@@ -60,52 +66,8 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {/* Desktop-Navigation */}
-        <nav
-          className="hidden items-center gap-4 text-sm font-semibold text-slate-700 lg:flex"
-          aria-label="Hauptnavigation"
-        >
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={`${item.label} – ${item.description}`}
-              aria-label={`${item.label} – ${item.description}`}
-              className="rounded-full px-3 py-1.5 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
-            >
-              {item.label}
-            </Link>
-          ))}
-
-          {/* Mitglied werden (Desktop) */}
-          <Link
-            href="/mitglied-werden"
-            className="rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-1.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(56,189,248,0.35)] hover:brightness-105"
-          >
-            Mitglied werden
-          </Link>
-
-          {/* Login / Konto */}
-          {user ? (
-            <Link
-              href="/account"
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
-            >
-              Konto
-            </Link>
-          ) : (
-            <HeaderLoginInline />
-          )}
-        </nav>
-
-        {/* Rechts: Locale-Badge + Hamburger (Mobile/Tablet) */}
-        <div className="flex items-center gap-2 lg:hidden">
-          <span
-            aria-label={`Sprache: ${localeLabel}`}
-            className="text-[11px] font-semibold uppercase tracking-wide text-slate-400"
-          >
-            {localeLabel}
-          </span>
+        {/* Rechts: nur Hamburger, Locale-Badge erst im Drawer */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             aria-label="Navigation öffnen"
@@ -132,11 +94,11 @@ export function SiteHeader() {
 
       {/* Mobile-Drawer */}
       {mobileOpen && (
-        <div className="border-t border-slate-100/80 bg-white/95 lg:hidden">
+        <div className="border-t border-slate-100/80 bg-white/95">
           <div className="mx-auto max-w-6xl px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase tracking-wide text-slate-500">
-                Navigation
+                Navigations
               </span>
               <span
                 aria-label={`Sprache: ${localeLabel}`}
@@ -152,7 +114,7 @@ export function SiteHeader() {
             >
               {NAV_ITEMS.map((item) => (
                 <Link
-                  key={item.href}
+                  key={item.label}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-left hover:border-sky-300 hover:bg-sky-50"
@@ -171,7 +133,7 @@ export function SiteHeader() {
                 onClick={() => setMobileOpen(false)}
                 className="mt-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-center text-sm font-semibold text-white shadow-[0_10px_25px_rgba(56,189,248,0.4)]"
               >
-                Mitglied werden
+                Mitmachen
               </Link>
 
               {user ? (

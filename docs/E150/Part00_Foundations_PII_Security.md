@@ -543,3 +543,8 @@ wie Auth, OTP, 2FA & Sessions gedacht sind,
 wie Löschung, Export und Integrität sichergestellt werden.
 
 Damit ist der Rahmen gesetzt, um in Part 01 ff. inhaltlich maximal kreativ zu sein – ohne Datenschutz und Sicherheit zu „vergessen“ oder später mühsam nachziehen zu müssen.
+
+Hinweis Membership/Payment (Stand E150):
+- MembershipApplication (Order) lebt im Core, PaymentInfo/Bank-Data nur als Snapshot aus ENV (bank_transfer).
+- user.membership-Snapshot enthält Status/Rhythmus/Household/PaymentInfo/eDebatte; PII (z. B. IBAN Vollform) bleibt im PII-Layer oder masked.
+- Status-Flow: waiting_payment → active (Admin mark-paid) → cancelled/household_locked (Dunning/Kündigung). /account zeigt Status + Zahlungsinfo; keine Payment-Daten an Provider geleakt.

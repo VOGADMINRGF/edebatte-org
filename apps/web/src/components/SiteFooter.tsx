@@ -18,7 +18,7 @@ const legalLinks = [
   { href: "/kontakt", label: "Kontakt" },
   { href: "/impressum", label: "Impressum" },
   { href: "/datenschutz", label: "Datenschutz" },
-  { href: "/reports?filter=transparenz", label: "Transparenzbericht" },
+  { href: "/transparenzbericht", label: "Transparenzbericht" },
 ];
 
 const currentYear = new Date().getFullYear();

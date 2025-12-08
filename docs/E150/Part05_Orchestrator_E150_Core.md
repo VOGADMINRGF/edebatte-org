@@ -406,6 +406,17 @@ error ({ reason: string })
 Orchestrator wird im SSE-Modus ganz normal aufgerufen;
 nur die UI erhält Zwischenstände.
 
+8.3 Smoketests Orchestrator & Swipe
+
+- `pnpm smoke:analyze`
+  - Test 1: `POST /api/contributions/analyze` mit `{ test: "ping" }` – erwartet `{ ok: true, result: { ping: "pong" } }`.
+  - Test 2: ungültige Eingabe (leer) → `400` plus `errorCode` `BAD_INPUT` (oder `INVALID_JSON`).
+  - Optional (`E150_SMOKE_FULL=1`): realer Analyzer-Call mit Beispieltext; meldet Claim-Anzahl oder degradierte Fehlercodes (`NO_ANALYZE_PROVIDER`, `MISSING_ENV`, …).
+
+- `pnpm smoke:swipe`
+  - Prüft `GET /api/swipeStatements` auf Erreichbarkeit und gültiges JSON.
+  - Gibt nur eine Info aus, wenn der Feed leer ist; HTTP- oder JSON-Fehler → Exit-Code 1.
+
 9. Telemetrie & Admin-Dashboards
 9.1 Telemetrie-Ziele
 Über features/ai/telemetry.ts und die Admin-API /api/admin/telemetry/ai/events:
@@ -511,3 +522,8 @@ den Orchestrator so strukturieren, dass später E200/E500-Erweiterungen möglich
 
 Part05 ist damit der technische Kern von E150.
 Part06 (Consequences & Fairness) und Part08 (Eventualitäten & Konsens) bauen darauf auf, um die Analyse nicht nur strukturiert, sondern auch gesellschaftlich klug auswertbar zu machen.
+
+Membership-/Haushaltsfluss (Kurz):
+- Wizard (/mitglied-werden → /mitglied-antrag) erzeugt MembershipApplication (Order) mit PaymentInfo (bank_transfer) und optionaler eDebatte-Vorbestellung; user.membership-Snapshot spiegelt Status/Rhythmus/Household/PaymentInfo.
+- Admin-Aktionen: mark-paid → active; cancel → household_locked; Dunning-Script (Reminder 1/2/final) nutzt firstDueAt/dunningLevel.
+- /account zeigt Status-Badge + Zahlungsinfos; kein PII-Leak (IBAN nur masked).

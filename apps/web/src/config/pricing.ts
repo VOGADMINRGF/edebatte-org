@@ -45,7 +45,7 @@ export const EDEBATTE_PLANS: EDebattePlan[] = [
     id: "edb-basis",
     label: "eDebatte Basis",
     description:
-      "Kostenfreier Einstieg: Themen einreichen, Inhalte ansehen, Community kennenlernen – ohne laufende Gebühren.",
+    "Kostenfreier Einstieg: Inhalte ansehen, swipen, Community kennenlernen. 1 eigener Beitrag je 100 Swipes, passive Teilnahme an Streams – ohne laufende Gebühren (ggf. mit gelegentlicher Werbung).",
     listPrice: { amount: 0, interval: "month" },
     isFree: true,
   },
@@ -53,14 +53,17 @@ export const EDEBATTE_PLANS: EDebattePlan[] = [
     id: "edb-start",
     label: "eDebatte Start",
     description:
-      "Für private Nutzung, kleine Initiativen und lokale Themen – ideal, um eDebatte kennenzulernen.",
+    "Für alle, die eDebatte regelmäßig nutzen und sich in vielen Themen aktiv einbringen wollen – mit Abstimmungen, Diskussionen und Streams.",
     listPrice: { amount: 9.9, interval: "month" },
   },
   {
     id: "edb-pro",
     label: "eDebatte Pro",
     description:
-      "Für Redaktionen, Organisationen oder kommunale Projekte mit intensiver Nutzung.",
+    "Für Vielnutzer:innen, Initiativen und Organisationen: erweiterte Kontingente, nahezu unbegrenzter Zugang zu Formaten und bevorzugter Zugang zu neuen Funktionen und Beta-Features.",
+
+
+
     listPrice: { amount: 29, interval: "month" },
   },
 ];

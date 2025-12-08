@@ -8,35 +8,54 @@ export default function ImpressumPage() {
   const strings = getImpressumStrings(locale);
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-16 space-y-8">
-      <h1 className="text-3xl font-bold text-coral text-center">{strings.title}</h1>
+    <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
+      <section className="mx-auto max-w-5xl px-4 pt-14">
+        <div className="rounded-3xl bg-white/90 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 md:p-10">
+          <header className="space-y-3 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+              Rechtliches
+            </p>
+            <h1 className="text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">
+              {strings.title}
+            </h1>
+            <p className="text-sm leading-relaxed text-slate-700 md:text-base">
+              {strings.intro}
+            </p>
+          </header>
 
-      <p className="text-gray-700 text-center text-lg">{strings.intro}</p>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {strings.responsibleTitle}
+              </p>
+              <p className="whitespace-pre-line">{strings.responsibleBody}</p>
+              <p className="pt-2">
+                <span className="font-semibold">E-Mail:</span>{" "}
+                <a
+                  href={`mailto:${strings.emailLabel}`}
+                  className="font-semibold text-sky-700 underline underline-offset-4"
+                >
+                  {strings.emailLabel}
+                </a>
+              </p>
+            </div>
 
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4 text-gray-700">
-        <p>
-          <strong>{strings.responsibleTitle}</strong>
-        </p>
-        <p className="whitespace-pre-line">
-          {strings.responsibleBody.replace(strings.emailLabel, "").trim()} <br />
-          E-Mail:{" "}
-          <a href="mailto:impressum@voiceopengov.org" className="underline text-coral">
-            {strings.emailLabel}
-          </a>
-        </p>
+            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {strings.legalTitle}
+              </p>
+              <p className="whitespace-pre-line">{strings.legalBody}</p>
+            </div>
+          </div>
 
-        <p>
-          <strong>{strings.legalTitle}</strong>
-        </p>
-        <p>
-          {strings.legalBody}
-        </p>
-
-        <p>
-          <strong>{strings.disclaimerTitle}</strong>
-        </p>
-        <p>{strings.disclaimerBody}</p>
-      </div>
+          <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-5 text-sm text-slate-800 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {strings.disclaimerTitle}
+            </p>
+            <p className="mt-2 whitespace-pre-line">{strings.disclaimerBody}</p>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
