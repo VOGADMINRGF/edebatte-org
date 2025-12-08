@@ -3,19 +3,22 @@ import { locales } from "../../../i18n";
 import { Header, Footer } from "@vog/ui";
 import { LocaleProvider } from "@/context/LocaleContext"; // <-- dein eigener Kontextprovider
 
-export default function LocaleLayout({
+export default async function LocaleLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale?: string | string[] }>;
 }) {
-  if (!locales.includes(locale as any)) notFound();
+  const { locale } = await params;
+  const localeValue = typeof locale === "string" ? locale : Array.isArray(locale) ? locale[0] : undefined;
+
+  if (!localeValue || !locales.includes(localeValue as any)) notFound();
 
   return (
-    <html lang={locale}>
+    <html lang={localeValue}>
       <body>
-        <LocaleProvider initialLocale={locale as any}>
+        <LocaleProvider initialLocale={localeValue as any}>
           <Header />
           {children}
           <Footer />

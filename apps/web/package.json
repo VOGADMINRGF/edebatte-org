@@ -8,13 +8,13 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prisma:generate": "node ./scripts/prisma-generate-all.mjs",
     "postinstall": "pnpm run prisma:generate",
-    "lint": "next lint"
+    "lint": "pnpm exec eslint --cache --cache-location .eslintcache --config eslint.config.js \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {
     "@db/web": "workspace:*",
@@ -30,7 +30,7 @@
     "mongodb": "6.20.0",
     "mongoose": "^8.18.3",
     "neo4j-driver": "^5.28.2",
-    "next": "15.4.0",
+    "next": "16.0.7",
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.6",
     "openai": "^4.104.0",
@@ -50,7 +50,7 @@
     "@types/node": "^22.7.5",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.11.1",
-    "eslint-config-next": "15.4.0",
+    "eslint-config-next": "16.0.7",
     "typescript": "^5.9.2"
   }
 }
