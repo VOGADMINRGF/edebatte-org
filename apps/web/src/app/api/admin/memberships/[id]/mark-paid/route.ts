@@ -14,11 +14,11 @@ async function requireAdmin(): Promise<Response | null> {
   return null;
 }
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin();
   if (guard) return guard;
 
-  const membershipId = params?.id;
+  const { id: membershipId } = await params;
   if (!membershipId || !ObjectId.isValid(membershipId)) {
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
