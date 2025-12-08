@@ -30,7 +30,7 @@
     "mongodb": "6.20.0",
     "mongoose": "^8.18.3",
     "neo4j-driver": "^5.28.2",
-    "next": "15.3.2",
+    "next": "15.4.0",
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.6",
     "openai": "^4.104.0",
@@ -50,7 +50,7 @@
     "@types/node": "^22.7.5",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.11.1",
-    "eslint-config-next": "15.3.2",
+    "eslint-config-next": "15.4.0",
     "typescript": "^5.9.2"
   }
 }
