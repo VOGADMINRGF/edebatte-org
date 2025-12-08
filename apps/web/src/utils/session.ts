@@ -56,13 +56,14 @@ export async function getSessionToken(): Promise<string | undefined> {
   return toVal(await await getCookie(COOKIE_NAME));
 }
 
-export function createSession(uid: string, roles: string[] = []) {
+export async function createSession(uid: string, roles: string[] = []) {
   const now = Date.now();
   const days = Number(env.SESSION_TTL_DAYS ?? 7);
   const exp = now + days * 24 * 60 * 60 * 1000;
   const token = sign({ uid, roles, iat: now, exp });
 
-  cookies().set({
+  const jar = await cookies();
+  jar.set({
     name: COOKIE_NAME,
     value: token,
     httpOnly: true,
@@ -81,8 +82,9 @@ export async function readSession(): Promise<SessionPayload | null> {
   return verify(t);
 }
 
-export function clearSession() {
-  cookies().set({
+export async function clearSession() {
+  const jar = await cookies();
+  jar.set({
     name: COOKIE_NAME,
     value: "",
     httpOnly: true,

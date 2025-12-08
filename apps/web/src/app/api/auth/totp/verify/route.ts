@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       verification: nextVerification,
       role: user.role ?? "verified",
     };
-    applySessionCookies(sessionUser);
+    await applySessionCookies(sessionUser);
 
     return NextResponse.json({ ok: true, next: "/account" });
   } catch (e: any) {

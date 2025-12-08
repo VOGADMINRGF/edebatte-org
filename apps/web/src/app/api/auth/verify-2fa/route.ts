@@ -50,13 +50,13 @@ export async function POST(req: NextRequest) {
   const challenges = await piiCol<TwoFactorChallengeDoc>(TWO_FA_COLLECTION);
   const challenge = await challenges.findOne({ _id: new ObjectId(pendingId) });
   if (!challenge) {
-    clearPendingTwoFactorCookie();
+    await clearPendingTwoFactorCookie();
     return NextResponse.json({ error: "challenge_missing" }, { status: 400 });
   }
 
   if (challenge.expiresAt < new Date()) {
     await challenges.deleteOne({ _id: challenge._id });
-    clearPendingTwoFactorCookie();
+    await clearPendingTwoFactorCookie();
     return NextResponse.json({ error: "challenge_expired" }, { status: 400 });
   }
 
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   if (!user) {
     await challenges.deleteOne({ _id: challenge._id });
-    clearPendingTwoFactorCookie();
+    await clearPendingTwoFactorCookie();
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
   }
 
@@ -108,8 +108,8 @@ export async function POST(req: NextRequest) {
   }
 
   await challenges.deleteOne({ _id: challenge._id });
-  clearPendingTwoFactorCookie();
-  applySessionCookies(user);
+  await clearPendingTwoFactorCookie();
+  await applySessionCookies(user);
 
   await logAuthEvent("auth.login.success", {
     userId: String(challenge.userId),

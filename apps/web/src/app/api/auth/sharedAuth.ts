@@ -81,8 +81,9 @@ export function resolveTwoFactorMethod(
   return method === "totp" ? "otp" : method;
 }
 
-export function setPendingTwoFactorCookie(id: string) {
-  cookies().set({
+export async function setPendingTwoFactorCookie(id: string) {
+  const jar = await cookies();
+  jar.set({
     name: "pending_2fa",
     value: id,
     httpOnly: true,
@@ -93,8 +94,9 @@ export function setPendingTwoFactorCookie(id: string) {
   });
 }
 
-export function clearPendingTwoFactorCookie() {
-  cookies().set({
+export async function clearPendingTwoFactorCookie() {
+  const jar = await cookies();
+  jar.set({
     name: "pending_2fa",
     value: "",
     httpOnly: true,
@@ -105,8 +107,8 @@ export function clearPendingTwoFactorCookie() {
   });
 }
 
-export function applySessionCookies(user: CoreUserAuthSnapshot) {
-  const cookieJar = cookies();
+export async function applySessionCookies(user: CoreUserAuthSnapshot) {
+  const cookieJar = await cookies();
   const verification = ensureVerificationDefaults(user.verification);
   const isVerified = verification.level !== "none";
   const hasLocation = !!(user.profile?.location || (user as any).city || (user as any).region);
@@ -117,7 +119,7 @@ export function applySessionCookies(user: CoreUserAuthSnapshot) {
   const tier = user.accessTier || (user as any).tier || null;
   const groups = Array.isArray(user.groups) ? user.groups : [];
 
-  createSession(String(user._id), primaryRole ? [primaryRole] : []);
+  await createSession(String(user._id), primaryRole ? [primaryRole] : []);
   const secureCookie =
     process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true";
   const baseOpts = {

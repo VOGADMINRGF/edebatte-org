@@ -60,7 +60,7 @@ async function issueTwoFactorChallenge(
 
   const col = await piiCol<TwoFactorChallengeDoc>(TWO_FA_COLLECTION);
   const { insertedId } = await col.insertOne(challenge);
-  setPendingTwoFactorCookie(String(insertedId));
+  await setPendingTwoFactorCookie(String(insertedId));
 
   return { expiresAt };
 }
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
   const twoFactorEnabled = credentials?.twoFactorEnabled || user.verification?.twoFA?.enabled;
 
   if (!twoFactorEnabled || !twoFactorMethod) {
-    applySessionCookies(user);
+    await applySessionCookies(user);
     await logAuthEvent("auth.login.success", { userId: String(user._id), meta: { ipHash: sha256(ip) } });
     return NextResponse.json({ ok: true, require2fa: false, redirectUrl });
   }

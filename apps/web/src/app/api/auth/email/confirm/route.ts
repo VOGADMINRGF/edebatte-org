@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     profile: (user as any).profile,
     verification,
   };
-  applySessionCookies(snapshot);
+  await applySessionCookies(snapshot);
 
   await logIdentityEvent("identity_email_verify_confirm", {
     userId: String(consumption.userId),
