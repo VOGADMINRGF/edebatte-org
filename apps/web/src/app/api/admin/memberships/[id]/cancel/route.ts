@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ObjectId, coreCol } from "@core/db/triMongo";
 import type { MembershipApplication } from "@core/memberships/types";
@@ -14,11 +14,13 @@ async function requireAdmin(): Promise<Response | null> {
   return null;
 }
 
-export async function POST(_req: Request, context: { params: { id: string } }) {
+type Params = { id: string };
+
+export async function POST(req: NextRequest, { params }: { params: Params }) {
   const guard = await requireAdmin();
   if (guard) return guard;
 
-  const membershipId = context.params?.id;
+  const { id: membershipId } = params;
   if (!membershipId || !ObjectId.isValid(membershipId)) {
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }

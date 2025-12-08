@@ -3,7 +3,7 @@ import type { ObjectId } from "mongodb";
 export type UserPaymentProfileDoc = {
   _id: ObjectId;
   userId: ObjectId;
-  type: "sepa_mandate" | "manual_transfer" | "paypal" | "other";
+  type: "sepa_mandate" | "manual_transfer" | "paypal" | "other" | "bank_transfer";
 
   billingName: string;
   holderName?: string | null;

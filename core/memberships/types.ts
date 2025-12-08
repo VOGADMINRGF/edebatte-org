@@ -74,7 +74,7 @@ export interface MembershipApplication {
 
   edebatte?: {
     enabled: boolean;
-    planKey?: "basis" | "start" | "pro";
+    planKey?: "basis" | "start" | "pro" | "edb-basis" | "edb-start" | "edb-pro";
     listPricePerMonth?: number;
     discountPercent?: number;
     finalPricePerMonth?: number;

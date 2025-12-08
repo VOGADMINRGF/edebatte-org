@@ -65,7 +65,7 @@ function ibanFingerprint(iban?: string | null): string | null {
 export async function upsertMembershipPaymentProfile(
   userId: ObjectId,
   input: {
-    type: "sepa_mandate" | "manual_transfer" | "paypal" | "other";
+    type: "sepa_mandate" | "manual_transfer" | "paypal" | "other" | "bank_transfer";
     billingName: string;
     billingAddress?: { street?: string; postalCode?: string; city?: string; country?: string };
     iban?: string | null;

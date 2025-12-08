@@ -8,7 +8,7 @@ import { safeRandomId } from "@core/utils/random";
 import { useCurrentUser } from "@/hooks/auth";
 import { loadMembershipDraft, clearMembershipDraft } from "@features/membership/draftStorage";
 
-type Rhythm = "monthly" | "once";
+type Rhythm = "monthly" | "once" | "yearly";
 type MemberRole = "primary" | "adult" | "youth";
 type PaymentType = "bank_transfer";
 
