@@ -12,6 +12,7 @@ export type StatementCardProps = {
   tags?: string[];
   currentVote?: StatementVote | null;
   onVoteChange?: (vote: StatementVote) => void;
+  showVoteButtons?: boolean;
   showQualityMetrics?: boolean;
   quality?: {
     precision?: number;
@@ -44,6 +45,7 @@ export function StatementCard({
   tags = [],
   currentVote = null,
   onVoteChange,
+  showVoteButtons = true,
   showQualityMetrics,
   quality,
   source,
@@ -124,36 +126,38 @@ export function StatementCard({
 
       {children}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {voteButtons.map((opt) => {
-            const active = currentVote === opt.id || flashDecision === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => onVoteChange?.(opt.id)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold shadow-sm transition ${
-                  active ? opt.activeClass : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-xs">{opt.icon}</span>
-                <span>{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      {showVoteButtons && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {voteButtons.map((opt) => {
+              const active = currentVote === opt.id || flashDecision === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onVoteChange?.(opt.id)}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold shadow-sm transition ${
+                    active ? opt.activeClass : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-xs">{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        {onOpenEventualities && (
-          <button
-            type="button"
-            onClick={onOpenEventualities}
-            className="text-[11px] font-semibold text-sky-700 underline-offset-2 hover:underline"
-          >
-            Varianten ansehen
-          </button>
-        )}
-      </div>
+          {onOpenEventualities && (
+            <button
+              type="button"
+              onClick={onOpenEventualities}
+              className="text-[11px] font-semibold text-sky-700 underline-offset-2 hover:underline"
+            >
+              Varianten ansehen
+            </button>
+          )}
+        </div>
+      )}
 
       {showQualityMetrics && quality && (
         <div className="mt-2 grid grid-cols-2 gap-1 text-[10px] text-slate-500">

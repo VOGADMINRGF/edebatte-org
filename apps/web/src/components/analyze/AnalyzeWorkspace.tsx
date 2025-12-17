@@ -24,6 +24,7 @@ import { useLocale } from "@/context/LocaleContext";
 import { selectE150Questions } from "@features/e150/questions/catalog";
 import { VERIFICATION_REQUIREMENTS, meetsVerificationLevel } from "@features/auth/verificationRules";
 import type { VerificationLevel } from "@core/auth/verificationTypes";
+import VogVoteButtons from "@features/vote/components/VogVoteButtons";
 
 const LEVEL_OPTIONS = [
   { id: 1 as 1 | 2 | 3 | 4, label: "Schnellblick" },
@@ -959,6 +960,8 @@ export default function AnalyzeWorkspace({
                 const tags: string[] = [];
                 if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
                 if (typeof s.importance === "number") tags.push(`Wichtigkeit: ${s.importance}/5`);
+                const voteValue =
+                  s.vote === "approve" ? "pro" : s.vote === "reject" ? "contra" : s.vote === "neutral" ? "neutral" : null;
                 const isSelected = selectedClaimIds.includes(s.id);
 
                 return (
@@ -973,20 +976,39 @@ export default function AnalyzeWorkspace({
                     topic={s.topic || undefined}
                     tags={tags}
                     source="ai"
+                    showVoteButtons={false}
                   >
                     <div className="space-y-3">
                       <InlineEditableText value={s.text} onChange={(val) =>
                         setStatements((prev) => prev.map((entry) => (entry.id === s.id ? { ...entry, text: val } : entry)))
                       } />
-                      <label className="inline-flex items-center gap-2 text-[11px] text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelected(s.id)}
-                          className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <VogVoteButtons
+                          value={voteValue}
+                          onChange={(next) => {
+                            const mapped =
+                              next === "pro" ? "approve" : next === "contra" ? "reject" : next === "neutral" ? "neutral" : null;
+                            setStatements((prev) =>
+                              prev.map((entry) => (entry.id === s.id ? { ...entry, vote: mapped } : entry)),
+                            );
+                          }}
+                          size="sm"
                         />
-                        In Vorschlag uebernehmen
-                      </label>
+                        <label
+                          className={[
+                            "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold transition",
+                            isSelected ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                          ].join(" ")}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelected(s.id)}
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                          />
+                          In Vorschlag uebernehmen
+                        </label>
+                      </div>
                     </div>
                   </StatementCard>
                 );
