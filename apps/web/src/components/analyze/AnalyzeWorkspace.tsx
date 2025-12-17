@@ -26,10 +26,10 @@ import { VERIFICATION_REQUIREMENTS, meetsVerificationLevel } from "@features/aut
 import type { VerificationLevel } from "@core/auth/verificationTypes";
 
 const LEVEL_OPTIONS = [
-  { id: 1 as 1 | 2 | 3 | 4, label: "Level 1 – Kurz" },
-  { id: 2 as 1 | 2 | 3 | 4, label: "Level 2 – Statements" },
-  { id: 3 as 1 | 2 | 3 | 4, label: "Level 3 – Impact & Zuständigkeiten" },
-  { id: 4 as 1 | 2 | 3 | 4, label: "Level 4 – Deep" },
+  { id: 1 as 1 | 2 | 3 | 4, label: "Schnellblick" },
+  { id: 2 as 1 | 2 | 3 | 4, label: "Kernaussagen" },
+  { id: 3 as 1 | 2 | 3 | 4, label: "Wirkung & Zuständigkeit" },
+  { id: 4 as 1 | 2 | 3 | 4, label: "Deep Dive" },
 ];
 const MAX_LEVEL1_STATEMENTS = 3;
 
@@ -92,14 +92,23 @@ type AnalyzeWorkspaceProps = {
   afterFinalizeNavigateTo?: string;
   verificationLevel?: VerificationLevel;
   verificationStatus?: "loading" | "ok" | "login_required" | "error";
+  account?: {
+    tierName?: string;
+    coins?: number | null;
+    costs?: {
+      analyze?: number;
+      save?: number;
+      finalize?: number;
+    };
+  } | null;
 };
 
 const BASE_STEPS: AnalyzeStepState[] = [
   { key: "context", label: "Kontext", state: "empty" },
-  { key: "claims", label: "Statements", state: "empty" },
+  { key: "claims", label: "Kernaussagen", state: "empty" },
   { key: "questions", label: "Fragen", state: "empty" },
-  { key: "consequences", label: "Folgen", state: "empty" },
-  { key: "responsibility", label: "Zuständigkeiten", state: "empty" },
+  { key: "consequences", label: "Wirkung", state: "empty" },
+  { key: "responsibility", label: "Zuständigkeit", state: "empty" },
 ];
 
 type DraftStorage = {
@@ -238,6 +247,20 @@ function formatDateLabel(value?: string | null) {
   return date.toLocaleString();
 }
 
+function prepareText(raw: string) {
+  const original = raw ?? "";
+  let prepared = original.replace(/\r\n/g, "\n").trim();
+  prepared = prepared.replace(/[ \t]+/g, " ");
+  prepared = prepared.replace(/\n{3,}/g, "\n\n");
+  prepared = prepared
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n");
+  const ratio =
+    original.length > 0 ? Math.max(0, Math.round((1 - prepared.length / original.length) * 100)) : 0;
+  return { original, prepared, ratio };
+}
+
 function hashLocalDraft(text: string) {
   let hash = 0;
   for (let i = 0; i < text.length; i += 1) {
@@ -307,11 +330,13 @@ export default function AnalyzeWorkspace({
   afterFinalizeNavigateTo,
   verificationLevel,
   verificationStatus,
+  account,
 }: AnalyzeWorkspaceProps) {
   const router = useRouter();
   const { locale } = useLocale();
   const [viewLevel, setViewLevel] = React.useState<1 | 2 | 3 | 4>(defaultLevel);
   const [text, setText] = React.useState("");
+  const [textMode, setTextMode] = React.useState<"original" | "prepared" | "preview">("original");
   const [notes, setNotes] = React.useState<NoteSection[]>([]);
   const [questions, setQuestions] = React.useState<QuestionCard[]>([]);
   const [knots, setKnots] = React.useState<KnotCard[]>([]);
@@ -341,8 +366,12 @@ export default function AnalyzeWorkspace({
   const [finalizeRedirectTo, setFinalizeRedirectTo] = React.useState<string | null>(null);
   const [selectedClaimIds, setSelectedClaimIds] = React.useState<string[]>([]);
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
+  const [accountInfo, setAccountInfo] = React.useState<AnalyzeWorkspaceProps["account"]>(account ?? null);
   const ctaRef = React.useRef<HTMLDivElement | null>(null);
   const workspaceRef = React.useRef<HTMLDivElement | null>(null);
+
+  const preparedState = React.useMemo(() => prepareText(text), [text]);
+  const preparedText = preparedState.prepared;
 
   const levelStatements = viewLevel === 1 ? statements.slice(0, MAX_LEVEL1_STATEMENTS) : statements;
   const totalStatements = statements.length;
@@ -376,6 +405,34 @@ export default function AnalyzeWorkspace({
       // ignore
     }
   }, [storageKey, text, draftId, localDraftId, savedAt]);
+
+  React.useEffect(() => {
+    if (account) {
+      setAccountInfo(account);
+      return;
+    }
+    let ignore = false;
+    async function loadAccount() {
+      try {
+        const res = await fetch("/api/account/overview", { cache: "no-store" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body?.overview) return;
+        if (ignore) return;
+        const overview = body.overview;
+        setAccountInfo({
+          tierName: overview?.pricingTier ?? overview?.accessTier ?? overview?.planSlug ?? null,
+          coins: typeof overview?.stats?.contributionCredits === "number" ? overview.stats.contributionCredits : null,
+          costs: { analyze: 1, save: 0, finalize: 1 },
+        });
+      } catch {
+        // ignore
+      }
+    }
+    loadAccount();
+    return () => {
+      ignore = true;
+    };
+  }, [account]);
 
   React.useEffect(() => {
     const ids = statements.map((s) => s.id);
@@ -431,7 +488,7 @@ export default function AnalyzeWorkspace({
       : true;
 
   const analyzeDisabled =
-    analysisStatus === "running" || !text.trim() || (verificationStatus === "loading") || !meetsLevel;
+    analysisStatus === "running" || !preparedText.trim() || (verificationStatus === "loading") || !meetsLevel;
 
   const gatingMessage =
     verificationStatus === "login_required"
@@ -454,6 +511,8 @@ export default function AnalyzeWorkspace({
       const payload = {
         draftId,
         text,
+        textOriginal: text,
+        textPrepared: preparedText,
         locale,
         source: mode === "statement" ? "statement_new" : "contribution_new",
         analysis: {
@@ -508,6 +567,7 @@ export default function AnalyzeWorkspace({
     saveEndpoint,
     statements,
     text,
+    preparedText,
     consequences,
     localDraftId,
   ]);
@@ -555,10 +615,11 @@ export default function AnalyzeWorkspace({
     setSteps(BASE_STEPS.map((s) => ({ ...s, state: "running" })));
 
     try {
+      const detailPreset = LEVEL_OPTIONS.find((lvl) => lvl.id === viewLevel)?.label ?? "Schnellblick";
       const res = await fetch(analyzeEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, locale }),
+        body: JSON.stringify({ text, preparedText, locale, detailPreset }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -620,8 +681,9 @@ export default function AnalyzeWorkspace({
       setDecisionTrees(Array.isArray(result.decisionTrees) ? result.decisionTrees : []);
       setReport((result as any)?.report ?? null);
 
-      const matrixFromResponse: ProviderMatrixEntry[] = Array.isArray(data?.meta?.providerMatrix)
-        ? data.meta.providerMatrix
+      const metaFromResponse = data?.meta ?? (resultPayload as any)?._meta ?? {};
+      const matrixFromResponse: ProviderMatrixEntry[] = Array.isArray(metaFromResponse?.providerMatrix)
+        ? metaFromResponse.providerMatrix
         : [];
       setProviderMatrix(matrixFromResponse);
 
@@ -678,7 +740,7 @@ export default function AnalyzeWorkspace({
         }),
       );
     }
-  }, [analyzeDisabled, analyzeEndpoint, locale, text, viewLevel]);
+  }, [analyzeDisabled, analyzeEndpoint, locale, text, preparedText, viewLevel]);
 
   const toggleSelected = (id: string) => {
     setHasManualSelection(true);
@@ -703,127 +765,210 @@ export default function AnalyzeWorkspace({
     ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const activePresetLabel = LEVEL_OPTIONS.find((lvl) => lvl.id === viewLevel)?.label ?? "Schnellblick";
+  const costLabels = [
+    typeof accountInfo?.costs?.analyze === "number" ? `Analyse: -${accountInfo.costs.analyze} Coins` : null,
+    typeof accountInfo?.costs?.save === "number" ? `Speichern: -${accountInfo.costs.save} Coins` : null,
+    typeof accountInfo?.costs?.finalize === "number" ? `Einreichen: -${accountInfo.costs.finalize} Coins` : null,
+  ].filter(Boolean) as string[];
+
   return (
     <div ref={workspaceRef} className="min-h-[calc(100vh-64px)] bg-[linear-gradient(180deg,#e9f6ff_0%,#c0f8ff_45%,#a4fcec_100%)]">
-      <div className="container-vog space-y-4 pb-24 pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="container-vog max-w-7xl space-y-4 pb-28 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="vog-head">
-              {mode === "statement" ? "Statement analysieren" : "Beitrag analysieren"}
+            <h1 className="vog-head text-3xl sm:text-4xl">
+              {mode === "statement" ? (
+                <>
+                  <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">Statement</span>{" "}
+                  analysieren
+                </>
+              ) : (
+                <>
+                  <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">Beitrag</span>{" "}
+                  analysieren
+                </>
+              )}
             </h1>
-            <p className="text-xs text-slate-500">
-              Level 1–4 liefern von Kurzfassung bis Deep Dive dieselbe Analyse in unterschiedlichen Detailgraden.
+            <p className="text-xs text-slate-600">
+              Du bestimmst den Detailgrad – passend zu deinem Paket.
             </p>
           </div>
-          <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-xs">
-            {LEVEL_OPTIONS.map((lvl) => (
-              <button
-                key={lvl.id}
-                type="button"
-                onClick={() => setViewLevel(lvl.id)}
-                className={[
-                  "rounded-full px-3 py-1 transition",
-                  viewLevel === lvl.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                ].join(" ")}
-              >
-                {lvl.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+            {accountInfo?.tierName ? (
+              <span className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 font-semibold">
+                Paket: {accountInfo.tierName}
+              </span>
+            ) : null}
+            {typeof accountInfo?.coins === "number" ? (
+              <span className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 font-semibold">
+                Coins: {accountInfo.coins}
+              </span>
+            ) : null}
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-xs text-slate-600">
-          Entwurf: <span className="font-semibold text-slate-900">{buildDraftLabel(draftId, localDraftId)}</span> · zuletzt gespeichert:{" "}
-          <span className="font-semibold text-slate-900">{formatDateLabel(savedAt)}</span>
-        </div>
-
-        <AnalyzeProgress steps={steps} providerMatrix={providerMatrix} />
-
-        <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-          <div className="mb-2 flex items-baseline justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-800">Dein Text</h2>
-              <p className="text-[11px] text-slate-500">
-                Schreibe frei heraus. Die Analyse nutzt deinen Text als Basis fuer Statements, Fragen und Folgen.
-              </p>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          <div className="space-y-4 lg:sticky lg:top-4 self-start">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-xs text-slate-600 shadow-sm">
+              Entwurf: <span className="font-semibold text-slate-900">{buildDraftLabel(draftId, localDraftId)}</span> · zuletzt gespeichert:{" "}
+              <span className="font-semibold text-slate-900">{formatDateLabel(savedAt)}</span>
             </div>
-            <div className="text-[11px] text-slate-500">
-              Sprache: <span className="font-medium uppercase">{locale}</span>
+
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-800">Dein Text</h2>
+                  <p className="text-[11px] text-slate-500">
+                    Schreibe frei heraus. Die Analyse nutzt deinen Text als Basis fuer Statements, Fragen und Folgen.
+                  </p>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Sprache: <span className="font-medium uppercase">{locale}</span>
+                </div>
+              </div>
+
+              <div className="mb-3 inline-flex rounded-full bg-slate-100 p-1 text-[11px]">
+                {(["original", "prepared", "preview"] as const).map((modeKey) => (
+                  <button
+                    key={modeKey}
+                    type="button"
+                    onClick={() => setTextMode(modeKey)}
+                    className={[
+                      "rounded-full px-3 py-1 transition",
+                      textMode === modeKey ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                    ].join(" ")}
+                  >
+                    {modeKey === "original" ? "Original" : modeKey === "prepared" ? "Aufbereitet" : "Vorschau"}
+                  </button>
+                ))}
+              </div>
+
+              {textMode === "original" ? (
+                <HighlightedTextarea value={text} onChange={setText} analyzing={analysisStatus === "running"} rows={12} />
+              ) : textMode === "prepared" ? (
+                <textarea
+                  readOnly
+                  value={preparedText}
+                  rows={12}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                />
+              ) : (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 space-y-3">
+                  {preparedText
+                    .split(/\n{2,}/)
+                    .filter(Boolean)
+                    .map((para, idx) => (
+                      <p key={`${para.slice(0, 20)}-${idx}`} className="leading-relaxed">
+                        {para}
+                      </p>
+                    ))}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-col items-center gap-2 text-[11px] text-slate-500">
+                <span>
+                  {preparedText.length} Zeichen · Aufbereitet: ~{preparedState.ratio}% kuerzer
+                </span>
+                <div className="inline-flex gap-2 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={handleAnalyze}
+                    disabled={analyzeDisabled}
+                    className="rounded-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 px-5 py-2 text-xs font-semibold text-white shadow-md hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {analyzeButtonLabel}
+                  </button>
+                </div>
+                {gatingMessage && <p className="text-xs font-semibold text-rose-600">{gatingMessage}</p>}
+              </div>
+
+              {error && (
+                <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] text-rose-700 space-y-1">
+                  <p>{error}</p>
+                </div>
+              )}
+              {saveInfo && (
+                <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">{saveInfo}</p>
+              )}
+              {info && (
+                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">{info}</p>
+              )}
             </div>
+
           </div>
 
-          <HighlightedTextarea value={text} onChange={setText} analyzing={analysisStatus === "running"} rows={12} />
-
-          <div className="mt-3 flex flex-col items-center gap-2 text-[11px] text-slate-500">
-            <span>{text.length} Zeichen</span>
-            <div className="inline-flex gap-2 flex-wrap justify-center">
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                disabled={analyzeDisabled}
-                className="rounded-full bg-sky-500 px-5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {analyzeButtonLabel}
-              </button>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Detailgrad</p>
+                  <p className="text-sm font-semibold text-slate-800">{activePresetLabel}</p>
+                </div>
+                <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-xs">
+                  {LEVEL_OPTIONS.map((lvl) => (
+                    <button
+                      key={lvl.id}
+                      type="button"
+                      onClick={() => setViewLevel(lvl.id)}
+                      className={[
+                        "rounded-full px-3 py-1 transition",
+                        viewLevel === lvl.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+                      ].join(" ")}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">Du bestimmst den Detailgrad – passend zu deinem Paket.</p>
             </div>
-            {gatingMessage && <p className="text-xs font-semibold text-rose-600">{gatingMessage}</p>}
-          </div>
 
-          {error && (
-            <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] text-rose-700 space-y-1">
-              <p>{error}</p>
-            </div>
-          )}
-          {saveInfo && (
-            <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">{saveInfo}</p>
-          )}
-          {info && (
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">{info}</p>
-          )}
-        </div>
+            <AnalyzeProgress steps={steps} providerMatrix={providerMatrix} />
 
-        {viewLevel <= 2 && (
-          <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-            {viewLevel === 1 && (
-              <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Kurzfassung</p>
-                {report?.summary ? (
-                  <p className="mt-1 text-sm text-slate-800">{report.summary}</p>
-                ) : (
-                  <p className="mt-1 text-sm text-slate-500">Noch keine Zusammenfassung vorhanden.</p>
+            {viewLevel <= 2 && (
+              <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                {viewLevel === 1 && (
+                  <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schnellblick</p>
+                    {report?.summary ? (
+                      <p className="mt-1 text-sm text-slate-800">{report.summary}</p>
+                    ) : (
+                      <p className="mt-1 text-sm text-slate-500">Noch keine Zusammenfassung vorhanden.</p>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
 
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">
-                {viewLevel === 1 ? "Top-Statements" : "Alle Statements"}
-              </h2>
-              <div className="text-[11px] text-slate-500">
-                {totalStatements > 0
-                  ? viewLevel === 1
-                    ? `${totalStatements} Statements gesamt (Top ${Math.min(MAX_LEVEL1_STATEMENTS, totalStatements)})`
-                    : `${totalStatements} Statements zu diesem Beitrag`
-                  : "Noch keine Statements – die Analyse muss zuerst erfolgreich durchlaufen."}
-              </div>
-            </div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-slate-800">
+                    {viewLevel === 1 ? "Top-Kernaussagen" : "Alle Kernaussagen"}
+                  </h2>
+                  <div className="text-[11px] text-slate-500">
+                    {totalStatements > 0
+                      ? viewLevel === 1
+                        ? `${totalStatements} Statements gesamt (Top ${Math.min(MAX_LEVEL1_STATEMENTS, totalStatements)})`
+                        : `${totalStatements} Statements zu diesem Beitrag`
+                      : "Noch keine Kernaussagen – starte zuerst die Analyse."}
+                  </div>
+                </div>
 
-            <div className="space-y-3">
-              {levelStatements.map((s) => {
+                <div className="space-y-3">
+                  {levelStatements.map((s) => {
                 const stanceLabel =
                   s.stance === "pro" ? "pro" : s.stance === "contra" ? "contra" : s.stance === "neutral" ? "neutral" : null;
                 const tags: string[] = [];
                 if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
                 if (typeof s.importance === "number") tags.push(`Wichtigkeit: ${s.importance}/5`);
+                const isSelected = selectedClaimIds.includes(s.id);
 
                 return (
                   <StatementCard
                     key={s.id}
-                    variant="analyze"
-                    statementId={s.id}
-                    text={s.text}
-                    title={s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`}
-                    mainCategory={s.title ?? `Statement #${s.index + 1}`}
+                        variant="analyze"
+                        statementId={s.id}
+                        text={s.text}
+                        title={s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`}
+                        mainCategory={s.title ?? `Statement #${s.index + 1}`}
                     jurisdiction={s.responsibility || undefined}
                     topic={s.topic || undefined}
                     tags={tags}
@@ -836,7 +981,7 @@ export default function AnalyzeWorkspace({
                       <label className="inline-flex items-center gap-2 text-[11px] text-slate-600">
                         <input
                           type="checkbox"
-                          checked={selectedClaimIds.includes(s.id)}
+                          checked={isSelected}
                           onChange={() => toggleSelected(s.id)}
                           className="h-4 w-4 rounded border-slate-300 text-sky-600"
                         />
@@ -847,208 +992,210 @@ export default function AnalyzeWorkspace({
                 );
               })}
 
-              {!totalStatements && !info && (
-                <p className="text-sm text-slate-500">
-                  Noch keine Statements vorhanden. Sie erscheinen nur, wenn die Analyse erfolgreich war.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {viewLevel === 3 && (
-          <div className="space-y-3">
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-800">Moegliche Folgen</h3>
-                  {impactAndResponsibility.impacts?.length ? (
-                    <span className="text-[11px] text-slate-500">{impactAndResponsibility.impacts.length} Vorschlaege</span>
-                  ) : null}
-                </div>
-                <ImpactSection
-                  impacts={impactAndResponsibility.impacts ?? []}
-                  onChange={(next) => setImpactAndResponsibility((prev) => ({ ...prev, impacts: next }))}
-                />
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-800">Wer waere zustaendig?</h3>
-                  {impactAndResponsibility.responsibleActors?.length ? (
-                    <span className="text-[11px] text-slate-500">
-                      {impactAndResponsibility.responsibleActors.length} Vorschlaege
-                    </span>
-                  ) : null}
-                </div>
-                <ResponsibilitySection
-                  actors={impactAndResponsibility.responsibleActors ?? []}
-                  onChange={(next) =>
-                    setImpactAndResponsibility((prev) => ({ ...prev, responsibleActors: next }))
-                  }
-                />
-              </div>
-            </div>
-
-            <ResponsibilityPreviewCard
-              responsibilities={responsibilities}
-              paths={responsibilityPaths}
-              showPathOverlay
-            />
-          </div>
-        )}
-
-        {viewLevel === 4 && (
-          <div className="space-y-3">
-            <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Kontext (Notizen)</summary>
-              {notes.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Noch keine Notizen vorhanden.</p>
-              ) : (
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                  {notes.map((note, idx) => (
-                    <li key={note.id ?? `note-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        {note.title ?? `Notiz ${idx + 1}`}
-                      </p>
-                      <p className="text-sm text-slate-800">{note.body}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
-
-            <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Fragen zum Weiterdenken</summary>
-              {questions.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Noch keine Fragen vorhanden.</p>
-              ) : (
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                  {questions.map((q, idx) => (
-                    <li key={q.id ?? `q-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        {q.label ?? `Frage ${idx + 1}`}
-                      </p>
-                      <p className="text-sm text-slate-800">{q.body}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
-
-            <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Knoten (Themenschwerpunkte)</summary>
-              {knots.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Noch keine Knoten vorhanden.</p>
-              ) : (
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                  {knots.map((k, idx) => (
-                    <li key={k.id ?? `k-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        {k.title ?? `Knoten ${idx + 1}`}
-                      </p>
-                      <p className="text-sm text-slate-800">{k.body}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
-
-            <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">
-                Eventualitaeten &amp; Entscheidungsbaeume
-              </summary>
-              {eventualities.length === 0 && decisionTrees.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Noch keine Eventualitaeten oder Decision Trees vorhanden.</p>
-              ) : (
-                <div className="mt-2 space-y-3 text-sm text-slate-700">
-                  {eventualities.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">Eventualitaeten</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4">
-                        {eventualities.map((e, idx) => (
-                          <li key={e.id ?? `ev-${idx}`}>{e.narrative || e.label}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {decisionTrees.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">Decision Trees</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4">
-                        {decisionTrees.map((d, idx) => (
-                          <li key={d.id ?? `dt-${idx}`}>Decision Tree fuer Statement {d.rootStatementId}</li>
-                        ))}
-                      </ul>
-                    </div>
+                  {!totalStatements && !info && (
+                    <p className="text-sm text-slate-500">
+                      Noch keine Kernaussagen vorhanden. Sie erscheinen nur, wenn die Analyse erfolgreich war.
+                    </p>
                   )}
                 </div>
-              )}
-            </details>
+              </div>
+            )}
 
-            <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Folgen &amp; Zustaendigkeiten</summary>
-              <div className="mt-3 space-y-3">
-                <ConsequencesPreviewCard consequences={consequences} responsibilities={responsibilities} />
+            {viewLevel === 3 && (
+              <div className="space-y-3">
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-800">Wirkung</h3>
+                      {impactAndResponsibility.impacts?.length ? (
+                        <span className="text-[11px] text-slate-500">{impactAndResponsibility.impacts.length} Vorschlaege</span>
+                      ) : null}
+                    </div>
+                    <ImpactSection
+                      impacts={impactAndResponsibility.impacts ?? []}
+                      onChange={(next) => setImpactAndResponsibility((prev) => ({ ...prev, impacts: next }))}
+                    />
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-800">Zustaendigkeit</h3>
+                      {impactAndResponsibility.responsibleActors?.length ? (
+                        <span className="text-[11px] text-slate-500">
+                          {impactAndResponsibility.responsibleActors.length} Vorschlaege
+                        </span>
+                      ) : null}
+                    </div>
+                    <ResponsibilitySection
+                      actors={impactAndResponsibility.responsibleActors ?? []}
+                      onChange={(next) =>
+                        setImpactAndResponsibility((prev) => ({ ...prev, responsibleActors: next }))
+                      }
+                    />
+                  </div>
+                </div>
+
                 <ResponsibilityPreviewCard
                   responsibilities={responsibilities}
                   paths={responsibilityPaths}
                   showPathOverlay
                 />
               </div>
-            </details>
+            )}
 
-            <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Bericht</summary>
-              {report ? (
-                <div className="mt-3 space-y-3 text-sm text-slate-800">
-                  {report.summary && <p>{report.summary}</p>}
-                  {Array.isArray(report.keyConflicts) && report.keyConflicts.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">Konfliktlinien</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4">
-                        {report.keyConflicts.map((c: string, idx: number) => (
-                          <li key={`${c}-${idx}`}>{c}</li>
-                        ))}
-                      </ul>
+            {viewLevel === 4 && (
+              <div className="space-y-3">
+                <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Kontext (Notizen)</summary>
+                  {notes.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">Noch keine Notizen vorhanden.</p>
+                  ) : (
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {notes.map((note, idx) => (
+                        <li key={note.id ?? `note-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {note.title ?? `Notiz ${idx + 1}`}
+                          </p>
+                          <p className="text-sm text-slate-800">{note.body}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+
+                <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Fragen zum Weiterdenken</summary>
+                  {questions.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">Noch keine Fragen vorhanden.</p>
+                  ) : (
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {questions.map((q, idx) => (
+                        <li key={q.id ?? `q-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {q.label ?? `Frage ${idx + 1}`}
+                          </p>
+                          <p className="text-sm text-slate-800">{q.body}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+
+                <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Knoten (Themenschwerpunkte)</summary>
+                  {knots.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">Noch keine Knoten vorhanden.</p>
+                  ) : (
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {knots.map((k, idx) => (
+                        <li key={k.id ?? `k-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {k.title ?? `Knoten ${idx + 1}`}
+                          </p>
+                          <p className="text-sm text-slate-800">{k.body}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+
+                <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                    Eventualitaeten &amp; Entscheidungsbaeume
+                  </summary>
+                  {eventualities.length === 0 && decisionTrees.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">Noch keine Eventualitaeten oder Decision Trees vorhanden.</p>
+                  ) : (
+                    <div className="mt-2 space-y-3 text-sm text-slate-700">
+                      {eventualities.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase text-slate-500">Eventualitaeten</p>
+                          <ul className="mt-1 list-disc space-y-1 pl-4">
+                            {eventualities.map((e, idx) => (
+                              <li key={e.id ?? `ev-${idx}`}>{e.narrative || e.label}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {decisionTrees.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase text-slate-500">Decision Trees</p>
+                          <ul className="mt-1 list-disc space-y-1 pl-4">
+                            {decisionTrees.map((d, idx) => (
+                              <li key={d.id ?? `dt-${idx}`}>Decision Tree fuer Statement {d.rootStatementId}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
-                  {report.facts && (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-500">Fakten (lokal)</p>
-                        <ul className="mt-1 list-disc space-y-1 pl-4">
-                          {(report.facts.local ?? []).map((f: string, idx: number) => (
-                            <li key={`f-l-${idx}`}>{f}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-500">Fakten (international)</p>
-                        <ul className="mt-1 list-disc space-y-1 pl-4">
-                          {(report.facts.international ?? []).map((f: string, idx: number) => (
-                            <li key={`f-i-${idx}`}>{f}</li>
-                          ))}
-                        </ul>
-                      </div>
+                </details>
+
+                <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Folgen &amp; Zustaendigkeiten</summary>
+                  <div className="mt-3 space-y-3">
+                    <ConsequencesPreviewCard consequences={consequences} responsibilities={responsibilities} />
+                    <ResponsibilityPreviewCard
+                      responsibilities={responsibilities}
+                      paths={responsibilityPaths}
+                      showPathOverlay
+                    />
+                  </div>
+                </details>
+
+                <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Bericht</summary>
+                  {report ? (
+                    <div className="mt-3 space-y-3 text-sm text-slate-800">
+                      {report.summary && <p>{report.summary}</p>}
+                      {Array.isArray(report.keyConflicts) && report.keyConflicts.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase text-slate-500">Konfliktlinien</p>
+                          <ul className="mt-1 list-disc space-y-1 pl-4">
+                            {report.keyConflicts.map((c: string, idx: number) => (
+                              <li key={`${c}-${idx}`}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {report.facts && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Fakten (lokal)</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {(report.facts.local ?? []).map((f: string, idx: number) => (
+                                <li key={`f-l-${idx}`}>{f}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Fakten (international)</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {(report.facts.international ?? []).map((f: string, idx: number) => (
+                                <li key={`f-i-${idx}`}>{f}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                      {Array.isArray(report.takeaways) && report.takeaways.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase text-slate-500">Takeaways</p>
+                          <ul className="mt-1 list-disc space-y-1 pl-4">
+                            {report.takeaways.map((c: string, idx: number) => (
+                              <li key={`t-${idx}`}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">Noch kein Bericht vorhanden.</p>
                   )}
-                  {Array.isArray(report.takeaways) && report.takeaways.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500">Takeaways</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4">
-                        {report.takeaways.map((c: string, idx: number) => (
-                          <li key={`t-${idx}`}>{c}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-slate-500">Noch kein Bericht vorhanden.</p>
-              )}
-            </details>
+                </details>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <div ref={ctaRef} className="fixed bottom-4 left-0 right-0 z-30">
@@ -1056,13 +1203,22 @@ export default function AnalyzeWorkspace({
           <div>
             <p className="text-sm font-semibold text-slate-900">{selectedClaimIds.length} von {totalStatements} ausgewaehlt</p>
             <p className="text-xs text-slate-500">Waehle, welche Statements als Vorschlaege uebernommen werden.</p>
+            {costLabels.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-slate-500">
+                {costLabels.map((label) => (
+                  <span key={label} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                    {label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={saveDraftSnapshot}
               disabled={isSaving}
-              className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
             >
               Entwurf speichern
             </button>
@@ -1070,7 +1226,7 @@ export default function AnalyzeWorkspace({
               type="button"
               onClick={handleFinalize}
               disabled={!draftId || isFinalizing}
-              className="rounded-full bg-sky-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 px-5 py-2 text-xs font-semibold text-white shadow-md hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Als Vorschlag einreichen
             </button>
@@ -1078,7 +1234,7 @@ export default function AnalyzeWorkspace({
               <button
                 type="button"
                 onClick={handleRedirect}
-                className="rounded-full border border-emerald-300 px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
               >
                 Zu Swipes
               </button>
@@ -1086,7 +1242,7 @@ export default function AnalyzeWorkspace({
             <button
               type="button"
               onClick={scrollToNextLevel}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
             >
               Weiter
             </button>

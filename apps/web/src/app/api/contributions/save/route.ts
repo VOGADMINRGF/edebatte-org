@@ -9,6 +9,8 @@ import { z } from "zod";
 const DraftSaveSchema = z.object({
   draftId: z.string().optional(),
   text: z.string().min(1),
+  textOriginal: z.string().optional(),
+  textPrepared: z.string().optional(),
   locale: z.string().optional(),
   source: z.string().optional(),
   analysis: z.unknown().optional(),
@@ -18,6 +20,8 @@ type ContributionDraftDoc = {
   _id?: ObjectId;
   authorId: string;
   text: string;
+  textOriginal?: string;
+  textPrepared?: string;
   locale?: string;
   source?: string;
   analysis?: unknown;
@@ -59,6 +63,8 @@ export async function POST(req: NextRequest) {
       {
         $set: {
           text: body.text,
+          textOriginal: body.textOriginal ?? body.text,
+          textPrepared: body.textPrepared ?? body.text,
           locale: body.locale ?? null,
           source: body.source ?? null,
           analysis: body.analysis ?? null,
@@ -84,6 +90,8 @@ export async function POST(req: NextRequest) {
   const doc: ContributionDraftDoc = {
     authorId: userId,
     text: body.text,
+    textOriginal: body.textOriginal ?? body.text,
+    textPrepared: body.textPrepared ?? body.text,
     locale: body.locale ?? undefined,
     source: body.source ?? undefined,
     analysis: body.analysis ?? undefined,

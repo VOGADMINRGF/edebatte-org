@@ -78,6 +78,14 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
     return <ContributionGate variant="blocked" overview={gate.overview} />;
   }
 
+  const tierNameRaw =
+    initialOverview?.pricingTier ?? initialOverview?.planSlug ?? initialOverview?.accessTier ?? null;
+  const accountInfo = {
+    tierName: tierNameRaw ? String(tierNameRaw) : null,
+    coins: typeof initialOverview?.stats?.contributionCredits === "number" ? initialOverview.stats.contributionCredits : null,
+    costs: { analyze: 1, save: 0, finalize: 1 },
+  };
+
   return (
     <AnalyzeWorkspace
       mode="contribution"
@@ -89,6 +97,7 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
       afterFinalizeNavigateTo="/swipes"
       verificationLevel={verificationLevel}
       verificationStatus={levelStatus}
+      account={accountInfo}
     />
   );
 }
