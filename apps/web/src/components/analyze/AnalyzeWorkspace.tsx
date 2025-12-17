@@ -685,6 +685,11 @@ export default function AnalyzeWorkspace({
     setSelectedClaimIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const handleRedirect = React.useCallback(() => {
+    if (!finalizeRedirectTo) return;
+    router.push(finalizeRedirectTo as any);
+  }, [finalizeRedirectTo, router]);
+
   const scrollToNextLevel = () => {
     const order: Array<1 | 2 | 3 | 4> = [1, 2, 3, 4];
     const currentIndex = order.indexOf(viewLevel);
@@ -1072,7 +1077,7 @@ export default function AnalyzeWorkspace({
             {finalizeRedirectTo && (
               <button
                 type="button"
-                onClick={() => router.push(finalizeRedirectTo as any)}
+                onClick={handleRedirect}
                 className="rounded-full border border-emerald-300 px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
               >
                 Zu Swipes

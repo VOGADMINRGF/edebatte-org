@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let active = true;

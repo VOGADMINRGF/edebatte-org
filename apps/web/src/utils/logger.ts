@@ -33,7 +33,6 @@ function buildLogger() {
       });
       return pino(baseOptions, stream);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn("[logger] pino-pretty unavailable; using JSON logs", err);
     }
   }

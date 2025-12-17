@@ -23,7 +23,7 @@ export async function runLLMJson(
     max_tokens: 800,
     model,
     timeoutMs,
-  } as any);
+  });
 
   let data: any = null;
   try {

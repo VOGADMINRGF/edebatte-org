@@ -14,7 +14,10 @@ const MODEL = process.env.OPENAI_MODEL || "gpt-5";
 export type AskArgs = {
   prompt: string;
   asJson?: boolean;
+  model?: string;
   maxOutputTokens?: number;
+  max_tokens?: number;
+  timeoutMs?: number;
   signal?: AbortSignal;
   forceJsonFormat?: boolean;
 };
@@ -158,11 +161,30 @@ function stripFences(text: string): string {
 async function askOpenAI({
   prompt,
   asJson = false,
+  model,
   maxOutputTokens = 1400,
+  max_tokens,
+  timeoutMs,
   signal,
   forceJsonFormat = false,
 }: AskArgs): Promise<AskResult> {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY fehlt");
+
+  const resolvedModel = model ?? MODEL;
+  const resolvedMaxTokens = max_tokens ?? maxOutputTokens;
+  const timeoutController = timeoutMs ? new AbortController() : null;
+  const onAbort = () => timeoutController?.abort();
+  if (timeoutController) {
+    if (signal?.aborted) {
+      timeoutController.abort();
+    } else if (signal) {
+      signal.addEventListener("abort", onAbort);
+    }
+  }
+  const timeout = timeoutController
+    ? setTimeout(() => timeoutController.abort(), timeoutMs)
+    : null;
+  const requestSignal = timeoutController ? timeoutController.signal : signal;
 
   const safePrompt = prompt ?? "";
   const systemText = "";
@@ -173,9 +195,9 @@ async function askOpenAI({
   ];
 
   const buildBody = (format: "json_schema" | "json_object") => ({
-    model: MODEL,
+    model: resolvedModel,
     input: mergedInput,
-    max_output_tokens: maxOutputTokens,
+    max_output_tokens: resolvedMaxTokens,
     text:
       asJson || forceJsonFormat
         ? {
@@ -192,67 +214,74 @@ async function askOpenAI({
         : undefined,
   });
 
-  if (!asJson && !forceJsonFormat) {
-    const data = await post(buildBody("json_object"), signal);
-    return {
-      text: extractText(data),
-      raw: data,
-      model: data?.model ?? MODEL,
-      tokensIn: data?.usage?.input_tokens,
-      tokensOut: data?.usage?.output_tokens,
-    };
-  }
-
-  const execute = async (format: "json_schema" | "json_object") => {
-    const data = await post(buildBody(format), signal);
-    const text = extractText(data);
-    return { data, text };
-  };
-
-  let attemptFormat: "json_schema" | "json_object" = DEFAULT_TEXT_FORMAT;
-  let didFallback = false;
-  let fallbackMeta: { code?: string; message?: string } | null = null;
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const { data, text } = await execute(attemptFormat);
+  try {
+    if (!asJson && !forceJsonFormat) {
+      const data = await post(buildBody("json_object"), requestSignal);
       return {
-        text,
+        text: extractText(data),
         raw: data,
-        model: data?.model ?? MODEL,
+        model: data?.model ?? resolvedModel,
         tokensIn: data?.usage?.input_tokens,
         tokensOut: data?.usage?.output_tokens,
-        formatUsed: attemptFormat,
-        didFallback,
-        openaiErrorCode: fallbackMeta?.code ?? null,
-        openaiErrorMessage: fallbackMeta?.message ?? null,
       };
-    } catch (err: any) {
-      const isSchemaIssue =
-        err?.status === 400 &&
-        ((typeof err?.meta?.param === "string" && err.meta.param.includes("text.format")) ||
-          /text\.format|json_schema|response_format|json_object not supported|input/i.test(
-            String(err?.message ?? ""),
-          )) ||
-        err?.status === 422;
-      const needsFallback =
-        !didFallback &&
-        attemptFormat === "json_schema" &&
-        (isSchemaIssue || err?.message === "OPENAI_EMPTY_OUTPUT");
-      if (needsFallback) {
-        didFallback = true;
-        fallbackMeta = {
-          code: err?.meta?.code ?? null,
-          message: err?.meta?.messageShort ?? String(err?.message ?? ""),
+    }
+
+    const execute = async (format: "json_schema" | "json_object") => {
+      const data = await post(buildBody(format), requestSignal);
+      const text = extractText(data);
+      return { data, text };
+    };
+
+    let attemptFormat: "json_schema" | "json_object" = DEFAULT_TEXT_FORMAT;
+    let didFallback = false;
+    let fallbackMeta: { code?: string; message?: string } | null = null;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const { data, text } = await execute(attemptFormat);
+        return {
+          text,
+          raw: data,
+          model: data?.model ?? resolvedModel,
+          tokensIn: data?.usage?.input_tokens,
+          tokensOut: data?.usage?.output_tokens,
+          formatUsed: attemptFormat,
+          didFallback,
+          openaiErrorCode: fallbackMeta?.code ?? null,
+          openaiErrorMessage: fallbackMeta?.message ?? null,
         };
-        attemptFormat = fallbackTextFormat(attemptFormat);
-        continue;
+      } catch (err: any) {
+        const isSchemaIssue =
+          err?.status === 400 &&
+          ((typeof err?.meta?.param === "string" && err.meta.param.includes("text.format")) ||
+            /text\.format|json_schema|response_format|json_object not supported|input/i.test(
+              String(err?.message ?? ""),
+            )) ||
+          err?.status === 422;
+        const needsFallback =
+          !didFallback &&
+          attemptFormat === "json_schema" &&
+          (isSchemaIssue || err?.message === "OPENAI_EMPTY_OUTPUT");
+        if (needsFallback) {
+          didFallback = true;
+          fallbackMeta = {
+            code: err?.meta?.code ?? null,
+            message: err?.meta?.messageShort ?? String(err?.message ?? ""),
+          };
+          attemptFormat = fallbackTextFormat(attemptFormat);
+          continue;
+        }
+        throw err;
       }
-      throw err;
+    }
+
+    throw new Error("OpenAI call konnte nicht abgeschlossen werden");
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    if (timeoutController && signal) {
+      signal.removeEventListener("abort", onAbort);
     }
   }
-
-  throw new Error("OpenAI call konnte nicht abgeschlossen werden");
 }
 
 // ——— Instrumentierte Exporte ———
