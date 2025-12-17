@@ -1,4 +1,4 @@
-import type { SwipeVotePayload } from "@/features/swipes/types";
+import type { SwipeVotePayload } from "@/modules/swipes/types";
 import { getNeo4jDriver } from "@/utils/neo4jClient";
 
 export async function recordSwipeVoteInGraph(payload: SwipeVotePayload): Promise<void> {

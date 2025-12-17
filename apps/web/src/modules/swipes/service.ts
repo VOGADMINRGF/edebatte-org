@@ -8,7 +8,7 @@ import type {
   Eventuality,
   SwipeVotePayload,
 } from "./types";
-import { recordSwipeVoteInGraph } from "@/features/graph/swipes";
+import { recordSwipeVoteInGraph } from "@/modules/graph/swipes";
 
 // TODO: An tri-mongo / E150 anbinden. Aktuell: Mock-Daten.
 

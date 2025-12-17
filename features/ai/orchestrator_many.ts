@@ -1,4 +1,4 @@
-import { extractCandidates } from "../../apps/web/src/features/ai/roles/extractor";
+import { extractCandidates } from "../../apps/web/src/modules/ai/roles/extractor";
 import { orchestrateClaim } from "./orchestrator_claims";
 
 export type OrchestratedMany = {

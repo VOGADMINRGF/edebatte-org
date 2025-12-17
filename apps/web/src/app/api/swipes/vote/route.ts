@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { recordSwipeVote } from "@/features/swipes/service";
-import type { SwipeVotePayload } from "@/features/swipes/types";
+import { recordSwipeVote } from "@/modules/swipes/service";
+import type { SwipeVotePayload } from "@/modules/swipes/types";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();

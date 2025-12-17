@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { SwipesClient } from "../SwipesClient";
 import { getAccountOverview } from "@features/account/service";
 import { readSession } from "@/utils/session";
-import type { EDebattePackage } from "@/features/swipes/types";
+import type { EDebattePackage } from "@/modules/swipes/types";
 
 export const metadata = {
   title: "Swipe-Karte · VoiceOpenGov",

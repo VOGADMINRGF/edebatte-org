@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { getEventualitiesForStatement } from "@/features/swipes/service";
+import { getEventualitiesForStatement } from "@/modules/swipes/service";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();

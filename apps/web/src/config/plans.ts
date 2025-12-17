@@ -1,5 +1,5 @@
-import { ACCESS_TIER_CONFIG } from "@/features/pricing/config";
-import type { AccessTier, AccessTierConfig } from "@/features/pricing/config";
+import { ACCESS_TIER_CONFIG } from "@/modules/pricing/config";
+import type { AccessTier, AccessTierConfig } from "@/modules/pricing/config";
 
 export const B2C_PLAN_ORDER: AccessTier[] = ["citizenBasic", "citizenPremium", "citizenPro"];
 

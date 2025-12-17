@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@features/auth/hooks/useAuth";
 import { useActionPermission } from "@features/user/hooks/useActionPermission";
-import type { AccessTier } from "@/features/pricing";
+import type { AccessTier } from "@/modules/pricing";
 import type { RegionReportOverview, TopicReport } from "@features/report/data/types";
 import { useLocale } from "@/context/LocaleContext";
 import { resolveTimeRange, type TimeRangeKey } from "@/utils/timeRange";

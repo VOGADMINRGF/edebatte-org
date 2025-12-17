@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAccountOverview } from "@features/account/service";
-import { getSwipeFeed } from "@/features/swipes/service";
-import type { SwipeFeedRequest } from "@/features/swipes/types";
+import { getSwipeFeed } from "@/modules/swipes/service";
+import type { SwipeFeedRequest } from "@/modules/swipes/types";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();

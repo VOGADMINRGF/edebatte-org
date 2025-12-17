@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MembershipCalculator_VOG } from "@/features/membership";
+import { MembershipCalculator_VOG } from "@/modules/membership";
 import { useLocale } from "@/context/LocaleContext";
 import { SUPPORT_STRINGS, tSupport } from "./strings";
 

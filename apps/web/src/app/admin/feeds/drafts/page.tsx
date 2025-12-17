@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { VoteDraftSummary, VoteDraftStatus } from "@/features/feeds/types";
+import type { VoteDraftSummary, VoteDraftStatus } from "@/modules/feeds/types";
 
 type RegionOption = { value: string; label: string };
 
