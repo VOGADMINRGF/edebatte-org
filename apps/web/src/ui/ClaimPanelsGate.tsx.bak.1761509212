@@ -1,6 +1,0 @@
-"use client";
-import React from "react";
-export default function ClaimPanelsGate({show,children}:{show:boolean;children:React.ReactNode}) {
-  if(!show) return null;
-  return <>{children}</>;
-}

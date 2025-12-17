@@ -1,2 +1,0 @@
-export { analyzeContribution } from "@features/analyze/analyzeContribution";
-export type { AnalyzeResult, Claim } from "@features/analyze/analyzeContribution";
