@@ -358,6 +358,8 @@ export type AnalyzeResultWithMeta = AnalyzeResult & {
     contributionId?: string;
     eventualitiesReviewed?: boolean;
     eventualitiesReviewedAt?: string | null;
+    graphSyncedAt?: string | null;
+    graphUpserts?: number | null;
     providerMatrix?: import("@features/ai/orchestratorE150").ProviderMatrixEntry[];
   };
 };
@@ -685,4 +687,3 @@ function ensureReport(value: unknown): AnalyzeResult["report"] {
     takeaways: Array.isArray(v.takeaways) ? v.takeaways.slice(0, 12) : [],
   };
 }
-

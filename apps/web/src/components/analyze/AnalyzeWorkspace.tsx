@@ -117,6 +117,13 @@ type DraftStorage = {
   draftId?: string | null;
   localDraftId?: string | null;
   savedAt?: string | null;
+  evidenceItems?: EvidenceItem[];
+};
+
+type EvidenceItem = {
+  id: string;
+  url: string;
+  note: string;
 };
 
 function mapAiNoteToSection(raw: any, idx: number): NoteSection | null {
@@ -248,6 +255,13 @@ function formatDateLabel(value?: string | null) {
   return date.toLocaleString();
 }
 
+function formatTimestamp(value?: string | null, fallback = "noch nicht synchronisiert") {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
 function prepareText(raw: string) {
   const original = raw ?? "";
   let prepared = original.replace(/\r\n/g, "\n").trim();
@@ -338,6 +352,7 @@ export default function AnalyzeWorkspace({
   const [viewLevel, setViewLevel] = React.useState<1 | 2 | 3 | 4>(defaultLevel);
   const [text, setText] = React.useState("");
   const [textMode, setTextMode] = React.useState<"original" | "prepared" | "preview">("original");
+  const [evidenceItems, setEvidenceItems] = React.useState<EvidenceItem[]>([]);
   const [notes, setNotes] = React.useState<NoteSection[]>([]);
   const [questions, setQuestions] = React.useState<QuestionCard[]>([]);
   const [knots, setKnots] = React.useState<KnotCard[]>([]);
@@ -368,6 +383,7 @@ export default function AnalyzeWorkspace({
   const [selectedClaimIds, setSelectedClaimIds] = React.useState<string[]>([]);
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
   const [accountInfo, setAccountInfo] = React.useState<AnalyzeWorkspaceProps["account"]>(account ?? null);
+  const [graphMeta, setGraphMeta] = React.useState<{ syncedAt?: string | null; upserts?: number | null } | null>(null);
   const ctaRef = React.useRef<HTMLDivElement | null>(null);
   const workspaceRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -387,6 +403,7 @@ export default function AnalyzeWorkspace({
       if (parsed.draftId) setDraftId(parsed.draftId);
       if (parsed.localDraftId) setLocalDraftId(parsed.localDraftId);
       if (parsed.savedAt) setSavedAt(parsed.savedAt);
+      if (Array.isArray(parsed.evidenceItems)) setEvidenceItems(parsed.evidenceItems);
     } catch {
       // ignore
     }
@@ -399,13 +416,14 @@ export default function AnalyzeWorkspace({
       draftId,
       localDraftId,
       savedAt,
+      evidenceItems,
     };
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {
       // ignore
     }
-  }, [storageKey, text, draftId, localDraftId, savedAt]);
+  }, [storageKey, text, draftId, localDraftId, savedAt, evidenceItems]);
 
   React.useEffect(() => {
     if (account) {
@@ -516,6 +534,7 @@ export default function AnalyzeWorkspace({
         textPrepared: preparedText,
         locale,
         source: mode === "statement" ? "statement_new" : "contribution_new",
+        evidenceItems,
         analysis: {
           claims: statements,
           notes,
@@ -571,6 +590,7 @@ export default function AnalyzeWorkspace({
     preparedText,
     consequences,
     localDraftId,
+    evidenceItems,
   ]);
 
   const handleFinalize = React.useCallback(async () => {
@@ -620,7 +640,7 @@ export default function AnalyzeWorkspace({
       const res = await fetch(analyzeEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, preparedText, locale, detailPreset }),
+        body: JSON.stringify({ text, preparedText, locale, detailPreset, evidenceItems }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -687,6 +707,10 @@ export default function AnalyzeWorkspace({
         ? metaFromResponse.providerMatrix
         : [];
       setProviderMatrix(matrixFromResponse);
+      setGraphMeta({
+        syncedAt: metaFromResponse?.graphSyncedAt ?? null,
+        upserts: metaFromResponse?.graphUpserts ?? null,
+      });
 
       const degraded = Boolean(data?.degraded);
       const degradedReason = degraded ? "KI temporär nicht erreichbar" : null;
@@ -722,6 +746,7 @@ export default function AnalyzeWorkspace({
       setQuestions([]);
       setKnots([]);
       setStatements([]);
+      setGraphMeta(null);
       setConsequences([]);
       setResponsibilities([]);
       setResponsibilityPaths([]);
@@ -741,11 +766,26 @@ export default function AnalyzeWorkspace({
         }),
       );
     }
-  }, [analyzeDisabled, analyzeEndpoint, locale, text, preparedText, viewLevel]);
+  }, [analyzeDisabled, analyzeEndpoint, locale, text, preparedText, viewLevel, evidenceItems]);
 
   const toggleSelected = (id: string) => {
     setHasManualSelection(true);
     setSelectedClaimIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const addEvidenceItem = () => {
+    const id = `ev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setEvidenceItems((prev) => [...prev, { id, url: "", note: "" }]);
+  };
+
+  const updateEvidenceItem = (id: string, patch: Partial<EvidenceItem>) => {
+    setEvidenceItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const removeEvidenceItem = (id: string) => {
+    setEvidenceItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleRedirect = React.useCallback(() => {
@@ -766,6 +806,11 @@ export default function AnalyzeWorkspace({
     ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const reportFactsCount =
+    (report?.facts?.local?.length ?? 0) + (report?.facts?.international?.length ?? 0);
+  const evidenceCount = evidenceItems.filter((item) => item.url.trim() || item.note.trim()).length;
+  const totalEvidence = evidenceCount + reportFactsCount;
+  const graphHref = locale ? `/evidence/${locale.toUpperCase()}` : null;
   const activePresetLabel = LEVEL_OPTIONS.find((lvl) => lvl.id === viewLevel)?.label ?? "Schnellblick";
   const costLabels = [
     typeof accountInfo?.costs?.analyze === "number" ? `Analyse: -${accountInfo.costs.analyze} Coins` : null,
@@ -897,6 +942,47 @@ export default function AnalyzeWorkspace({
               )}
             </div>
 
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">Belege (optional)</h3>
+                <span className="text-[11px] text-slate-500">{evidenceCount} hinzugefuegt</span>
+              </div>
+              <div className="space-y-3">
+                {evidenceItems.map((item) => (
+                  <div key={item.id} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <input
+                      value={item.url}
+                      onChange={(e) => updateEvidenceItem(item.id, { url: e.target.value })}
+                      placeholder="URL"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700"
+                    />
+                    <textarea
+                      value={item.note}
+                      onChange={(e) => updateEvidenceItem(item.id, { note: e.target.value })}
+                      placeholder="Kurzer Auszug oder Notiz"
+                      rows={2}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeEvidenceItem(item.id)}
+                        className="text-[11px] font-semibold text-rose-600 hover:underline"
+                      >
+                        Entfernen
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addEvidenceItem}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                >
+                  + Beleg hinzufuegen
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -927,6 +1013,48 @@ export default function AnalyzeWorkspace({
 
             <AnalyzeProgress steps={steps} providerMatrix={providerMatrix} />
 
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Graph &amp; Evidenz</p>
+                  <p className="text-sm font-semibold text-slate-800">Verbindungen &amp; Belege</p>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                  Signale: {totalEvidence}
+                </span>
+              </div>
+              <div className="mt-2 space-y-1 text-[11px] text-slate-600">
+                <p>
+                  Graph Sync: <span className="font-semibold text-slate-800">{formatTimestamp(graphMeta?.syncedAt)}</span>
+                </p>
+                <p>
+                  Belege: <span className="font-semibold text-slate-800">{evidenceCount}</span> · Fakten:{" "}
+                  <span className="font-semibold text-slate-800">{reportFactsCount}</span>
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {graphHref ? (
+                  <a
+                    href={graphHref}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Zur Graph-Ansicht
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-400"
+                  >
+                    Graph-Ansicht kommt bald
+                  </button>
+                )}
+                {typeof graphMeta?.upserts === "number" && (
+                  <span className="text-[11px] text-slate-500">{graphMeta.upserts} Updates</span>
+                )}
+              </div>
+            </div>
+
             {viewLevel <= 2 && (
               <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
                 {viewLevel === 1 && (
@@ -955,64 +1083,64 @@ export default function AnalyzeWorkspace({
 
                 <div className="space-y-3">
                   {levelStatements.map((s) => {
-                const stanceLabel =
-                  s.stance === "pro" ? "pro" : s.stance === "contra" ? "contra" : s.stance === "neutral" ? "neutral" : null;
-                const tags: string[] = [];
-                if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
-                if (typeof s.importance === "number") tags.push(`Wichtigkeit: ${s.importance}/5`);
-                const voteValue =
-                  s.vote === "approve" ? "pro" : s.vote === "reject" ? "contra" : s.vote === "neutral" ? "neutral" : null;
-                const isSelected = selectedClaimIds.includes(s.id);
+                    const stanceLabel =
+                      s.stance === "pro" ? "pro" : s.stance === "contra" ? "contra" : s.stance === "neutral" ? "neutral" : null;
+                    const tags: string[] = [];
+                    if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
+                    if (typeof s.importance === "number") tags.push(`Wichtigkeit: ${s.importance}/5`);
+                    const voteValue =
+                      s.vote === "approve" ? "pro" : s.vote === "reject" ? "contra" : s.vote === "neutral" ? "neutral" : null;
+                    const isSelected = selectedClaimIds.includes(s.id);
 
-                return (
-                  <StatementCard
-                    key={s.id}
+                    return (
+                      <StatementCard
+                        key={s.id}
                         variant="analyze"
                         statementId={s.id}
                         text={s.text}
                         title={s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`}
                         mainCategory={s.title ?? `Statement #${s.index + 1}`}
-                    jurisdiction={s.responsibility || undefined}
-                    topic={s.topic || undefined}
-                    tags={tags}
-                    source="ai"
-                    showVoteButtons={false}
-                  >
-                    <div className="space-y-3">
-                      <InlineEditableText value={s.text} onChange={(val) =>
-                        setStatements((prev) => prev.map((entry) => (entry.id === s.id ? { ...entry, text: val } : entry)))
-                      } />
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <VogVoteButtons
-                          value={voteValue}
-                          onChange={(next) => {
-                            const mapped =
-                              next === "pro" ? "approve" : next === "contra" ? "reject" : next === "neutral" ? "neutral" : null;
-                            setStatements((prev) =>
-                              prev.map((entry) => (entry.id === s.id ? { ...entry, vote: mapped } : entry)),
-                            );
-                          }}
-                          size="sm"
-                        />
-                        <label
-                          className={[
-                            "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold transition",
-                            isSelected ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelected(s.id)}
-                            className="h-4 w-4 rounded border-slate-300 text-emerald-600"
-                          />
-                          In Vorschlag uebernehmen
-                        </label>
-                      </div>
-                    </div>
-                  </StatementCard>
-                );
-              })}
+                        jurisdiction={s.responsibility || undefined}
+                        topic={s.topic || undefined}
+                        tags={tags}
+                        source="ai"
+                        showVoteButtons={false}
+                      >
+                        <div className="space-y-3">
+                          <InlineEditableText value={s.text} onChange={(val) =>
+                            setStatements((prev) => prev.map((entry) => (entry.id === s.id ? { ...entry, text: val } : entry)))
+                          } />
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <VogVoteButtons
+                              value={voteValue}
+                              onChange={(next) => {
+                                const mapped =
+                                  next === "pro" ? "approve" : next === "contra" ? "reject" : next === "neutral" ? "neutral" : null;
+                                setStatements((prev) =>
+                                  prev.map((entry) => (entry.id === s.id ? { ...entry, vote: mapped } : entry)),
+                                );
+                              }}
+                              size="sm"
+                            />
+                            <label
+                              className={[
+                                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold transition",
+                                isSelected ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                              ].join(" ")}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelected(s.id)}
+                                className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                              />
+                              In Vorschlag uebernehmen
+                            </label>
+                          </div>
+                        </div>
+                      </StatementCard>
+                    );
+                  })}
 
                   {!totalStatements && !info && (
                     <p className="text-sm text-slate-500">

@@ -62,6 +62,12 @@ function logErrorSafe(payload: Record<string, unknown>) {
   }
 }
 
+const EvidenceItemSchema = z.object({
+  id: z.string().optional(),
+  url: z.string().optional(),
+  note: z.string().optional(),
+});
+
 const AnalyzeRequestSchema = z
   .object({
     text: z.string().min(1).max(10_000).optional(),
@@ -72,6 +78,7 @@ const AnalyzeRequestSchema = z
     live: z.boolean().optional(),
     contributionId: z.string().min(3).max(100).optional(),
     detailPreset: z.string().max(120).optional(),
+    evidenceItems: z.array(EvidenceItemSchema).optional(),
     test: z.string().optional(),
   })
   .superRefine((val, ctx) => {
@@ -107,6 +114,7 @@ type AnalyzeJobInput = {
   contributionId: string;
   userId?: string | null;
   detailPreset?: string | null;
+  evidenceItems?: { id?: string; url?: string; note?: string }[];
 };
 
 function sanitizeLocale(locale?: string): string {
@@ -179,6 +187,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     contributionId,
     userId,
     detailPreset: body.detailPreset ?? null,
+    evidenceItems: body.evidenceItems ?? [],
   };
 
   if (wantsSse(req, body)) {
@@ -187,7 +196,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   try {
     const result = await runAnalyzeJob(analyzeInput);
-    await finalizeResultPayload(result, analyzeInput);
+    const graphMeta = await finalizeResultPayload(result, analyzeInput);
     const providerMatrix = buildProviderMatrixResponse(
       null,
       (result as any)?._meta?.providerMatrix,
@@ -200,6 +209,8 @@ export async function POST(req: NextRequest): Promise<Response> {
         meta: {
           runId,
           providerMatrix,
+          graphSyncedAt: graphMeta.syncedAt,
+          graphUpserts: graphMeta.upserts,
         },
       },
       { status: 200 },
@@ -275,12 +286,14 @@ export async function POST(req: NextRequest): Promise<Response> {
           degraded: true,
           warning: "KI temporär nicht erreichbar; Analyse wird später erneut versucht.",
           result: degradedResult,
-          meta: {
-            runId,
-            providerMatrix,
-            failedProviders: meta?.failedProviders ?? [],
-            disabledProviders: meta?.disabledProviders ?? meta?.disabled ?? [],
-            skippedProviders: meta?.skippedProviders ?? meta?.skipped ?? [],
+        meta: {
+          runId,
+          providerMatrix,
+          graphSyncedAt: null,
+          graphUpserts: null,
+          failedProviders: meta?.failedProviders ?? [],
+          disabledProviders: meta?.disabledProviders ?? meta?.disabled ?? [],
+          skippedProviders: meta?.skippedProviders ?? meta?.skipped ?? [],
             probes: meta?.probes ?? [],
           },
         },
@@ -360,7 +373,7 @@ async function runAnalyzeJob(input: AnalyzeJobInput): Promise<AnalyzeResultWithM
 async function finalizeResultPayload(
   result: AnalyzeResultWithMeta,
   input: AnalyzeJobInput,
-) {
+): Promise<{ syncedAt: string | null; upserts: number | null }> {
   const snapshot = await persistEventualitiesSnapshot({
     result,
     contributionId: input.contributionId,
@@ -384,7 +397,7 @@ async function finalizeResultPayload(
       : null,
   };
 
-  syncAnalyzeResultToGraph({
+  const graphSynced = await syncAnalyzeResultToGraph({
     result,
     sourceId: input.contributionId,
     locale: input.locale,
@@ -394,7 +407,18 @@ async function finalizeResultPayload(
       contributionId: input.contributionId,
       err: err instanceof Error ? err.message : String(err),
     });
+    return false;
   });
+
+  const syncedAt = graphSynced ? new Date().toISOString() : null;
+  const upserts = null;
+  result._meta = {
+    ...(result._meta ?? {}),
+    graphSyncedAt: syncedAt,
+    graphUpserts: upserts,
+  };
+
+  return { syncedAt, upserts };
 }
 
 function finalizeAnalyzeResult(result: AnalyzeResultWithMeta): AnalyzeResultWithMeta {

@@ -11,6 +11,7 @@ const DraftSaveSchema = z.object({
   text: z.string().min(1),
   textOriginal: z.string().optional(),
   textPrepared: z.string().optional(),
+  evidenceItems: z.array(z.object({ id: z.string().optional(), url: z.string().optional(), note: z.string().optional() })).optional(),
   locale: z.string().optional(),
   source: z.string().optional(),
   analysis: z.unknown().optional(),
@@ -22,6 +23,7 @@ type ContributionDraftDoc = {
   text: string;
   textOriginal?: string;
   textPrepared?: string;
+  evidenceItems?: { id?: string; url?: string; note?: string }[];
   locale?: string;
   source?: string;
   analysis?: unknown;
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
           text: body.text,
           textOriginal: body.textOriginal ?? body.text,
           textPrepared: body.textPrepared ?? body.text,
+          evidenceItems: body.evidenceItems ?? [],
           locale: body.locale ?? null,
           source: body.source ?? null,
           analysis: body.analysis ?? null,
@@ -92,6 +95,7 @@ export async function POST(req: NextRequest) {
     text: body.text,
     textOriginal: body.textOriginal ?? body.text,
     textPrepared: body.textPrepared ?? body.text,
+    evidenceItems: body.evidenceItems ?? [],
     locale: body.locale ?? undefined,
     source: body.source ?? undefined,
     analysis: body.analysis ?? undefined,
