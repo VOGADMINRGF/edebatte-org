@@ -7,6 +7,8 @@ export type NormalizedClaim = {
   title?: string;
   responsibility?: string;
   topic?: string;
+  stance?: "pro" | "neutral" | "contra";
+  importance?: number;
 };
 
 /**
@@ -28,5 +30,7 @@ export function normalizeClaim(raw: any, idx: number): NormalizedClaim | null {
     title: base.title ?? undefined,
     responsibility: base.responsibility ?? undefined,
     topic,
+    stance: base.stance ?? undefined,
+    importance: base.importance ?? undefined,
   };
 }

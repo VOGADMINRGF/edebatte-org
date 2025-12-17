@@ -93,9 +93,12 @@ const pageCopy = {
 };
 
 const levelOptions = [
-  { id: 1 as 1 | 2, label_de: "Level 1 – Basis", label_en: "Level 1 – basic" },
-  { id: 2 as 1 | 2, label_de: "Level 2 – Mehr Fakten", label_en: "Level 2 – more facts" },
+  { id: 1 as 1 | 2 | 3 | 4, label_de: "Level 1 – Kurz", label_en: "Level 1 – short" },
+  { id: 2 as 1 | 2 | 3 | 4, label_de: "Level 2 – Statements", label_en: "Level 2 – statements" },
+  { id: 3 as 1 | 2 | 3 | 4, label_de: "Level 3 – Impact & Zuständigkeiten", label_en: "Level 3 – impact & responsibility" },
+  { id: 4 as 1 | 2 | 3 | 4, label_de: "Level 4 – Deep", label_en: "Level 4 – deep" },
 ];
+const MAX_LEVEL1_STATEMENTS = 3;
 
 const analyzeButtonTexts = {
   running_de: "Analyse läuft …",
@@ -357,7 +360,7 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
     (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
     [locale],
   );
-  const [viewLevel, setViewLevel] = React.useState<1 | 2>(2);
+  const [viewLevel, setViewLevel] = React.useState<1 | 2 | 3 | 4>(2);
   const [text, setText] = React.useState("");
   const hasLoadedDraft = React.useRef(false);
 
@@ -638,7 +641,7 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
       setProviderMatrix(matrixFromResponse);
 
       const inferredTags = deriveTagsFromAnalysis(mappedStatements, mappedKnots);
-      const level = viewLevel === 2 ? "vertieft" : "basis";
+      const level = viewLevel >= 2 ? "vertieft" : "basis";
       const catalogQuestions = selectE150Questions(inferredTags, level).map((q) => ({
         id: q.id,
         label: q.tags[0]?.toUpperCase() ?? "FRAGE",
@@ -830,10 +833,7 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
     }
   };
 
-  const layoutClass =
-    viewLevel >= 2
-      ? "grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_minmax(0,1.1fr)]"
-      : "grid gap-4 lg:grid-cols-[minmax(0,1.8fr)] max-w-4xl mx-auto";
+  const layoutClass = "grid gap-4 lg:grid-cols-[minmax(0,1.8fr)] max-w-5xl mx-auto";
 
   const analyzeButtonLabel =
     isAnalyzing
@@ -841,6 +841,24 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
       : lastStatus === "error" || lastStatus === "empty"
       ? textContent(analyzeButtonTexts, "retry")
       : textContent(analyzeButtonTexts, "start");
+  const topStatements = statements.slice(0, MAX_LEVEL1_STATEMENTS);
+  const levelStatements = viewLevel === 1 ? topStatements : statements;
+  const totalStatements = statements.length;
+  const hasScenarioMatrix = (() => {
+    if (statements.length === 0) return false;
+    const treeByStatement = new Map<string, DecisionTree>();
+    decisionTrees.forEach((tree) => {
+      if (tree?.rootStatementId) {
+        treeByStatement.set(tree.rootStatementId, tree);
+      }
+    });
+    const fallbackByStatement = groupEventualitiesByStatement(eventualities);
+    return statements.some((statement) => {
+      const tree = treeByStatement.get(statement.id);
+      const fallback = fallbackByStatement.get(statement.id);
+      return Boolean(tree || hasScenarioBuckets(fallback));
+    });
+  })();
   const showStickyCta = lastStatus === "success" && statements.length > 0;
   const scrollToStatements = () => {
     if (statementsRef.current) {
@@ -906,36 +924,6 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
 
           {/* Layout */}
           <div className={layoutClass}>
-            {/* Links: Notizen (nur Level 2, Desktop) */}
-            <div
-              className={
-                viewLevel >= 2 ? "hidden lg:flex lg:flex-col gap-3" : "hidden"
-              }
-            >
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Kontext (Notizen)
-              </h2>
-              {notes.length === 0 ? (
-                <p className="text-[11px] text-slate-400">
-                  Noch keine Notizen. Wenn die Analyse relevante Kontextstellen
-                  erkennt, erscheinen sie hier.
-                </p>
-              ) : (
-                notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm"
-                  >
-                    <InlineEditableText
-                      value={note.body}
-                      onChange={(val) => updateNote(note.id, val)}
-                      label={note.title}
-                    />
-                  </div>
-                ))
-              )}
-            </div>
-
             {/* Mitte: Editor + Statements */}
             <div className="flex flex-col gap-4">
               {/* Editor */}
@@ -1025,314 +1013,426 @@ export function ContributionNewClient({ initialOverview }: ContributionNewClient
               </div>
 
               {/* Statements + Voting */}
-              <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-slate-800">
-                    Abgeleitete Statements (Claims)
-                  </h2>
-                  <div className="text-[11px] text-slate-500">
-                    {statements.length} Statements zu diesem Beitrag
+              {viewLevel <= 2 && (
+                <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                  {viewLevel === 1 && (
+                    <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Kurzfassung
+                      </p>
+                      {report?.summary ? (
+                        <p className="mt-1 text-sm text-slate-800">{report.summary}</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-slate-500">
+                          Noch keine Zusammenfassung vorhanden.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-800">
+                      {viewLevel === 1 ? "Top-Statements" : "Abgeleitete Statements (Claims)"}
+                    </h2>
+                    <div className="text-[11px] text-slate-500">
+                      {totalStatements > 0
+                        ? viewLevel === 1
+                          ? `${totalStatements} Statements gesamt (Top ${Math.min(MAX_LEVEL1_STATEMENTS, totalStatements)})`
+                          : `${totalStatements} Statements zu diesem Beitrag`
+                        : "Noch keine Statements – die Analyse muss zuerst erfolgreich durchlaufen."}
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-3 max-w-2xl mx-auto">
-                  {statements.map((s) => {
-                    const inMetaEdit = metaEditingId === s.id;
+                  {info && (
+                    <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-3 text-[11px] text-slate-700">
+                      {info}
+                    </div>
+                  )}
 
-                    return (
-                      <StatementCard
-                        key={s.id}
-                        variant="analyze"
-                        statementId={s.id}
-                        text={s.text}
-                        title={s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`}
-                        mainCategory={s.title ?? `Statement #${s.index + 1}`}
-                        jurisdiction={s.responsibility || undefined}
-                        topic={s.topic || undefined}
-                        currentVote={s.vote}
-                        onVoteChange={(vote) => setVote(s.id, vote)}
-                        showQualityMetrics={Boolean(s.quality)}
-                        quality={s.quality}
-                        source="ai"
-                      >
-                        <div className="space-y-2">
-                          <InlineEditableText
-                            value={s.text}
-                            onChange={(val) => updateStatementText(s.id, val)}
-                            label="Statement-Text"
-                          />
-                          {inMetaEdit ? (
-                            <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                              <input
-                                type="text"
-                                className="min-w-[120px] flex-1 rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-300"
-                                placeholder={`Titel (z.B. „Tierwohl-Standard Stufe 4“)`}
-                                value={s.title ?? ""}
-                                onChange={(e) =>
-                                  updateStatementMeta(s.id, {
-                                    title: e.target.value,
-                                  })
-                                }
-                              />
-                              <input
-                                type="text"
-                                className="min-w-[120px] rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300"
-                                placeholder="Zuständigkeit (z.B. Bund, EU, Kommune …)"
-                                value={s.responsibility ?? ""}
-                                onChange={(e) =>
-                                  updateStatementMeta(s.id, {
-                                    responsibility: e.target.value,
-                                  })
-                                }
-                              />
-                              <input
-                                type="text"
-                                className="min-w-[120px] rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300"
-                                placeholder="Topic (z.B. Tierwohl, Sicherheit …)"
-                                value={s.topic ?? ""}
-                                onChange={(e) =>
-                                  updateStatementMeta(s.id, {
-                                    topic: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5">
-                                Zuständigkeit: <span className="font-medium">{s.responsibility || "–"}</span>
-                              </span>
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5">
-                                Topic: <span className="font-medium">{s.topic || "–"}</span>
-                              </span>
-                            </div>
-                          )}
+                  <div className="space-y-3 max-w-2xl mx-auto">
+                    {levelStatements.map((s) => {
+                      const inMetaEdit = metaEditingId === s.id;
+                      const stanceLabel =
+                        s.stance === "pro"
+                          ? "pro"
+                          : s.stance === "contra"
+                          ? "contra"
+                          : s.stance === "neutral"
+                          ? "neutral"
+                          : null;
+                      const tags: string[] = [];
+                      if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
+                      if (typeof s.importance === "number") {
+                        tags.push(`Wichtigkeit: ${s.importance}/5`);
+                      }
 
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
-                            <div className="flex gap-2">
-                              {s.locallyEdited && (
-                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
-                                  Änderung wird redaktionell geprüft
+                      return (
+                        <StatementCard
+                          key={s.id}
+                          variant="analyze"
+                          statementId={s.id}
+                          text={s.text}
+                          title={s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`}
+                          mainCategory={s.title ?? `Statement #${s.index + 1}`}
+                          jurisdiction={s.responsibility || undefined}
+                          topic={s.topic || undefined}
+                          tags={tags}
+                          currentVote={s.vote}
+                          onVoteChange={(vote) => setVote(s.id, vote)}
+                          showQualityMetrics={Boolean(s.quality)}
+                          quality={s.quality}
+                          source="ai"
+                        >
+                          <div className="space-y-2">
+                            <InlineEditableText
+                              value={s.text}
+                              onChange={(val) => updateStatementText(s.id, val)}
+                              label="Statement-Text"
+                            />
+                            {inMetaEdit ? (
+                              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                                <input
+                                  type="text"
+                                  className="min-w-[120px] flex-1 rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-300"
+                                  placeholder={`Titel (z.B. „Tierwohl-Standard Stufe 4“)`}
+                                  value={s.title ?? ""}
+                                  onChange={(e) =>
+                                    updateStatementMeta(s.id, {
+                                      title: e.target.value,
+                                    })
+                                  }
+                                />
+                                <input
+                                  type="text"
+                                  className="min-w-[120px] rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300"
+                                  placeholder="Zuständigkeit (z.B. Bund, EU, Kommune …)"
+                                  value={s.responsibility ?? ""}
+                                  onChange={(e) =>
+                                    updateStatementMeta(s.id, {
+                                      responsibility: e.target.value,
+                                    })
+                                  }
+                                />
+                                <input
+                                  type="text"
+                                  className="min-w-[120px] rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300"
+                                  placeholder="Topic (z.B. Tierwohl, Sicherheit …)"
+                                  value={s.topic ?? ""}
+                                  onChange={(e) =>
+                                    updateStatementMeta(s.id, {
+                                      topic: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                                  Zuständigkeit: <span className="font-medium">{s.responsibility || "–"}</span>
                                 </span>
-                              )}
-                              {s.flagged && (
-                                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
-                                  Zur Prüfung gemeldet
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                                  Topic: <span className="font-medium">{s.topic || "–"}</span>
                                 </span>
-                              )}
-                            </div>
-                            <div className="ml-auto flex items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={() => reportStatement(s.id)}
-                                className="text-[10px] text-slate-500 hover:text-rose-700 hover:underline"
-                              >
-                                melden
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setMetaEditingId(metaEditingId === s.id ? null : s.id)}
-                                className="text-[10px] text-slate-500 hover:text-sky-700 hover:underline"
-                              >
-                                {metaEditingId === s.id ? "Änderung schließen" : "Metadaten ändern"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeStatement(s.id)}
-                                className="text-[10px] text-slate-500 hover:text-rose-700 hover:underline"
-                              >
-                                entfernen
-                              </button>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
+                              <div className="flex gap-2">
+                                {s.locallyEdited && (
+                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                                    Änderung wird redaktionell geprüft
+                                  </span>
+                                )}
+                                {s.flagged && (
+                                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
+                                    Zur Prüfung gemeldet
+                                  </span>
+                                )}
+                              </div>
+                              <div className="ml-auto flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => reportStatement(s.id)}
+                                  className="text-[10px] text-slate-500 hover:text-rose-700 hover:underline"
+                                >
+                                  melden
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMetaEditingId(metaEditingId === s.id ? null : s.id)}
+                                  className="text-[10px] text-slate-500 hover:text-sky-700 hover:underline"
+                                >
+                                  {metaEditingId === s.id ? "Änderung schließen" : "Metadaten ändern"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeStatement(s.id)}
+                                  className="text-[10px] text-slate-500 hover:text-rose-700 hover:underline"
+                                >
+                                  entfernen
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </StatementCard>
-                    );
-                  })}
+                        </StatementCard>
+                      );
+                    })}
 
-                  {!statements.length && !info && (
-                    <p className="text-sm text-slate-500">
-                      Noch keine Statements vorhanden. Sie erscheinen nur, wenn
-                      die Analyse erfolgreich war und der KI-Dienst klare
-                      Einzel-Statements liefern konnte.
+                    {!totalStatements && !info && (
+                      <p className="text-sm text-slate-500">
+                        Noch keine Statements vorhanden. Sie erscheinen nur, wenn
+                        die Analyse erfolgreich war und der KI-Dienst klare
+                        Einzel-Statements liefern konnte.
+                      </p>
+                    )}
+                  </div>
+
+                  {viewLevel === 1 && totalStatements > MAX_LEVEL1_STATEMENTS && (
+                    <p className="mt-3 text-[11px] text-slate-500">
+                      Weitere Statements findest du in Level 2.
                     </p>
                   )}
                 </div>
-              </div>
+              )}
 
-              <EventualitiesPanel
-                statements={statements}
-                decisionTrees={decisionTrees}
-                fallbackNodes={eventualities}
-              />
+              {viewLevel === 3 && (
+                <div className="space-y-3">
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-slate-800">Mögliche Folgen</h3>
+                        {impactAndResponsibility.impacts?.length ? (
+                          <span className="text-[11px] text-slate-500">
+                            {impactAndResponsibility.impacts.length} Vorschläge
+                          </span>
+                        ) : null}
+                      </div>
+                      <ImpactSection
+                        impacts={impactAndResponsibility.impacts ?? []}
+                        onChange={(next) =>
+                          setImpactAndResponsibility((prev) => ({ ...prev, impacts: next }))
+                        }
+                      />
+                    </div>
 
-              <ConsequencesPreviewCard
-                consequences={consequences}
-                responsibilities={responsibilities}
-              />
-
-              <ResponsibilityPreviewCard
-                responsibilities={responsibilities}
-                paths={responsibilityPaths}
-                showPathOverlay
-              />
-
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-800">Mögliche Folgen</h3>
-                    {impactAndResponsibility.impacts?.length ? (
-                      <span className="text-[11px] text-slate-500">
-                        {impactAndResponsibility.impacts.length} Vorschläge
-                      </span>
-                    ) : null}
+                    <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-slate-800">Wer wäre zuständig?</h3>
+                        {impactAndResponsibility.responsibleActors?.length ? (
+                          <span className="text-[11px] text-slate-500">
+                            {impactAndResponsibility.responsibleActors.length} Vorschläge
+                          </span>
+                        ) : null}
+                      </div>
+                      <ResponsibilitySection
+                        actors={impactAndResponsibility.responsibleActors ?? []}
+                        onChange={(next) =>
+                          setImpactAndResponsibility((prev) => ({
+                            ...prev,
+                            responsibleActors: next,
+                          }))
+                        }
+                      />
+                    </div>
                   </div>
-                  <ImpactSection
-                    impacts={impactAndResponsibility.impacts ?? []}
-                    onChange={(next) =>
-                      setImpactAndResponsibility((prev) => ({ ...prev, impacts: next }))
-                    }
+
+                  <ResponsibilityPreviewCard
+                    responsibilities={responsibilities}
+                    paths={responsibilityPaths}
+                    showPathOverlay
                   />
                 </div>
+              )}
 
-                <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-800">Wer wäre zuständig?</h3>
-                    {impactAndResponsibility.responsibleActors?.length ? (
-                      <span className="text-[11px] text-slate-500">
-                        {impactAndResponsibility.responsibleActors.length} Vorschläge
-                      </span>
-                    ) : null}
-                  </div>
-                  <ResponsibilitySection
-                    actors={impactAndResponsibility.responsibleActors ?? []}
-                    onChange={(next) =>
-                      setImpactAndResponsibility((prev) => ({
-                        ...prev,
-                        responsibleActors: next,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              {report && (
-                <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100">
-                      Vorschlag von KI
-                    </span>
-                    <h3 className="text-sm font-semibold text-slate-900">Automatischer Bericht</h3>
-                  </div>
-                  {report.summary && <p className="mt-2 text-sm text-slate-800">{report.summary}</p>}
-                  {Array.isArray(report.keyConflicts) && report.keyConflicts.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold uppercase text-slate-500">Konfliktlinien</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-800">
-                        {report.keyConflicts.map((c: string, idx: number) => (
-                          <li key={`${c}-${idx}`}>{c}</li>
+              {viewLevel === 4 && (
+                <div className="space-y-3">
+                  <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Kontext (Notizen)
+                    </summary>
+                    {notes.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Noch keine Notizen vorhanden.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                        {notes.map((note, idx) => (
+                          <li key={note.id ?? `note-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {note.title ?? `Notiz ${idx + 1}`}
+                            </p>
+                            <p className="text-sm text-slate-800">{note.body}</p>
+                          </li>
                         ))}
                       </ul>
-                    </div>
-                  )}
-                  {report.facts && (
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-500">Fakten (lokal)</p>
-                        <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-800">
-                          {(report.facts.local ?? []).map((f: string, idx: number) => (
-                            <li key={`f-l-${idx}`}>{f}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-500">Fakten (international)</p>
-                        <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-800">
-                          {(report.facts.international ?? []).map((f: string, idx: number) => (
-                            <li key={`f-i-${idx}`}>{f}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                  {Array.isArray(report.takeaways) && report.takeaways.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold uppercase text-slate-500">Takeaways</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-800">
-                        {report.takeaways.map((c: string, idx: number) => (
-                          <li key={`t-${idx}`}>{c}</li>
+                    )}
+                  </details>
+
+                  <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Fragen zum Weiterdenken
+                    </summary>
+                    {questions.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Noch keine Fragen vorhanden.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                        {questions.map((q, idx) => (
+                          <li key={q.id ?? `q-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {q.label ?? `Frage ${idx + 1}`}
+                            </p>
+                            <p className="text-sm text-slate-800">{q.body}</p>
+                          </li>
                         ))}
                       </ul>
+                    )}
+                  </details>
+
+                  <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Knoten (Themenschwerpunkte)
+                    </summary>
+                    {knots.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Noch keine Knoten vorhanden.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                        {knots.map((k, idx) => (
+                          <li key={k.id ?? `k-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {k.title ?? `Knoten ${idx + 1}`}
+                            </p>
+                            <p className="text-sm text-slate-800">{k.body}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </details>
+
+                  <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Eventualitäten &amp; Entscheidungsbäume
+                    </summary>
+                    {eventualities.length === 0 && decisionTrees.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Noch keine Eventualitäten oder Decision Trees vorhanden.
+                      </p>
+                    ) : hasScenarioMatrix ? (
+                      <div className="mt-3 space-y-3">
+                        <EventualitiesPanel
+                          statements={statements}
+                          decisionTrees={decisionTrees}
+                          fallbackNodes={eventualities}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-3 text-sm text-slate-700">
+                        {eventualities.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Eventualitäten</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {eventualities.map((e, idx) => (
+                                <li key={e.id ?? `ev-${idx}`}>
+                                  {e.narrative || e.label}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {decisionTrees.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Decision Trees</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {decisionTrees.map((d, idx) => (
+                                <li key={d.id ?? `dt-${idx}`}>
+                                  Decision Tree für Statement {d.rootStatementId}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </details>
+
+                  <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Folgen &amp; Zuständigkeiten
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      <ConsequencesPreviewCard
+                        consequences={consequences}
+                        responsibilities={responsibilities}
+                      />
+                      <ResponsibilityPreviewCard
+                        responsibilities={responsibilities}
+                        paths={responsibilityPaths}
+                        showPathOverlay
+                      />
                     </div>
-                  )}
+                  </details>
+
+                  <details className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                      Bericht
+                    </summary>
+                    {report ? (
+                      <div className="mt-3 space-y-3 text-sm text-slate-800">
+                        {report.summary && <p>{report.summary}</p>}
+                        {Array.isArray(report.keyConflicts) && report.keyConflicts.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Konfliktlinien</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {report.keyConflicts.map((c: string, idx: number) => (
+                                <li key={`${c}-${idx}`}>{c}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {report.facts && (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-slate-500">Fakten (lokal)</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-4">
+                                {(report.facts.local ?? []).map((f: string, idx: number) => (
+                                  <li key={`f-l-${idx}`}>{f}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-slate-500">Fakten (international)</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-4">
+                                {(report.facts.international ?? []).map((f: string, idx: number) => (
+                                  <li key={`f-i-${idx}`}>{f}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                        {Array.isArray(report.takeaways) && report.takeaways.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Takeaways</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {report.takeaways.map((c: string, idx: number) => (
+                                <li key={`t-${idx}`}>{c}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Noch kein Bericht vorhanden.
+                      </p>
+                    )}
+                  </details>
                 </div>
               )}
             </div>
 
-            {/* Rechts: Fragen & Knoten (nur Level 2) */}
-            <div
-              className={
-                viewLevel >= 2 ? "hidden lg:flex lg:flex-col gap-3" : "hidden"
-              }
-            >
-              <div className="space-y-3">
-                <div>
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Fragen zum Weiterdenken
-                  </h2>
-                  {questions.length === 0 ? (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Noch keine Fragen. Wenn die Analyse vertiefende Fragen
-                      ableitet, erscheinen sie hier.
-                    </p>
-                  ) : (
-                    <div className="mt-1 space-y-2">
-                      {questions.map((q) => (
-                        <div
-                          key={q.id}
-                          className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm"
-                        >
-                          <InlineEditableText
-                            value={q.body}
-                            onChange={(val) => updateQuestion(q.id, val)}
-                            label={q.category || q.label}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h2 className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Knoten (Themenschwerpunkte)
-                  </h2>
-                  {knots.length === 0 ? (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Noch keine Knoten. Sobald die Analyse zentrale
-                      Themenschwerpunkte erkennt, erscheinen sie hier.
-                    </p>
-                  ) : (
-                    <div className="mt-1 space-y-2">
-                      {knots.map((k) => (
-                        <div
-                          key={k.id}
-                          className="rounded-xl border border-slate-200 bg-white/90 p-3 shadow-sm"
-                        >
-                          <InlineEditableText
-                            value={k.body}
-                            onChange={(val) => updateKnot(k.id, val)}
-                            label={`${k.title}${
-                              k.category ? ` · ${k.category}` : ""
-                            }`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
