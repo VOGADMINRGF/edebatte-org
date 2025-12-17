@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { UserProvider, type IUserProfile } from "@features/user/context/UserContext";
+import { UserProvider } from "@features/user/context/UserContext";
+
+type IUserProfile = {
+  verification?: unknown;
+  [key: string]: any;
+};
 import { getSessionUser } from "@/lib/server/auth/sessionUser";
 
 function toInitialUser(sessionUser: any): IUserProfile | null {

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getCol, ObjectId } from "@core/db/triMongo";
 import { consumeEmailVerificationToken } from "@core/auth/emailVerificationService";
-import { ensureVerificationDefaults } from "@core/auth/verificationTypes";
 import { logIdentityEvent } from "@core/telemetry/identityEvents";
-import { applySessionCookies, type CoreUserAuthSnapshot } from "../../sharedAuth";
+import { applySessionCookies, ensureVerificationDefaults, type CoreUserAuthSnapshot } from "../../sharedAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
     groups: (user as any).groups,
     accessTier: (user as any).accessTier,
     profile: (user as any).profile,
-    verification,
+    verification: ensureVerificationDefaults(verification) as any,
   };
   await applySessionCookies(snapshot);
 

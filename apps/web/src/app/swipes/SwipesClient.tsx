@@ -248,7 +248,15 @@ export function SwipesClient({ edebattePackage, initialTopic = "", focusStatemen
                 variant="swipe"
                 statementId={item.id}
                 title={item.title}
-                text={item.title ?? item.summary ?? ""}
+                text={
+                  item.title ??
+                  (item as any).summary ??
+                  (item as any).text ??
+                  (item as any).statement?.text ??
+                  (item as any).claim?.text ??
+                  (item as any).eventuality?.text ??
+                  ""
+                }
                 mainCategory={item.category}
                 jurisdiction={item.level}
                 topic={item.domainLabel}
@@ -291,7 +299,15 @@ export function SwipesClient({ edebattePackage, initialTopic = "", focusStatemen
                   variant="swipe"
                   statementId={item.id}
                   title={item.title}
-                  text={item.title ?? item.summary ?? ""}
+                  text={
+                    item.title ??
+                    (item as any).summary ??
+                    (item as any).text ??
+                    (item as any).statement?.text ??
+                    (item as any).claim?.text ??
+                    (item as any).eventuality?.text ??
+                    ""
+                  }
                   mainCategory={item.category}
                   jurisdiction={item.level}
                   topic={item.domainLabel}

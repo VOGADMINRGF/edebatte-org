@@ -63,7 +63,7 @@ type StatementEntry = NormalizedClaim & {
   flagged?: boolean;       // vom User gemeldet
 };
 
-import type { ImpactAndResponsibility } from "../../../features/analyze/schemas";
+import type { ImpactAndResponsibility } from "@features/analyze/schemas";
 
 type ProviderMatrixEntry = {
   provider: string;

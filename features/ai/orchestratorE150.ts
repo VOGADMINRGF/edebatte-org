@@ -541,22 +541,24 @@ function buildProviderMatrix(
         openaiErrorMessage: o.openaiErrorMessage ?? null,
       };
     }
-    if (outcome && !outcome.ok && outcome.errorKind === "CANCELLED") {
+    if (outcome && !outcome.ok) {
       const o = outcome as ProviderFailure;
-      return {
-        provider: p.name,
-        state: "cancelled",
-        attempt: o.attempt ?? null,
-        errorKind: o.errorKind ?? null,
-        status: o.httpStatus ?? null,
-        durationMs: o.durationMs,
-        model: o.modelName ?? null,
-        reason: o.cancelReason ?? o.error ?? null,
-        formatUsed: o.formatUsed ?? null,
-        didFallback: o.didFallback ?? null,
-        openaiErrorCode: o.openaiErrorCode ?? null,
-        openaiErrorMessage: o.openaiErrorMessage ?? null,
-      };
+      if (o.errorKind === "CANCELLED") {
+        return {
+          provider: p.name,
+          state: "cancelled",
+          attempt: o.attempt ?? null,
+          errorKind: o.errorKind ?? null,
+          status: o.httpStatus ?? null,
+          durationMs: o.durationMs,
+          model: o.modelName ?? null,
+          reason: o.cancelReason ?? o.error ?? null,
+          formatUsed: o.formatUsed ?? null,
+          didFallback: o.didFallback ?? null,
+          openaiErrorCode: o.openaiErrorCode ?? null,
+          openaiErrorMessage: o.openaiErrorMessage ?? null,
+        };
+      }
     }
     if (outcome && !outcome.ok) {
       const o = outcome as ProviderFailure;
@@ -1443,7 +1445,7 @@ export async function callE150Orchestrator(
       !budgetController.signal.aborted &&
       !outerSignal?.aborted;
 
-    if (!validation.ok && canRetryJson) {
+    if (validation.ok === false && canRetryJson) {
       const retryResult = await runProvider(profile, {
         ...args,
         maxTokens: 800,
@@ -1460,7 +1462,7 @@ export async function callE150Orchestrator(
       }
     }
 
-    if (!validation.ok) {
+    if (validation.ok === false) {
       const failure: ProviderFailure = {
         ok: false,
         provider: current.provider,

@@ -5,6 +5,8 @@ import { ensureVerificationDefaults } from "@core/auth/verificationTypes";
 import type { ObjectId } from "@core/db/triMongo";
 import type { UserRole } from "@/types/user";
 
+export { ensureVerificationDefaults };
+
 export const CREDENTIAL_COLLECTION = "user_credentials" as const;
 export const TWO_FA_COLLECTION = "twofactor_challenges" as const;
 export const DEFAULT_REDIRECT = "/" as const;
