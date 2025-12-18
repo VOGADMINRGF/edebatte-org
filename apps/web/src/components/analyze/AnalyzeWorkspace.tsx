@@ -329,20 +329,20 @@ function formatDateLabel(value?: string | null) {
   return date.toLocaleString();
 }
 
-type QuoteRange = { start: number; end: number };
+type QuoteRange = { start: number; end: number; mode: TraceAttribution["mode"] };
 
-function buildQuoteRanges(text: string, quotes: string[]): QuoteRange[] {
+function buildQuoteRanges(text: string, quotes: Array<{ quote: string; mode: TraceAttribution["mode"] }>): QuoteRange[] {
   if (!text || quotes.length === 0) return [];
   const lower = text.toLowerCase();
   const ranges: QuoteRange[] = [];
 
-  quotes.forEach((quote) => {
+  quotes.forEach(({ quote, mode }) => {
     const trimmed = quote.trim();
     if (!trimmed) return;
     const needle = trimmed.toLowerCase();
     let idx = lower.indexOf(needle);
     while (idx !== -1) {
-      ranges.push({ start: idx, end: idx + trimmed.length });
+      ranges.push({ start: idx, end: idx + trimmed.length, mode });
       idx = lower.indexOf(needle, idx + needle.length);
     }
   });
@@ -366,12 +366,18 @@ function renderHighlightedText(text: string, ranges: QuoteRange[]): React.ReactN
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
 
+  const colors: Record<TraceAttribution["mode"], string> = {
+    verbatim: "bg-sky-100 text-slate-900",
+    paraphrase: "bg-amber-100 text-slate-900",
+    inference: "bg-rose-100 text-slate-900",
+  };
+
   ranges.forEach((range, idx) => {
     if (range.start > lastIndex) nodes.push(text.slice(lastIndex, range.start));
     nodes.push(
       <mark
         key={`quote-${range.start}-${range.end}-${idx}`}
-        className="rounded bg-amber-100/80 px-0.5 text-slate-900"
+        className={`rounded px-0.5 ${colors[range.mode]}`}
       >
         {text.slice(range.start, range.end)}
       </mark>,
@@ -525,14 +531,14 @@ export default function AnalyzeWorkspace({
 
   const traceQuotes = React.useMemo(() => {
     if (!traceResult?.attribution) return [];
-    const unique = new Set<string>();
+    const items: Array<{ quote: string; mode: TraceAttribution["mode"] }> = [];
     Object.values(traceResult.attribution).forEach((entry) => {
       entry.quotes?.forEach((quote) => {
         const trimmed = quote.trim();
-        if (trimmed) unique.add(trimmed);
+        if (trimmed) items.push({ quote: trimmed, mode: entry.mode });
       });
     });
-    return Array.from(unique);
+    return items;
   }, [traceResult]);
 
   const quoteRanges = React.useMemo(() => buildQuoteRanges(previewText, traceQuotes), [previewText, traceQuotes]);
@@ -959,7 +965,7 @@ export default function AnalyzeWorkspace({
 
   return (
     <div ref={workspaceRef} className="min-h-[calc(100vh-64px)] bg-[linear-gradient(180deg,#e9f6ff_0%,#c0f8ff_45%,#a4fcec_100%)]">
-      <div className="container-vog max-w-6xl space-y-4 pb-24 pt-6">
+      <div className="container-vog max-w-none px-4 space-y-4 pb-24 pt-6">
         <div className="space-y-2">
           <h1 className="vog-head text-3xl sm:text-4xl">
             {mode === "statement" ? (
@@ -984,41 +990,45 @@ export default function AnalyzeWorkspace({
         </div>
 
         <div className="sticky top-0 z-20 -mx-4 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ziel</span>
-              <div className="inline-flex flex-wrap items-center rounded-full bg-slate-100 p-1 text-[11px]">
-                {JOURNEY_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleJourneyChange(opt.id)}
-                    className={[
-                      "rounded-full px-3 py-1 transition",
-                      journey === opt.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                    ].join(" ")}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="overflow-x-auto">
+                <div className="inline-flex min-w-full gap-2 rounded-full bg-slate-100 p-1 text-[11px]">
+                  {JOURNEY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleJourneyChange(opt.id)}
+                      className={[
+                        "rounded-full px-3 py-1 transition whitespace-nowrap",
+                        journey === opt.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+                      ].join(" ")}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Detailgrad</span>
-              <div className="inline-flex flex-wrap items-center rounded-full bg-slate-100 p-1 text-[11px]">
-                {LEVEL_OPTIONS.map((lvl) => (
-                  <button
-                    key={lvl.id}
-                    type="button"
-                    onClick={() => setViewLevel(lvl.id)}
-                    className={[
-                      "rounded-full px-3 py-1 transition",
-                      viewLevel === lvl.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                    ].join(" ")}
-                  >
-                    {lvl.label}
-                  </button>
-                ))}
+              <div className="overflow-x-auto">
+                <div className="inline-flex min-w-full gap-2 rounded-full bg-slate-100 p-1 text-[11px]">
+                  {LEVEL_OPTIONS.map((lvl) => (
+                    <button
+                      key={lvl.id}
+                      type="button"
+                      onClick={() => setViewLevel(lvl.id)}
+                      className={[
+                        "rounded-full px-3 py-1 transition whitespace-nowrap",
+                        viewLevel === lvl.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+                      ].join(" ")}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1026,9 +1036,19 @@ export default function AnalyzeWorkspace({
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-xs text-slate-600 shadow-sm">
-              Entwurf: <span className="font-semibold text-slate-900">{buildDraftLabel(draftId, localDraftId)}</span> · zuletzt gespeichert:{" "}
-              <span className="font-semibold text-slate-900">{formatDateLabel(savedAt)}</span>
+            <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-xs text-slate-600 shadow-sm flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Entwurf: <span className="font-semibold text-slate-900">{buildDraftLabel(draftId, localDraftId)}</span>
+                </span>
+                <span>
+                  zuletzt gespeichert: <span className="font-semibold text-slate-900">{formatDateLabel(savedAt)}</span>
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                <span className="font-semibold uppercase tracking-wide text-slate-500">Phasen</span>
+                <AnalyzeProgress steps={steps} providerMatrix={providerMatrix} compact />
+              </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
@@ -1612,22 +1632,22 @@ export default function AnalyzeWorkspace({
         </div>
       </div>
 
-      <div ref={ctaRef} className="fixed bottom-4 left-0 right-0 z-30">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/95 px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.12)] ring-1 ring-slate-200">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">
-              {selectedClaimIds.length} von {totalStatements} ausgewaehlt
+      <div ref={ctaRef} className="fixed bottom-3 left-0 right-0 z-30 px-3">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/95 px-3 py-2 shadow-[0_18px_45px_rgba(15,23,42,0.12)] ring-1 ring-slate-200">
+          <div className="min-w-[180px]">
+            <p className="text-xs font-semibold text-slate-900">
+              {selectedClaimIds.length} von {totalStatements} ausgewählt
             </p>
-            <p className="text-xs text-slate-500">Waehle, welche Statements als Vorschlaege uebernommen werden.</p>
+            <p className="text-[11px] text-slate-500">Wähle, welche Statements eingereicht werden.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
             <button
               type="button"
               onClick={saveDraftSnapshot}
               disabled={isSaving || !preparedText.trim()}
               className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             >
-              Entwurf speichern
+              Speichern
             </button>
             <button
               type="button"
@@ -1635,28 +1655,12 @@ export default function AnalyzeWorkspace({
               disabled={!draftId || isFinalizing}
               className="rounded-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 px-5 py-2 text-xs font-semibold text-white shadow-md hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Als Vorschlag einreichen
-            </button>
-            {finalizeRedirectTo && (
-              <button
-                type="button"
-                onClick={handleRedirect}
-                className="rounded-full border border-emerald-300 px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-              >
-                Zu Swipes
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={scrollToNextLevel}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Weiter
+              Einreichen
             </button>
           </div>
         </div>
         {finalizeInfo && (
-          <div className="mx-auto mt-2 max-w-5xl rounded-2xl bg-emerald-50 px-4 py-2 text-xs text-emerald-700 ring-1 ring-emerald-100">
+          <div className="mx-auto mt-2 max-w-3xl rounded-2xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-100">
             {finalizeInfo}
           </div>
         )}

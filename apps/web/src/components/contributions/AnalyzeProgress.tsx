@@ -22,7 +22,8 @@ type AnalyzeProgressProps = {
 export function AnalyzeProgress({
   steps,
   providerMatrix = [],
-}: AnalyzeProgressProps) {
+  compact = false,
+}: AnalyzeProgressProps & { compact?: boolean }) {
   const stateColors: Record<"running" | "done" | "empty" | "failed", string> = {
     running: "bg-amber-100 text-amber-800 border border-amber-200",
     done: "bg-emerald-100 text-emerald-800 border border-emerald-200",
@@ -37,22 +38,34 @@ export function AnalyzeProgress({
   };
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
-      <div className="flex flex-col gap-2">
+      <div className={compact ? "grid grid-cols-5 gap-1" : "flex flex-col gap-2"}>
         {steps.map((step, idx) => (
           <div
             key={step.key}
-            className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+            className={
+              compact
+                ? "flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px]"
+                : "flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+            }
           >
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-700">
+              <span
+                className={
+                  compact
+                    ? "flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-700"
+                    : "flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-700"
+                }
+              >
                 {idx + 1}
               </span>
-              <span className="text-sm font-semibold text-slate-800">{step.label}</span>
-              <span className={`rounded-full px-2 py-0.5 text-[11px] ${stateColors[step.state]}`}>
+              <span className={compact ? "text-[11px] font-semibold text-slate-800" : "text-sm font-semibold text-slate-800"}>
+                {step.label}
+              </span>
+              <span className={`rounded-full ${compact ? "px-2 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"} ${stateColors[step.state]}`}>
                 {stateLabel[step.state]}
               </span>
             </div>
-            {step.reason ? <div className="text-slate-500">{step.reason}</div> : null}
+            {!compact && step.reason ? <div className="text-slate-500">{step.reason}</div> : null}
           </div>
         ))}
       </div>
