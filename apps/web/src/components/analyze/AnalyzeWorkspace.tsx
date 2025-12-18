@@ -1610,11 +1610,14 @@ export default function AnalyzeWorkspace({
             )}
           </div>
         </div>
+      </div>
 
       <div ref={ctaRef} className="fixed bottom-4 left-0 right-0 z-30">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/95 px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.12)] ring-1 ring-slate-200">
           <div>
-            <p className="text-sm font-semibold text-slate-900">{selectedClaimIds.length} von {totalStatements} ausgewaehlt</p>
+            <p className="text-sm font-semibold text-slate-900">
+              {selectedClaimIds.length} von {totalStatements} ausgewaehlt
+            </p>
             <p className="text-xs text-slate-500">Waehle, welche Statements als Vorschlaege uebernommen werden.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
