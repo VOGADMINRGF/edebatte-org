@@ -16,6 +16,30 @@ declare global {
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
+const SHAPE_OPTIONS = [
+  {
+    value: "kreis",
+    label: "Kreis",
+    hint: "blau",
+    shape: "circle" as const,
+    gradient: "bg-gradient-to-br from-sky-400 to-blue-600",
+  },
+  {
+    value: "rechteck",
+    label: "Rechteck",
+    hint: "türkis",
+    shape: "rect" as const,
+    gradient: "bg-gradient-to-br from-teal-300 to-cyan-400",
+  },
+  {
+    value: "dreieck",
+    label: "Dreieck",
+    hint: "grün",
+    shape: "triangle" as const,
+    gradient: "bg-gradient-to-br from-emerald-300 to-emerald-500",
+  },
+];
+
 type Props = {
   sent?: boolean;
   error?: string;
@@ -101,6 +125,8 @@ const errorText: Record<string, string> = {
     "Die Angaben waren unvollständig. Bitte prüfe die Felder oder schreib direkt an kontakt@voiceopengov.org.",
   challenge:
     "Die Sicherheitsfrage wurde nicht korrekt beantwortet. Bitte versuche es erneut oder schreib uns direkt an kontakt@voiceopengov.org.",
+  shape:
+    "Bitte klicke die korrekte Form an (Kreis). Sollte das nicht funktionieren, schreib uns direkt an kontakt@voiceopengov.org.",
 };
 
 export default function KontaktForm({ sent, error, challenge }: Props) {
@@ -108,6 +134,16 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
   const { token: turnstileToken, error: turnstileError, widgetRef } = useTurnstile();
   const showTurnstile = Boolean(TURNSTILE_SITE_KEY);
   const displayError = error ? errorText[error] ?? errorText.invalid : null;
+  const [shapes, setShapes] = useState(SHAPE_OPTIONS);
+
+  const reshuffleShapes = () => {
+    const arr = [...SHAPE_OPTIONS];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    setShapes(arr);
+  };
 
   return (
     <section
@@ -152,6 +188,9 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
           <label htmlFor="website">Bitte dieses Feld frei lassen</label>
           <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
           <input id="hp_contact" name="hp_contact" type="text" tabIndex={-1} autoComplete="off" />
+          <input id="hp_company" name="hp_company" type="text" tabIndex={-1} autoComplete="off" />
+          <input id="hp_message_copy" name="hp_message_copy" type="text" tabIndex={-1} autoComplete="off" />
+          <input id="hp_social" name="hp_social" type="text" tabIndex={-1} autoComplete="off" />
         </div>
 
         <div>
@@ -246,20 +285,85 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
           />
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="humanAnswer" className="block text-xs font-semibold text-slate-700">
-            Kurze Sicherheitsfrage
-          </label>
-          <p className="text-[11px] text-slate-600">{challenge.prompt}</p>
-          <input
-            id="humanAnswer"
-            name="humanAnswer"
-            type="text"
-            autoComplete="off"
-            required
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-            placeholder="Antwort hier eintragen (Pflichtfeld)"
-          />
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-50 px-4 py-4 shadow-sm">
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Human Check
+            </p>
+            <p className="text-sm text-slate-700">
+              Bitte den <span className="font-semibold text-slate-900">blauen Kreis</span> auswählen
+              und die Farbe ins Feld schreiben. Hinweis: Rechteck ist türkis, Dreieck ist grün.
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold text-slate-600">Klickcheck</p>
+                <button
+                  type="button"
+                  onClick={reshuffleShapes}
+                  className="text-[11px] font-semibold text-sky-700 hover:text-sky-900 underline underline-offset-4"
+                >
+                  Challenge neu mischen
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {shapes.map((shape) => (
+                  <label className="block" key={shape.value}>
+                    <input
+                      type="radio"
+                      name="humanShape"
+                      value={shape.value}
+                      required={shape.value === "kreis"}
+                      className="peer sr-only"
+                      aria-label={`${shape.label} (${shape.hint})`}
+                    />
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-sky-200 hover:shadow-md peer-checked:border-sky-500 peer-checked:ring-2 peer-checked:ring-sky-100">
+                      <span className="flex h-10 w-10 items-center justify-center">
+                        {shape.shape === "circle" && (
+                          <span className={`block h-8 w-8 rounded-full ${shape.gradient} shadow-inner`} />
+                        )}
+                        {shape.shape === "rect" && (
+                          <span className={`block h-8 w-8 rounded-lg ${shape.gradient}`} />
+                        )}
+                        {shape.shape === "triangle" && (
+                          <span
+                            className={`block h-8 w-8 ${shape.gradient}`}
+                            style={{ clipPath: "polygon(50% 0, 0 100%, 100% 100%)" }}
+                          />
+                        )}
+                      </span>
+                      <div className="leading-tight">
+                        <div className="text-sm font-semibold text-slate-900">{shape.label}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {shape.hint} {shape.value === "kreis" ? "(anklicken)" : "(nicht auswählen)"}
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="humanAnswer" className="text-[11px] font-semibold text-slate-600">
+                Kurze Schreibfrage
+              </label>
+              <p className="text-[11px] text-slate-600">
+                Schreibe die Farbe des angeklickten Kreises ins Feld (Tipp: blau).
+              </p>
+              <input
+                id="humanAnswer"
+                name="humanAnswer"
+                type="text"
+                autoComplete="off"
+                required
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                placeholder='Bitte "blau" eintragen'
+              />
+            </div>
+          </div>
         </div>
 
         {showTurnstile && (

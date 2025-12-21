@@ -26,12 +26,6 @@ import { VERIFICATION_REQUIREMENTS, meetsVerificationLevel } from "@features/aut
 import type { VerificationLevel } from "@core/auth/verificationTypes";
 import VogVoteButtons, { type VoteValue } from "@features/vote/components/VogVoteButtons";
 
-const LEVEL_OPTIONS = [
-  { id: 1 as 1 | 2 | 3 | 4, label: "Schnell adressieren" },
-  { id: 2 as 1 | 2 | 3 | 4, label: "Verstehen" },
-  { id: 3 as 1 | 2 | 3 | 4, label: "Verbinden" },
-  { id: 4 as 1 | 2 | 3 | 4, label: "Deep Dive" },
-];
 const MAX_LEVEL1_STATEMENTS = 3;
 
 const TRACE_MODE_META: Record<TraceAttribution["mode"], { label: string; className: string }> = {
@@ -784,7 +778,8 @@ export default function AnalyzeWorkspace({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           textOriginal: text,
-          textPrepared: preparedText,
+          preparedText,
+          text: preparedText,
           locale,
           maxClaims,
           detailPreset: viewLevel,
@@ -924,7 +919,7 @@ export default function AnalyzeWorkspace({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           textOriginal: text,
-          textPrepared: preparedText || undefined,
+          preparedText: preparedText || undefined,
           locale,
           statements: statements.map((s) => ({ id: s.id, text: s.text })),
         }),
@@ -997,7 +992,7 @@ export default function AnalyzeWorkspace({
         <div className="sticky top-0 z-20 -mx-4 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur">
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ziel</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ziel & Detailgrad</span>
               <div className="overflow-x-auto">
                 <div className="inline-flex min-w-full gap-2 rounded-full bg-slate-100 p-1 text-[11px]">
                   {JOURNEY_OPTIONS.map((opt) => (
@@ -1016,26 +1011,6 @@ export default function AnalyzeWorkspace({
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Detailgrad</span>
-              <div className="overflow-x-auto">
-                <div className="inline-flex min-w-full gap-2 rounded-full bg-slate-100 p-1 text-[11px]">
-                  {LEVEL_OPTIONS.map((lvl) => (
-                    <button
-                      key={lvl.id}
-                      type="button"
-                      onClick={() => setViewLevel(lvl.id)}
-                      className={[
-                        "rounded-full px-3 py-1 transition whitespace-nowrap",
-                        viewLevel === lvl.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                      ].join(" ")}
-                    >
-                      {lvl.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1049,10 +1024,6 @@ export default function AnalyzeWorkspace({
                 <span>
                   zuletzt gespeichert: <span className="font-semibold text-slate-900">{formatDateLabel(savedAt)}</span>
                 </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                <span className="font-semibold uppercase tracking-wide text-slate-500">Phasen</span>
-                <AnalyzeProgress steps={steps} providerMatrix={providerMatrix} compact />
               </div>
             </div>
 

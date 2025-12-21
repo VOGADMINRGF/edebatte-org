@@ -422,7 +422,7 @@ export function MembershipApplicationPageClient() {
         const msg =
           (data as any)?.error ||
           (data as any)?.message ||
-          "Dein Mitgliedsantrag konnte nicht gespeichert werden. Bitte versuche es später erneut.";
+          "Deine Beauftragung konnte nicht gespeichert werden. Bitte versuche es später erneut.";
         setError(msg);
         return;
       }
@@ -453,10 +453,10 @@ export function MembershipApplicationPageClient() {
     return (
       <div className="space-y-6 rounded-3xl border border-sky-100 bg-white/90 p-6 shadow-xl">
         <h1 className="text-2xl font-extrabold leading-tight text-slate-900">
-          Mitgliedsantrag – bitte zuerst einloggen oder registrieren
+          Beauftragung – bitte zuerst einloggen oder registrieren
         </h1>
         <p className="text-sm text-slate-700">
-          Um einen Mitgliedsantrag zu stellen, brauchst du ein persönliches Konto. So können wir
+          Um eine Beauftragung abzuschließen, brauchst du ein persönliches Konto. So können wir
           deine Stimme eindeutig zuordnen und dir die notwendigen Unterlagen zusenden.
         </p>
         <div className="flex flex-wrap gap-3">
@@ -490,7 +490,7 @@ export function MembershipApplicationPageClient() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold leading-tight text-slate-900 md:text-3xl">
-            Mitgliedsantrag ausfüllen
+            Beauftragung abschließen
           </h1>
           <p className="mt-1 text-sm text-slate-700">
             Im ersten Schritt hast du deinen Beitrag berechnet. Hier kannst du deinen Haushalt
@@ -868,7 +868,7 @@ export function MembershipApplicationPageClient() {
 
         {success && (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <p className="font-semibold">Danke, dein Mitgliedsantrag ist eingegangen.</p>
+            <p className="font-semibold">Danke, deine Beauftragung ist eingegangen.</p>
             <p className="mt-1">
               Du erhältst in Kürze eine Bestätigung per E-Mail.
               {success.invites > 0 && (
@@ -893,7 +893,7 @@ export function MembershipApplicationPageClient() {
               ? "Antrag gesendet"
               : submitting
               ? "Sende Antrag …"
-              : "Mitgliedsantrag absenden"}
+              : "Beauftragung absenden"}
           </button>
 
           {success && (

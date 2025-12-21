@@ -149,7 +149,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
       <section className="mx-auto max-w-4xl px-4 py-12 space-y-8">
         <header className="space-y-3">
           <p className="text-xs uppercase tracking-wide text-slate-500">Citizen Core Journey</p>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">Mitgliedsantrag – VoiceOpenGov</h1>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">Beauftragung & Zahlung – VoiceOpenGov</h1>
           <p className="text-sm md:text-base text-slate-700 leading-relaxed">
             Wähle dein Paket, bestätige deine Pflichtangaben und erhalte direkt die Bankdaten für deine erste Gutschrift.
             Wir stellen keine Spendenquittungen aus, weil wir als Bewegung unabhängig von Großspender:innen bleiben wollen.
@@ -237,7 +237,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
               </label>
               <label className="flex items-start gap-2">
                 <input required type="checkbox" className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
-                <span>Ich bin mit der Verarbeitung meiner Daten zur Bearbeitung des Mitgliedsantrags einverstanden.</span>
+                <span>Ich bin mit der Verarbeitung meiner Daten zur Bearbeitung der Beauftragung einverstanden.</span>
               </label>
             </div>
 
@@ -252,7 +252,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
                 disabled={busy}
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md disabled:opacity-60"
               >
-                {busy ? "Wird gesendet …" : "Mitgliedsantrag absenden"}
+                {busy ? "Wird gesendet …" : "Beauftragung absenden"}
               </button>
             </div>
           </form>

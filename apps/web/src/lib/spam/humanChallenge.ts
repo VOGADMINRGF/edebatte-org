@@ -11,28 +11,12 @@ const HUMAN_CHALLENGES: HumanChallenge[] = [
     prompt: "Schreib bitte das Wort \"blau\" in dieses Feld.",
     answers: ["blau"],
   },
-  {
-    id: "zahl",
-    prompt: "Wieviel ist drei plus fünf? (nur die Zahl eingeben)",
-    answers: ["8", "acht"],
-  },
-  {
-    id: "planet",
-    prompt: "Auf welchem Planeten leben wir? (\"Erde\")",
-    answers: ["erde", "die erde"],
-  },
-  {
-    id: "voice",
-    prompt: "Wie heißt unser Projekt? Bitte \"voiceopengov\" eingeben.",
-    answers: ["voiceopengov", "voice open gov"],
-  },
 ];
 
 const HUMAN_CHALLENGE_MAP = new Map(HUMAN_CHALLENGES.map((entry) => [entry.id, entry]));
 
 export function pickHumanChallenge(): HumanChallenge {
-  const idx = Math.floor(Math.random() * HUMAN_CHALLENGES.length);
-  return HUMAN_CHALLENGES[idx];
+  return HUMAN_CHALLENGES[0];
 }
 
 function normalizeAnswer(value: unknown) {

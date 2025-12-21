@@ -6,7 +6,7 @@ type LocaleString = Record<"de", string> & Partial<Record<SupportedLocale, strin
 type LocaleStringArray = Record<"de", string[]> & Partial<Record<SupportedLocale, string[]>>;
 
 const STRINGS = {
-  heroTitle: { de: "Mitglied werden – Teil der Bewegung" } as LocaleString,
+  heroTitle: { de: "VoiceOpenGov & eDebatte beauftragen" } as LocaleString,
   heroIntro: {
     de: "VoiceOpenGov ist die Bewegung hinter eDebatte – eine unabhängige, über Grenzen hinaus wachsende Initiative für digitale, direktdemokratische Beteiligung. Deine Mitgliedschaft trägt die gemeinsame Vision und finanziert die dafür nötige Infrastruktur. Wir handeln bewusst unabhängig; wie wir das absichern, erfährst du in unserem Transparenzbericht. eDebatte ist das Werkzeug, in dem diese Beteiligung stattfindet. Es steht allen offen – unabhängig von Herkunft, Religion oder politischer Überzeugung. Ziel ist es, mehrheitsfähige Entscheidungen vorzubereiten und zugleich Kompromisse, Minderheitenpositionen und mögliche Folgen sichtbar zu machen. VoiceOpenGov ist das Dach darüber: die Gemeinschaft, die Regeln, Qualität und Weiterentwicklung trägt. Mit deiner Mitgliedschaft hilfst du, dieses Werkzeug dauerhaft unabhängig und gemeinwohlorientiert zu halten.",
   } as LocaleString,
@@ -84,7 +84,7 @@ const STRINGS = {
   summaryMembershipHintOnce: {
     de: "Du hast einen einmaligen Betrag eingetragen, ohne eine laufende Mitgliedschaft zu wählen. Danke für deine Unterstützung – wir würden uns freuen, dich später als Mitglied zu begrüßen.",
   } as LocaleString,
-  summaryButton: { de: "Weiter zum Mitgliedsantrag" } as LocaleString,
+  summaryButton: { de: "Weiter zur Beauftragung" } as LocaleString,
 
   finalTitle: { de: "Mehr als ein Beitrag – wie du noch mitmachen kannst" } as LocaleString,
   finalIntro: {

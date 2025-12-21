@@ -144,10 +144,25 @@ export default function Home() {
           </div>
 
           {/* Rechte Spalte: Evidenz-Graph-Kasten */}
-          <div className="w-full max-w-xl lg:w-[40%]">
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_70px_rgba(14,116,144,0.08)]">
-              <div className="p-6">
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/90 via-sky-500/90 to-blue-500/80 p-5 text-white shadow-lg">
+          <div className="w-full max-w-xl lg:w-[40%] lg:pt-44">
+            <div className="overflow-hidden rounded-3xl shadow-[0_18px_70px_rgba(14,116,144,0.08)]">
+              <video
+                className="block h-full w-full"
+                src="/videos/WertderStimme_DE.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                aria-label="Wert der Stimme - Video"
+              >
+                Dein Browser unterstützt das Abspielen von Videos nicht.
+              </video>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200/50 bg-white shadow-[0_16px_60px_rgba(14,116,144,0.07)]">
+              <div className="p-3">
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/90 via-sky-500/90 to-blue-500/80 p-4 text-white shadow-lg">
                   <p className="text-xs uppercase tracking-wide opacity-90">
                     Demokratische Infrastruktur
                   </p>

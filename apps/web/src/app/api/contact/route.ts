@@ -32,10 +32,14 @@ const ContactSchema = z.object({
   newsletterOptIn: z.string().optional(),
   website: z.string().optional(),
   hp_contact: z.string().optional(),
+  hp_company: z.string().optional(),
+  hp_message_copy: z.string().optional(),
+  hp_social: z.string().optional(),
   formStartedAt: z.string().optional(),
   turnstileToken: z.string().optional(),
   humanChallengeId: z.string().min(1).max(60),
   humanAnswer: z.string().min(1).max(200),
+  humanShape: z.string().min(1).max(30),
 });
 
 type Classification = "ham" | "spam" | "suspicious";
@@ -175,10 +179,14 @@ export async function POST(req: NextRequest) {
     newsletterOptIn,
     website,
     hp_contact,
+    hp_company,
+    hp_message_copy,
+    hp_social,
     formStartedAt,
     turnstileToken,
     humanChallengeId,
     humanAnswer,
+    humanShape,
   } = parsed.data;
 
   const cleanCategory = sanitizeText(category, 120) || "Kontakt";
@@ -188,9 +196,10 @@ export async function POST(req: NextRequest) {
   const cleanSubject = sanitizeText(subject, 200);
   const cleanMessage = sanitizeText(message, MAX_MESSAGE_LENGTH, { preserveNewlines: true });
   const wantsNewsletter = Boolean(newsletterOptIn);
-  const honeypotValue = `${website ?? ""}${hp_contact ?? ""}`.trim();
+  const honeypotValue = `${website ?? ""}${hp_contact ?? ""}${hp_company ?? ""}${hp_message_copy ?? ""}${hp_social ?? ""}`.trim();
   const cleanHumanChallengeId = sanitizeText(humanChallengeId, 60);
   const cleanHumanAnswer = sanitizeText(humanAnswer, 200);
+  const cleanHumanShape = sanitizeText(humanShape, 30).toLowerCase();
 
   const now = Date.now();
   const startedAt = Number.parseInt(formStartedAt ?? "", 10);
@@ -276,6 +285,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(payload, { status: 400 });
     }
     return redirect(req, "error=challenge");
+  }
+
+  if (cleanHumanShape !== "kreis") {
+    classification = "spam";
+    spamScore = Math.max(spamScore, 4);
+    reasons.push("shape:wrong");
+    allowMail = false;
+
+    logRequest({
+      classification,
+      spamScore,
+      reasons,
+      ipHash,
+      durationMs,
+      honeypot: Boolean(honeypotValue),
+      urlCount: 0,
+    });
+
+    const payload = { ok: false, error: "shape" };
+    if (wantsJson(req)) {
+      return NextResponse.json(payload, { status: 400 });
+    }
+    return redirect(req, "error=shape");
   }
 
   const spamEvaluation = evaluateContactSpam({
