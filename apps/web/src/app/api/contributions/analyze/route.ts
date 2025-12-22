@@ -17,7 +17,7 @@ import { maskUserId } from "@core/pii/redact";
 import type { ProviderMatrixEntry } from "@features/ai/orchestratorE150";
 import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
 import crypto from "node:crypto";
-import { z } from "zod";
+import { parseAnalyzeRequestBody, type AnalyzeRequestParsed } from "./parseAnalyzeRequest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,43 +80,6 @@ function logErrorSafe(payload: Record<string, unknown>) {
   }
 }
 
-const AnalyzeRequestSchema = z
-  .object({
-    text: z.string().min(1).max(10_000).optional(),
-    preparedText: z.string().min(1).max(10_000).optional(),
-    locale: z.string().min(2).max(8).optional(),
-    maxClaims: z.number().int().min(1).max(50).optional(),
-    stream: z.boolean().optional(),
-    live: z.boolean().optional(),
-    contributionId: z.string().min(3).max(100).optional(),
-    test: z.string().optional(),
-  })
-  .superRefine((val, ctx) => {
-    if (val.test === "ping") return;
-    const candidate = val.preparedText?.trim() || val.text?.trim();
-    if (!candidate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Feld 'text' ist erforderlich.",
-        path: ["text"],
-      });
-      return;
-    }
-    if (candidate.length < 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.too_small,
-        minimum: 10,
-        inclusive: true,
-        type: "string",
-        origin: "string",
-        message: "Der Beitrag ist zu kurz (mindestens 10 Zeichen).",
-        path: ["text"],
-      });
-    }
-  });
-
-type AnalyzeBody = z.infer<typeof AnalyzeRequestSchema>;
-
 type AnalyzeJobInput = {
   text: string;
   locale: string;
@@ -133,12 +96,8 @@ function sanitizeLocale(locale?: string): string {
 }
 
 function sanitizeMaxClaims(maxClaims?: number): number {
-  if (
-    typeof maxClaims === "number" &&
-    Number.isFinite(maxClaims) &&
-    maxClaims > 0
-  ) {
-    return Math.min(DEFAULT_MAX_CLAIMS, Math.max(1, Math.floor(maxClaims)));
+  if (typeof maxClaims === "number" && Number.isFinite(maxClaims) && maxClaims > 0) {
+    return Math.min(50, Math.max(1, Math.floor(maxClaims)));
   }
   return DEFAULT_MAX_CLAIMS;
 }
@@ -157,17 +116,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     return err("INVALID_JSON", "Ungültiger JSON-Body.", 400);
   }
 
-  const parsed = AnalyzeRequestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    return err(
-      "BAD_INPUT",
-      parsed.error?.issues?.[0]?.message ?? "Ungültige Eingabe für die Analyse.",
-      400,
-      { issues: parsed.error.issues },
-    );
+  const parsed = parseAnalyzeRequestBody(rawBody);
+  if (parsed.ok === false) {
+    return err("BAD_INPUT", parsed.error.message, 400, { issues: parsed.error.issues });
   }
 
-  const body = parsed.data;
+  const body = parsed.value;
 
   if (body.test === "ping") {
     return ok({ result: { ping: "pong" } });
@@ -175,7 +129,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const locale = sanitizeLocale(body.locale);
   const maxClaims = sanitizeMaxClaims(body.maxClaims);
-  const text = body.preparedText?.trim() || body.text?.trim() || "";
+  const text = body.text?.trim() || "";
   const userId = req.cookies.get("u_id")?.value ?? null;
   const contributionId = resolveContributionId(body.contributionId, text);
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
@@ -316,7 +270,7 @@ const SSE_HEADERS = {
   connection: "keep-alive",
 } as const;
 
-function wantsSse(req: NextRequest, body: AnalyzeBody | null): boolean {
+function wantsSse(req: NextRequest, body: AnalyzeRequestParsed | null): boolean {
   if (body?.stream === true || body?.live === true) return true;
   const accept = req.headers.get("accept")?.toLowerCase() ?? "";
   return accept.includes("text/event-stream");
