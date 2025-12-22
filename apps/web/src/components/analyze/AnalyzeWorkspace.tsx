@@ -49,6 +49,22 @@ const TRACE_MODE_STYLE: Record<
   },
 };
 
+function TinyPill({
+  children,
+  className = "ring-slate-200 text-slate-700",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide ring-1 ring-inset ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
 const JOURNEY_OPTIONS = [
   {
     id: "concern",
@@ -490,6 +506,7 @@ export default function AnalyzeWorkspace({
   const [text, setText] = React.useState("");
   const [textMode, setTextMode] = React.useState<"edit" | "preview">("edit");
   const [showAttributionLayer, setShowAttributionLayer] = React.useState(false);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
   const [notes, setNotes] = React.useState<NoteSection[]>([]);
   const [questions, setQuestions] = React.useState<QuestionCard[]>([]);
   const [knots, setKnots] = React.useState<KnotCard[]>([]);
@@ -1087,30 +1104,28 @@ export default function AnalyzeWorkspace({
           </p>
         </div>
 
-        <div className="sticky top-0 z-20 -mx-4 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ziel & Detailgrad</span>
-              <div className="overflow-x-auto">
-                <div className="inline-flex min-w-full gap-2 rounded-full bg-slate-100 p-1 text-[11px]">
-                  {JOURNEY_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => handleJourneyChange(opt.id)}
-                      className={[
-                        "rounded-full px-3 py-1 transition whitespace-nowrap",
-                        journey === opt.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                      ].join(" ")}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+        {showAdvanced ? (
+          <div className="rounded-xl border border-slate-200/70 bg-white/70 px-4 py-3 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Erweitert</div>
+            <div className="mt-2 overflow-x-auto">
+              <div className="inline-flex min-w-full gap-2 rounded-full bg-slate-100 p-1 text-[11px]">
+                {JOURNEY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleJourneyChange(opt.id)}
+                    className={[
+                      "rounded-full px-3 py-1 transition whitespace-nowrap",
+                      journey === opt.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+                    ].join(" ")}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           <div className="space-y-4">
@@ -1158,30 +1173,42 @@ export default function AnalyzeWorkspace({
                 </div>
 
                 {textMode === "preview" && (
-                  <label className="ml-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-600">
-                    <input
-                      type="checkbox"
-                  checked={showAttributionLayer}
-                  onChange={(event) => setShowAttributionLayer(event.target.checked)}
-                  disabled={traceQuotes.length === 0}
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 disabled:opacity-50"
-                />
-                Herkunft-Layer
-                {traceQuotes.length > 0 && (
-                  <div className="ml-3 flex flex-wrap items-center gap-2">
-                    {(["verbatim", "paraphrase", "inference"] as const).map((mode) => (
-                      <span
-                        key={mode}
-                        className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${TRACE_MODE_STYLE[mode].chipClass}`}
-                        title={TRACE_MODE_STYLE[mode].label}
-                      >
-                        {TRACE_MODE_STYLE[mode].label}
-                      </span>
-                    ))}
+                  <div className="ml-auto inline-flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanced((v) => !v)}
+                      className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+                      aria-expanded={showAdvanced}
+                    >
+                      {showAdvanced ? "Erweitert: an" : "Erweitert"}
+                    </button>
+
+                    <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={showAttributionLayer}
+                        onChange={(event) => setShowAttributionLayer(event.target.checked)}
+                        disabled={traceQuotes.length === 0}
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 disabled:opacity-50"
+                      />
+                      <span>Herkunft anzeigen</span>
+                    </label>
+
+                    {showAdvanced && traceQuotes.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(["verbatim", "paraphrase", "inference"] as const).map((mode) => (
+                          <span
+                            key={mode}
+                            className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${TRACE_MODE_STYLE[mode].chipClass}`}
+                            title={TRACE_MODE_STYLE[mode].label}
+                          >
+                            {TRACE_MODE_STYLE[mode].label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </label>
-            )}
               </div>
 
               {textMode === "preview" ? (
@@ -1407,6 +1434,9 @@ export default function AnalyzeWorkspace({
                     const tags: string[] = [];
                     if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
                     if (typeof s.importance === "number") tags.push(`Wichtigkeit: ${s.importance}/5`);
+                    const tagsAll = tags.filter(Boolean);
+                    const primaryTags = tagsAll.slice(0, 2);
+                    const extraTags = tagsAll.slice(2);
                     const attribution = traceResult?.attribution?.[s.id] ?? null;
                     const modeMeta = attribution ? TRACE_MODE_STYLE[attribution.mode] : null;
 
@@ -1433,36 +1463,47 @@ export default function AnalyzeWorkspace({
                               )
                             }
                           />
+                          <div className="flex flex-wrap items-center gap-2">
+                            {modeMeta && <TinyPill className={modeMeta.chipClass}>{modeMeta.label}</TinyPill>}
+                            {primaryTags.map((t) => (
+                              <TinyPill key={t}>{t}</TinyPill>
+                            ))}
+                            {extraTags.length > 0 && (
+                              <details className="group">
+                                <summary className="cursor-pointer select-none text-[10px] font-semibold text-slate-600 hover:text-slate-800">
+                                  Details
+                                </summary>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  {extraTags.map((t) => (
+                                    <TinyPill key={t}>{t}</TinyPill>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
+                          </div>
                           {attribution && (
-                            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {modeMeta && (
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${modeMeta.chipClass}`}
-                                  >
-                                    {modeMeta.label}
-                                  </span>
+                            <details className="mt-2 rounded-lg border border-slate-200/70 bg-white/40 p-2">
+                              <summary className="cursor-pointer select-none text-xs font-semibold text-slate-700 hover:text-slate-900">
+                                Herkunft & Begründung
+                              </summary>
+
+                              <div className="mt-2 space-y-2 text-xs">
+                                {attribution.why && <div className="text-slate-700">{attribution.why}</div>}
+
+                                {Array.isArray(attribution.quotes) && attribution.quotes.length > 0 && (
+                                  <div className="space-y-1">
+                                    <div className="text-[11px] font-semibold text-slate-600">Zitate</div>
+                                    <ul className="list-disc pl-5 text-slate-700">
+                                      {attribution.quotes.map((quote, idx) => (
+                                        <li key={`${s.id}-quote-${idx}`}>
+                                          <span className="text-slate-800">{quote}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
                                 )}
-                                {attribution.why && <span className="text-slate-600">{attribution.why}</span>}
                               </div>
-                              {Array.isArray(attribution.quotes) && attribution.quotes.length > 0 && (
-                                <details className="mt-2">
-                                  <summary className="cursor-pointer text-[11px] font-semibold text-slate-600">
-                                    Zitate aus deinem Text
-                                  </summary>
-                                  <ul className="mt-2 space-y-1 text-[11px] text-slate-700">
-                                    {attribution.quotes.map((quote, idx) => (
-                                      <li
-                                        key={`${s.id}-quote-${idx}`}
-                                        className="rounded-lg border border-slate-100 bg-white px-2 py-1"
-                                      >
-                                        {quote}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </details>
-                              )}
-                            </div>
+                            </details>
                           )}
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <VogVoteButtons
