@@ -514,6 +514,10 @@ export default function AnalyzeWorkspace({
   const [traceError, setTraceError] = React.useState<string | null>(null);
   const [isTracing, setIsTracing] = React.useState(false);
   const [lastTraceKey, setLastTraceKey] = React.useState<string | null>(null);
+  const inflightCtrlRef = React.useRef<AbortController | null>(null);
+  const inflightKeyRef = React.useRef<string | null>(null);
+  const runSeqRef = React.useRef(0);
+  const mountedRef = React.useRef(true);
   const ctaRef = React.useRef<HTMLDivElement | null>(null);
   const workspaceRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -552,6 +556,14 @@ export default function AnalyzeWorkspace({
       // ignore
     }
   }, [storageKey]);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      inflightCtrlRef.current?.abort();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!storageKey) return;
@@ -765,6 +777,13 @@ export default function AnalyzeWorkspace({
 
   const handleAnalyze = React.useCallback(async () => {
     if (analyzeDisabled) return;
+    const key = JSON.stringify({ preparedText, viewLevel, maxClaims, locale });
+    if (inflightCtrlRef.current && inflightKeyRef.current === key) return;
+    inflightCtrlRef.current?.abort();
+    const ctrl = new AbortController();
+    inflightCtrlRef.current = ctrl;
+    inflightKeyRef.current = key;
+    const myRun = ++runSeqRef.current;
     setError(null);
     setInfo(null);
     setTraceResult(null);
@@ -775,6 +794,7 @@ export default function AnalyzeWorkspace({
     try {
       const res = await fetch(analyzeEndpoint, {
         method: "POST",
+        signal: ctrl.signal,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           textOriginal: text,
@@ -876,6 +896,7 @@ export default function AnalyzeWorkspace({
         setInfo(null);
       }
     } catch (err: any) {
+      if (err?.name === "AbortError") return;
       const msg = String(err?.message ?? "");
       setError(msg || "Analyse fehlgeschlagen. Vermutlich gab es ein Problem mit dem KI-Dienst.");
       setInfo("Dein Entwurf bleibt erhalten. Du kannst es nach einem kurzen Moment erneut versuchen.");
@@ -903,6 +924,11 @@ export default function AnalyzeWorkspace({
           failedReason: msg || "Analyse fehlgeschlagen",
         }),
       );
+    } finally {
+      if (mountedRef.current && myRun === runSeqRef.current) {
+        inflightCtrlRef.current = null;
+        inflightKeyRef.current = null;
+      }
     }
   }, [analyzeDisabled, analyzeEndpoint, locale, maxClaims, preparedText, text, viewLevel]);
 

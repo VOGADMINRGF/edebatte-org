@@ -22,6 +22,24 @@ import { z } from "zod";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+const ANALYZE_HARD_TIMEOUT_MS = Number(process.env.ANALYZE_HARD_TIMEOUT_MS ?? 55_000);
+
+function withHardTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => {
+      const e: any = new Error("analyze_timeout");
+      e.code = "ANALYZE_TIMEOUT";
+      reject(e);
+    }, ms);
+    p.then((v) => {
+      clearTimeout(t);
+      resolve(v);
+    }).catch((err) => {
+      clearTimeout(t);
+      reject(err);
+    });
+  });
+}
 
 const DEFAULT_MAX_CLAIMS = 10;
 
@@ -181,7 +199,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   try {
-    const result = await runAnalyzeJob(analyzeInput);
+    const result = await withHardTimeout(runAnalyzeJob(analyzeInput), ANALYZE_HARD_TIMEOUT_MS);
     await finalizeResultPayload(result, analyzeInput);
     const providerMatrix = buildProviderMatrixResponse(
       null,
@@ -200,6 +218,12 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 200 },
     );
   } catch (error) {
+    if ((error as any)?.code === "ANALYZE_TIMEOUT" || (error as any)?.message === "analyze_timeout") {
+      return NextResponse.json(
+        { ok: false, errorCode: "ANALYZE_TIMEOUT", message: "Analyze timed out" },
+        { status: 504 },
+      );
+    }
     console.error("[contributions/analyze] failed", error);
     logErrorSafe({
       msg: "analyze.route.error",
