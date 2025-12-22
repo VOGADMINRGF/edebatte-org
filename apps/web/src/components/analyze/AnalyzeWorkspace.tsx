@@ -28,16 +28,25 @@ import VogVoteButtons, { type VoteValue } from "@features/vote/components/VogVot
 
 const MAX_LEVEL1_STATEMENTS = 3;
 
-const TRACE_MODE_META: Record<TraceAttribution["mode"], { label: string; className: string }> = {
-  verbatim: { label: "Wörtlich", className: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
-  paraphrase: { label: "Paraphrase", className: "bg-sky-50 text-sky-700 ring-sky-100" },
-  inference: { label: "Ableitung", className: "bg-amber-50 text-amber-700 ring-amber-100" },
-};
-
-const TRACE_COLOR_MAP: Record<TraceAttribution["mode"], string> = {
-  verbatim: "bg-sky-100 text-slate-900",
-  paraphrase: "bg-amber-100 text-slate-900",
-  inference: "bg-rose-100 text-slate-900",
+const TRACE_MODE_STYLE: Record<
+  TraceAttribution["mode"],
+  { label: string; chipClass: string; markClass: string }
+> = {
+  verbatim: {
+    label: "Wörtlich",
+    chipClass: "bg-sky-50 text-sky-700 ring-sky-100",
+    markClass: "bg-sky-100 text-slate-900 ring-sky-200/60",
+  },
+  paraphrase: {
+    label: "Paraphrase",
+    chipClass: "bg-amber-50 text-amber-700 ring-amber-100",
+    markClass: "bg-amber-100 text-slate-900 ring-amber-200/60",
+  },
+  inference: {
+    label: "Ableitung",
+    chipClass: "bg-rose-50 text-rose-700 ring-rose-100",
+    markClass: "bg-rose-100 text-slate-900 ring-rose-200/60",
+  },
 };
 
 const JOURNEY_OPTIONS = [
@@ -371,7 +380,7 @@ function renderHighlightedText(text: string, ranges: QuoteRange[]): React.ReactN
     nodes.push(
       <mark
         key={`quote-${range.start}-${range.end}-${idx}`}
-        className={`rounded px-0.5 ${TRACE_COLOR_MAP[range.mode]}`}
+        className={`rounded px-0.5 ring-1 ring-inset ${TRACE_MODE_STYLE[range.mode].markClass}`}
       >
         {text.slice(range.start, range.end)}
       </mark>,
@@ -1152,14 +1161,27 @@ export default function AnalyzeWorkspace({
                   <label className="ml-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-600">
                     <input
                       type="checkbox"
-                      checked={showAttributionLayer}
-                      onChange={(event) => setShowAttributionLayer(event.target.checked)}
-                      disabled={traceQuotes.length === 0}
-                      className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 disabled:opacity-50"
-                    />
-                    Herkunft-Layer
-                  </label>
+                  checked={showAttributionLayer}
+                  onChange={(event) => setShowAttributionLayer(event.target.checked)}
+                  disabled={traceQuotes.length === 0}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 disabled:opacity-50"
+                />
+                Herkunft-Layer
+                {traceQuotes.length > 0 && (
+                  <div className="ml-3 flex flex-wrap items-center gap-2">
+                    {(["verbatim", "paraphrase", "inference"] as const).map((mode) => (
+                      <span
+                        key={mode}
+                        className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${TRACE_MODE_STYLE[mode].chipClass}`}
+                        title={TRACE_MODE_STYLE[mode].label}
+                      >
+                        {TRACE_MODE_STYLE[mode].label}
+                      </span>
+                    ))}
+                  </div>
                 )}
+              </label>
+            )}
               </div>
 
               {textMode === "preview" ? (
@@ -1386,7 +1408,7 @@ export default function AnalyzeWorkspace({
                     if (stanceLabel) tags.push(`Haltung: ${stanceLabel}`);
                     if (typeof s.importance === "number") tags.push(`Wichtigkeit: ${s.importance}/5`);
                     const attribution = traceResult?.attribution?.[s.id] ?? null;
-                    const modeMeta = attribution ? TRACE_MODE_META[attribution.mode] : null;
+                    const modeMeta = attribution ? TRACE_MODE_STYLE[attribution.mode] : null;
 
                     return (
                       <StatementCard
@@ -1416,7 +1438,7 @@ export default function AnalyzeWorkspace({
                               <div className="flex flex-wrap items-center gap-2">
                                 {modeMeta && (
                                   <span
-                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${modeMeta.className}`}
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${modeMeta.chipClass}`}
                                   >
                                     {modeMeta.label}
                                   </span>
