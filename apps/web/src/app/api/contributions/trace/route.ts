@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
   }
 
   const prompt = buildPrompt(body.data);
+  const guidanceOnly = (body.data.statements?.length ?? 0) === 0;
 
   const model = process.env.OPENAI_TRACE_MODEL || "gpt-4o-mini";
   const { text } = await callOpenAI({
@@ -91,5 +92,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "trace_parse_failed" }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, ...data }, { status: 200 });
+  return NextResponse.json({ ok: true, guidanceOnly, ...data }, { status: 200 });
 }
