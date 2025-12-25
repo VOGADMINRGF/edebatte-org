@@ -997,6 +997,7 @@ export default function AnalyzeWorkspace({
       traceKeyRef.current = key;
       const myRun = ++traceRunRef.current;
 
+      let isStale = false;
       try {
         if (!preparedText.trim() || statements.length === 0) {
           setTraceResult(null);
@@ -1036,10 +1037,12 @@ export default function AnalyzeWorkspace({
         setTraceError(err?.message ?? "Herkunft konnte nicht ermittelt werden.");
         setTraceResult(null);
       } finally {
-        if (!mountedRef.current || myRun !== traceRunRef.current) return;
+        isStale = !mountedRef.current || myRun !== traceRunRef.current;
         traceCtrlRef.current = null;
         setIsTracing(false);
       }
+
+      if (isStale) return;
     }, 250);
   }, [locale, preparedText, statements, text]);
 

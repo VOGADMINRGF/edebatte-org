@@ -5,6 +5,32 @@ import * as React from "react";
 import type { AccountOverview } from "@features/account/types";
 import { BANK_DETAILS } from "@/config/banking";
 
+function sanitizeBirthDateInput(value: string) {
+  return value.replace(/[^\d.-]/g, "").slice(0, 10);
+}
+
+function toIsoBirthdate(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+
+  const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return null;
+}
+
+function isoToDe(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const [, yyyy, mm, dd] = m;
+  return `${dd}.${mm}.${yyyy}`;
+}
+
 type MembershipPackage = "basis" | "pro" | "premium";
 
 type PlanDefinition = {
@@ -73,6 +99,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<MembershipResult | null>(null);
+  const datePickerRef = React.useRef<HTMLInputElement | null>(null);
 
   const [form, setForm] = React.useState({
     firstName: defaultName.firstName,
@@ -93,13 +120,30 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
     return roundCurrency(vogMember ? base * 0.75 : base);
   }, [plan, vogMember]);
 
+  const openDatePicker = () => {
+    const el = datePickerRef.current;
+    if (!el) return;
+    // @ts-expect-error showPicker is not in TS lib yet
+    if (typeof el.showPicker === "function") el.showPicker();
+    else el.click();
+  };
+
   const handleChange = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    const nextValue =
+      field === "birthDate" && typeof event.target.value === "string"
+        ? sanitizeBirthDateInput(event.target.value)
+        : event.target.value;
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy) return;
+    const birthDateIso = toIsoBirthdate(form.birthDate);
+    if (form.birthDate && !birthDateIso) {
+      setError("Bitte nutze TT.MM.JJJJ oder JJJJ-MM-TT.");
+      return;
+    }
     setBusy(true);
     setError(null);
 
@@ -115,7 +159,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
         postalCode: form.postalCode.trim(),
         city: form.city.trim(),
         country: form.country.trim(),
-        birthDate: form.birthDate || undefined,
+        birthDate: birthDateIso || undefined,
         notes: form.notes.trim() || undefined,
       };
 
@@ -205,7 +249,42 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
                 <LabeledInput label="Telefon (optional)" value={form.phone} onChange={handleChange("phone")} />
               </div>
               <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
-                <LabeledInput label="Geburtsdatum" type="date" value={form.birthDate} onChange={handleChange("birthDate")} required />
+                <div className="relative">
+                  <input
+                    ref={datePickerRef}
+                    type="date"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const iso = event.currentTarget.value;
+                      if (iso) {
+                        setForm((prev) => ({ ...prev, birthDate: sanitizeBirthDateInput(isoToDe(iso)) }));
+                      }
+                    }}
+                  />
+                  <LabeledInput
+                    label="Geburtsdatum"
+                    type="text"
+                    value={form.birthDate}
+                    onChange={handleChange("birthDate")}
+                    required
+                    placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
+                    inputMode="text"
+                    autoComplete="bday"
+                    maxLength={10}
+                    pattern="^(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})$"
+                    title="TT.MM.JJJJ oder JJJJ-MM-TT"
+                    helperText="Angefordertes Format: TT.MM.JJJJ oder JJJJ-MM-TT"
+                  />
+                  <button
+                    type="button"
+                    onClick={openDatePicker}
+                    className="absolute right-2 top-[34px] rounded-md border border-slate-200 bg-white px-2 py-1 text-sm shadow-sm"
+                    aria-label="Datum auswählen"
+                    title="Datum auswählen"
+                  >
+                    📅
+                  </button>
+                </div>
                 <LabeledInput label="Land" value={form.country} onChange={handleChange("country")} required />
               </div>
             </section>
@@ -380,12 +459,26 @@ function LabeledInput({
   onChange,
   required,
   type = "text",
+  placeholder,
+  inputMode,
+  maxLength,
+  pattern,
+  title,
+  helperText,
+  autoComplete,
 }: {
   label: string;
   value: string;
   onChange: React.ChangeEventHandler<HTMLInputElement>;
   required?: boolean;
   type?: string;
+  placeholder?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
+  pattern?: string;
+  title?: string;
+  helperText?: string;
+  autoComplete?: React.HTMLAttributes<HTMLInputElement>["autoComplete"];
 }) {
   return (
     <label className="space-y-1 text-sm text-slate-700">
@@ -396,7 +489,14 @@ function LabeledInput({
         className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
         value={value}
         onChange={onChange}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        pattern={pattern}
+        title={title}
+        autoComplete={autoComplete}
       />
+      {helperText ? <p className="text-[11px] text-slate-500">{helperText}</p> : null}
     </label>
   );
 }
