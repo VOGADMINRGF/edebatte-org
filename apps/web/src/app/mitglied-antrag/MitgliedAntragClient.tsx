@@ -5,6 +5,10 @@ import * as React from "react";
 import type { AccountOverview } from "@features/account/types";
 import { BANK_DETAILS } from "@/config/banking";
 
+function sanitizeBirthDateInput(value: string) {
+  return value.replace(/[^\d.-]/g, "").slice(0, 10);
+}
+
 type MembershipPackage = "basis" | "pro" | "premium";
 
 type PlanDefinition = {
@@ -94,7 +98,11 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
   }, [plan, vogMember]);
 
   const handleChange = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    const nextValue =
+      field === "birthDate" && typeof event.target.value === "string"
+        ? sanitizeBirthDateInput(event.target.value)
+        : event.target.value;
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -205,7 +213,19 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
                 <LabeledInput label="Telefon (optional)" value={form.phone} onChange={handleChange("phone")} />
               </div>
               <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
-                <LabeledInput label="Geburtsdatum" type="date" value={form.birthDate} onChange={handleChange("birthDate")} required />
+                <LabeledInput
+                  label="Geburtsdatum"
+                  type="text"
+                  value={form.birthDate}
+                  onChange={handleChange("birthDate")}
+                  required
+                  placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
+                  inputMode="text"
+                  maxLength={10}
+                  pattern="^(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})$"
+                  title="TT.MM.JJJJ oder JJJJ-MM-TT"
+                  helperText="Angefordertes Format: TT.MM.JJJJ oder JJJJ-MM-TT"
+                />
                 <LabeledInput label="Land" value={form.country} onChange={handleChange("country")} required />
               </div>
             </section>
@@ -380,12 +400,24 @@ function LabeledInput({
   onChange,
   required,
   type = "text",
+  placeholder,
+  inputMode,
+  maxLength,
+  pattern,
+  title,
+  helperText,
 }: {
   label: string;
   value: string;
   onChange: React.ChangeEventHandler<HTMLInputElement>;
   required?: boolean;
   type?: string;
+  placeholder?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
+  pattern?: string;
+  title?: string;
+  helperText?: string;
 }) {
   return (
     <label className="space-y-1 text-sm text-slate-700">
@@ -396,7 +428,13 @@ function LabeledInput({
         className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
         value={value}
         onChange={onChange}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        pattern={pattern}
+        title={title}
       />
+      {helperText ? <p className="text-[11px] text-slate-500">{helperText}</p> : null}
     </label>
   );
 }
