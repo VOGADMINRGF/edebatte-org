@@ -7,6 +7,10 @@ export type NormalizedClaim = {
   title?: string;
   responsibility?: string;
   topic?: string;
+  domain?: string | null;
+  domains?: string[] | null;
+  importance?: number | null;
+  stance?: string | null;
 };
 
 /**
@@ -28,5 +32,9 @@ export function normalizeClaim(raw: any, idx: number): NormalizedClaim | null {
     title: base.title ?? undefined,
     responsibility: base.responsibility ?? undefined,
     topic,
+    domain: base.domain ?? null,
+    domains: base.domains ?? null,
+    importance: base.importance ?? null,
+    stance: base.stance ?? null,
   };
 }

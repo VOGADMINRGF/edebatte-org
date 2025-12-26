@@ -9,6 +9,7 @@ export type AskArgs = {
   prompt: string;
   maxOutputTokens?: number;
   signal?: AbortSignal;
+  expectJson?: boolean;
 };
 
 export type AskResult = {
@@ -37,11 +38,12 @@ function extractText(data: any): string {
 }
 
 async function post(body: Record<string, unknown>, signal?: AbortSignal) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY fehlt");
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing GOOGLE_API_KEY or GEMINI_API_KEY");
   }
 
-  const url = `${API_BASE}/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const url = `${API_BASE}/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -66,10 +68,11 @@ async function askGemini({
   prompt,
   maxOutputTokens = 2_000,
   signal,
+  expectJson = true,
 }: AskArgs): Promise<AskResult> {
   if (!prompt) throw new Error("prompt darf nicht leer sein");
 
-  const body = {
+  const baseBody = {
     contents: [
       {
         role: "user",
@@ -80,13 +83,32 @@ async function askGemini({
         ],
       },
     ],
-    generationConfig: {
-      temperature: 0.25,
-      maxOutputTokens,
-    },
   };
 
-  const data = await post(body, signal);
+  const genConfig: Record<string, unknown> = {
+    temperature: 0.25,
+    maxOutputTokens,
+  };
+
+  if (expectJson) {
+    genConfig.responseMimeType = "application/json";
+  }
+
+  const body = { ...baseBody, generationConfig: genConfig };
+
+  let data;
+  try {
+    data = await post(body, signal);
+  } catch (err: any) {
+    // Fallback: retry once without responseMimeType if Gemini rejects it
+    if (expectJson && err?.status === 400) {
+      const retryBody = { ...baseBody, generationConfig: { temperature: 0.25, maxOutputTokens } };
+      data = await post(retryBody, signal);
+    } else {
+      throw err;
+    }
+  }
+
   return {
     text: extractText(data),
     raw: data,

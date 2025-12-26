@@ -31,35 +31,26 @@ export default function VerifyEmailPage() {
     if (!channel) return;
     const onMessage = (event: MessageEvent) => {
       const payload = event.data;
-      if (!payload || payload.type !== "vog-email-verify-token") return;
+      if (!payload || payload.type !== "vog-email-verify-success") return;
       if (payload.email && emailParam && payload.email !== emailParam) return;
-      const incoming = String(payload.token ?? "").trim();
-      if (!incoming) return;
-      setToken(incoming);
-      setMessage("Token aus dem Link übernommen.");
-      confirmToken(incoming);
+      setState("success");
+      setMessage("E-Mail bestätigt. Weiter geht's mit Schritt 3 …");
+      setTimeout(() => {
+        router.push(payload.next || "/register/identity");
+      }, 600);
     };
     channel.addEventListener("message", onMessage);
     return () => channel.removeEventListener("message", onMessage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channel, emailParam]);
+  }, [channel, emailParam, router]);
 
   useEffect(() => {
     if (!tokenParam) return;
     const normalized = tokenParam.trim();
     if (!normalized) return;
     setToken(normalized);
-    if (channel) {
-      channel.postMessage({ type: "vog-email-verify-token", token: normalized, email: emailParam || undefined });
-    }
     confirmToken(normalized);
-    if (channel) {
-      setTimeout(() => {
-        if (window.history.length <= 1) window.close();
-      }, 500);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokenParam, channel, emailParam]);
+  }, [tokenParam]);
 
   async function confirmToken(rawToken?: string) {
     const value = rawToken ?? token;
@@ -67,6 +58,7 @@ export default function VerifyEmailPage() {
       setMessage("Bitte gib den Verifizierungs-Code ein.");
       return;
     }
+    if (state === "pending") return;
     setState("pending");
     setMessage(null);
     try {
@@ -85,6 +77,9 @@ export default function VerifyEmailPage() {
       }
       setState("success");
       setMessage("E-Mail bestätigt. Weiter geht's mit Schritt 3 …");
+      if (channel) {
+        channel.postMessage({ type: "vog-email-verify-success", email: emailParam || undefined, next: body?.next });
+      }
       setTimeout(() => {
         router.push(body?.next || "/register/identity");
       }, 1200);

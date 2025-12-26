@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CORE_LOCALES, EXTENDED_LOCALES } from "@/config/locales";
@@ -11,7 +11,33 @@ function okPwd(p: string) {
 }
 
 function sanitizeBirthDateInput(value: string) {
-  return value.replace(/[^\d.-]/g, "").slice(0, 10);
+  return value
+    .replace(/[,/]/g, ".")
+    .replace(/[^\d.-]/g, "")
+    .slice(0, 10);
+}
+
+function toIsoBirthdate(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return Number.isNaN(Date.parse(v)) ? null : v;
+  }
+
+  const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return null;
+
+  const [, dd, mm, yyyy] = m;
+  const iso = `${yyyy}-${mm}-${dd}`;
+  return Number.isNaN(Date.parse(iso)) ? null : iso;
+}
+
+function isoToDe(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const [, yyyy, mm, dd] = m;
+  return `${dd}.${mm}.${yyyy}`;
 }
 
 type RegisterPageClientProps = {
@@ -35,6 +61,7 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
   const [birthDate, setBirthDate] = useState(
     searchParams?.birthDate ? sanitizeBirthDateInput(String(searchParams.birthDate)) : "",
   );
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [errMsg, setErrMsg] = useState<string>();
@@ -43,6 +70,17 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
   const [preferredLocale, setPreferredLocale] = useState<string>("de");
   const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const router = useRouter();
+  const birthDateIso = toIsoBirthdate(birthDate);
+
+  const openDatePicker = () => {
+    const el = datePickerRef.current;
+    if (!el) return;
+
+    // Chrome/Edge unterstützen showPicker; iOS Safari öffnet via click/focus
+    const picker = el as HTMLInputElement & { showPicker?: () => void };
+    if (typeof picker.showPicker === "function") picker.showPicker();
+    else el.click();
+  };
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,6 +94,11 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
 
     if (!okPwd(password)) {
       setErrMsg("Passwort: min. 12 Zeichen, inkl. Zahl & Sonderzeichen.");
+      return;
+    }
+
+    if (!birthDateIso) {
+      setErrMsg("Geburtsdatum: Bitte TT.MM.JJJJ oder JJJJ-MM-TT verwenden.");
       return;
     }
 
@@ -85,7 +128,7 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
           newsletterOptIn,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          birthDate: birthDate || undefined,
+          birthDate: birthDateIso,
           title: title.trim() || undefined,
           pronouns: pronouns.trim() || undefined,
         }),
@@ -209,20 +252,41 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
             Geburtsdatum
           </label>
           <input
-            id="birthDate"
-            name="birthDate"
-            type="text"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-            value={birthDate}
-            onChange={(e) => setBirthDate(sanitizeBirthDateInput(e.target.value))}
-            required
-            placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
-            inputMode="numeric"
-            maxLength={10}
-            pattern="^(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})$"
-            title="TT.MM.JJJJ oder JJJJ-MM-TT"
-            disabled={busy}
+            ref={datePickerRef}
+            type="date"
+            className="sr-only"
+            value={birthDateIso ?? ""}
+            onChange={(e) => {
+              const iso = e.currentTarget.value;
+              if (iso) setBirthDate(isoToDe(iso));
+            }}
           />
+          <div className="relative">
+            <input
+              id="birthDate"
+              name="birthDate"
+              type="text"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              value={birthDate}
+              onChange={(e) => setBirthDate(sanitizeBirthDateInput(e.target.value))}
+              required
+              placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
+              inputMode="text"
+              maxLength={10}
+              autoComplete="bday"
+              title="TT.MM.JJJJ oder JJJJ-MM-TT"
+              disabled={busy}
+            />
+            <button
+              type="button"
+              onClick={openDatePicker}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm"
+              aria-label="Datum auswählen"
+              title="Datum auswählen"
+            >
+              Kalender
+            </button>
+          </div>
           <p className="text-[11px] text-slate-500">Für faire Citizen Votes: Teilnahme ab 16 Jahren.</p>
         </div>
 

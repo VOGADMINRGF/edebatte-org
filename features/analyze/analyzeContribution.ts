@@ -1,6 +1,7 @@
-import { AnalyzeResultSchema, coerceStringArray } from "./schemas";
+import { AnalyzeResultSchema, normalizeDomains } from "./schemas";
 import type { AnalyzeResult, StatementRecord } from "./schemas";
 import { normalizeStatementRecord } from "./normalizeClaim";
+import { parseJsonLoose } from "./llmJson";
 import {
   callE150Orchestrator,
   OrchestratorNoProviderError,
@@ -227,9 +228,16 @@ function buildUserPrompt(
       "   Ziel: eher 3–8 gut unterscheidbare Kern-Claims statt sehr vieler ähnlicher Aussagen.",
       "",
       "2) Für jeden Claim bestimmst du zusätzlich (sofern möglich):",
-      '   - title: ein sehr kurzer Oberbegriff (max. 6–8 Wörter), z.B. „Stufe 4 als Tierwohl-Standard“.',
+      '   - title: sehr kurzer Oberbegriff (max. 6–8 Wörter), z.B. „Stufe 4 als Tierwohl-Standard“.',
+      "   - topic: 1–3 Stichworte als Thema (z.B. „Tierwohl“, „Mieten“, „Migration“).",
       '   - responsibility: grobe Zuständigkeit, z.B. "EU", "Bund", "Land", "Kommune", "privat", "unbestimmt".',
-      "   Wenn die Ebene unklar ist, nutze unbestimmt (Key immer vorhanden).",
+      "     Wenn die Ebene unklar ist, nutze unbestimmt (Key immer vorhanden).",
+      "   - stance: pro | contra | neutral (bezogen auf den Claim im Beitrag).",
+      "   - importance: 1–5 (Wichtigkeit aus Sicht des Beitrags).",
+      "   - domain/domains: redaktionelle Einordnung als Taxonomie-Keys (siehe Liste).",
+      "",
+      "   Domains: nutze Taxonomie-Keys (z.B. gesellschaft, nachbarschaft, aussenbeziehungen_eu, klima_umwelt).",
+      '   Wenn mehrere passen: domains als Array (z.B. ["gesellschaft","aussenbeziehungen_nachbarlaender"]) und domain = erstes Element.',
       "",
       "3) Kontext-Notizen (mindestens 2, maximal 6):",
       "   - Erkenne thematische Abschnitte im Beitrag und fasse sie als `notes` zusammen.",
@@ -255,22 +263,7 @@ function buildUserPrompt(
       "",
       "7) Begrenze alle Listen strikt: claims ≤ 10, notes ≤ 6, questions ≤ 5, knots ≤ 5, consequences/responsibilities ≤ 8 Einträge.",
       "",
-      "8) Gib das Ergebnis ausschließlich als JSON mit diesem Shape zurück (kein Markdown, keine ```-Blöcke, JSON vollständig schließen):",
-"   {",
-'     "mode": "E150",',
-'     "sourceText": null,',
-'     "language": "de",',
-'     "claims": [ { "id": "...", "title": "...", "text": "...", "responsibility": "Bund" } ],',
-'     "notes": [ { "id": "...", "kind": "Faktenlage", "text": "..." } ],',
-'     "questions": [ { "id": "...", "dimension": "Finanzen", "text": "..." } ],',
-'     "knots": [ { "id": "...", "label": "...", "description": "..." } ],',
-'     "consequences": { "consequences": [], "responsibilities": [] },',
-'     "responsibilityPaths": [],',
-'     "decisionTrees": [],',
-'     "eventualities": [],',
-'     "impactAndResponsibility": { "impacts": [], "responsibleActors": [] },',
-'     "report": { "summary": null, "keyConflicts": [], "facts": { "local": [], "international": [] }, "openQuestions": [], "takeaways": [] }',
-"   }",
+      "8) Gib das Ergebnis ausschließlich als JSON (keine ```-Blöcke), alle Keys vorhanden, fehlende Inhalte = null oder [].",
       "",
       '   }',
       "",
@@ -299,8 +292,27 @@ function buildUserPrompt(
     "   Target 3–8 distinct core claims rather than dozens of small variations.",
     "",
     "2) For each claim also provide (when possible):",
-    '   - title: concise label (≤8 words).',
+    "   - title: concise label (≤8 words).",
+    "   - topic: 1–3 keywords for the topic.",
     '   - responsibility: one of "EU", "Bund", "Land", "Kommune", "privat", "unbestimmt".',
+    "     If unclear, use 'unclear' (key must always be present).",
+    "   - stance: pro | contra | neutral (with respect to the claim as expressed in the text).",
+    "   - importance: 1–5 (importance from the author/text perspective).",
+    "   - domain/domains: editorial classification using taxonomy keys (see list).",
+    "",
+    "   Editorial domain taxonomy keys (lowercase, underscore):",
+    "   gesellschaft | nachbarschaft | aussenbeziehungen_nachbarlaender | aussenbeziehungen_eu |",
+    "   innenpolitik | wirtschaft | bildung | gesundheit | sicherheit | klima_umwelt | digitales |",
+    "   infrastruktur | justiz | kultur_medien | sonstiges",
+    "",
+    "   Short definitions (important):",
+    "   - gesellschaft: social cohesion, participation, welfare, equality, integration.",
+    "   - nachbarschaft: immediate neighborhood / local community / housing environment.",
+    "   - aussenbeziehungen_nachbarlaender: relations with specific neighboring countries (not generic EU).",
+    "   - aussenbeziehungen_eu: EU institutions, EU law, EU programs/regulations.",
+    "",
+    '   If multiple apply: set domains as an array (e.g. ["gesellschaft","aussenbeziehungen_nachbarlaender"])',
+    "   and domain as the primary domain (first element).",
     "",
     "3) Context notes (≥2, ≤6):",
     "   - { id, kind, text } with kind such as FACTS / EXAMPLE / MOTIVATION.",
@@ -321,22 +333,7 @@ function buildUserPrompt(
     "",
     "7) Strict limits for all lists: claims ≤ 10, notes ≤ 6, questions ≤ 5, knots ≤ 5, consequences/responsibilities ≤ 8 items each.",
     "",
-    "8) Return ONLY raw JSON (no markdown fences) using a fully closed JSON object:",
-"   {",
-'     "mode": "E150",',
-'     "sourceText": null,',
-'     "language": "en",',
-'     "claims": [ { "id": "...", "title": "...", "text": "...", "responsibility": "Bund" } ],',
-'     "notes": [ { "id": "...", "kind": "FACTS", "text": "..." } ],',
-'     "questions": [ { "id": "...", "dimension": "Finance", "text": "..." } ],',
-'     "knots": [ { "id": "...", "label": "...", "description": "..." } ],',
-'     "consequences": { "consequences": [], "responsibilities": [] },',
-'     "responsibilityPaths": [],',
-'     "decisionTrees": [],',
-'     "eventualities": [],',
-'     "impactAndResponsibility": { "impacts": [], "responsibleActors": [] },',
-'     "report": { "summary": null, "keyConflicts": [], "facts": { "local": [], "international": [] }, "openQuestions": [], "takeaways": [] }',
-"   }",
+    "8) Return ONLY raw JSON (no markdown fences), all keys present; missing data = null or [].",
     "",
     '   }',
     "",
@@ -364,6 +361,7 @@ export type AnalyzeResultWithMeta = AnalyzeResult & {
     eventualitiesReviewed?: boolean;
     eventualitiesReviewedAt?: string | null;
     providerMatrix?: import("@features/ai/orchestratorE150").ProviderMatrixEntry[];
+    trace?: { providerUsed?: string | null; jsonCoercion?: "none" | "fence" | "braces" | "backticks" | undefined };
   };
 };
 
@@ -422,6 +420,7 @@ throw e;
   const rawText = orchestration.rawText;
 
   let raw: any = orchestration.best.parsed;
+  let jsonCoercion: "none" | "fence" | "braces" | "backticks" | undefined = "none";
   if (!raw) {
     try {
       let cleaned = rawText.trim();
@@ -434,11 +433,22 @@ throw e;
         const lastFence = cleaned.lastIndexOf("```");
         if (lastFence !== -1) {
           cleaned = cleaned.slice(0, lastFence);
+          jsonCoercion = "fence";
         }
         cleaned = cleaned.trim();
       }
 
+      // strict parse first
       raw = safeParseJson(cleaned);
+      if (!raw) {
+        const loose = parseJsonLoose(rawText);
+        if (loose.ok) {
+          raw = loose.value;
+          if (/```/.test(rawText)) jsonCoercion = "fence";
+          else if (/`/.test(rawText)) jsonCoercion = "backticks";
+          else jsonCoercion = "braces";
+        }
+      }
     } catch (err) {
       console.error("[analyzeContribution] JSON-Parse-Fehler:", err, rawText);
       throw new Error(
@@ -469,14 +479,7 @@ throw e;
     );
 
   const normalizedClaimsWithDomains: StatementRecord[] = normalizedRawClaims.map((c) => {
-    const domains =
-      coerceStringArray((c as any)?.domains) ??
-      coerceStringArray((c as any)?.domain) ??
-      null;
-    const domain =
-      (typeof (c as any)?.domain === "string" && (c as any).domain.trim()
-        ? (c as any).domain.trim()
-        : domains?.[0]) ?? null;
+    const { domain, domains } = normalizeDomains((c as any)?.domain, (c as any)?.domains);
     return {
       ...c,
       domain,
@@ -491,7 +494,7 @@ throw e;
   const eventualities = sanitizeEventualities(rawEventualities);
   const decisionTrees = sanitizeDecisionTrees(rawDecisionTrees);
 
-  const parsed = AnalyzeResultSchema.safeParse({
+  let parsed = AnalyzeResultSchema.safeParse({
     mode: "E150",
     sourceText,
     language,
@@ -508,13 +511,47 @@ throw e;
   } satisfies AnalyzeResult);
 
   if (!parsed.success) {
-    console.error(
-      "[analyzeContribution] Zod-Validierung fehlgeschlagen:",
-      parsed.error?.message
-    );
-    throw new Error(
-      "AnalyzeContribution: KI-Antwort entsprach nicht dem erwarteten Schema."
-    );
+    // Fallback: try loose JSON extraction once more before failing
+    const loose = parseJsonLoose(rawText);
+    if (loose.ok) {
+      const parsedRetry = AnalyzeResultSchema.safeParse({
+        mode: "E150",
+        sourceText,
+        language,
+        claims: normalizedClaimsWithDomains,
+        notes,
+        questions,
+        knots,
+        consequences: ensureConsequenceBundle(rawConsequenceBundle),
+        responsibilityPaths,
+        eventualities,
+        decisionTrees,
+        impactAndResponsibility: ensureImpactAndResponsibility(rawImpactAndResponsibility),
+        report: ensureReport(rawReport),
+      } satisfies AnalyzeResult);
+      if (!parsedRetry.success) {
+        console.error(
+          "[analyzeContribution] Zod-Validierung fehlgeschlagen (retry):",
+          parsedRetry.error?.message
+        );
+        throw new Error(
+          "AnalyzeContribution: KI-Antwort entsprach nicht dem erwarteten Schema."
+        );
+      } else {
+        parsed = parsedRetry;
+        if (/```/.test(rawText)) jsonCoercion = "fence";
+        else if (/`/.test(rawText)) jsonCoercion = "backticks";
+        else jsonCoercion = "braces";
+      }
+    } else {
+      console.error(
+        "[analyzeContribution] Zod-Validierung fehlgeschlagen:",
+        parsed.error?.message
+      );
+      throw new Error(
+        "AnalyzeContribution: KI-Antwort entsprach nicht dem erwarteten Schema."
+      );
+    }
   }
 
   const base: AnalyzeResult = {
@@ -541,6 +578,7 @@ throw e;
     costEur: orchestration.best?.costEur ?? 0,
     pipeline: input.pipeline ?? "contribution_analyze",
     providerMatrix: orchestration.meta.providerMatrix,
+    trace: { providerUsed: orchestration.best?.provider ?? orchestration.best?.providerId, jsonCoercion },
   };
 
   return {

@@ -1,10 +1,35 @@
 import type { StatementRecord } from "./schemas";
+import { normalizeDomains } from "./schemas";
 
 const pickString = (val: unknown): string | null => {
   if (typeof val !== "string") return null;
   const trimmed = val.trim();
   return trimmed.length > 0 ? trimmed : null;
 };
+
+const RESPONSIBILITY_LEVELS = new Set([
+  "EU",
+  "Bund",
+  "Land",
+  "Kommune",
+  "privat",
+  "unbestimmt",
+  "unknown",
+]);
+
+function normalizeResponsibility(val: unknown): string | undefined {
+  const s = pickString(val);
+  if (!s) return undefined;
+  const canonical = s.trim();
+  if (RESPONSIBILITY_LEVELS.has(canonical)) return canonical;
+  const lower = canonical.toLowerCase();
+  if (lower === "federal" || lower === "bund") return "Bund";
+  if (lower === "state" || lower === "land") return "Land";
+  if (lower === "municipality" || lower === "kommune") return "Kommune";
+  if (lower === "private" || lower === "privat") return "privat";
+  if (lower === "eu") return "EU";
+  return "unknown";
+}
 
 /**
  * Normalize raw Claim-Knoten aus der KI-Antwort in ein StatementRecord.
@@ -29,10 +54,11 @@ export function normalizeStatementRecord(
     raw && typeof raw.meta === "object" && raw.meta !== null ? raw.meta : {};
 
   const responsibility =
-    pickString(raw.responsibility) ?? pickString(meta.responsibility);
+    normalizeResponsibility(raw.responsibility) ??
+    normalizeResponsibility(meta.responsibility);
   const title = pickString(raw.title) ?? pickString(meta.title);
   const topic = pickString(raw.topic);
-  const domain = pickString(raw.domain);
+  const { domain, domains } = normalizeDomains(raw.domain, raw.domains ?? meta.domains);
 
   let importance: number | undefined;
   if (
@@ -59,6 +85,7 @@ export function normalizeStatementRecord(
     importance,
     topic: topic ?? undefined,
     domain: domain ?? undefined,
+    domains: domains ?? undefined,
     stance: stance ?? undefined,
   };
 

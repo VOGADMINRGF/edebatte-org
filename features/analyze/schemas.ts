@@ -38,6 +38,25 @@ export function coerceStringArray(v: unknown): string[] | undefined {
   return undefined;
 }
 
+/**
+ * Vereinheitlicht domain/domains: domain = primäre, domains = Array oder null.
+ * Nimmt beliebige Eingaben und liefert saubere String-Werte (getrimmt) zurück.
+ */
+export function normalizeDomains(
+  domainValue: unknown,
+  domainsValue: unknown,
+): { domain: string | null; domains: string[] | null } {
+  const domains =
+    coerceStringArray(domainsValue) ??
+    coerceStringArray(domainValue) ??
+    null;
+  const domain =
+    (typeof domainValue === "string" && domainValue.trim()) ||
+    (domains && domains.length ? domains[0] : null) ||
+    null;
+  return { domain: domain || null, domains };
+}
+
 /* ---------- Statements / Claims ---------- */
 
 export const StatementRecordSchema = z.object({
@@ -53,6 +72,7 @@ export const StatementRecordSchema = z.object({
   importance: z.number().int().min(1).max(5).nullable().optional(),
   topic: z.string().nullable().optional(),
   domain: z.string().nullable().optional(),
+  // NEU: mehrere redaktionelle Domains möglich (Multi-Tag); domain bleibt kompatibel als "primäre" Domain
   domains: z.array(z.string()).nullable().optional(),
   stance: z.enum(["pro", "neutral", "contra"]).nullable().optional(),
 });
