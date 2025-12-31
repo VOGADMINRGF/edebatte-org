@@ -1,0 +1,2080 @@
+.
+├── .DS_Store
+├── .env.local
+├── .envrc
+├── .github
+│   ├── pull_request_template.md
+│   └── workflows
+│       ├── e150-ci.yml
+│       └── web-ci.yml
+├── .gitignore
+├── .merge_backups
+│   └── .DS_Store
+├── .zap
+│   └── rules.tsv
+├── NR-VOG-Ordnerstructure.txt
+├── ORPHAN_FEATURES_VPM25.md
+├── README.md
+├── _legacy_src
+│   ├── .DS_Store
+│   └── lib
+│       ├── .DS_Store
+│       └── db
+│           ├── core.ts
+│           ├── index.ts
+│           ├── pii.ts
+│           └── votes.ts
+├── apps
+│   ├── .DS_Store
+│   └── web
+│       ├── .DS_Store
+│       ├── .env.example
+│       ├── .env.local -> ../../.env.local
+│       ├── .eslintcache
+│       ├── .gitignore
+│       ├── .tsbuildinfo.web
+│       ├── Dockerfile
+│       ├── README.md
+│       ├── config
+│       │   └── routeAccess.json
+│       ├── core
+│       │   ├── .DS_Store
+│       │   └── feeds
+│       │       └── civic_feeds.de.json
+│       ├── eslint.config.js
+│       ├── i18n.ts
+│       ├── next
+│       ├── next-env.d.ts
+│       ├── next.config.ts
+│       ├── package.json
+│       ├── postcss.config.cjs
+│       ├── public
+│       │   ├── .DS_Store
+│       │   ├── .well-known
+│       │   │   └── appspecific
+│       │   │       └── com.chrome.devtools.json
+│       │   ├── dummy
+│       │   │   ├── .!18197!dummy1.jpg
+│       │   │   ├── .!18202!dummy1.jpg
+│       │   │   ├── .!18209!dummy1.jpg
+│       │   │   ├── dummy1.jpg
+│       │   │   ├── dummy10.jpg
+│       │   │   ├── dummy11.jpg
+│       │   │   ├── dummy12.jpg
+│       │   │   ├── dummy2.jpg
+│       │   │   ├── dummy3.jpg
+│       │   │   ├── dummy4.jpg
+│       │   │   ├── dummy5.jpg
+│       │   │   ├── dummy6.jpg
+│       │   │   ├── dummy7.jpg
+│       │   │   ├── dummy8.jpg
+│       │   │   ├── dummy9.jpg
+│       │   │   └── trailer-1.mp4
+│       │   ├── file.svg
+│       │   ├── globe.svg
+│       │   ├── next.svg
+│       │   ├── ricky-portrait.jpg
+│       │   ├── vercel.svg
+│       │   ├── videos
+│       │   │   └── WertderStimme_DE.mp4
+│       │   └── window.svg
+│       ├── scripts
+│       │   ├── check_incomplete_files.ts
+│       │   ├── core.ensureIndexes.ts
+│       │   ├── data
+│       │   │   ├── exampleStatements.json
+│       │   │   ├── feedNews.json
+│       │   │   ├── initialReports.json
+│       │   │   ├── initialStatements.json
+│       │   │   ├── initialStatements.schema.js
+│       │   │   ├── initialStatements.schema.json
+│       │   │   ├── initialStatementsReadme.md
+│       │   │   ├── reportSchema.json
+│       │   │   ├── statementSchema.json
+│       │   │   └── vogReports.json
+│       │   ├── ensureIndexes.ts
+│       │   ├── importReports.js
+│       │   ├── importStatements.js
+│       │   ├── kafka-consumer.ts
+│       │   ├── kafka-producer.ts
+│       │   ├── mongo.ensure-geo-index.ts
+│       │   ├── pii.ensureIndexes.ts
+│       │   ├── ping.all.dbs.ts
+│       │   ├── prisma-generate-all.mjs
+│       │   ├── r2.smoke.ts
+│       │   ├── seed.map.points.ts
+│       │   ├── tokens.ensureIndexes.ts
+│       │   └── votes.ensureIndexes.ts
+│       ├── src
+│       │   ├── .DS_Store
+│       │   ├── __features_local_DISABLED__
+│       │   │   ├── .DS_Store
+│       │   │   ├── analysis
+│       │   │   │   └── extract.ts
+│       │   │   ├── fact
+│       │   │   │   └── FactBadge.tsx
+│       │   │   └── newsfeed
+│       │   │       └── pipeline.ts
+│       │   ├── _disabled
+│       │   │   ├── admin
+│       │   │   │   ├── access
+│       │   │   │   ├── config
+│       │   │   │   ├── errors
+│       │   │   │   ├── health
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── logs
+│       │   │   │   ├── orgs
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── system
+│       │   │   │   ├── telemetry
+│       │   │   │   ├── test
+│       │   │   │   └── users
+│       │   │   ├── ai
+│       │   │   │   ├── analyze
+│       │   │   │   ├── health
+│       │   │   │   ├── region-summary
+│       │   │   │   └── run
+│       │   │   ├── dashboard
+│       │   │   │   ├── StreamDashboard.tsx
+│       │   │   │   ├── admin
+│       │   │   │   ├── api
+│       │   │   │   ├── community
+│       │   │   │   ├── config
+│       │   │   │   ├── create-stream
+│       │   │   │   ├── editor
+│       │   │   │   ├── errors
+│       │   │   │   ├── errors.tsx
+│       │   │   │   ├── health
+│       │   │   │   ├── index.tsx
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── manage-contributions
+│       │   │   │   ├── manage-streams
+│       │   │   │   ├── ngo
+│       │   │   │   ├── orgs.tsx
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── politik
+│       │   │   │   ├── presse
+│       │   │   │   ├── qr-codes
+│       │   │   │   ├── redaktion.tsx
+│       │   │   │   ├── reporting
+│       │   │   │   ├── test
+│       │   │   │   ├── translation
+│       │   │   │   ├── tv
+│       │   │   │   ├── usage.tsx
+│       │   │   │   ├── user.tsx
+│       │   │   │   └── users
+│       │   │   └── editor
+│       │   │       ├── _utils
+│       │   │       ├── items
+│       │   │       ├── regions
+│       │   │       ├── server
+│       │   │       ├── statements
+│       │   │       ├── tags
+│       │   │       ├── topics
+│       │   │       └── triage
+│       │   ├── app
+│       │   │   ├── (admin)
+│       │   │   │   └── factcheck
+│       │   │   ├── (components)
+│       │   │   │   ├── HighlightedTextarea.tsx
+│       │   │   │   ├── SiteHeader.tsx
+│       │   │   │   ├── UsageKPIPanel.tsx
+│       │   │   │   └── normalizeClaim.ts
+│       │   │   ├── (public)
+│       │   │   │   └── join
+│       │   │   ├── .DS_Store
+│       │   │   ├── [locale]
+│       │   │   │   └── layout.tsx
+│       │   │   ├── account
+│       │   │   │   ├── AccountClient.tsx
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── payment
+│       │   │   │   └── security
+│       │   │   ├── admin
+│       │   │   │   ├── access
+│       │   │   │   ├── analytics
+│       │   │   │   ├── eventualities
+│       │   │   │   ├── evidence
+│       │   │   │   ├── feeds
+│       │   │   │   ├── graph
+│       │   │   │   ├── identity
+│       │   │   │   ├── impact
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── newsletter
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── reports
+│       │   │   │   ├── research
+│       │   │   │   ├── responsibility
+│       │   │   │   ├── settings
+│       │   │   │   ├── telemetry
+│       │   │   │   └── users
+│       │   │   ├── analyze
+│       │   │   │   └── AnalyzeWorkbench.tsx
+│       │   │   ├── api
+│       │   │   │   ├── .DS_Store
+│       │   │   │   ├── _diag
+│       │   │   │   ├── _echo
+│       │   │   │   ├── _utils
+│       │   │   │   ├── account
+│       │   │   │   ├── admin
+│       │   │   │   ├── analyze
+│       │   │   │   ├── ari
+│       │   │   │   ├── auth
+│       │   │   │   ├── autopilot
+│       │   │   │   ├── claims
+│       │   │   │   ├── contact
+│       │   │   │   ├── contributions
+│       │   │   │   ├── csrf
+│       │   │   │   ├── debug
+│       │   │   │   ├── diag
+│       │   │   │   ├── drafts
+│       │   │   │   ├── edebatte
+│       │   │   │   ├── errors
+│       │   │   │   ├── events
+│       │   │   │   ├── export
+│       │   │   │   ├── factcheck
+│       │   │   │   ├── feeds
+│       │   │   │   ├── finding
+│       │   │   │   ├── gdpr
+│       │   │   │   ├── geo
+│       │   │   │   ├── graph
+│       │   │   │   ├── health
+│       │   │   │   ├── households
+│       │   │   │   ├── items
+│       │   │   │   ├── map
+│       │   │   │   ├── membership
+│       │   │   │   ├── memberships
+│       │   │   │   ├── news
+│       │   │   │   ├── preflight
+│       │   │   │   ├── projects
+│       │   │   │   ├── public
+│       │   │   │   ├── qualify
+│       │   │   │   ├── quality
+│       │   │   │   ├── quick-register
+│       │   │   │   ├── region
+│       │   │   │   ├── reports
+│       │   │   │   ├── research
+│       │   │   │   ├── responsibility
+│       │   │   │   ├── search
+│       │   │   │   ├── security
+│       │   │   │   ├── stance
+│       │   │   │   ├── statements
+│       │   │   │   ├── stream
+│       │   │   │   ├── streams
+│       │   │   │   ├── support
+│       │   │   │   ├── swipeStatements
+│       │   │   │   ├── swipes
+│       │   │   │   ├── topics
+│       │   │   │   ├── translate
+│       │   │   │   ├── unit
+│       │   │   │   ├── uploads
+│       │   │   │   ├── user-demographics
+│       │   │   │   ├── users
+│       │   │   │   ├── votes
+│       │   │   │   └── you
+│       │   │   ├── apple-touch-icon.png
+│       │   │   │   └── route.ts
+│       │   │   ├── auth
+│       │   │   │   ├── 2fa-setup
+│       │   │   │   └── onboarding
+│       │   │   ├── barrierefreiheit
+│       │   │   │   └── page.tsx
+│       │   │   ├── beitraege
+│       │   │   │   ├── neu
+│       │   │   │   └── page.tsx
+│       │   │   ├── beitritt
+│       │   │   │   └── page.tsx
+│       │   │   ├── contact
+│       │   │   │   └── page.tsx
+│       │   │   ├── context
+│       │   │   │   └── page.tsx
+│       │   │   ├── contribute
+│       │   │   │   ├── ContributionForm.tsx
+│       │   │   │   └── page.tsx
+│       │   │   ├── contributions
+│       │   │   │   ├── .DS_Store
+│       │   │   │   ├── analyze
+│       │   │   │   └── new
+│       │   │   ├── dashboard
+│       │   │   │   ├── .DS_Store
+│       │   │   │   ├── admin
+│       │   │   │   ├── memberships
+│       │   │   │   ├── projects
+│       │   │   │   ├── streams
+│       │   │   │   └── usage
+│       │   │   ├── datenschutz
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── demo
+│       │   │   │   └── page.tsx
+│       │   │   ├── evidence
+│       │   │   │   └── [regionCode]
+│       │   │   ├── faq
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── favicon.ico
+│       │   │   ├── globals.css
+│       │   │   ├── homeStrings.ts
+│       │   │   ├── howtoworks
+│       │   │   │   ├── bewegung
+│       │   │   │   ├── edebatte
+│       │   │   │   └── page.tsx
+│       │   │   ├── impressum
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── ki-nutzung
+│       │   │   │   └── page.tsx
+│       │   │   ├── kontakt
+│       │   │   │   ├── KontaktForm.tsx
+│       │   │   │   └── page.tsx
+│       │   │   ├── layout.tsx
+│       │   │   ├── login
+│       │   │   │   └── page.tsx
+│       │   │   ├── logout
+│       │   │   │   └── page.tsx
+│       │   │   ├── map
+│       │   │   │   ├── ClientWrapper.tsx
+│       │   │   │   ├── MapePageClient.tsx
+│       │   │   │   └── page.tsx
+│       │   │   ├── messages
+│       │   │   │   ├── ar.json
+│       │   │   │   ├── cs.json
+│       │   │   │   ├── de.json
+│       │   │   │   ├── el.json
+│       │   │   │   ├── en.json
+│       │   │   │   ├── es.json
+│       │   │   │   ├── fi.json
+│       │   │   │   ├── fr.json
+│       │   │   │   ├── hi.json
+│       │   │   │   ├── it.json
+│       │   │   │   ├── nl.json
+│       │   │   │   ├── no.json
+│       │   │   │   ├── pl.json
+│       │   │   │   ├── pt.json
+│       │   │   │   ├── ro.json
+│       │   │   │   ├── ru.json
+│       │   │   │   ├── sv.json
+│       │   │   │   ├── tr.json
+│       │   │   │   └── uk.json
+│       │   │   ├── mitglied-antrag
+│       │   │   │   ├── MembershipApplicationPageClient.tsx
+│       │   │   │   ├── MitgliedAntragClient.tsx
+│       │   │   │   └── page.tsx
+│       │   │   ├── mitglied-werden
+│       │   │   │   ├── MembershipPageClient.tsx
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── not-found
+│       │   │   │   └── page.tsx
+│       │   │   ├── nutzungsmodell
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── overlay
+│       │   │   │   └── stream
+│       │   │   ├── page.tsx
+│       │   │   ├── pipeline
+│       │   │   │   └── steps
+│       │   │   ├── presse
+│       │   │   │   └── page.tsx
+│       │   │   ├── privacyStrings.ts
+│       │   │   ├── profile
+│       │   │   │   └── page.tsx
+│       │   │   ├── projekts.tsx
+│       │   │   ├── providers.tsx
+│       │   │   ├── qr
+│       │   │   │   └── [qrId]
+│       │   │   ├── qrcodegenerator
+│       │   │   │   └── page.tsx
+│       │   │   ├── qrcodewizard
+│       │   │   │   └── page.tsx
+│       │   │   ├── register
+│       │   │   │   ├── RegisterPageClient.tsx
+│       │   │   │   ├── RegisterStepper.tsx
+│       │   │   │   ├── identity
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── verify-email
+│       │   │   ├── report
+│       │   │   │   ├── [id]
+│       │   │   │   └── page.tsx
+│       │   │   ├── reports
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── topic
+│       │   │   ├── research
+│       │   │   │   └── tasks
+│       │   │   ├── reset
+│       │   │   │   └── page.tsx
+│       │   │   ├── satzung
+│       │   │   │   └── page.tsx
+│       │   │   ├── settings
+│       │   │   │   └── page.tsx
+│       │   │   ├── statements
+│       │   │   │   ├── [id]
+│       │   │   │   └── new
+│       │   │   ├── stream
+│       │   │   │   ├── [slug]
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── pausepage.tsx
+│       │   │   ├── swipe
+│       │   │   │   └── page.tsx
+│       │   │   ├── swipes
+│       │   │   │   ├── SwipesClient.tsx
+│       │   │   │   ├── [id]
+│       │   │   │   └── page.tsx
+│       │   │   ├── team
+│       │   │   │   └── page.tsx
+│       │   │   ├── theme.ts
+│       │   │   ├── transparenzbericht
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── ueber-uns
+│       │   │   │   └── page.tsx
+│       │   │   ├── unterstuetzen
+│       │   │   │   ├── page.tsx
+│       │   │   │   └── strings.ts
+│       │   │   ├── verhaltenskodex
+│       │   │   │   └── page.tsx
+│       │   │   ├── verify
+│       │   │   │   └── page.tsx
+│       │   │   ├── vote
+│       │   │   │   ├── new
+│       │   │   │   └── page.tsx
+│       │   │   ├── votes
+│       │   │   │   ├── [id]
+│       │   │   │   └── page.tsx
+│       │   │   └── widerspruch
+│       │   │       └── page.tsx
+│       │   ├── components
+│       │   │   ├── AnalyzeBar.tsx
+│       │   │   ├── AnalyzeToolbar.tsx
+│       │   │   ├── ClaimCard.tsx
+│       │   │   ├── ClarifyBar.tsx
+│       │   │   ├── FAQTabs.tsx
+│       │   │   ├── Headline.tsx
+│       │   │   ├── IntroSection.tsx
+│       │   │   ├── LocaleSwitcher.tsx
+│       │   │   ├── MarkerInput.tsx
+│       │   │   ├── MembershipInfo.tsx
+│       │   │   ├── MiniAccordion.tsx
+│       │   │   ├── MiniFeed.tsx
+│       │   │   ├── PageWrapper.tsx
+│       │   │   ├── PasswordField.tsx
+│       │   │   ├── PipelineBox.tsx
+│       │   │   ├── QRCodeGenerator.tsx
+│       │   │   ├── QRCodeWizard.tsx
+│       │   │   ├── QuickRegister.tsx
+│       │   │   ├── RegionSelector.tsx
+│       │   │   ├── SetBuilder.tsx
+│       │   │   ├── SiteFooter.tsx
+│       │   │   ├── SiteHeader.tsx
+│       │   │   ├── StatementPyramide.tsx
+│       │   │   ├── StatementRegister.tsx
+│       │   │   ├── Stepper.tsx
+│       │   │   ├── StreamForm.tsx
+│       │   │   ├── Stufenbalken.tsx
+│       │   │   ├── SupportBenefits.tsx
+│       │   │   ├── SupportCTA.tsx
+│       │   │   ├── SwipeTeaser.tsx
+│       │   │   ├── TabNav.tsx
+│       │   │   ├── Tabs.tsx
+│       │   │   ├── ThemaGrid.tsx
+│       │   │   ├── ZettelList.tsx
+│       │   │   ├── analyze
+│       │   │   │   ├── ActivityConsole.tsx
+│       │   │   │   ├── AlternativeModal.tsx
+│       │   │   │   ├── AnalyzeOverlay.tsx
+│       │   │   │   ├── AnalyzePanel.tsx
+│       │   │   │   ├── AnalyzeResultCard.tsx
+│       │   │   │   ├── AnalyzeShell.tsx
+│       │   │   │   ├── AnalyzeUI.tsx
+│       │   │   │   ├── AnalyzeWorkspace.tsx
+│       │   │   │   ├── AutopilotDialog.tsx
+│       │   │   │   ├── CTAButtons.tsx
+│       │   │   │   ├── ClaimMatchBadge.tsx
+│       │   │   │   ├── ClarifyPanel.tsx
+│       │   │   │   ├── CounterSynth.tsx
+│       │   │   │   ├── FactcheckModal.tsx
+│       │   │   │   ├── NarrativeBreaker.tsx
+│       │   │   │   ├── NewsFeedPanel.tsx
+│       │   │   │   ├── ObjectionCollector.tsx
+│       │   │   │   ├── QualifyDialog.tsx
+│       │   │   │   ├── SmartClaimCard.tsx
+│       │   │   │   ├── StanceSpectrum.tsx
+│       │   │   │   ├── TopicBoard.tsx
+│       │   │   │   └── useAnalyzeOverlay.ts
+│       │   │   ├── auth
+│       │   │   │   ├── HeaderLoginInline.tsx
+│       │   │   │   └── LoginPageShell.tsx
+│       │   │   ├── contributions
+│       │   │   │   ├── AnalyzeProgress.tsx
+│       │   │   │   └── ImpactResponsibilitySection.tsx
+│       │   │   ├── layout
+│       │   │   │   └── HeaderLoginInline.tsx
+│       │   │   ├── nav
+│       │   │   │   ├── SidebarNav.tsx
+│       │   │   │   └── SidebarNavClient.tsx
+│       │   │   ├── privacy
+│       │   │   │   └── VogCookieBanner.tsx
+│       │   │   ├── process
+│       │   │   │   └── ProcessSteps.tsx
+│       │   │   ├── profile
+│       │   │   │   └── UserProfile.tsx
+│       │   │   ├── region
+│       │   │   │   └── RegionConsent.tsx
+│       │   │   ├── security
+│       │   │   │   └── HumanCheck.tsx
+│       │   │   ├── statement
+│       │   │   │   ├── StatementCard.tsx
+│       │   │   │   ├── StatementCarousel.tsx
+│       │   │   │   └── StatementPreview.tsx
+│       │   │   ├── statements
+│       │   │   │   └── StatementCard.tsx
+│       │   │   ├── theme
+│       │   │   │   └── ThemeProvider.tsx
+│       │   │   └── ui
+│       │   │       ├── badge.tsx
+│       │   │       ├── button.tsx
+│       │   │       └── card.tsx
+│       │   ├── config
+│       │   │   ├── accessControl.ts
+│       │   │   ├── accessTiers.ts
+│       │   │   ├── admin-config.ts
+│       │   │   ├── admin.ts
+│       │   │   ├── apiRoutes.ts
+│       │   │   ├── banking.ts
+│       │   │   ├── edebatte.ts
+│       │   │   ├── featureMatrix.ts
+│       │   │   ├── flags.ts
+│       │   │   ├── limits.ts
+│       │   │   ├── locales.ts
+│       │   │   ├── plans.ts
+│       │   │   ├── pricing.ts
+│       │   │   └── prompts.json
+│       │   ├── constants
+│       │   │   ├── languages.ts
+│       │   │   └── roles.ts
+│       │   ├── context
+│       │   │   └── LocaleContext.tsx
+│       │   ├── core
+│       │   │   ├── factcheck
+│       │   │   │   └── triage.ts
+│       │   │   ├── gpt.ts
+│       │   │   └── utils
+│       │   │       └── errors.ts
+│       │   ├── db
+│       │   │   ├── .DS_Store
+│       │   │   ├── core
+│       │   │   │   ├── client.d.ts
+│       │   │   │   ├── client.js
+│       │   │   │   ├── default.d.ts
+│       │   │   │   ├── default.js
+│       │   │   │   ├── edge.d.ts
+│       │   │   │   ├── edge.js
+│       │   │   │   ├── index-browser.js
+│       │   │   │   ├── index.d.ts
+│       │   │   │   ├── index.js
+│       │   │   │   ├── libquery_engine-darwin-arm64.dylib.node
+│       │   │   │   ├── package.json
+│       │   │   │   ├── runtime
+│       │   │   │   ├── wasm-edge-light-loader.mjs
+│       │   │   │   ├── wasm-worker-loader.mjs
+│       │   │   │   ├── wasm.d.ts
+│       │   │   │   └── wasm.js
+│       │   │   ├── mongoose.ts
+│       │   │   └── web
+│       │   │       ├── client.d.ts
+│       │   │       ├── client.js
+│       │   │       ├── default.d.ts
+│       │   │       ├── default.js
+│       │   │       ├── edge.d.ts
+│       │   │       ├── edge.js
+│       │   │       ├── index-browser.js
+│       │   │       ├── index.d.ts
+│       │   │       ├── index.js
+│       │   │       ├── libquery_engine-darwin-arm64.dylib.node
+│       │   │       ├── package.json
+│       │   │       ├── query_engine_bg.js
+│       │   │       ├── query_engine_bg.wasm
+│       │   │       ├── runtime
+│       │   │       ├── wasm-edge-light-loader.mjs
+│       │   │       ├── wasm-worker-loader.mjs
+│       │   │       ├── wasm.d.ts
+│       │   │       └── wasm.js
+│       │   ├── features
+│       │   │   ├── .DS_Store
+│       │   │   ├── ai
+│       │   │   │   ├── prompts
+│       │   │   │   ├── providers
+│       │   │   │   └── roles
+│       │   │   ├── auth
+│       │   │   │   └── LoginPageShell.tsx
+│       │   │   ├── feeds
+│       │   │   │   └── types.ts
+│       │   │   ├── graph
+│       │   │   │   └── swipes.ts
+│       │   │   ├── localization
+│       │   │   │   └── translateAndStore.ts
+│       │   │   ├── membership
+│       │   │   │   ├── README.md
+│       │   │   │   ├── api.ts
+│       │   │   │   ├── calculator.ts
+│       │   │   │   ├── components
+│       │   │   │   ├── config.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   └── types.ts
+│       │   │   ├── pricing
+│       │   │   │   ├── README.md
+│       │   │   │   ├── components
+│       │   │   │   ├── config.ts
+│       │   │   │   ├── credits.ts
+│       │   │   │   ├── discount.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   └── types.ts
+│       │   │   ├── research
+│       │   │   │   ├── SerpResultItem.tsx
+│       │   │   │   └── SerpResultsList.tsx
+│       │   │   ├── swipes
+│       │   │   │   ├── service.ts
+│       │   │   │   └── types.ts
+│       │   │   └── ui
+│       │   ├── graph
+│       │   │   ├── arangoRepo.ts
+│       │   │   ├── config.ts
+│       │   │   ├── index.ts
+│       │   │   ├── memgraphRepo.ts
+│       │   │   ├── neo4jRepo.ts
+│       │   │   ├── syncStatementsToGraph.ts
+│       │   │   └── types.ts
+│       │   ├── hooks
+│       │   │   ├── auth.ts
+│       │   │   ├── useEffectiveRegion.ts
+│       │   │   ├── useErrorToast.ts
+│       │   │   ├── useFactcheckJob.ts
+│       │   │   ├── useLoginFlow.ts
+│       │   │   ├── useRegionPreference.ts
+│       │   │   ├── useRouteGuardClient.ts
+│       │   │   └── useTranslate.ts
+│       │   ├── lib
+│       │   │   ├── .DS_Store
+│       │   │   ├── access
+│       │   │   │   ├── acl.ts
+│       │   │   │   └── permissions.ts
+│       │   │   ├── analysis.ts
+│       │   │   ├── api.ts
+│       │   │   ├── audit.ts
+│       │   │   ├── auth
+│       │   │   │   ├── getServerUser.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   └── roles.ts
+│       │   │   ├── cache
+│       │   │   │   └── ttl.ts
+│       │   │   ├── ci.ts
+│       │   │   ├── claimMatch.ts
+│       │   │   ├── connectDB.ts
+│       │   │   ├── contribution
+│       │   │   │   ├── analyze
+│       │   │   │   ├── analyzeAndTranslate.ts
+│       │   │   │   ├── analyzeContribution.ts
+│       │   │   │   ├── analyzeContributionHeuristic.ts
+│       │   │   │   ├── extractStatements.ts
+│       │   │   │   ├── llm
+│       │   │   │   ├── regionLookup.ts
+│       │   │   │   ├── schema.ts
+│       │   │   │   ├── storeContribution.ts
+│       │   │   │   └── translateAndCache.ts
+│       │   │   ├── db
+│       │   │   │   ├── core.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── modelOn.ts
+│       │   │   │   ├── pii.ts
+│       │   │   │   └── votes.ts
+│       │   │   ├── db.ts
+│       │   │   ├── dbCore.ts
+│       │   │   ├── dbWeb.ts
+│       │   │   ├── errors
+│       │   │   │   └── formatError.ts
+│       │   │   ├── factcheck.ts
+│       │   │   ├── gamification
+│       │   │   │   └── rules.ts
+│       │   │   ├── geo
+│       │   │   │   └── provider.ts
+│       │   │   ├── hooks
+│       │   │   │   └── useCivicSearch.ts
+│       │   │   ├── http
+│       │   │   │   └── typedCookies.ts
+│       │   │   ├── llm.ts
+│       │   │   ├── localization
+│       │   │   │   └── getLocalizedField.ts
+│       │   │   ├── logger.ts
+│       │   │   ├── logging
+│       │   │   │   └── pino.ts
+│       │   │   ├── metrics
+│       │   │   │   └── usage.ts
+│       │   │   ├── neo4j.ts
+│       │   │   ├── net
+│       │   │   │   └── fetchInstrument.tsx
+│       │   │   ├── pii
+│       │   │   │   └── QuickSignup.ts
+│       │   │   ├── plans.ts
+│       │   │   ├── policy.ts
+│       │   │   ├── press.ts
+│       │   │   ├── prisma.ts
+│       │   │   ├── privacy
+│       │   │   │   └── consent.ts
+│       │   │   ├── redis.ts
+│       │   │   ├── region
+│       │   │   │   └── effective.ts
+│       │   │   ├── regions.ts
+│       │   │   ├── s3.ts
+│       │   │   ├── safety
+│       │   │   │   └── moderation.ts
+│       │   │   ├── secruity
+│       │   │   │   └── csrf.ts
+│       │   │   ├── security
+│       │   │   │   ├── human-puzzle.ts
+│       │   │   │   ├── human-token.ts
+│       │   │   │   └── rate-limit.ts
+│       │   │   ├── server
+│       │   │   │   └── auth
+│       │   │   ├── services
+│       │   │   │   └── stream
+│       │   │   ├── spam
+│       │   │   │   ├── contactSpam.ts
+│       │   │   │   └── humanChallenge.ts
+│       │   │   ├── validation
+│       │   │   │   ├── body.ts
+│       │   │   │   └── contentValidation.ts
+│       │   │   ├── vote
+│       │   │   │   └── stats.ts
+│       │   │   └── worker.ts
+│       │   ├── middleware
+│       │   │   └── editorAuth.ts
+│       │   ├── middleware.ts
+│       │   ├── models
+│       │   │   ├── Contribution.ts
+│       │   │   ├── ErrorLog.ts
+│       │   │   ├── Vote.ts
+│       │   │   ├── adapters.ts
+│       │   │   ├── core
+│       │   │   │   ├── Contribution.ts
+│       │   │   │   ├── Draft.ts
+│       │   │   │   ├── EditorialReport.ts
+│       │   │   │   ├── ErrorLog.ts
+│       │   │   │   ├── Event.ts
+│       │   │   │   ├── MediaItem.ts
+│       │   │   │   ├── Report.ts
+│       │   │   │   ├── Source.ts
+│       │   │   │   ├── Statement.ts
+│       │   │   │   ├── Stream.ts
+│       │   │   │   ├── StreamEvent.ts
+│       │   │   │   └── VotingRule.ts
+│       │   │   ├── game
+│       │   │   │   └── UserGameStats.ts
+│       │   │   ├── org.ts
+│       │   │   ├── pii
+│       │   │   │   └── UserDemographics.ts
+│       │   │   ├── responsibility
+│       │   │   │   ├── DirectoryEntry.ts
+│       │   │   │   └── Path.ts
+│       │   │   ├── statement.ts
+│       │   │   └── votes
+│       │   │       ├── SubmissionArchive.ts
+│       │   │       └── Vote.ts
+│       │   ├── modules
+│       │   │   ├── .DS_Store
+│       │   │   └── ai
+│       │   │       └── .DS_Store
+│       │   ├── openapi
+│       │   │   └── v1.yaml
+│       │   ├── pipeline
+│       │   │   ├── manifest.ts
+│       │   │   ├── registry.ts
+│       │   │   ├── steps
+│       │   │   │   ├── analyze_gpt.ts
+│       │   │   │   ├── analyze_multi_llm.ts
+│       │   │   │   ├── cache.ts
+│       │   │   │   ├── confirm.ts
+│       │   │   │   ├── factcheck_stub.ts
+│       │   │   │   ├── finalize.ts
+│       │   │   │   ├── heuristic.ts
+│       │   │   │   └── preprocess.ts
+│       │   │   ├── types.ts
+│       │   │   └── util.ts
+│       │   ├── prisma.ts
+│       │   ├── server
+│       │   │   ├── draftStore.ts
+│       │   │   ├── drafts.client.ts
+│       │   │   ├── drafts.ts
+│       │   │   ├── handlers
+│       │   │   │   └── contributions
+│       │   │   ├── health.ts
+│       │   │   └── services.ts
+│       │   ├── services
+│       │   │   └── core
+│       │   │       └── stream.ts
+│       │   ├── shims
+│       │   │   ├── components
+│       │   │   │   └── TabNav.tsx
+│       │   │   ├── context
+│       │   │   │   └── LocaleContext.tsx
+│       │   │   ├── db-core.ts
+│       │   │   ├── db-web.ts
+│       │   │   ├── e200-ambient.d.ts
+│       │   │   ├── features
+│       │   │   │   ├── ai
+│       │   │   │   ├── analysis
+│       │   │   │   ├── analyze
+│       │   │   │   ├── context
+│       │   │   │   ├── graph
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── map
+│       │   │   │   ├── pricing
+│       │   │   │   ├── report
+│       │   │   │   ├── search
+│       │   │   │   ├── statement
+│       │   │   │   ├── stream
+│       │   │   │   ├── swipe
+│       │   │   │   ├── user
+│       │   │   │   └── utils
+│       │   │   ├── models
+│       │   │   │   └── Vote.ts
+│       │   │   ├── react-icons-fi.tsx
+│       │   │   └── ui.tsx
+│       │   ├── store
+│       │   │   ├── pipeline.ts
+│       │   │   └── pipelineEvents.ts
+│       │   ├── styles
+│       │   │   ├── dashboard.css
+│       │   │   └── vog-steps.css
+│       │   ├── theme.ts
+│       │   ├── types
+│       │   │   ├── _features-root-shim.d.ts
+│       │   │   ├── _features-shim.d.ts
+│       │   │   ├── contribution.ts
+│       │   │   ├── db-web-augment.d.ts
+│       │   │   ├── env.d.ts
+│       │   │   ├── features-augment.d.ts
+│       │   │   ├── optional-mods.d.ts
+│       │   │   ├── overrides
+│       │   │   │   └── quickregister.d.ts
+│       │   │   ├── shims-public.d.ts
+│       │   │   ├── shims.step.d.ts
+│       │   │   ├── ui-shim.d.ts
+│       │   │   └── user.ts
+│       │   ├── ui
+│       │   │   ├── AnalysisFallbackNotice.tsx
+│       │   │   ├── ChatBubble.tsx
+│       │   │   ├── ClaimPanelsGate.tsx
+│       │   │   ├── ClarifyPanel.tsx
+│       │   │   ├── ContribChatOrchestrator.tsx
+│       │   │   ├── FlowTicker.tsx
+│       │   │   ├── InPlaceHUD.tsx
+│       │   │   ├── InlineAnalyzeFeed.tsx
+│       │   │   ├── InlineClarify.tsx
+│       │   │   ├── LueckenCheck.tsx
+│       │   │   ├── PipelineHUD.tsx
+│       │   │   ├── design
+│       │   │   │   └── badgeColor.ts
+│       │   │   ├── gamify
+│       │   │   │   ├── ChoiceBadge.tsx
+│       │   │   │   ├── Confetti.tsx
+│       │   │   │   ├── GameHUD.tsx
+│       │   │   │   ├── QuestCard.tsx
+│       │   │   │   └── XPBar.tsx
+│       │   │   └── hooks
+│       │   │       └── useDebounced.ts
+│       │   └── utils
+│       │       ├── AccessControl.ts
+│       │       ├── absUrl.ts
+│       │       ├── accessTiers.ts
+│       │       ├── aiPing.ts
+│       │       ├── aiProviders.ts
+│       │       ├── arangoClient.ts
+│       │       ├── authSchemas.ts
+│       │       ├── email.ts
+│       │       ├── emailTemplates.ts
+│       │       ├── env.server.ts
+│       │       ├── env.shared.ts
+│       │       ├── env.ts
+│       │       ├── errors.ts
+│       │       ├── geo
+│       │       │   └── normalize.ts
+│       │       ├── gptTranslator.ts
+│       │       ├── jwt.ts
+│       │       ├── lang.ts
+│       │       ├── log.ts
+│       │       ├── logger.ts
+│       │       ├── mailer.ts
+│       │       ├── memgraphClient.ts
+│       │       ├── mongo
+│       │       │   └── votes.ts
+│       │       ├── mongoPing.ts
+│       │       ├── neo4jClient.ts
+│       │       ├── normalizeStatus.ts
+│       │       ├── password.ts
+│       │       ├── publicOrigin.ts
+│       │       ├── rateLimit.ts
+│       │       ├── rateLimitHelpers.ts
+│       │       ├── rateLimiter.ts
+│       │       ├── redisPing.ts
+│       │       ├── serverBaseUrl.ts
+│       │       ├── session.ts
+│       │       ├── timeRange.ts
+│       │       ├── tokens.ts
+│       │       ├── translationCache.ts
+│       │       ├── useTranslation.ts
+│       │       └── validation.ts
+│       ├── tailwind.config.ts
+│       ├── tests
+│       │   ├── admin.analytics.summary.test.ts
+│       │   ├── contact
+│       │   │   └── contact-api.test.ts
+│       │   ├── e2e
+│       │   │   └── admin.spec.ts
+│       │   └── vote.stats.test.ts
+│       ├── tools
+│       │   ├── migration
+│       │   │   └── MEMBERSHIP_NOTES.md
+│       │   └── refactor-imports.js
+│       ├── tsconfig.e150-smoke.json
+│       ├── tsconfig.e150-smoke.tsbuildinfo
+│       ├── tsconfig.json
+│       ├── tsconfig.only-fixed.json
+│       ├── tsconfig.public.json
+│       ├── tsconfig.public.tsbuildinfo
+│       ├── tsconfig.step-app.json
+│       ├── tsconfig.tsbuildinfo
+│       ├── tsconfig.tsc-min.json
+│       ├── tsconfig.tsc-min.tsbuildinfo
+│       ├── tsconfig.typecheck.json
+│       ├── types
+│       │   ├── sanitize-html.d.ts
+│       │   └── shims.d.ts
+│       └── vitest.config.ts
+├── config
+│   ├── credits.ts
+│   └── engagement.ts
+├── core
+│   ├── .DS_Store
+│   ├── access
+│   │   ├── accessTiers.ts
+│   │   └── db.ts
+│   ├── ari
+│   │   └── ariClient.ts
+│   ├── auth
+│   │   ├── emailVerificationService.ts
+│   │   ├── emailVerificationTypes.ts
+│   │   ├── identityVerificationService.ts
+│   │   ├── identityVerificationTypes.ts
+│   │   ├── rbac.ts
+│   │   ├── verificationProgress.ts
+│   │   └── verificationTypes.ts
+│   ├── config
+│   │   └── pagesConfig.ts
+│   ├── context
+│   │   └── LocaleContext.tsx
+│   ├── db
+│   │   ├── db
+│   │   │   └── triMongo.ts
+│   │   ├── mongoose.ts
+│   │   ├── pii
+│   │   │   ├── userPaymentProfiles.ts
+│   │   │   └── userSignatures.ts
+│   │   ├── prisma.ts
+│   │   └── triMongo.ts
+│   ├── errors
+│   │   └── formatError.ts
+│   ├── eventualities
+│   │   ├── db.ts
+│   │   ├── index.ts
+│   │   ├── store.ts
+│   │   └── types.ts
+│   ├── evidence
+│   │   ├── db.ts
+│   │   ├── query.ts
+│   │   └── types.ts
+│   ├── factcheck
+│   │   ├── __tests__
+│   │   │   └── canonical.test.ts
+│   │   ├── canonical.ts
+│   │   ├── claimDecompose.ts
+│   │   ├── classify.ts
+│   │   ├── consensus.ts
+│   │   ├── export
+│   │   │   └── claimtrust.ts
+│   │   ├── extractAndPersist.ts
+│   │   ├── narrative.ts
+│   │   ├── policy.factcheck.ts
+│   │   ├── providers
+│   │   │   ├── ari.provider.ts
+│   │   │   ├── claude.provider.ts
+│   │   │   └── mistral.provider.ts
+│   │   ├── splitter.ts
+│   │   ├── trust.ts
+│   │   ├── types.ts
+│   │   └── version.ts
+│   ├── feeds
+│   │   ├── civic_feeds.de.json
+│   │   └── civic_feeds.global.json
+│   ├── geo
+│   │   ├── region.ts
+│   │   └── types.ts
+│   ├── gpt
+│   │   ├── analyzeContribution.ts
+│   │   ├── parseAnalysisResponse.ts
+│   │   └── schemas.ts
+│   ├── graph
+│   │   ├── driver.ts
+│   │   ├── index.ts
+│   │   ├── queries
+│   │   │   └── reports.ts
+│   │   └── syncAnalyzeResult.ts
+│   ├── locale
+│   │   ├── locales.ts
+│   │   └── server.ts
+│   ├── logic
+│   │   ├── news
+│   │   │   ├── agencyKanon.ts
+│   │   │   └── topics.ts
+│   │   └── storeContribution.ts
+│   ├── membership
+│   │   └── applications.ts
+│   ├── memberships
+│   │   ├── index.ts
+│   │   └── types.ts
+│   ├── observability
+│   │   └── logger.ts
+│   ├── package.json
+│   ├── pii
+│   │   ├── households
+│   │   │   └── types.ts
+│   │   ├── redact.ts
+│   │   ├── userPaymentProfileTypes.ts
+│   │   ├── userProfileService.ts
+│   │   ├── userSignatureTypes.ts
+│   │   └── userTypes.ts
+│   ├── prompts
+│   │   ├── _shared_constraints.md
+│   │   ├── alternatives_only.md
+│   │   ├── ari_audit.md
+│   │   ├── claude_analysis.md
+│   │   ├── consensus_ranking.md
+│   │   ├── factcheck_only.de.md
+│   │   ├── factcheck_only.md
+│   │   ├── gemini_analysis.md
+│   │   ├── gpt_analysis.md
+│   │   ├── impact_only.md
+│   │   ├── llama_analysis.md
+│   │   └── mistral_analysis.md
+│   ├── queue
+│   │   └── factcheckQueue.ts
+│   ├── regions
+│   │   ├── regionTranslations.ts
+│   │   └── types.ts
+│   ├── research
+│   │   ├── index.ts
+│   │   ├── store.ts
+│   │   └── types.ts
+│   ├── responsibility
+│   │   ├── index.ts
+│   │   ├── store.ts
+│   │   └── types.ts
+│   ├── schemas
+│   │   └── editor.ts
+│   ├── streams
+│   │   ├── access.ts
+│   │   ├── agenda.ts
+│   │   └── types.ts
+│   ├── telemetry
+│   │   ├── aiUsage.ts
+│   │   ├── aiUsageSnapshot.ts
+│   │   ├── aiUsageTypes.ts
+│   │   ├── authEvents.ts
+│   │   └── identityEvents.ts
+│   ├── triMongo
+│   │   └── index.ts
+│   ├── triMongo.ts
+│   ├── tsconfig.json
+│   ├── tsconfig.tsbuildinfo
+│   ├── users
+│   │   └── types.ts
+│   ├── utils
+│   │   ├── errors.ts
+│   │   ├── hash.ts
+│   │   ├── jsonRepair.ts
+│   │   ├── random.ts
+│   │   └── validation
+│   │       └── promptSchemas.ts
+│   └── web
+│       └── worker-client.ts
+├── docker-compose.graphdb.yml
+├── docker-compose.yml
+├── docs
+│   ├── .DS_Store
+│   ├── DB_MIGRATIONS.md
+│   ├── E150
+│   │   ├── Codex_Merge_Prompt.md
+│   │   ├── Part00_Foundations_PII_Security.md
+│   │   ├── Part01_Overview_Roles_Access.md
+│   │   ├── Part01_Systemvision_Mission_Governance.md
+│   │   ├── Part02_Roles_Levels_XP_Gamification.md
+│   │   ├── Part03_AccessTiers_Pricing_B2C.md
+│   │   ├── Part04_B2G_B2B_Models.md
+│   │   ├── Part05_Orchestrator_E150_Core.md
+│   │   ├── Part06_Consequences_Fairness.md
+│   │   ├── Part06_Themenkatalog_und_Zustaendigkeiten.md
+│   │   ├── Part07_Graph_Reports_StructuredKnowledge.md
+│   │   ├── Part08_Eventualities_DecisionTrees.md
+│   │   ├── Part09_Community_Research_Workflow.md
+│   │   ├── Part10_Responsibility_Navigator.md
+│   │   ├── Part11_Streams_Brennende_Buerger.md
+│   │   ├── Part12_Campaigns_Admin_Telemetry.md
+│   │   ├── Part13_I18N_A11y_Community_Social.md
+│   │   ├── Part14_Implementation_Roadmap.md
+│   │   ├── Part15.md
+│   │   ├── Part15_Codex_Safe_Mode.md
+│   │   ├── PartAuth_Login_2FA.md
+│   │   └── membership_pricing.md
+│   ├── E150_NEEDS_REVIEW.md
+│   ├── ORPHAN_FEATURES_VPM25.md
+│   ├── PII_ZONES_E150.md
+│   └── auth
+│       └── admin-flows.md
+├── eDbtt-Ordnerstructure.txt
+├── features
+│   ├── .DS_Store
+│   ├── access
+│   │   ├── checkRouteAccess.ts
+│   │   ├── checkRouteAccessEdge.ts
+│   │   ├── routeMatchers.ts
+│   │   └── types.ts
+│   ├── account
+│   │   ├── capabilities.ts
+│   │   ├── profilePackages.ts
+│   │   ├── service.ts
+│   │   └── types.ts
+│   ├── ai
+│   │   ├── .DS_Store
+│   │   ├── askAny.ts
+│   │   ├── e150
+│   │   │   └── providers.ts
+│   │   ├── health.ts
+│   │   ├── health_check.ts
+│   │   ├── health_run_once.ts
+│   │   ├── index.ts
+│   │   ├── json.ts
+│   │   ├── modelRouter.ts
+│   │   ├── orchestrator.ts
+│   │   ├── orchestratorE150.ts
+│   │   ├── orchestrator_claims.ts
+│   │   ├── orchestrator_contrib.ts
+│   │   ├── orchestrator_many.ts
+│   │   ├── pipeline
+│   │   │   ├── buildPrompt.ts
+│   │   │   ├── extract_fast.ts
+│   │   │   └── refine_claims.ts
+│   │   ├── prompts
+│   │   │   ├── atomicizer.ts
+│   │   │   ├── editor_rater.ts
+│   │   │   ├── evidence.ts
+│   │   │   ├── extractor.ts
+│   │   │   └── perspectives.ts
+│   │   ├── providers
+│   │   │   ├── .DS_Store
+│   │   │   ├── _util.ts
+│   │   │   ├── anthropic.ts
+│   │   │   ├── ari.ts
+│   │   │   ├── ari_llm.ts
+│   │   │   ├── ari_search.ts
+│   │   │   ├── gemini.ts
+│   │   │   ├── index.ts
+│   │   │   ├── mistral.ts
+│   │   │   ├── openai.ts
+│   │   │   └── types.ts
+│   │   ├── providers.ts
+│   │   ├── roles
+│   │   │   ├── editor_rater.ts
+│   │   │   ├── extractor.ts
+│   │   │   ├── perspectives.ts
+│   │   │   └── shared_types.ts
+│   │   ├── simulate_health.ts
+│   │   ├── sources
+│   │   │   └── youtube.ts
+│   │   ├── steps
+│   │   │   └── fetch_sources.ts
+│   │   └── telemetry.ts
+│   ├── analyze
+│   │   ├── E150Workbench.tsx
+│   │   ├── analyzeContribution.ts
+│   │   ├── analyzeText.ts
+│   │   ├── argumentation.ts
+│   │   ├── assign.ts
+│   │   ├── assigner.ts
+│   │   ├── atomicizer.ts
+│   │   ├── authority-resolver.ts
+│   │   ├── canon.ts
+│   │   ├── clarify.ts
+│   │   ├── components
+│   │   │   └── AnalyzeForm.tsx
+│   │   ├── composeVote.ts
+│   │   ├── context.ts
+│   │   ├── domainLabels.ts
+│   │   ├── evidence.ts
+│   │   ├── fallback.ts
+│   │   ├── index.ts
+│   │   ├── llmJson.ts
+│   │   ├── needs.ts
+│   │   ├── normalize.ts
+│   │   ├── normalizeClaim.ts
+│   │   ├── pipeline.ts
+│   │   ├── postprocess.ts
+│   │   ├── prompts.ts
+│   │   ├── pyramid.ts
+│   │   ├── questionizers.ts
+│   │   ├── roles.ts
+│   │   ├── schemas.ts
+│   │   ├── themes.ts
+│   │   ├── types.ts
+│   │   ├── utils.ts
+│   │   ├── views
+│   │   │   └── EditorView.tsx
+│   │   └── wrapper.ts
+│   ├── auth
+│   │   ├── components
+│   │   │   ├── index.ts
+│   │   │   └── withPageGuard.tsx
+│   │   ├── hooks
+│   │   │   ├── index.ts
+│   │   │   ├── useAuth.ts
+│   │   │   ├── usePermission.ts
+│   │   │   └── useRouteGuard.ts
+│   │   ├── index.ts
+│   │   ├── utils
+│   │   │   └── index.ts
+│   │   ├── verificationAccess.ts
+│   │   └── verificationRules.ts
+│   ├── common
+│   │   ├── components
+│   │   │   ├── DemoWatermark.tsx
+│   │   │   ├── UniversalSearchBar.tsx
+│   │   │   └── index.ts
+│   │   ├── hooks
+│   │   │   ├── index.ts
+│   │   │   └── useApiOrDummy.ts
+│   │   ├── index.ts
+│   │   ├── types
+│   │   │   ├── ModAction.ts
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       ├── date.ts
+│   │       ├── error.ts
+│   │       └── index.ts
+│   ├── context
+│   │   └── ContextExplorer.tsx
+│   ├── contribution
+│   │   ├── README.md
+│   │   ├── SmartContribution.tsx
+│   │   ├── components
+│   │   │   ├── ContributionCard.tsx
+│   │   │   ├── ContributionForm.tsx
+│   │   │   ├── ContributionList.tsx
+│   │   │   └── index.ts
+│   │   ├── index.ts
+│   │   ├── types
+│   │   │   ├──  ExpectedTendency.ts
+│   │   │   ├──  ParticipantEntry.ts
+│   │   │   ├── AgendaItem.ts
+│   │   │   ├── AnalyticsType.ts
+│   │   │   ├── ContributionType.ts
+│   │   │   ├── EventAnalytics.ts
+│   │   │   ├── FactBoxEntry.ts
+│   │   │   ├── FeedReference.ts
+│   │   │   ├── GamificationStats.ts
+│   │   │   ├── OrganizationEvent.ts
+│   │   │   ├── PoliticalArea.ts
+│   │   │   ├── QRCodeEntry.ts
+│   │   │   ├── StatementType.ts
+│   │   │   ├── VotingRule.ts
+│   │   │   ├── VotingStats.ts
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       ├── analyze.ts
+│   │       ├── cacheAIResponses.ts
+│   │       ├── index.ts
+│   │       ├── loadPrompt.ts
+│   │       ├── mapToSwipeStatement.ts
+│   │       ├── preprocessMedia.ts
+│   │       ├── promptRegistry.ts
+│   │       ├── retry.ts
+│   │       └── textSim.ts
+│   ├── dashboard
+│   │   ├── components
+│   │   │   ├── AnalyticsPanel.tsx
+│   │   │   ├── ApiDashboard.tsx
+│   │   │   ├── DashboardLayout.tsx
+│   │   │   ├── ErrorLog.tsx
+│   │   │   ├── SidebarNav.tsx
+│   │   │   ├── StreamsPanel.tsx
+│   │   │   ├── SystemMatrix.tsx
+│   │   │   ├── UsageKIPanel.tsx
+│   │   │   ├── admin
+│   │   │   │   └── SidebarNavAdmin.tsx
+│   │   │   └── index.ts
+│   │   └── index.ts
+│   ├── dist-types
+│   │   └── tsconfig.tsbuildinfo
+│   ├── e150
+│   │   └── questions
+│   │       └── catalog.ts
+│   ├── editor
+│   │   ├── api
+│   │   │   ├── ItemClient.ts
+│   │   │   ├── ItemsClient.ts
+│   │   │   └── index.ts
+│   │   ├── components
+│   │   │   ├── EditorGate.tsx
+│   │   │   └── index.ts
+│   │   ├── editor.ts
+│   │   ├── index.ts
+│   │   ├── types.ts
+│   │   └── utils
+│   │       ├── http.ts
+│   │       └── index.ts
+│   ├── eslintrc.js
+│   ├── event
+│   │   ├── components
+│   │   │   ├── ProjectForm.tsx
+│   │   │   ├── ProjectList.tsx
+│   │   │   └── index.ts
+│   │   ├── index.ts
+│   │   ├── projekt.tsx
+│   │   └── types
+│   │       ├── ProjectType.ts
+│   │       └── index.ts
+│   ├── evidence
+│   │   ├── summariseForEvidence.ts
+│   │   ├── syncFromAnalyze.ts
+│   │   ├── syncFromVotes.ts
+│   │   └── syncNewsEvidence.ts
+│   ├── factcheck
+│   │   ├── components
+│   │   │   ├── EvidenceList.tsx
+│   │   │   ├── FactCheckBadge.tsx
+│   │   │   ├── JurisdictionToggle.tsx
+│   │   │   ├── SourceBadge.tsx
+│   │   │   ├── UnitList.tsx
+│   │   │   └── index.ts
+│   │   ├── index.ts
+│   │   ├── trust
+│   │   │   ├── registry.ts
+│   │   │   └── score.ts
+│   │   └── types.ts
+│   ├── facts
+│   │   └── numericGuard.ts
+│   ├── feeds
+│   │   ├── analyzePending.ts
+│   │   ├── db.ts
+│   │   ├── publishVoteDraft.ts
+│   │   ├── storage.ts
+│   │   ├── types.ts
+│   │   ├── utils.ts
+│   │   └── voteDrafts.ts
+│   ├── index.ts
+│   ├── interests
+│   │   └── topics.ts
+│   ├── map
+│   │   ├── .DS_Store
+│   │   ├── OLMap.tsx
+│   │   ├── components
+│   │   │   ├── MapClient.tsx
+│   │   │   └── index.ts
+│   │   └── index.ts
+│   ├── media
+│   │   └── promo
+│   │       ├── runPromoPipeline.ts
+│   │       └── soraVideoProvider.ts
+│   ├── membership
+│   │   └── draftStorage.ts
+│   ├── moderation
+│   │   └── models
+│   │       └── ModAction.ts
+│   ├── ngo
+│   │   └── components
+│   │       └── EngagementStats.tsx
+│   ├── organization
+│   │   ├── REDAME.md
+│   │   ├── components
+│   │   │   ├── OrgDashboard.tsx
+│   │   │   └── index.ts
+│   │   ├── index.ts
+│   │   ├── models
+│   │   │   ├── Organization.ts
+│   │   │   └── index.ts
+│   │   ├── types
+│   │   │   ├── OrganizationType.ts
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       ├── index.ts
+│   │       └── orgHelper.ts
+│   ├── package.json
+│   ├── politics
+│   │   ├── components
+│   │   │   ├── AnalyticsBox.tsx
+│   │   │   ├── ReportingWidget.tsx
+│   │   │   └── index.ts
+│   │   └── index.ts
+│   ├── pricing
+│   │   ├── accessTiers.ts
+│   │   ├── featureMatrix.ts
+│   │   ├── limits.ts
+│   │   └── types.ts
+│   ├── qr
+│   │   ├── index.ts
+│   │   └── models
+│   │       ├── QRCodeEntry.ts
+│   │       └── index.ts
+│   ├── report
+│   │   ├── .DS_Store
+│   │   ├── components
+│   │   │   ├── ImpactModal.tsx
+│   │   │   ├── LeftSidebar.tsx
+│   │   │   ├── MiniLineChart.tsx
+│   │   │   ├── NewTrendsWidget.tsx
+│   │   │   ├── Report.tsx
+│   │   │   ├── ReportCard.tsx
+│   │   │   ├── ReportDetails.tsx
+│   │   │   ├── ReportExplorer.client.tsx
+│   │   │   ├── ReportForm.tsx
+│   │   │   ├── ReportGridLayout.tsx
+│   │   │   ├── ReportList.tsx
+│   │   │   ├── ReportPage.tsx
+│   │   │   ├── ReportPageClient.tsx
+│   │   │   ├── ReportStatsChart.tsx
+│   │   │   ├── ReportView.tsx
+│   │   │   ├── RightSidebar.tsx
+│   │   │   ├── SectionTitle.tsx
+│   │   │   ├── VoicesList.tsx
+│   │   │   ├── WatermarkImage.tsx
+│   │   │   └── index.ts
+│   │   ├── data
+│   │   │   ├── demoReports.ts
+│   │   │   ├── demoStatements.ts
+│   │   │   ├── index.ts
+│   │   │   ├── listReports.ts
+│   │   │   ├── reportData.ts
+│   │   │   └── types.ts
+│   │   ├── evidenceAggregates.ts
+│   │   ├── index.ts
+│   │   └── types
+│   │       ├── AnalyticsReportType.ts
+│   │       ├── PublicReportType.ts
+│   │       ├── Report.ts
+│   │       └── index.ts
+│   ├── reports
+│   │   ├── mock.ts
+│   │   ├── service.ts
+│   │   └── types.ts
+│   ├── routing
+│   │   └── linkResolver.ts
+│   ├── search
+│   │   ├── ari.ts
+│   │   └── civic.ts
+│   ├── security
+│   │   └── crypto.ts
+│   ├── statement
+│   │   ├── .DS_Store
+│   │   ├── api.ts
+│   │   ├── components
+│   │   │   ├── ResponsibilityNavigator.tsx
+│   │   │   ├── StatementCard.tsx
+│   │   │   ├── StatementDetailClient.tsx
+│   │   │   ├── StatementForm.tsx
+│   │   │   ├── StatementImpactPreview.tsx
+│   │   │   ├── StatementList.tsx
+│   │   │   ├── StatementListDisplay.tsx
+│   │   │   ├── StatementMiniChart.tsx
+│   │   │   └── index.ts
+│   │   ├── constants
+│   │   │   ├── statementCategories.ts
+│   │   │   └── status.ts
+│   │   ├── data
+│   │   │   ├── index.ts
+│   │   │   └── statements_demo.ts
+│   │   ├── index.ts
+│   │   └── models
+│   │       ├── Statement.ts
+│   │       └── index.ts
+│   ├── stream
+│   │   ├── components
+│   │   │   ├── StreamCard.tsx
+│   │   │   ├── StreamFilters.tsx
+│   │   │   ├── StreamForm.tsx
+│   │   │   ├── StreamList.tsx
+│   │   │   ├── StreamModal.tsx
+│   │   │   ├── StreamViewToggle.tsx
+│   │   │   ├── VideoPlayer.tsx
+│   │   │   └── index.ts
+│   │   ├── data
+│   │   │   ├── compat.ts
+│   │   │   ├── index.ts
+│   │   │   └── streamData.ts
+│   │   ├── db.ts
+│   │   ├── index.ts
+│   │   ├── types.ts
+│   │   └── utils
+│   │       ├── index.ts
+│   │       └── nationalFlag.ts
+│   ├── stream.zip
+│   ├── swipe
+│   │   ├── components
+│   │   │   ├── AlternativeCard.tsx
+│   │   │   ├── ImpactIndicator.tsx
+│   │   │   ├── KompromissModal.tsx
+│   │   │   ├── SwipeAdminList.tsx
+│   │   │   ├── SwipeCard.tsx
+│   │   │   ├── SwipeDeck.tsx
+│   │   │   └── index.ts
+│   │   ├── data
+│   │   │   ├── index.ts
+│   │   │   └── swipesStatements.mock.json
+│   │   ├── index.ts
+│   │   ├── service.ts
+│   │   └── types
+│   │       ├── index.ts
+│   │       └── swipe.ts
+│   ├── tsconfig.json
+│   ├── tv
+│   │   └── components
+│   │       └── EventList.tsx
+│   ├── user
+│   │   ├── README.md
+│   │   ├── __tests__
+│   │   │   └── onboarding.test.ts
+│   │   ├── components
+│   │   │   ├── LogoutButton.tsx
+│   │   │   ├── UserAdminList.tsx
+│   │   │   ├── UserDashboard.tsx
+│   │   │   ├── UserHydrator.tsx
+│   │   │   └── index.ts
+│   │   ├── context
+│   │   │   ├── UserContext.tsx
+│   │   │   └── index.ts
+│   │   ├── credits.ts
+│   │   ├── engagement.ts
+│   │   ├── hooks
+│   │   │   ├── index.ts
+│   │   │   ├── useActionPermission.ts
+│   │   │   ├── usePermission.ts
+│   │   │   └── useRolePermission.ts
+│   │   ├── index.ts
+│   │   ├── models
+│   │   │   ├── UserProfile.ts
+│   │   │   └── index.ts
+│   │   ├── types
+│   │   │   ├── UserProfile.ts
+│   │   │   ├── UserType.ts
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       ├── index.ts
+│   │       ├── onboarding.ts
+│   │       └── trustScore.ts
+│   ├── utils
+│   │   ├── ai
+│   │   │   ├── askers.ts
+│   │   │   ├── generateImage.ts
+│   │   │   ├── youClient.ts
+│   │   │   └── youEntities.ts
+│   │   ├── index.ts
+│   │   └── mfaCrypto.ts
+│   ├── vote
+│   │   ├── .DS_Store
+│   │   ├── components
+│   │   │   ├── CountryAccordion.tsx
+│   │   │   ├── UserVoteBar.tsx
+│   │   │   ├── VogVoteButtons.tsx
+│   │   │   ├── VoteBar.tsx
+│   │   │   ├── VoteButton.tsx
+│   │   │   ├── VotingRuleBadge.tsx
+│   │   │   └── index.ts
+│   │   ├── hooks
+│   │   │   ├── index.ts
+│   │   │   └── useVoteStream.ts
+│   │   └── index.ts
+│   └── votes
+│       └── service.ts
+├── package.json
+├── packages
+│   ├── .DS_Store
+│   ├── api
+│   │   └── projects
+│   │       └── [id].ts
+│   ├── config
+│   │   ├── admin-config.ts
+│   │   └── admin.ts
+│   ├── core
+│   │   ├── news
+│   │   │   └── agencyKanon.ts
+│   │   └── src
+│   │       └── schemas
+│   │           └── claim.ts
+│   ├── db-core
+│   │   ├── package.json
+│   │   └── src
+│   │       ├── client.ts
+│   │       ├── generated
+│   │       │   ├── client.d.ts
+│   │       │   ├── client.js
+│   │       │   ├── default.d.ts
+│   │       │   ├── default.js
+│   │       │   ├── edge.d.ts
+│   │       │   ├── edge.js
+│   │       │   ├── index-browser.js
+│   │       │   ├── index.d.ts
+│   │       │   ├── index.js
+│   │       │   ├── libquery_engine-darwin-arm64.dylib.node
+│   │       │   ├── package.json
+│   │       │   ├── query_engine_bg.js
+│   │       │   ├── query_engine_bg.wasm
+│   │       │   ├── runtime
+│   │       │   │   ├── edge-esm.js
+│   │       │   │   ├── edge.js
+│   │       │   │   ├── index-browser.d.ts
+│   │       │   │   ├── index-browser.js
+│   │       │   │   ├── library.d.ts
+│   │       │   │   ├── library.js
+│   │       │   │   ├── react-native.js
+│   │       │   │   ├── wasm-compiler-edge.js
+│   │       │   │   └── wasm-engine-edge.js
+│   │       │   ├── schema.prisma
+│   │       │   ├── wasm-edge-light-loader.mjs
+│   │       │   ├── wasm-worker-loader.mjs
+│   │       │   ├── wasm.d.ts
+│   │       │   └── wasm.js
+│   │       └── index.ts
+│   ├── db-web
+│   │   ├── package.json
+│   │   ├── prisma
+│   │   │   └── schema.prisma
+│   │   ├── scripts
+│   │   │   └── copy-generated.mjs
+│   │   ├── src
+│   │   │   ├── client.ts
+│   │   │   ├── generated
+│   │   │   │   ├── client.d.ts
+│   │   │   │   ├── client.js
+│   │   │   │   ├── default.d.ts
+│   │   │   │   ├── default.js
+│   │   │   │   ├── edge.d.ts
+│   │   │   │   ├── edge.js
+│   │   │   │   ├── index-browser.js
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── index.js
+│   │   │   │   ├── libquery_engine-darwin-arm64.dylib.node
+│   │   │   │   ├── libquery_engine-debian-openssl-3.0.x.so.node
+│   │   │   │   ├── package.json
+│   │   │   │   ├── query_engine_bg.js
+│   │   │   │   ├── query_engine_bg.wasm
+│   │   │   │   ├── runtime
+│   │   │   │   │   ├── edge-esm.js
+│   │   │   │   │   ├── edge.js
+│   │   │   │   │   ├── index-browser.d.ts
+│   │   │   │   │   ├── index-browser.js
+│   │   │   │   │   ├── library.d.ts
+│   │   │   │   │   ├── library.js
+│   │   │   │   │   ├── react-native.js
+│   │   │   │   │   ├── wasm-compiler-edge.js
+│   │   │   │   │   └── wasm-engine-edge.js
+│   │   │   │   ├── schema.prisma
+│   │   │   │   ├── wasm-edge-light-loader.mjs
+│   │   │   │   ├── wasm-worker-loader.mjs
+│   │   │   │   ├── wasm.d.ts
+│   │   │   │   └── wasm.js
+│   │   │   └── index.ts
+│   │   └── tsconfig.build.json
+│   ├── package.json
+│   ├── tri-mongo
+│   │   ├── index.d.ts
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   └── index.ts
+│   │   ├── tsconfig.json
+│   │   └── tsup.config.ts
+│   └── ui
+│       ├── package.json
+│       ├── src
+│       │   ├── .DS_Store
+│       │   ├── constants
+│       │   │   └── languageOptions.ts
+│       │   ├── design
+│       │   │   ├── Avatar.tsx
+│       │   │   ├── AvatarFallback.tsx
+│       │   │   ├── AvatarImage.tsx
+│       │   │   ├── Badge.tsx
+│       │   │   ├── Button.tsx
+│       │   │   ├── Card.tsx
+│       │   │   ├── Input.tsx
+│       │   │   ├── LoadingOverlay.tsx
+│       │   │   ├── Modal.tsx
+│       │   │   ├── ModalConfirm.tsx
+│       │   │   ├── Separator.tsx
+│       │   │   ├── Spinner.tsx
+│       │   │   ├── Toast.tsx
+│       │   │   ├── badgeColor.ts
+│       │   │   ├── badgeColors.ts
+│       │   │   └── index.ts
+│       │   ├── index.ts
+│       │   ├── layout
+│       │   │   ├── Footer.tsx
+│       │   │   └── Header.tsx
+│       │   ├── theme.ts
+│       │   └── types
+│       │       └── externals.d.ts
+│       ├── theme.cjs.js
+│       ├── tsconfig.build.json
+│       ├── tsconfig.build.tsbuildinfo
+│       ├── tsconfig.json
+│       ├── tsconfig.tsbuildinfo
+│       └── tsup.config.ts
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── prisma
+│   ├── .DS_Store
+│   ├── core
+│   │   └── schema.prisma
+│   ├── migrations
+│   │   ├── 20250819202532_add_region_closure_and_indices
+│   │   │   └── migration.sql
+│   │   ├── 20250824215107_factcheck_worldclass_v1
+│   │   │   └── migration.sql
+│   │   ├── 20250826070626_factcheck_expansion_fix
+│   │   │   └── migration.sql
+│   │   ├── 20250826175058_factcheck_units_findings_v1
+│   │   │   └── migration.sql
+│   │   ├── 20250903104032_init_topics_statements
+│   │   │   └── migration.sql
+│   │   └── migration_lock.toml
+│   ├── seed.cjs
+│   └── web
+│       └── schema.prisma
+├── scripts
+│   ├── .DS_Store
+│   ├── absurlify.mjs
+│   ├── add_analysis_fallback_bundle.sh
+│   ├── add_progressive_ui.sh
+│   ├── apply_vog_ux_pipeline.sh
+│   ├── build-feature-barrels.mjs
+│   ├── claims_stabilize_and_debug.sh
+│   ├── codemods
+│   │   ├── cookies-headers.ts
+│   │   ├── prisma-order-to-sortOrder.ts
+│   │   └── prisma-order-to-sortOrder.v2.ts
+│   ├── dropPartitionIndex.ts
+│   ├── e150_bootstrap_content.sh
+│   ├── e150_seed.sh
+│   ├── edebatte_full_onboarding.sh
+│   ├── edebatte_pitch_pack.sh
+│   ├── edebatte_setup_all.sh
+│   ├── edebatte_ui_full_patch.sh
+│   ├── enable_consistency_flow.sh
+│   ├── enable_v3_workflow.sh
+│   ├── ensureIndexes.ts
+│   ├── final-patch.sh
+│   ├── fix-web-typecheck-2.sh
+│   ├── fix-web-typecheck-3.sh
+│   ├── fix-web-typecheck-4.sh
+│   ├── fix-web-typecheck.sh
+│   ├── fix_all.sh
+│   ├── fix_analyze_route_handoff.sh
+│   ├── fix_analyze_usage_bundle.sh
+│   ├── fix_features_aliases_and_shims.sh
+│   ├── fix_fetchInstrument_tsx.sh
+│   ├── fix_inlineclarify_and_turbo.sh
+│   ├── fix_inlineclarify_and_turbo_v2.sh
+│   ├── fix_layout_imports_progressive_safe.sh
+│   ├── fix_many_imports_and_turbo.sh
+│   ├── fix_many_imports_and_turbo_v2.sh
+│   ├── fix_openai_and_wrapper.sh
+│   ├── fix_openai_provider.sh
+│   ├── fix_openai_responses.sh
+│   ├── fix_openai_responses_api.sh
+│   ├── fix_openai_responses_api_v2.sh
+│   ├── fix_openai_responses_api_v3.sh
+│   ├── fix_openai_responses_final.sh
+│   ├── fix_openai_responses_v2.sh
+│   ├── fix_openai_timeout_and_json.sh
+│   ├── fix_phaseA_ai.sh
+│   ├── fix_pipeline_snapshot_cached.sh
+│   ├── fix_pipeline_snapshot_cached.sh 
+│   ├── fix_pipeline_store_ssr_safe.sh
+│   ├── fix_postcss_tailwind_v4.sh
+│   ├── fix_translate_route_minimal.sh
+│   ├── fix_tsconfig_paths.sh
+│   ├── fix_type_errors.sh
+│   ├── fix_v1_csrf_dynamic_apis.sh
+│   ├── fix_v1_landingeDbtt.sh
+│   ├── fix_v1_trimongo.sh
+│   ├── fix_vpm25.sh
+│   ├── fix_wire_v3_ai.sh
+│   ├── force_fix_pipeline_store.sh
+│   ├── force_stable_analyze_payload.sh
+│   ├── helpers
+│   │   ├── apply_colors.js
+│   │   ├── bulk_rename_brand.js
+│   │   ├── extract_landing.sh
+│   │   ├── newsfeed_cron.js
+│   │   └── replace_zero_kb.js
+│   ├── hotfix_run.sh
+│   ├── install-analyze-pipeline.sh
+│   ├── integrate_v3_ai_into_v1.sh
+│   ├── kafka-consumer.js
+│   ├── kafka-producer.js
+│   ├── make-review-snapshot.mjs
+│   ├── make_review_snapshot.mjs
+│   ├── membership_dunning.ts
+│   ├── migrations
+│   │   └── 2025-01-15_split_name_to_given_family.ts
+│   ├── oldscripts
+│   │   ├── 2
+│   │   ├── e1500_relocate_to_web.sh
+│   │   ├── e150_apply_batch.sh
+│   │   ├── e150_apply_batch_v2.sh
+│   │   ├── e150_fix_admin_reports_contrib.sh
+│   │   ├── e150_fix_relative_fetch.sh
+│   │   └── e150_quickcheck.sh
+│   ├── optional-prisma.js
+│   ├── orphan-scanner.mts
+│   ├── orphan_features_scan.ts
+│   ├── overwrite_analyze_route.sh
+│   ├── patch-ui-shim.sh
+│   ├── patch_analyze_route_macos.sh
+│   ├── patch_civic_charset_cache.sh
+│   ├── patch_pii_usernames.ts
+│   ├── patch_pipeline_hud_safe.sh
+│   ├── patch_similar_route.sh
+│   ├── patch_ui_pipeline_hud.sh
+│   ├── seed.demo.data.ts
+│   ├── setup_atomic_pipeline.sh
+│   ├── setup_routes_text.sh
+│   ├── setup_text_and_translate.sh
+│   ├── smoke_civic_search.sh
+│   ├── smoke_e150_analyze.ts
+│   ├── smoke_e150_full.ts
+│   ├── smoke_e150_swipe.ts
+│   ├── smoke_gpt.sh
+│   ├── smoke_gpt5.sh
+│   ├── smoke_multi.sh
+│   ├── smoke_test.sh
+│   ├── tsc_hotfix_e150.mjs
+│   ├── unify_features_layout.sh
+│   ├── upgrade_analyze_v2.sh
+│   ├── verifyEnv.ts
+│   ├── vog_all_in_bundle.sh
+│   ├── vog_analysis_stepper_and_cache.sh
+│   ├── vog_analyze_gpt_only_debug.sh
+│   ├── vog_analyze_gpt_plus.sh
+│   ├── vog_analyze_gpt_plus_v2.sh
+│   ├── vog_analyze_hotfix2.sh
+│   ├── vog_analyze_repair.sh
+│   ├── vog_analyze_ui_v2.sh
+│   ├── vog_apply_all.sh
+│   ├── vog_apply_ari_gpt.sh
+│   ├── vog_apply_civic_search_v2.sh
+│   ├── vog_apply_workflow.sh
+│   ├── vog_clarify_bundle.sh
+│   ├── vog_contrib_new_gate.sh
+│   ├── vog_cx_chatflow_patch.sh
+│   ├── vog_diag_routes_and_analyze_fix.sh
+│   ├── vog_enable_clarify_cta.sh
+│   ├── vog_enable_multi_llm_pipeline.sh
+│   ├── vog_enterprise_analyze_full.sh
+│   ├── vog_enterprise_hardening_v3.sh
+│   ├── vog_fix_analyze.sh
+│   ├── vog_fix_analyze_route_ts.sh
+│   ├── vog_fix_claims_and_gate.sh
+│   ├── vog_fix_diag_route.sh
+│   ├── vog_fix_features_alias.sh
+│   ├── vog_fix_gpt5_temperature.sh
+│   ├── vog_fix_import_path.sh
+│   ├── vog_fix_llm_providers_and_orchestrator.sh
+│   ├── vog_fix_multi_import.sh
+│   ├── vog_fix_responses_api.sh
+│   ├── vog_fix_ssr_dynamic.sh
+│   ├── vog_fix_step_dupes.sh
+│   ├── vog_fix_ts_inputs.sh
+│   ├── vog_flexible_pipeline.sh
+│   ├── vog_focus_flow_patch.sh
+│   ├── vog_full_wiring.sh
+│   ├── vog_gamify_bundle.sh
+│   ├── vog_hints_enable_bundle.sh
+│   ├── vog_hotfix.sh
+│   ├── vog_hotfix_build_sse.sh
+│   ├── vog_hotfix_focus_analyze.sh
+│   ├── vog_hotfix_metrics_and_openai.sh
+│   ├── vog_inline_feed_bundle.sh
+│   ├── vog_inline_feed_fix2.sh
+│   ├── vog_install_analyzer.sh
+│   ├── vog_make_all_buildable.sh
+│   ├── vog_orchestrator_full.sh
+│   ├── vog_patch_admin_config.sh
+│   ├── vog_patch_analyze_and_feeds.sh
+│   ├── vog_patch_analyzer_and_ui.sh
+│   ├── vog_patch_civic_route_v2.sh
+│   ├── vog_patch_step4.sh
+│   ├── vog_patch_step4_node.sh
+│   ├── vog_patch_ts_inputs_v2.sh
+│   ├── vog_patch_ts_inputs_v3.sh
+│   ├── vog_perf_hotfix.sh
+│   ├── vog_phase1_patch.sh
+│   ├── vog_phase2_api.sh
+│   ├── vog_phase3_ui.sh
+│   ├── vog_phase4_pages_hotfix.sh
+│   ├── vog_phase5_gpt5_orchestrate.sh
+│   ├── vog_preflight_bundle.sh
+│   ├── vog_repo_patch_full.sh
+│   ├── vog_run_dev.sh
+│   ├── vog_smoke_analyze.sh
+│   ├── vog_super_bundle.sh
+│   ├── vog_ui_apply.sh
+│   ├── vog_ui_revision_pro.sh
+│   ├── vog_upgrade_ai_orchestrator.sh
+│   ├── wire_gpt_ai_strict.sh
+│   └── wire_vog_pipeline.sh
+├── secrets
+│   └── mongo_keyfile
+├── tools
+│   ├── .DS_Store
+│   ├── audit
+│   │   ├── objectid-import-audit.mjs
+│   │   └── tri-usage-audit.mjs
+│   ├── codex
+│   │   ├── Codex_Chat_Verlauf .docx
+│   │   ├── e150_master_codex_briefing.ts
+│   │   └── newPage_Keine Heuristik Implementierung.docx
+│   ├── dev
+│   │   └── find-link-hubs.ts
+│   ├── feeds
+│   │   └── import_rss.ts
+│   ├── merge
+│   │   └── move_features_to_root.sh
+│   ├── migration
+│   │   ├── .DS_Store
+│   │   ├── MIGRATION_PLAN.md
+│   │   └── VPM25
+│   │       ├── .DS_Store
+│   │       ├── AUTH_OVERVIEW.md
+│   │       ├── FEED_PIPELINE_NOTES.md
+│   │       ├── IDENTITY_FLOW_BRIEFING.md
+│   │       ├── ORPHAN_FEATURES_VPM25.md
+│   │       ├── REGISTER_FLOW_BRIEFING.md
+│   │       ├── V3_GLOBAL_NEXT_STEPS.md
+│   │       ├── V3_MERGE_BRIEFING.md
+│   │       ├── _legacy
+│   │       │   └── triMongo
+│   │       │       └── apps
+│   │       ├── feeds_backfill_candidates.ts
+│   │       └── find_orphans.ts
+│   ├── migration__archived_DO_NOT_USE
+│   │   ├── .DS_Store
+│   │   ├── MIGRATION_PLAN.md
+│   │   └── VPM25
+│   │       ├── .DS_Store
+│   │       ├── AUTH_OVERVIEW.md
+│   │       ├── FEED_PIPELINE_NOTES.md
+│   │       ├── IDENTITY_FLOW_BRIEFING.md
+│   │       ├── ORPHAN_FEATURES_VPM25.md
+│   │       ├── REGISTER_FLOW_BRIEFING.md
+│   │       ├── V3_GLOBAL_NEXT_STEPS.md
+│   │       ├── V3_MERGE_BRIEFING.md
+│   │       ├── _legacy
+│   │       │   └── triMongo
+│   │       │       └── apps
+│   │       ├── feeds_backfill_candidates.ts
+│   │       └── find_orphans.ts
+│   ├── migrations
+│   │   └── pii_user_profiles_username_partial_index.js
+│   ├── net
+│   │   └── atlas-allow-fixed.sh
+│   └── reperatur
+│       ├── .DS_Store
+│       ├── 00-preflight.sh
+│       ├── 10-trimongo.mjs
+│       ├── 11-imports-prisma.mjs
+│       ├── 12-next-dynamic.mjs
+│       ├── 13-redis-upstash.mjs
+│       ├── 14-mongoose-indexes.mjs
+│       ├── 15-paths-tsconfig.mjs
+│       ├── 16-fix-import-exports.mjs
+│       ├── 17-implicit-any.mjs
+│       ├── 18-unresolved-imports.mjs
+│       ├── 19-ambient-decls-from-log.mjs
+│       ├── 20-run-all.sh
+│       ├── 21-e200-align-and-clean.mjs
+│       ├── 23-exclude-disabled-and-rerun.mjs
+│       ├── 24-e200-unblock.mjs
+│       ├── 25-e200-fixwave.mjs
+│       ├── 26-e200-realize-now.mjs
+│       ├── 27-e200-hardening.mjs
+│       ├── 28-e200-applyfixes.mjs
+│       ├── 31-e200-fix-39errs.mjs
+│       ├── 32-e200-fix-useguard-ai.mjs
+│       ├── 33-fix-aiProviders-sig.mjs
+│       ├── 34-e200-fix15.mjs
+│       ├── 35-e200-fix-13errs.mjs
+│       ├── 36-e200-fix-remaining.mjs
+│       ├── 37-e200-fix-tail.mjs
+│       ├── 40-sanity-e200.mjs
+│       ├── 41-lint-warnings-clean.mjs
+│       ├── 42-refactor-env-constants.mjs
+│       ├── 43-tighten-lint.mjs
+│       ├── 44-fix-eslint-config.mjs
+│       ├── 45-next-bundle-alias.mjs
+│       ├── 46-wire-features-core.mjs
+│       ├── 47-fix-ui-dbweb-alias.mjs
+│       ├── 48-fix-build-breakers.mjs
+│       ├── 49-fix-formatError-backref.mjs
+│       ├── 50-zap-backref.mjs
+│       ├── 52-buildfix-ts-batch.mjs
+│       ├── 53-fix-stream-schemas-orchestrator.mjs
+│       ├── 54-fix-stream-promptSchemas.mjs
+│       ├── 90-post.sh
+│       ├── README.md
+│       ├── config.json
+│       ├── reports
+│       │   ├── 10-trimongo-1759912520277-dry.log
+│       │   ├── 10-trimongo-1759912660507-dry.log
+│       │   ├── 10-trimongo-1759912758990-write.log
+│       │   ├── 10-trimongo-1759913392157-dry.log
+│       │   ├── 11-imports-prisma-1759912521060-dry.log
+│       │   ├── 11-imports-prisma-1759912661343-dry.log
+│       │   ├── 11-imports-prisma-1759913392902-dry.log
+│       │   ├── 12-next-dynamic-1759912521134-dry.log
+│       │   ├── 12-next-dynamic-1759912661416-dry.log
+│       │   ├── 12-next-dynamic-1759913392972-dry.log
+│       │   ├── 13-redis-upstash-1759912521267-dry.log
+│       │   ├── 13-redis-upstash-1759912661543-dry.log
+│       │   ├── 13-redis-upstash-1759913393096-dry.log
+│       │   ├── 14-mongoose-indexes-1759912521317-dry.log
+│       │   ├── 14-mongoose-indexes-1759912661592-dry.log
+│       │   ├── 14-mongoose-indexes-1759913393142-dry.log
+│       │   ├── 15-paths-tsconfig-1759912661902-dry.log
+│       │   ├── 15-paths-tsconfig-1759913393451-dry.log
+│       │   ├── 16-fix-import-exports-1759913700142-dry.log
+│       │   ├── 16-fix-import-exports-1759913845724-write.log
+│       │   ├── 17-implicit-any-1759913711429-dry.log
+│       │   ├── 17-implicit-any-1759913852419-write.log
+│       │   ├── 18-unresolved-imports-1759913431431-dry.log
+│       │   ├── tsc-20251008-101042.log
+│       │   ├── tsc-20251008-101549.log
+│       │   ├── tsc-20251008-101834.log
+│       │   └── tsc-web.log
+│       └── run-all.ps1
+├── tsconfig.base.json
+├── turbo.json
+├── types
+│   └── global-shims.d.ts
+├── vercel.json
+└── worker
+    └── factcheck
+        └── worker.ts
+
+580 directories, 1498 files

@@ -3,11 +3,31 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
-import { ObjectId } from "@core/db/triMongo";
-import { coreDb } from "@core/db/triMongo";
-import { requireServerUser } from "@/lib/auth/requireServerUser";
-import { assertCsrf } from "@/lib/security/csrf";
+import { ObjectId, coreCol } from "@core/db/triMongo";
+import { readSession } from "@/utils/session";
+
+const DEV_DISABLE_CSRF = process.env.DEV_DISABLE_CSRF === "1";
+
+async function isCsrfValid(req: NextRequest): Promise<boolean> {
+  if (DEV_DISABLE_CSRF) return true;
+  const jar = await cookies();
+  const c = jar.get("csrf-token")?.value ?? "";
+  const h = req.headers.get("x-csrf-token") ?? (await headers()).get("x-csrf-token") ?? "";
+  if (c && h && c === h) return true;
+  try {
+    const origin = req.nextUrl.origin;
+    const referer = req.headers.get("referer") || "";
+    const sameOrigin = referer.startsWith(origin);
+    if (sameOrigin && c && !h) return true;
+  } catch {}
+  return false;
+}
+
+function csrfForbidden() {
+  return NextResponse.json({ ok: false, error: "forbidden_csrf" }, { status: 403 });
+}
 
 const SaveDraftSchema = z.object({
   draftId: z.string().nullable().optional(),
@@ -37,26 +57,27 @@ type DraftDoc = {
 
 export async function POST(req: NextRequest) {
   try {
-    assertCsrf(req);
-    const user = await requireServerUser(req);
-    if (!user) {
+    if (!(await isCsrfValid(req))) return csrfForbidden();
+
+    const session = await readSession();
+    const userId = session?.uid;
+    if (!userId || !ObjectId.isValid(userId)) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
     const body = SaveDraftSchema.parse(await req.json().catch(() => ({})));
-    const db = await coreDb();
-    const col = db.collection<DraftDoc>("drafts");
+    const col = await coreCol<DraftDoc>("drafts");
     const now = new Date();
 
     if (body.draftId && ObjectId.isValid(body.draftId)) {
       const _id = new ObjectId(body.draftId);
-      const existing = await col.findOne({ _id, userId: String(user.id) });
+      const existing = await col.findOne({ _id, userId });
       if (!existing) {
         return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
       }
 
       await col.updateOne(
-        { _id, userId: String(user.id) },
+        { _id, userId },
         {
           $set: {
             locale: body.locale ?? existing.locale,
@@ -81,7 +102,7 @@ export async function POST(req: NextRequest) {
     const _id = new ObjectId();
     const doc: DraftDoc = {
       _id,
-      userId: String(user.id),
+      userId,
       locale: body.locale,
       source: body.source,
       text: body.text,
@@ -102,6 +123,12 @@ export async function POST(req: NextRequest) {
       updatedAt: now.toISOString(),
     });
   } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_input", issues: err.issues },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       { ok: false, error: "save_failed", message: err?.message ?? "save_failed" },
       { status: 500 },
