@@ -6,7 +6,7 @@ import { getAccountOverview } from "@features/account/service";
 
 export const metadata = {
   title: "Beitrag analysieren – VoiceOpenGov",
-  description: "Citizen Core Journey: Contribution Analyzer im E150-Modus.",
+  description: "Beitrag analysieren und strukturiert aufbereiten.",
 };
 
 export const dynamic = "force-dynamic";

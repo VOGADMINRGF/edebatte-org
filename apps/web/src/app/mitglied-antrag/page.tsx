@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { MembershipApplicationPageClient } from "./MembershipApplicationPageClient";
 
 export const metadata: Metadata = {
-  title: "Beauftragung & Zahlung – VoiceOpenGov",
+  title: "Mitgliedschaft abschließen – VoiceOpenGov",
   description:
-    "Beauftragung für VoiceOpenGov und eDebatte abschließen, Haushaltsmitglieder erfassen und Zahlungsart wählen.",
+    "Mitgliedschaft für die VoiceOpenGov-Bewegung abschließen und eDebatte-Paket wählen.",
 };
 
 export default function MitgliedAntragPage() {

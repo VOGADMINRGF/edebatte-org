@@ -2,9 +2,10 @@
 // E200: Public marketing landing page with HumanCheck-protected updates form.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HumanCheck } from "@/components/security/HumanCheck";
 import { useLocale } from "@/context/LocaleContext";
+import { publicOrigin } from "@/utils/publicOrigin";
 import { getHomeStrings } from "./homeStrings";
 
 type Notice = { ok: boolean; msg: string } | null;
@@ -17,6 +18,60 @@ export default function Home() {
   const [humanToken, setHumanToken] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+  const [updatesFormStartedAt, setUpdatesFormStartedAt] = useState<number | null>(null);
+  const [updatesHoneypot, setUpdatesHoneypot] = useState("");
+
+  const baseUrl = publicOrigin().replace(/\/$/, "");
+  const shareUrl = `${baseUrl}/`;
+  const shareText = strings.membershipHighlight.shareText;
+  const shareMessage = `${shareText} ${shareUrl}`;
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
+  const emailHref = `mailto:?subject=${encodeURIComponent(
+    `VoiceOpenGov – ${strings.membershipHighlight.title}`
+  )}&body=${encodeURIComponent(shareMessage)}`;
+
+  useEffect(() => {
+    setUpdatesFormStartedAt(Date.now());
+  }, []);
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "VoiceOpenGov",
+          text: shareText,
+          url: shareUrl,
+        });
+        setShareNote(null);
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareMessage);
+        setShareNote(strings.membershipHighlight.shareSuccess);
+        return;
+      }
+
+      setShareNote(strings.membershipHighlight.shareError);
+    } catch {
+      setShareNote(strings.membershipHighlight.shareError);
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareNote(strings.membershipHighlight.shareSuccess);
+        return;
+      }
+
+      setShareNote(strings.membershipHighlight.shareError);
+    } catch {
+      setShareNote(strings.membershipHighlight.shareError);
+    }
+  };
 
   const handleUpdatesSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,16 +84,24 @@ export default function Home() {
 
     setIsSubmitting(true);
     try {
+      const startedAt = updatesFormStartedAt ?? Date.now();
       const res = await fetch("/api/public/updates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, interests, humanToken }),
+        body: JSON.stringify({
+          email,
+          interests,
+          humanToken,
+          formStartedAt: startedAt,
+          hp_updates: updatesHoneypot,
+        }),
       });
       const data = await res.json();
       if (res.ok && data?.ok) {
         setNotice({ ok: true, msg: strings.updatesForm.success });
         setEmail("");
         setInterests("");
+        setHumanToken(null);
       } else {
         setNotice({ ok: false, msg: strings.updatesForm.error });
       }
@@ -117,7 +180,7 @@ export default function Home() {
                   {strings.heroCtas.primary}
                 </Link>
                 <Link
-                  href="/abstimmungen"
+                  href="/votes"
                   className="btn border border-slate-300 bg-white/80 hover:bg-white"
                 >
                   {strings.heroCtas.secondary}
@@ -144,36 +207,44 @@ export default function Home() {
           </div>
 
           {/* Rechte Spalte: Evidenz-Graph-Kasten */}
-          <div className="w-full max-w-xl lg:w-[40%] lg:pt-44">
+          <div className="w-full max-w-xl space-y-4 lg:w-[40%] lg:pt-40">
             <div className="overflow-hidden rounded-3xl shadow-[0_18px_70px_rgba(14,116,144,0.08)]">
-              <video
-                className="block h-full w-full"
-                src="/videos/WertderStimme_DE.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                aria-label="Wert der Stimme - Video"
-              >
-                Dein Browser unterstützt das Abspielen von Videos nicht.
-              </video>
+              <div className="aspect-video">
+                <video
+                  className="block h-full w-full object-cover"
+                  src="/videos/WertderStimme_DE.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                  aria-label="Wert der Stimme - Video"
+                >
+                  Dein Browser unterstützt das Abspielen von Videos nicht.
+                </video>
+              </div>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200/50 bg-white shadow-[0_16px_60px_rgba(14,116,144,0.07)]">
+            <div className="overflow-hidden rounded-3xl border border-slate-200/50 bg-white shadow-[0_16px_60px_rgba(14,116,144,0.07)]">
               <div className="p-3">
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/90 via-sky-500/90 to-blue-500/80 p-4 text-white shadow-lg">
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/90 via-sky-500/90 to-blue-500/80 p-5 text-white shadow-lg">
                   <p className="text-xs uppercase tracking-wide opacity-90">
-                    Demokratische Infrastruktur
+                    eDebatte – unser Werkzeug
                   </p>
                   <p className="mt-2 text-lg font-semibold leading-snug">
-                    Unser Evidenz-Graph: Faktennetz statt Meinungsrauschen.
+                    Evidenz-Graph statt Meinungsrauschen.
                   </p>
                   <p className="mt-3 text-sm opacity-90">
-                    Quellen, Argumente und Annahmen werden zu einem offenen Faktennetz
-                    verknüpft. So wird sichtbar, worauf Entscheidungen beruhen – von der
+                    In eDebatte verknüpfen wir Quellen, Argumente und Annahmen zu einem
+                    offenen Faktennetz. So bleibt jede Entscheidung prüfbar – von der
                     Kommune bis zu globalen Fragen.
                   </p>
+                  <Link
+                    href="/mitglied-werden"
+                    className="mt-4 inline-flex items-center justify-center rounded-full bg-white/15 px-4 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur hover:bg-white/25"
+                  >
+                    eDebatte vorbestellen
+                  </Link>
                 </div>
               </div>
             </div>
@@ -181,7 +252,67 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Vier Rollen */}
+      {/* Demo / Screenshots */}
+      <section
+        className="mx-auto mt-12 max-w-6xl space-y-6 px-4"
+        aria-labelledby="demo-heading"
+      >
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+            {strings.demoSection.overline}
+          </p>
+          <h2
+            id="demo-heading"
+            className="text-2xl font-bold text-slate-900"
+          >
+            {strings.demoSection.title}
+          </h2>
+          <p className="max-w-3xl text-sm text-slate-600">
+            {strings.demoSection.lead}
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {strings.demoSection.items.map((item) => (
+            <article
+              key={item.title}
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-sm"
+            >
+              <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                <img
+                  src={item.image}
+                  alt={item.alt}
+                  className="h-full w-full object-cover object-center"
+                  style={{
+                    objectPosition: item.objectPosition ?? "center",
+                  }}
+                  loading="lazy"
+                />
+              </div>
+              <div className="space-y-2 p-4">
+                <span className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+                  {item.tag}
+                </span>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-slate-600">{item.body}</p>
+                <Link
+                  href={item.href}
+                  className="group inline-flex items-center gap-2 text-sm font-semibold text-sky-700"
+                >
+                  {item.cta}
+                  <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                    →
+                  </span>
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500">{strings.demoSection.note}</p>
+      </section>
+
+      {/* Rollen */}
       <section
         className="mx-auto mt-12 max-w-6xl space-y-6 px-4"
         aria-labelledby="audience-heading"
@@ -196,22 +327,50 @@ export default function Home() {
           >
             {strings.audienceLead}
           </h2>
+          <p className="text-sm text-slate-600 max-w-3xl">
+            {strings.audienceNote}
+          </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {strings.heroCards.map((card) => (
-            <article
+            <Link
               key={card.title}
-              className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"
+              href={card.href}
+              className="group block"
+              aria-label={`${card.title} – ${card.cta}`}
             >
-              <div
-                className="mb-3 h-10 w-10 rounded-full bg-gradient-to-br from-sky-100 via-emerald-100 to-white"
-                aria-hidden="true"
-              />
-              <h3 className="text-base font-semibold text-slate-900">
-                {card.title}
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">{card.body}</p>
-            </article>
+              <article className="flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                <div>
+                  <div
+                    className="mb-3 h-10 w-10 rounded-full bg-gradient-to-br from-sky-100 via-emerald-100 to-white"
+                    aria-hidden="true"
+                  />
+                  <h3 className="text-base font-semibold text-slate-900">
+                    {card.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-600">{card.body}</p>
+                  <ul className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+                    {card.actions.map((action) => (
+                      <li
+                        key={action}
+                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1"
+                      >
+                        {action}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 rounded-xl bg-slate-50/80 p-3 text-xs text-slate-600">
+                    {card.example}
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-sky-700">
+                  {card.cta}
+                  <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                    →
+                  </span>
+                </span>
+              </article>
+            </Link>
           ))}
         </div>
       </section>
@@ -221,29 +380,72 @@ export default function Home() {
         className="mx-auto mt-12 max-w-6xl px-4"
         aria-labelledby="membership-heading"
       >
-        <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-blue-500/10 p-[1px]">
-          <div className="rounded-3xl bg-white p-6 shadow-sm md:p-10">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-3 max-w-3xl">
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-                  {strings.membershipHighlight.overline}
-                </span>
-                <h2
-                  id="membership-heading"
-                  className="text-2xl font-bold text-slate-900 md:text-3xl"
-                >
-                  {strings.membershipHighlight.title}
-                </h2>
-                <p className="text-sm text-slate-700 md:text-base">
-                  {strings.membershipHighlight.body}
-                </p>
-              </div>
-              <Link
-                href="/mitglied-werden"
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-md hover:brightness-105"
+        <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-[0_20px_70px_rgba(15,23,42,0.28)]">
+          <div className="grid gap-6 p-8 md:grid-cols-[1.1fr_0.9fr] md:p-10">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-wide text-emerald-200">
+                {strings.membershipHighlight.overline}
+              </p>
+              <h2
+                id="membership-heading"
+                className="text-2xl font-bold leading-tight md:text-3xl"
               >
-                {strings.membershipHighlight.button}
-              </Link>
+                {strings.membershipHighlight.title}
+              </h2>
+              <p className="text-sm text-slate-200 md:text-base">
+                {strings.membershipHighlight.body}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/mitglied-werden"
+                  className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-500"
+                >
+                  {strings.membershipHighlight.button}
+                </Link>
+              </div>
+            </div>
+            <div className="relative rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="relative space-y-3 text-sm text-slate-100">
+                <p className="text-base font-semibold">
+                  {strings.membershipHighlight.asideTitle}
+                </p>
+                <p className="text-slate-200">{strings.membershipHighlight.asideBody}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="inline-flex items-center justify-center rounded-full bg-white/15 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25"
+                  >
+                    {strings.membershipHighlight.shareLabel}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90 hover:bg-white/10"
+                  >
+                    {strings.membershipHighlight.shareCopyLabel}
+                  </button>
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90 hover:bg-white/10"
+                  >
+                    {strings.membershipHighlight.shareWhatsappLabel}
+                  </a>
+                  <a
+                    href={emailHref}
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90 hover:bg-white/10"
+                  >
+                    {strings.membershipHighlight.shareEmailLabel}
+                  </a>
+                </div>
+                {shareNote && (
+                  <p className="text-[11px] text-slate-300" role="status">
+                    {shareNote}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -325,6 +527,14 @@ export default function Home() {
             <p className="mt-3 text-sm text-slate-700">
               {strings.qualitySection.body}
             </p>
+            <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              {strings.qualitySection.bullets.map((bullet) => (
+                <li key={bullet} className="flex gap-2">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-sky-500" />
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
             <div className="mt-4">
               <Link
                 href="/faq"
@@ -362,6 +572,18 @@ export default function Home() {
               className="mt-5 space-y-4"
               aria-label="Updates abonnieren"
             >
+              <div className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+                <label htmlFor="hp_updates">Bitte leer lassen</label>
+                <input
+                  id="hp_updates"
+                  name="hp_updates"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={updatesHoneypot}
+                  onChange={(e) => setUpdatesHoneypot(e.target.value)}
+                />
+              </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-700">
                   {strings.updatesForm.emailLabel}
@@ -369,7 +591,11 @@ export default function Home() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    if (!updatesFormStartedAt) setUpdatesFormStartedAt(Date.now());
+                    setEmail(e.target.value);
+                  }}
+                  required
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                   placeholder="name@beispiel.de"
                   autoComplete="email"
@@ -382,7 +608,10 @@ export default function Home() {
                 <textarea
                   rows={3}
                   value={interests}
-                  onChange={(e) => setInterests(e.target.value)}
+                  onChange={(e) => {
+                    if (!updatesFormStartedAt) setUpdatesFormStartedAt(Date.now());
+                    setInterests(e.target.value);
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                   placeholder="z. B. Kommunale Themen, Transparenz, Bildung …"
                 />
@@ -408,19 +637,22 @@ export default function Home() {
               </div>
             </form>
           </div>
-          <HumanCheck
-            formId="public-updates"
-            onSolved={(res) => {
-              setHumanToken(res.token);
-              setNotice({
-                ok: true,
-                msg: "Danke – Sicherheitscheck bestanden.",
-              });
-            }}
-            onError={() =>
-              setNotice({ ok: false, msg: strings.updatesForm.error })
-            }
-          />
+          <div className="w-full lg:justify-self-end lg:max-w-sm">
+            <HumanCheck
+              formId="public-updates"
+              variant="compact"
+              onSolved={(res) => {
+                setHumanToken(res.token);
+                setNotice({
+                  ok: true,
+                  msg: "Danke – Sicherheitscheck bestanden.",
+                });
+              }}
+              onError={() =>
+                setNotice({ ok: false, msg: strings.updatesForm.error })
+              }
+            />
+          </div>
         </div>
       </section>
 
@@ -433,7 +665,7 @@ export default function Home() {
           <div className="grid gap-6 p-8 md:grid-cols-[1.1fr_0.9fr] md:p-10">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-wide text-emerald-200">
-                VoiceOpenGov Bewegung
+                VoiceOpenGov – direktdemokratische Bewegung
               </p>
               <h2
                 id="closing-heading"
@@ -452,7 +684,7 @@ export default function Home() {
                   {strings.closingSection.primaryCta}
                 </Link>
                 <Link
-                  href="/abstimmungen"
+                  href="/votes"
                   className="inline-flex items-center justify-center rounded-full border border-white/30 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
                 >
                   {strings.closingSection.secondaryCta}
@@ -467,9 +699,9 @@ export default function Home() {
               <div className="relative space-y-4 text-sm text-slate-100">
                 <p className="text-base font-semibold">Was du mitbringst, zählt.</p>
                 <p>
-                  Jede Stimme stärkt die Legitimität. Jede Quelle, die du teilst,
-                  macht Entscheidungen belastbarer. Jede Mitgliedschaft finanziert
-                  Moderation, Technik und offene Audit-Trails.
+                  Jede Stimme stärkt die Bewegung. Jede Quelle macht eDebatte besser
+                  und Entscheidungen belastbarer. Jede Mitgliedschaft finanziert
+                  Moderation, Technik und offene Prüfprotokolle.
                 </p>
                 <p className="text-emerald-100">
                   Lass uns gemeinsam beweisen, dass Mehrheiten fair, informiert und

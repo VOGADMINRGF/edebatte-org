@@ -70,6 +70,10 @@ export async function upsertMembershipPaymentProfile(
     billingAddress?: { street?: string; postalCode?: string; city?: string; country?: string };
     iban?: string | null;
     mandateReference?: string | null;
+    microTransferHash?: string | null;
+    microTransferExpiresAt?: Date | null;
+    microTransferAttempts?: number | null;
+    microTransferVerifiedAt?: Date | null;
   },
 ): Promise<ObjectId> {
   const col = await piiCol<UserPaymentProfileDoc>(COLLECTION);
@@ -93,6 +97,19 @@ export async function upsertMembershipPaymentProfile(
     mandateReference: input.mandateReference ?? null,
     updatedAt: now,
   };
+
+  if (input.microTransferHash !== undefined) {
+    profile.microTransferHash = input.microTransferHash;
+  }
+  if (input.microTransferExpiresAt !== undefined) {
+    profile.microTransferExpiresAt = input.microTransferExpiresAt;
+  }
+  if (input.microTransferAttempts !== undefined) {
+    profile.microTransferAttempts = input.microTransferAttempts;
+  }
+  if (input.microTransferVerifiedAt !== undefined) {
+    profile.microTransferVerifiedAt = input.microTransferVerifiedAt;
+  }
 
   const result = await col.updateOne(
     { userId },

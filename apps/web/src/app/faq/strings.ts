@@ -10,7 +10,7 @@ const TABS = [
       de: "Was ist VoiceOpenGov?",
     } as LocaleString,
     body: {
-      de: "VoiceOpenGov ist eine unabhängige Beteiligungsplattform, die echte Mitbestimmung, Transparenz und nachvollziehbare Entscheidungen für alle Menschen ermöglicht – digital, datenschutzfreundlich, ohne Parteienzwang.",
+      de: "VoiceOpenGov ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. eDebatte ist unser eigens entwickeltes Werkzeug.",
     } as LocaleString,
   },
   {
@@ -18,7 +18,7 @@ const TABS = [
       de: "Wie funktioniert die Abstimmung?",
     } as LocaleString,
     body: {
-      de: "Jeder kann Anliegen einbringen, Kernbotschaften zustimmen oder ablehnen. Die Auswertung ist jederzeit live einsehbar, anonym und repräsentativ.",
+      de: "In eDebatte werden Anliegen vorbereitet, diskutiert und abgestimmt. Ergebnisse, Quoren und Prüfprotokolle bleiben transparent, anonym und nachvollziehbar.",
     } as LocaleString,
   },
   {
@@ -26,7 +26,7 @@ const TABS = [
       de: "Wer kann mitmachen?",
     } as LocaleString,
     body: {
-      de: "Alle! Egal ob Bürger:in, Verein, Unternehmen, NGO oder Verwaltung – Beteiligung ist offen für jede Person und Gruppe.",
+      de: "Alle! Egal ob Bürger:in, Verein, Unternehmen, NGO oder Verwaltung – wir freuen uns über jedes Interesse an fairer, direktdemokratischer Teilhabe.",
     } as LocaleString,
   },
 ] as const;

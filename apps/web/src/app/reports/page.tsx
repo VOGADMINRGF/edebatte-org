@@ -188,7 +188,7 @@ export default function ReportsOverviewPage() {
               </select>
             </label>
             <Link
-              href={`/swipe?region=${region}`}
+              href={`/swipes?region=${region}`}
               className="inline-flex items-center gap-1 rounded-full bg-sky-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm"
             >
               Alle Themen dieser Region swipen
@@ -197,8 +197,8 @@ export default function ReportsOverviewPage() {
         </header>
 
         <section className="grid gap-3 md:grid-cols-3">
-          <SummaryCard label="Evidence-Claims" value={overview?.totalStatements ?? 0} hint={rangeInfo.label} />
-          <SummaryCard label="Decisions" value={overview?.totalReports ?? 0} hint="Votes & Drafts" />
+          <SummaryCard label="Belegte Aussagen" value={overview?.totalStatements ?? 0} hint={rangeInfo.label} />
+          <SummaryCard label="Entscheidungen" value={overview?.totalReports ?? 0} hint="Abstimmungen & Entwürfe" />
           <SummaryCard
             label="News-Quellen"
             value={overview?.newsSourceCount ?? 0}
@@ -315,11 +315,11 @@ function TopicCard({ topic, rank, highlight }: { topic: TopicReport; rank: numbe
       </header>
       <dl className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
         <div className="rounded-2xl bg-sky-50 px-3 py-2">
-          <dt className="text-[10px] uppercase text-sky-700 mb-0.5">Evidence-Claims</dt>
+          <dt className="text-[10px] uppercase text-sky-700 mb-0.5">Belegte Aussagen</dt>
           <dd className="text-base font-semibold">{formatNumber(topic.totalStatements)}</dd>
         </div>
         <div className="rounded-2xl bg-emerald-50 px-3 py-2">
-          <dt className="text-[10px] uppercase text-emerald-700 mb-0.5">Votes &amp; Drafts</dt>
+          <dt className="text-[10px] uppercase text-emerald-700 mb-0.5">Abstimmungen &amp; Entwürfe</dt>
           <dd className="text-base font-semibold">{formatNumber(topic.totalVotes)}</dd>
         </div>
       </dl>

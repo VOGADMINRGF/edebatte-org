@@ -1,7 +1,6 @@
-import { ObjectId } from "@core/db/triMongo";
+import { ObjectId, votesCol } from "@core/db/triMongo";
 import { evidenceClaimsCol } from "@core/evidence/db";
 import { upsertEvidenceDecision } from "@features/evidence/syncFromVotes";
-import { VoteModel } from "@/models/votes/Vote";
 import type { VoteDraftDoc, FeedStatementDoc, StatementCandidate } from "./types";
 import {
   voteDraftsCol,
@@ -11,6 +10,13 @@ import {
 } from "./db";
 
 const ALLOWED_PUBLISH_STATUS: VoteDraftDoc["status"][] = ["draft", "review"];
+
+type VoteDoc = {
+  statementId?: string | ObjectId;
+  choice?: string;
+  vote?: string;
+  value?: string;
+};
 
 export async function publishVoteDraft(draftId: string) {
   let objectId: ObjectId;
@@ -69,6 +75,11 @@ export async function publishVoteDraft(draftId: string) {
     candidate,
     statementId: insert.insertedId,
     statementDoc,
+  }).catch((err) => {
+    console.warn("[publishVoteDraft] syncDecisionFromDraft failed", {
+      draftId,
+      err: String((err as any)?.message ?? err),
+    });
   });
   await drafts.updateOne(
     { _id: draft._id },
@@ -135,21 +146,28 @@ async function aggregateVotes(keys: Array<string | ObjectId>): Promise<{
   const normalizedKeys = buildStatementFilters(keys);
   if (!normalizedKeys.length) return { yes: 0, no: 0, abstain: 0 };
 
-  const Vote = await VoteModel();
-  const cursor = Vote.find(
-    { $or: normalizedKeys } as any,
-    { projection: { choice: 1, vote: 1, value: 1 } },
-  );
-  let yes = 0;
-  let no = 0;
-  let abstain = 0;
-  for await (const doc of cursor) {
-    const choice = normalizeChoice(doc.choice ?? doc.vote ?? doc.value);
-    if (choice === "yes") yes += 1;
-    else if (choice === "no") no += 1;
-    else abstain += 1;
+  try {
+    const votes = await votesCol<VoteDoc>("votes");
+    const cursor = votes.find(
+      { $or: normalizedKeys } as any,
+      { projection: { choice: 1, vote: 1, value: 1 } },
+    );
+    let yes = 0;
+    let no = 0;
+    let abstain = 0;
+    for await (const doc of cursor) {
+      const choice = normalizeChoice(doc.choice ?? doc.vote ?? doc.value);
+      if (choice === "yes") yes += 1;
+      else if (choice === "no") no += 1;
+      else abstain += 1;
+    }
+    return { yes, no, abstain };
+  } catch (err) {
+    console.warn("[publishVoteDraft] aggregateVotes failed - continuing", {
+      err: String((err as any)?.message ?? err),
+    });
+    return { yes: 0, no: 0, abstain: 0 };
   }
-  return { yes, no, abstain };
 }
 
 function buildStatementFilters(keys: Array<string | ObjectId>) {

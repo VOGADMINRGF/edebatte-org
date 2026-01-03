@@ -9,14 +9,14 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            VoiceOpenGov („VOG“) ist ein gesellschaftliches Infrastrukturprojekt:
-            ein überparteiliches, unabhängiges digitales Beteiligungssystem.
+            VoiceOpenGov ist ein gesellschaftliches Infrastrukturprojekt: ein
+            überparteiliches, unabhängiges digitales Beteiligungssystem.
           </p>
           <p>
             Ziel von VoiceOpenGov ist es, Menschen, Organisationen und
             Institutionen weltweit zu ermöglichen, auf faire, transparente und
             nachvollziehbare Weise Entscheidungen vorzubereiten und zu treffen.
-            VOG stellt hierfür insbesondere die Plattform „eDebatte“ sowie
+            VoiceOpenGov stellt hierfür insbesondere die Plattform „eDebatte“ sowie
             weitere Module zur Verfügung, mit denen Inhalte strukturiert,
             Positionen abgewogen, Eventualitäten formuliert und Abstimmungen
             vorbereitet werden können.
@@ -37,16 +37,13 @@ export default function SatzungPage() {
       title: "§ 1 Name, Zweck und Charakter",
       content: (
         <>
+          <p>(1) Die Organisation führt den Namen „VoiceOpenGov“.</p>
           <p>
-            (1) Die Organisation führt den Namen „VoiceOpenGov“, abgekürzt
-            „VOG“.
-          </p>
-          <p>
-            (2) VOG ist eine überparteiliche, unabhängige Struktur mit dem Ziel,
+            (2) VoiceOpenGov ist eine überparteiliche, unabhängige Struktur mit dem Ziel,
             digitale demokratische Teilhabe und transparente
             Entscheidungsfindung zu fördern.
           </p>
-          <p>(3) VOG entwickelt, betreibt und pflegt insbesondere:</p>
+          <p>(3) VoiceOpenGov entwickelt, betreibt und pflegt insbesondere:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>die Plattform „eDebatte“,</li>
             <li>
@@ -60,7 +57,7 @@ export default function SatzungPage() {
             <li>Transparenz- und Dokumentationsfunktionen.</li>
           </ul>
           <p>
-            (4) VOG kann in unterschiedlichen rechtlichen Formen (z. B. Verein,
+            (4) VoiceOpenGov kann in unterschiedlichen rechtlichen Formen (z. B. Verein,
             gUG, Stiftung oder Kombinationen) organisiert oder weiterentwickelt
             werden. Diese Charta beschreibt die grundlegende Governance-Logik,
             unabhängig von der konkreten Rechtsform.
@@ -75,7 +72,7 @@ export default function SatzungPage() {
         <>
           <p>
             (1) <span className="font-semibold">One Human, One Voice</span> –
-            soweit technisch und rechtlich sinnvoll, orientiert sich VOG an dem
+            soweit technisch und rechtlich sinnvoll, orientiert sich VoiceOpenGov an dem
             Prinzip „eine Person, eine Stimme“.
           </p>
           <p>
@@ -89,13 +86,13 @@ export default function SatzungPage() {
             ihrer Steuerung oder Ausnutzung.
           </p>
           <p>
-            (4) <span className="font-semibold">Neutralität</span> – VOG selbst
+            (4) <span className="font-semibold">Neutralität</span> – VoiceOpenGov selbst
             ergreift keine parteipolitischen Positionen und betreibt keine
             politische Werbung.
           </p>
           <p>
             (5) <span className="font-semibold">Nichtdiskriminierung</span> –
-            VOG lehnt jede Form von Diskriminierung ab und unterstützt
+            VoiceOpenGov lehnt jede Form von Diskriminierung ab und unterstützt
             inklusive, barrierearme Beteiligungsformen.
           </p>
           <p>
@@ -112,14 +109,14 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) Mitglied von VOG kann jede natürliche oder juristische Person
+            (1) Mitglied von VoiceOpenGov kann jede natürliche oder juristische Person
             werden, die die Grundprinzipien dieser Charta anerkennt.
           </p>
           <p>
             (2) Die Mitgliedschaft ist freiwillig und kann – unter Einhaltung
             angemessener Fristen – jederzeit beendet werden.
           </p>
-          <p>(3) VOG unterscheidet insbesondere:</p>
+          <p>(3) VoiceOpenGov unterscheidet insbesondere:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>
               <span className="font-semibold">aktive Mitglieder</span>:
@@ -128,13 +125,13 @@ export default function SatzungPage() {
             </li>
             <li>
               <span className="font-semibold">fördernde Mitglieder</span>:
-              Personen oder Organisationen, die VOG finanziell oder ideell
+              Personen oder Organisationen, die VoiceOpenGov finanziell oder ideell
               unterstützen, ohne weitergehende Mitwirkungsrechte,
             </li>
             <li>
               <span className="font-semibold">institutionelle Partner</span>:
               Organisationen, Kommunen, Initiativen, die eDebatte und andere
-              Tools von VOG nutzen.
+              Tools von VoiceOpenGov nutzen.
             </li>
           </ul>
           <p>
@@ -194,7 +191,7 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) Die Nutzung von eDebatte und anderen VOG-Tools ist grundsätzlich
+            (1) Die Nutzung von eDebatte und anderen VoiceOpenGov-Tools ist grundsätzlich
             auch ohne Mitgliedschaft möglich – etwa im Rahmen von Abonnements,
             Projektpaketen oder Kooperationen.
           </p>
@@ -204,12 +201,12 @@ export default function SatzungPage() {
             VoiceOpenGov und vermittelt keine Governance-Rechte in Bezug auf:
           </p>
           <ul className="list-disc pl-6 space-y-1">
-            <li>die Finanzierungsstrategie von VOG,</li>
+            <li>die Finanzierungsstrategie von VoiceOpenGov,</li>
             <li>die interne Struktur,</li>
             <li>die langfristige technische Roadmap.</li>
           </ul>
           <p>
-            (3) VOG trennt klar zwischen der{" "}
+            (3) VoiceOpenGov trennt klar zwischen der{" "}
             <span className="font-semibold">Nutzung des Werkzeugs (eDebatte)</span>{" "}
             und der <span className="font-semibold">Steuerung der Organisation</span>{" "}
             VoiceOpenGov (Governance).
@@ -259,7 +256,7 @@ export default function SatzungPage() {
       title: "§ 7 Digitale Beteiligung über eDebatte",
       content: (
         <>
-          <p>(1) eDebatte ist das zentrale Werkzeug von VOG zur:</p>
+          <p>(1) eDebatte ist das zentrale Werkzeug von VoiceOpenGov zur:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>Strukturierung von Themen,</li>
             <li>Extraktion von Aussagen und Positionen,</li>
@@ -277,11 +274,11 @@ export default function SatzungPage() {
             <li>Medienpartnern,</li>
             <li>
               Parteien und parteiunabhängigen Projekten – unter Beachtung der
-              Neutralität von VOG.
+              Neutralität von VoiceOpenGov.
             </li>
           </ul>
           <p>
-            (3) VOG stellt sicher, dass Prozesse auf eDebatte nachvollziehbar,
+            (3) VoiceOpenGov stellt sicher, dass Prozesse auf eDebatte nachvollziehbar,
             dokumentiert, möglichst prüfbar, datenschutzkonform und technisch
             gegen Manipulation abgesichert sind.
           </p>
@@ -307,13 +304,13 @@ export default function SatzungPage() {
             Dienstleistungsangebote (z. B. Begleitung von Beteiligungsprozessen).
           </p>
           <p>
-            (2) VOG nimmt keine Zuwendungen an, die an die Bedingung der
+            (2) VoiceOpenGov nimmt keine Zuwendungen an, die an die Bedingung der
             inhaltlichen Einflussnahme auf Entscheidungen, Gewichtungen oder
             Algorithmen geknüpft sind.
           </p>
           <p>
             (3) Die Verantwortung für Finanzierung, Geschäftsmodell und
-            langfristige Tragfähigkeit von VOG liegt beim Trägerkreis / Core-Team,
+            langfristige Tragfähigkeit von VoiceOpenGov liegt beim Trägerkreis / Core-Team,
             der diese Entscheidungen transparent machen und in regelmäßigen
             Berichten offenlegen soll.
           </p>
@@ -340,13 +337,13 @@ export default function SatzungPage() {
             Fairnessprinzipien akzeptieren.
           </p>
           <p>
-            (3) Das Projekt „Vote4Gov“ kann VOG- und eDebatte-Infrastruktur
+            (3) Das Projekt „Vote4Gov“ kann VoiceOpenGov- und eDebatte-Infrastruktur
             einsetzen, bleibt jedoch eine separate, eigenständige politische
             Initiative/Partei. Die Governance von VoiceOpenGov ist von
             Vote4Gov organisatorisch und finanziell getrennt.
           </p>
           <p>
-            (4) VOG verpflichtet sich, die gleichen technischen und
+            (4) VoiceOpenGov verpflichtet sich, die gleichen technischen und
             prozessualen Standards allen Nutzenden zur Verfügung zu stellen, die
             die Regeln akzeptieren – unabhängig von politischer Ausrichtung.
           </p>
@@ -371,7 +368,7 @@ export default function SatzungPage() {
             <li>lokale rechtliche Vorgaben berücksichtigen,</li>
             <li>
               in ihrer Governance eigenständig sein können, aber transparent
-              machen, wie sie VOG-Tools einsetzen.
+              machen, wie sie VoiceOpenGov-Tools einsetzen.
             </li>
           </ul>
           <p>
@@ -388,7 +385,7 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) VOG verarbeitet personenbezogene Daten nur im erforderlichen
+            (1) VoiceOpenGov verarbeitet personenbezogene Daten nur im erforderlichen
             Umfang und nach dem Grundsatz der Zweckbindung.
           </p>
           <p>

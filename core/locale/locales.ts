@@ -1,6 +1,6 @@
 // core/locale/locales.ts
 export const CORE_LOCALES = ["de", "en"] as const;
-export const EXTENDED_LOCALES = ["fr", "pl", "es", "tr", "ar", "ru", "zh"] as const;
+export const EXTENDED_LOCALES = ["fr", "pl", "es", "it", "tr", "ar", "ru", "zh"] as const;
 export const SUPPORTED_LOCALES = [...CORE_LOCALES, ...EXTENDED_LOCALES] as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];

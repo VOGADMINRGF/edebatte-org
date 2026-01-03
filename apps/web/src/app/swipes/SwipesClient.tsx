@@ -61,7 +61,7 @@ async function postSwipeVote(payload: { statementId: string; eventualityId?: str
 }
 
 /** ------------------------
- * Buttons im VOG-CI
+ * Buttons im VoiceOpenGov-CI
  * ----------------------- */
 
 const primaryChipClass =

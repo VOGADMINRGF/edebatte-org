@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId, coreCol } from "@core/db/triMongo";
+import { ObjectId, coreCol, piiCol } from "@core/db/triMongo";
 import type { MembershipApplication } from "@core/memberships/types";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
 
@@ -38,6 +38,7 @@ export async function POST(
         firstPaidAt: now,
         updatedAt: now,
         "paymentInfo.firstPaidAt": now,
+        "paymentInfo.mandateStatus": "active",
       },
     },
   );
@@ -48,7 +49,22 @@ export async function POST(
       $set: {
         "membership.status": "active",
         "membership.activatedAt": now,
+        "membership.paymentInfo.mandateStatus": "active",
+        "membership.paymentInfo.firstPaidAt": now,
         updatedAt: now,
+      },
+    },
+  );
+
+  const Profiles = await piiCol("user_payment_profiles");
+  await Profiles.updateOne(
+    { userId: application.coreUserId },
+    {
+      $set: {
+        microTransferVerifiedAt: now,
+        microTransferHash: null,
+        microTransferExpiresAt: null,
+        microTransferAttempts: null,
       },
     },
   );

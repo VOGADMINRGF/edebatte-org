@@ -18,18 +18,21 @@ export type SessionUser = {
 
 export async function getSessionUser(req?: NextRequest): Promise<SessionUser | null> {
   const session = await readSessionPayload(req);
-  if (!session?.uid || !ObjectId.isValid(session.uid)) return null;
+  const sessionUid = session?.uid && ObjectId.isValid(session.uid) ? session.uid : null;
+  const cookieUid = req ? req.cookies.get("u_id")?.value : await readCookie("u_id");
+  const uid = sessionUid ?? (cookieUid && ObjectId.isValid(cookieUid) ? cookieUid : null);
+  if (!uid) return null;
 
   const payloadRoles =
-    Array.isArray(session.roles) && session.roles.length > 0
+    session && Array.isArray(session.roles) && session.roles.length > 0
       ? session.roles
-      : (session as any)?.role
+      : session && (session as any)?.role
         ? [String((session as any).role)]
         : [];
 
   const users = await getCol<SessionUser>("users");
   const user = await users.findOne(
-    { _id: new ObjectId(session.uid) },
+    { _id: new ObjectId(uid) },
     { projection: { roles: 1, role: 1, email: 1, name: 1, verification: 1 } },
   );
   if (!user) return null;
@@ -37,7 +40,7 @@ export async function getSessionUser(req?: NextRequest): Promise<SessionUser | n
   const cookieTwoFactor =
     (req ? req.cookies.get("u_2fa")?.value : await readCookie("u_2fa")) ?? undefined;
   const sessionTwoFactorAuthenticated =
-    session.tfa ?? (cookieTwoFactor === "1" ? true : cookieTwoFactor === "0" ? false : undefined);
+    session?.tfa ?? (cookieTwoFactor === "1" ? true : cookieTwoFactor === "0" ? false : undefined);
 
   const normalizedRoles = payloadRoles.length
     ? payloadRoles

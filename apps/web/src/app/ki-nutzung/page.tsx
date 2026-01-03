@@ -29,8 +29,8 @@ export default function KiNutzungPage() {
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold text-slate-900">Leitplanken</h2>
         <ul className="list-disc space-y-2 pl-6 text-gray-700">
-          <li>E150/E200-Prinzipien gelten: minimale PII, transparente Dokumentation.</li>
-          <li>Strikte Guardrails gegen Missbrauch; sensible Felder werden maskiert oder entfernt.</li>
+          <li>Grundsatz: minimale personenbezogene Daten und transparente Dokumentation.</li>
+          <li>Klare Schutzregeln gegen Missbrauch; sensible Felder werden maskiert oder entfernt.</li>
           <li>KI-Ergebnisse werden geprüft – Entscheidungen treffen Menschen, nicht Modelle.</li>
         </ul>
         <p className="text-gray-700">

@@ -136,6 +136,12 @@ export default function AdminAiHubPage() {
           >
             Orchestrator Health
           </Link>
+          <Link
+            href="/admin/telemetry/ai/flow"
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
+          >
+            Flow Health
+          </Link>
         </div>
       </header>
 

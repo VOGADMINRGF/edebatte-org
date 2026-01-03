@@ -71,26 +71,21 @@ export async function POST(req: NextRequest) {
 
     if (body.draftId && ObjectId.isValid(body.draftId)) {
       const _id = new ObjectId(body.draftId);
-      const existing = await col.findOne({ _id, userId });
-      if (!existing) {
+      const update: Partial<DraftDoc> = {
+        text: body.text,
+        updatedAt: now,
+      };
+      if (body.locale !== undefined) update.locale = body.locale;
+      if (body.source !== undefined) update.source = body.source;
+      if (body.textOriginal !== undefined) update.textOriginal = body.textOriginal;
+      if (body.textPrepared !== undefined) update.textPrepared = body.textPrepared;
+      if (body.evidenceInput !== undefined) update.evidenceInput = body.evidenceInput;
+      if (body.analysis !== undefined) update.analysis = body.analysis;
+
+      const res = await col.updateOne({ _id, userId }, { $set: update });
+      if (!res.matchedCount) {
         return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
       }
-
-      await col.updateOne(
-        { _id, userId },
-        {
-          $set: {
-            locale: body.locale ?? existing.locale,
-            source: body.source ?? existing.source,
-            text: body.text,
-            textOriginal: body.textOriginal ?? existing.textOriginal,
-            textPrepared: body.textPrepared ?? existing.textPrepared,
-            evidenceInput: body.evidenceInput ?? existing.evidenceInput,
-            analysis: body.analysis ?? existing.analysis,
-            updatedAt: now,
-          },
-        },
-      );
 
       return NextResponse.json({
         ok: true,

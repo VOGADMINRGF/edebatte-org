@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/context/LocaleContext";
+import { useContentLang } from "@/lib/i18n/contentLanguage";
+import { UI_LANGS, type LanguageCode } from "@features/i18n/languages";
+import { getLocaleConfig, type SupportedLocale } from "@/config/locales";
 import { useCurrentUser, clearCachedUser, primeCachedUser } from "@/hooks/auth";
 import type { AuthUser } from "@/hooks/auth";
 
@@ -15,28 +18,28 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    href: "/mitglied-werden",
-    label: "Swipes",
+    href: "/swipes",
+    label: "Abstimmen",
     description:
-      "Themen & Positionen bewerten – Schnell-Abstimmungen zu laufenden eDebatte-Themen (Vorverkauf unter „Mitmachen“).",
+      "Themen & Positionen bewerten – Schnell-Abstimmungen zu laufenden eDebatte-Themen.",
   },
   {
-    href: "/mitglied-werden",
-    label: "Statements",
+    href: "/statements",
+    label: "Einreichen",
     description:
-      "Eigene Positionen einbringen – deine Argumente & Vorschläge zu aktuellen eDebatte-Themen.",
+      "Eigene Positionen einreichen – Beiträge & Statements zu aktuellen eDebatte-Themen.",
   },
   {
-    href: "/mitglied-werden",
-    label: "Streams",
+    href: "/stream",
+    label: "Präsentieren",
     description:
-      "Themen live diskutieren – Themen als Stream vorstellen und gemeinsam vertiefen.",
+      "Themen präsentieren – Streams starten und gemeinsam vertiefen.",
   },
   {
-    href: "/mitglied-werden",
-    label: "Reports",
+    href: "/reports",
+    label: "Archiv",
     description:
-      "Übersichten & Ergebnisse – Reports zu Themen, Abstimmungen und Beteiligung in deiner Region.",
+      "Archiv & Nachschlagen – Ergebnisse zu Themen, Abstimmungen und Beteiligung in deiner Region.",
   },
 ];
 
@@ -49,24 +52,50 @@ function deriveInitials(value: string) {
 }
 
 export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
-  const { locale } = useLocale();
+  const { locale, setLocale } = useLocale();
+  const { lang: contentLang, setLang: setContentLang } = useContentLang();
   const { user } = useCurrentUser();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [localeOpen, setLocaleOpen] = useState(false);
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const avatarLabel = deriveInitials(user?.name || user?.email || "Du");
   const avatarUrl = user?.avatarUrl ?? null;
 
-  const localeLabel = useMemo(
-    () => (locale || "de").toUpperCase(),
-    [locale],
+  const activeLang = contentLang || locale || "de";
+  const activeLocaleConfig = useMemo(
+    () => getLocaleConfig(activeLang as SupportedLocale),
+    [activeLang],
   );
+  const localeLabel = useMemo(
+    () => activeLang.toUpperCase(),
+    [activeLang],
+  );
+  const localeOptions = UI_LANGS.map((lang) => {
+    const cfg = getLocaleConfig(lang.code as SupportedLocale);
+    return {
+      code: lang.code,
+      label: cfg.label || lang.label,
+      flag: cfg.flagEmoji || "🏳️",
+    };
+  });
 
   useEffect(() => {
     if (initialUser !== undefined) {
       primeCachedUser(initialUser ?? null);
     }
   }, [initialUser]);
+
+  useEffect(() => {
+    if (!mobileOpen) setLocaleOpen(false);
+  }, [mobileOpen]);
+
+  const handleLocaleSelect = (next: LanguageCode) => {
+    setContentLang(next);
+    setLocale(next as SupportedLocale);
+    setLocaleOpen(false);
+    router.refresh();
+  };
 
   const handleLogout = async () => {
     try {
@@ -102,6 +131,38 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
 
         {/* Rechts: Avatar/Account + Hamburger */}
         <div className="flex items-center gap-3">
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              aria-label={`Sprache waehlen (aktuell ${activeLocaleConfig.label})`}
+              aria-expanded={localeOpen}
+              onClick={() => setLocaleOpen((v) => !v)}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-sky-300 hover:text-sky-600"
+            >
+              <span aria-hidden="true" className="text-base">
+                {activeLocaleConfig.flagEmoji || "🏳️"}
+              </span>
+              <span>{localeLabel}</span>
+            </button>
+            {localeOpen && (
+              <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+                {localeOptions.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => handleLocaleSelect(lang.code)}
+                    className="flex w-full items-center justify-between rounded-xl px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span aria-hidden="true">{lang.flag}</span>
+                      <span className="uppercase">{lang.code}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">{lang.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {!user && (
             <Link
               href="/login"
@@ -160,13 +221,37 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
               <span className="text-xs uppercase tracking-wide text-slate-500">
                 Navigations
               </span>
-              <span
-                aria-label={`Sprache: ${localeLabel}`}
-                className="text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+              <button
+                type="button"
+                aria-label={`Sprache waehlen (aktuell ${activeLocaleConfig.label})`}
+                aria-expanded={localeOpen}
+                onClick={() => setLocaleOpen((v) => !v)}
+                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 hover:border-sky-300 hover:text-sky-600"
               >
-                {localeLabel}
-              </span>
+                <span className="inline-flex items-center gap-2">
+                  <span aria-hidden="true">{activeLocaleConfig.flagEmoji || "🏳️"}</span>
+                  <span>{localeLabel}</span>
+                </span>
+              </button>
             </div>
+            {localeOpen && (
+              <div className="grid grid-cols-2 gap-2">
+                {localeOptions.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => handleLocaleSelect(lang.code)}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-600"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span aria-hidden="true">{lang.flag}</span>
+                      <span className="uppercase">{lang.code}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">{lang.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             <nav
               aria-label="Mobile Navigation"

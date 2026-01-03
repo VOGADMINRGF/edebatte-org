@@ -15,8 +15,12 @@ export const dynamic = "force-dynamic";
 
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW = 15 * 60; // 15 Minuten
+const EMAIL_RATE_LIMIT_MAX = 4;
+const EMAIL_RATE_LIMIT_WINDOW = 60 * 60; // 1 Stunde
 const DEFAULT_CONSENT_VERSION = process.env.UPDATES_CONSENT_VERSION || "updates_v1";
 const UPDATES_NOTIFY_TO = process.env.UPDATES_NOTIFY_TO;
+const MIN_FORM_MS = 1500;
+const MAX_FORM_MS = 2 * 60 * 60 * 1000;
 
 const bodySchema = z.object({
   email: z.string().email(),
@@ -24,6 +28,8 @@ const bodySchema = z.object({
   name: z.string().trim().max(200).optional(),
   locale: z.string().trim().max(10).optional(),
   humanToken: z.string().min(10).max(1024),
+  formStartedAt: z.coerce.number().optional(),
+  hp_updates: z.string().optional(),
 });
 
 type SubscriberStatus = "pending" | "active" | "unsubscribed";
@@ -174,15 +180,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email: rawEmail, interests, name, locale: rawLocale, humanToken } =
-    parsed.data;
+  const {
+    email: rawEmail,
+    interests,
+    name,
+    locale: rawLocale,
+    humanToken,
+    formStartedAt,
+    hp_updates,
+  } = parsed.data;
+
+  if (hp_updates && hp_updates.trim().length > 0) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_input" },
+      { status: 400 },
+    );
+  }
 
   const payload = await verifyHumanToken(humanToken);
-  if (!payload) {
+  if (!payload || payload.formId !== "public-updates") {
     return NextResponse.json(
       { ok: false, error: "invalid_human_token" },
       { status: 400 },
     );
+  }
+
+  if (typeof formStartedAt === "number") {
+    const durationMs = Date.now() - formStartedAt;
+    if (durationMs < MIN_FORM_MS || durationMs > MAX_FORM_MS) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_input" },
+        { status: 400 },
+      );
+    }
   }
 
   const rateKey = hashedClientKey(req);
@@ -202,6 +232,17 @@ export async function POST(req: NextRequest) {
   }
 
   const email = rawEmail.trim().toLowerCase();
+  const emailKey = crypto.createHash("sha256").update(email).digest("hex").slice(0, 24);
+  const emailAttempts = await incrementRateLimit(
+    `public:updates:email:${emailKey}`,
+    EMAIL_RATE_LIMIT_WINDOW,
+  );
+  if (emailAttempts > EMAIL_RATE_LIMIT_MAX) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited" },
+      { status: 429 },
+    );
+  }
   const locale = rawLocale?.trim() || "de";
   const now = new Date();
   const consentVersion = DEFAULT_CONSENT_VERSION;

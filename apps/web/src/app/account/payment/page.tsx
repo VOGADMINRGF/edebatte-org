@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { readSession } from "@/utils/session";
 import { getAccountOverview } from "@features/account/service";
 import { PaymentProfileForm } from "./PaymentProfileForm";
+import { MicroTransferVerificationForm } from "./MicroTransferVerificationForm";
 
 export const metadata = {
   title: "Zahlungsprofil · VoiceOpenGov",
@@ -26,11 +27,14 @@ export default async function PaymentPage() {
   const payment = (overview as any).payment ?? {};
   const membership = (overview as any).membership ?? (overview as any).membershipSnapshot ?? {};
   const membershipPayment = membership?.paymentInfo ?? {};
+  const membershipStatus = membership?.status ?? null;
+  const mandateStatus = membership?.paymentInfo?.mandateStatus ?? null;
   const iban = paymentProfile?.ibanMasked ?? payment.ibanMasked ?? membershipPayment.bankIbanMasked ?? null;
   const bic = paymentProfile?.bic ?? payment.bic ?? membershipPayment.bankBic ?? null;
   const holder = paymentProfile?.holderName ?? payment.accountHolder ?? membershipPayment.bankRecipient ?? null;
   const contribution = membership?.contributionLabel ?? membership?.statusLabel ?? null;
   const note = payment.note ?? membershipPayment.reference ?? null;
+  const paymentReference = membership?.paymentReference ?? null;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white py-10">
@@ -66,6 +70,12 @@ export default async function PaymentPage() {
           </div>
 
           <PaymentProfileForm initial={{ ibanMasked: iban, holderName: holder, bic }} />
+
+          <MicroTransferVerificationForm
+            membershipStatus={membershipStatus}
+            mandateStatus={mandateStatus}
+            paymentReference={paymentReference}
+          />
 
           <div className="space-y-1 rounded-2xl bg-slate-50/80 px-3 py-2">
             <p className="text-[11px] font-medium text-slate-700">Bevorzugte Zahlungsart</p>

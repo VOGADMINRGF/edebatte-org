@@ -1,29 +1,27 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { factcheckJobsCol } from "@features/factcheck/db";
+
+const ParamsSchema = z.object({ contributionId: z.string().min(1) });
+
+async function resolveParams(p: any): Promise<{ contributionId: string }> {
+  const val = p && typeof p.then === "function" ? await p : p;
+  return ParamsSchema.parse(val);
+}
 
 export async function GET(
   _: Request,
   context: { params: Promise<{ contributionId: string }> },
 ) {
-  const { contributionId } = await context.params;
+  const { contributionId } = await resolveParams(context.params);
 
-  const prisma = await getPrismaClient();
-  if (!prisma) {
-    return NextResponse.json({ ok: false, reason: "prisma_disabled", results: [] }, { status: 503 });
-  }
-
-  const factcheckJob = (prisma as any).factcheckJob;
-  const factcheckResult = (prisma as any).factcheckResult;
-  if (!factcheckJob || !factcheckResult) {
-    return NextResponse.json(
-      { ok: false, reason: "Factcheck models not available", results: [] },
-      { status: 501 },
-    );
-  }
-
-  const job = await factcheckJob.findFirst({
-    where: { contributionId },
-    orderBy: { createdAt: "desc" },
-  });
+  const col = await factcheckJobsCol();
+  const job = await col
+    .find({ contributionId })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .toArray()
+    .then((xs: any[]) => xs?.[0] ?? null);
 
   if (!job) {
     return NextResponse.json(
@@ -32,25 +30,19 @@ export async function GET(
     );
   }
 
-  const results = await factcheckResult.findMany({
-    where: { jobId: job.id },
-    orderBy: { createdAt: "asc" },
-  });
-
   return NextResponse.json({
     ok: true,
     job: {
-      id: job.id,
-      status: job.status,
-      tokensUsed: job.tokensUsed,
-      durationMs: job.durationMs,
+      jobId: job.jobId ?? null,
+      status: job.status ?? null,
+      verdict: job.verdict ?? null,
+      confidence: job.confidence ?? null,
+      durationMs: job.durationMs ?? null,
+      createdAt: job.createdAt ?? null,
+      finishedAt: job.finishedAt ?? null,
     },
-    results,
+    results: job.claims ?? [],
+    serpResults: job.serpResults ?? [],
+    error: job.error ?? null,
   });
-}
-
-async function getPrismaClient() {
-  if (!process.env.WEB_DATABASE_URL) return null;
-  const mod = await import("@/lib/prisma");
-  return mod.prisma;
 }

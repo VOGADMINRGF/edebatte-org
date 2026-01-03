@@ -213,7 +213,7 @@ export default function AdminDraftDetailPage() {
         <header>
           <h2 className="text-sm font-semibold text-slate-900">Analyse – Claims & Notizen</h2>
           <p className="text-xs text-slate-500">
-            Vollständiges E150-Resultat zur Nachvollziehbarkeit der automatischen Drafts.
+            Vollständiges Analyse-Resultat zur Nachvollziehbarkeit der automatischen Drafts.
           </p>
         </header>
         <div className="grid gap-4 lg:grid-cols-2">

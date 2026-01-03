@@ -13,6 +13,7 @@ import {
 } from "@features/analyze/questionizers";
 import { syncAnalyzeResultToGraph } from "@core/graph";
 import { persistEventualitiesSnapshot } from "@core/eventualities";
+import { upsertRunReceipt } from "@/lib/db/runReceiptsRepo";
 import { maskUserId } from "@core/pii/redact";
 import type { ProviderMatrixEntry } from "@features/ai/orchestratorE150";
 import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
@@ -356,6 +357,17 @@ async function finalizeResultPayload(
       ? snapshot.reviewedAt.toISOString()
       : null,
   };
+
+  const runReceipt = (result as any)?.runReceipt;
+  if (runReceipt?.id) {
+    await upsertRunReceipt(runReceipt).catch((err) => {
+      logErrorSafe({
+        msg: "analyze.route.runreceipt_persist_failed",
+        contributionId: input.contributionId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
 
   syncAnalyzeResultToGraph({
     result,

@@ -28,6 +28,7 @@ export const PII_REDACT_PATHS = [
   "paymentProfile.iban",
   "paymentProfile.ibanMasked",
   "paymentProfile.bic",
+  "paymentProfile.microTransferHash",
   "signature.bytes",
   "signature.raw",
   "email",

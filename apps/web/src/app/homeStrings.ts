@@ -14,7 +14,7 @@ const HERO_ACCENT = "nicht die Schlagzeile";
 const HERO_SUFFIX = "– lokal, national und global.";
 
 const HERO_INTRO =
-"Gesellschaftliche Interessen sind vielfältig – und oft schwer unter einen Hut zu bringen. Auf VoiceOpenGov steht das gemeinsame Interesse im Mittelpunkt: Entscheidungen folgen dem Mehrheitsprinzip und dem Grundsatz „eine Person, eine Stimme“. Hier zählt die Sache – nicht, wie gut sie sich vermarkten lässt. Ihr habt mehr als ein bloßes Vetorecht: Ihr könnt eigene Vorschläge und Eventualitäten einbringen, Varianten gegeneinander abwägen und jeden Schritt offen nachvollziehen – ohne Parteibuch, ohne Hinterzimmer. Alles ist transparent, überprüfbar und auf soziale Gerechtigkeit sowie eine lebenswerte, ökologische Zukunft ausgerichtet.";
+  "VoiceOpenGov ist die direktdemokratische Bewegung – offen für alle, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Wir freuen uns über jedes Interesse und jedes Mitmachen. Mit eDebatte, unserem eigens entwickelten Werkzeug, unterstützen wir die Digitalisierung politischer Teilhabe und bauen eine neue, überprüfbare Infrastruktur auf. Entscheidungen folgen dem Grundsatz „eine Person, eine Stimme“. Du kannst Vorschläge einbringen, Varianten abwägen und jeden Schritt offen nachvollziehen – ohne Parteibuch, ohne Hinterzimmer.";
 
 const HERO_BULLETS = [
   "<strong>Direkt beteiligt:</strong> Themen einreichen, Argumente prüfen und mitentscheiden – vom Handy oder Laptop, alleine oder gemeinsam mit deiner Community.",
@@ -23,8 +23,9 @@ const HERO_BULLETS = [
 ];
 
 const HERO_CTAS = {
-  primary: "Mitmachen",
-  secondary: "Abstimmen",
+  primary: "Mitglied werden",
+  secondary: "Abstimmungen ansehen",
+  tertiary: "Thema einreichen",
 };
 
 const HERO_CTA_NOTE =
@@ -37,19 +38,35 @@ const HERO_CTA_NOTE =
 const HERO_CARDS = [
   {
     title: "Für Bürger:innen",
-    body: "Faire Pro/Contra-Darstellung, geheime Stimmabgabe, klare Regeln & Quoren.",
+    body: "Mitentscheiden, Themen einbringen und als Creator Themen, Streams oder Regionen begleiten.",
+    actions: ["Abstimmen", "Anliegen einreichen", "Thema/Region begleiten"],
+    example:
+      "Beispiel: Tempo 30 vor Schulen – Faktenlage, Gegenpositionen, Abstimmung.",
+    href: "/howtoworks/edebatte#rolle-buerger",
+    cta: "Beispiel ansehen",
   },
   {
-    title: "Für Journalist:innen",
-    body: "Dossiers, Embeds & Exporte (CSV/JSON) – lokal, regional, investigativ.",
+    title: "Für Vereine, Verbände & Journalist:innen",
+    body: "Mitglieder beteiligen, Dossiers kuratieren und Themen redaktionell einordnen.",
+    actions: [
+      "Mitglieder beteiligen",
+      "Dossiers kuratieren",
+      "Faktenchecks",
+      "Redaktion & Streams",
+    ],
+    example:
+      "Beispiel: Vereinsinitiative für sichere Radwege – Mitgliederfeedback, Dossier, Redaktion.",
+    href: "/howtoworks/edebatte#rolle-vereine",
+    cta: "Beispiel ansehen",
   },
   {
-    title: "Für Verwaltungen",
-    body: "Ergebnisse mit Mandat, Meilensteinen, Risiken & Wirkung transparent tracken.",
-  },
-  {
-    title: "Für Politik & Repräsentanten",
-    body: "Direktdemokratische Verfahren nach dem Mehrheitsprinzip, nachvollziehbar moderiert.",
+    title: "Für Verwaltung & Repräsentant:innen",
+    body: "Entscheidungsgrundlagen aufbereiten, Mandate sichern und Umsetzung begleiten.",
+    actions: ["Daten aufbereiten", "Umfragen einreichen", "Wirkung verfolgen"],
+    example:
+      "Beispiel: Energieeffizienz-Programm – Datenpaket, Mandat, Meilensteine.",
+    href: "/howtoworks/edebatte#rolle-verwaltung",
+    cta: "Beispiel ansehen",
   },
 ];
 
@@ -58,10 +75,21 @@ const HERO_CARDS = [
  */
 
 const MEMBERSHIP_HIGHLIGHT = {
-  title: "Deine Mitgliedschaft hält VoiceOpenGov unabhängig",
-  body: "Schon ab 5,63 € pro Monat finanzierst du Moderation, Faktenrecherche und unseren Evidenz-Graphen – das offene Faktennetz, auf dem nachvollziehbare Entscheidungen für Mensch und Umwelt aufbauen.",
-  button: "Mehr erfahren",
-  overline: "Bau mit uns eine neue Entscheidungsstruktur auf",
+  title: "VoiceOpenGov ist die direktdemokratische Bewegung.",
+  body: "Ab 5,63 € im Monat finanzierst du die weltweite Bewegung für direkte Teilhabe. Eine Gemeinschaft, die sich jetzt findet und wächst. eDebatte ist unser eigenes Werkzeug, mit dem wir diese digitale Infrastruktur aufbauen.",
+  button: "Mitglied werden ab 5,63 €",
+  overline: "Jetzt Teil der Bewegung werden",
+  asideTitle: "Teile die Bewegung",
+  asideBody:
+    "Wir freuen uns über jedes Interesse am Mehrheitsprinzip. Wenn du möchtest, hilf uns, sichtbarer zu werden.",
+  shareLabel: "Teilen",
+  shareCopyLabel: "Link kopieren",
+  shareWhatsappLabel: "WhatsApp",
+  shareEmailLabel: "E-Mail",
+  shareSuccess: "Link kopiert.",
+  shareError: "Teilen nicht verfügbar.",
+  shareText:
+    "VoiceOpenGov ist die direktdemokratische Bewegung. Unterstütze den Aufbau der eDebatte-Infrastruktur.",
 };
 
 /**
@@ -75,9 +103,54 @@ const HERO_VIDEO_LINK = "Mehr erfahren →";
  * AUDIENCE
  */
 
-const AUDIENCE_TITLE = "Für wen VoiceOpenGov gedacht ist";
+const AUDIENCE_TITLE = "Für wen VoiceOpenGov und eDebatte gedacht sind";
 const AUDIENCE_LEAD =
-  "Vier Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren und gut dokumentierte Mehrheiten.";
+  "Drei Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren und gut dokumentierte Mehrheiten.";
+const AUDIENCE_NOTE =
+  "Die Rollen lassen sich erweitern. Wähle eine Rolle und sieh Möglichkeiten und ein Fallbeispiel im Detail.";
+
+/**
+ * DEMO / SCREENSHOTS
+ */
+
+const DEMO_SECTION = {
+  overline: "Einblicke in die Plattform",
+  title: "So sieht die Infrastruktur von morgen aus.",
+  lead: "Die drei Module der eDebatte-Logik: Dossier & Faktencheck, Abstimmen & Ergebnis, Mandat & Umsetzung.",
+  note: "Mehr Details findest du auf den jeweiligen Detailseiten.",
+  items: [
+    {
+      objectPosition: "85% 25%",
+      title: "Dossier & Faktencheck",
+      body: "Quellen, offene Fragen und Pro/Contra in klarer Struktur.",
+      tag: "Schritt 1",
+      image: "/vog_startpage/Dossier.png",
+      alt: "Screenshot eines Dossiers mit Quellen",
+      href: "/howtoworks/edebatte/dossier",
+      cta: "Details ansehen",
+    },
+    {
+      objectPosition: "50% 28%",
+      title: "Abstimmen & Ergebnis",
+      body: "Geheime Stimmabgabe, Quorum und Ergebnis-Transparenz in einer klaren Ansicht.",
+      tag: "Schritt 2",
+      image: "/vog_startpage/Abstimmen.png",
+      alt: "Screenshot einer Abstimmungsansicht",
+      href: "/howtoworks/edebatte/abstimmen",
+      cta: "Details ansehen",
+    },
+    {
+      objectPosition: "50% 20%",
+      title: "Mandat & Umsetzung",
+      body: "Meilensteine, Risiken und Wirkung öffentlich nachverfolgen.",
+      tag: "Schritt 3",
+      image: "/vog_startpage/Mandat.png",
+      alt: "Screenshot eines Umsetzungs-Trackings",
+      href: "/howtoworks/edebatte/mandat",
+      cta: "Details ansehen",
+    },
+  ],
+};
 
 /**
  * USP / VERFAHREN / EVIDENZ-GRAPH
@@ -85,20 +158,20 @@ const AUDIENCE_LEAD =
 
 const USP_ITEMS = [
   {
-    title: "Anliegen rein, Ergebnis raus.",
-    body: "In 60 Sekunden einreichen – danach startet ein klar strukturiertes Verfahren mit definierten Schritten bis zur Entscheidung.",
+    title: "Anliegen rein, Verfahren klar.",
+    body: "In 60 Sekunden einreichen – danach startet ein transparentes Verfahren mit definierten Prüfschritten bis zur Entscheidung.",
   },
   {
-    title: "Mehr als Pro & Contra.",
-    body: "Positionen, Szenarien und Folgen werden strukturiert aufbereitet. Minderheiten bleiben sichtbar, Mehrheiten werden erkennbar.",
+    title: "Argumente unter Prüflicht.",
+    body: "Quellenpflicht, Gegenpositionen und Annahmen werden strukturiert offengelegt. Minderheiten bleiben sichtbar, Mehrheiten nachvollziehbar.",
   },
   {
-    title: "Evidenz-Graph statt Meinungsrauschen.",
-    body: "Unser Evidenz-Graph verknüpft Quellen, Argumente, Annahmen und Wirkungen zu einem Faktennetz. So wird sichtbar, worauf Entscheidungen wirklich beruhen – wissenschaftlich anschlussfähig und für alle überprüfbar.",
+    title: "Evidenz-Graph, überprüfbar.",
+    body: "Unser Evidenz-Graph verknüpft Quellen, Argumente und Wirkungen zu einem offenen Faktennetz – wissenschaftlich anschlussfähig und für alle prüfbar.",
   },
   {
-    title: "Im Auftrag der Öffentlichkeit.",
-    body: "Wir moderieren Verfahren, dokumentieren Audit-Trails und begleiten die Umsetzung transparent – als Infrastruktur für demokratische Entscheidungen, nicht als Partei.",
+    title: "Qualität vor Parteilogik.",
+    body: "Offene Prüfprotokolle, journalistische Standards und selbstkritische Qualitätschecks – Infrastruktur für direkte Demokratie, kein Parteiprogramm.",
   },
 ];
 
@@ -114,7 +187,15 @@ const PROCESS_SECTION_TITLE = "Vom Anliegen zur Entscheidung – in klaren Schri
 
 const QUALITY_SECTION = {
   title: "Unser Qualitätsstandard",
-  body: "Offene Methoden, sorgfältige Quellenarbeit, Fehlerkultur und öffentliche Audit-Trails sind bei VoiceOpenGov Betriebsprinzip. Der Evidenz-Graph – unser graphbasiertes Faktennetz – und transparente Vertrauensmaße machen nachvollziehbar, wie Aussagen zustande kommen und wie belastbar sie sind. Impact-Dashboards zeigen, welche Entscheidungen getroffen wurden und welche sozialen und ökologischen Wirkungen sich daraus ergeben.",
+  body: "Unser Qualitätsstandard ist strikt, transparent und überprüfbar. Jede Entscheidung basiert auf nachvollziehbaren Quellen, dokumentierten Annahmen und offen einsehbaren Verfahren.",
+  bullets: [
+    "Quellenpflicht, Gegenbelege und dokumentierte Unsicherheiten – statt Meinungsrauschen.",
+    "Evidenz-Graph, der Aussagen, Quellen, Risiken und Wirkungen transparent verknüpft.",
+    "Offene Prüfprotokolle, Versionierung und klare Fehlerkultur für Korrekturen.",
+    "Symmetrische Pro/Contra-Darstellung – Minderheitenperspektiven bleiben sichtbar.",
+    "Qualitätsmetriken und Vertrauenswerte zur Prüfbarkeit und Belastbarkeit.",
+    "Umsetzungstracking und Wirkungsübersichten über den gesamten Prozess.",
+  ],
   ctaFaq: "FAQ ansehen",
 };
 
@@ -140,7 +221,7 @@ const MAJORITY_SECTION = {
 
 const CLOSING_SECTION = {
   title: "Du willst, dass Entscheidungen besser werden? Fang hier an.",
-  body: "Schließ dich der Bewegung an, stimme mit und bring Themen ein, die wirklich gelöst werden sollen – für deine Region und für eine gerechtere, nachhaltigere Welt.",
+  body: "Schließ dich der direktdemokratischen Bewegung an, stimme mit und bring Themen ein, die wirklich gelöst werden sollen – für deine Region und für eine gerechtere Welt.",
   primaryCta: "Mitglied werden",
   secondaryCta: "Aktuelle Abstimmungen",
   tertiaryCta: "Thema einreichen",
@@ -222,6 +303,42 @@ const HOME_STRINGS = {
       de: MEMBERSHIP_HIGHLIGHT.overline,
       en: MEMBERSHIP_HIGHLIGHT.overline,
     },
+    asideTitle: {
+      de: MEMBERSHIP_HIGHLIGHT.asideTitle,
+      en: MEMBERSHIP_HIGHLIGHT.asideTitle,
+    },
+    asideBody: {
+      de: MEMBERSHIP_HIGHLIGHT.asideBody,
+      en: MEMBERSHIP_HIGHLIGHT.asideBody,
+    },
+    shareLabel: {
+      de: MEMBERSHIP_HIGHLIGHT.shareLabel,
+      en: MEMBERSHIP_HIGHLIGHT.shareLabel,
+    },
+    shareCopyLabel: {
+      de: MEMBERSHIP_HIGHLIGHT.shareCopyLabel,
+      en: MEMBERSHIP_HIGHLIGHT.shareCopyLabel,
+    },
+    shareWhatsappLabel: {
+      de: MEMBERSHIP_HIGHLIGHT.shareWhatsappLabel,
+      en: MEMBERSHIP_HIGHLIGHT.shareWhatsappLabel,
+    },
+    shareEmailLabel: {
+      de: MEMBERSHIP_HIGHLIGHT.shareEmailLabel,
+      en: MEMBERSHIP_HIGHLIGHT.shareEmailLabel,
+    },
+    shareSuccess: {
+      de: MEMBERSHIP_HIGHLIGHT.shareSuccess,
+      en: MEMBERSHIP_HIGHLIGHT.shareSuccess,
+    },
+    shareError: {
+      de: MEMBERSHIP_HIGHLIGHT.shareError,
+      en: MEMBERSHIP_HIGHLIGHT.shareError,
+    },
+    shareText: {
+      de: MEMBERSHIP_HIGHLIGHT.shareText,
+      en: MEMBERSHIP_HIGHLIGHT.shareText,
+    },
   },
   heroVideoNote: {
     de: HERO_VIDEO_NOTE,
@@ -239,9 +356,35 @@ const HOME_STRINGS = {
     de: AUDIENCE_LEAD,
     en: AUDIENCE_LEAD,
   },
+  audienceNote: {
+    de: AUDIENCE_NOTE,
+    en: AUDIENCE_NOTE,
+  },
   uspItems: {
     de: USP_ITEMS,
     en: USP_ITEMS,
+  },
+  demoSection: {
+    overline: {
+      de: DEMO_SECTION.overline,
+      en: DEMO_SECTION.overline,
+    },
+    title: {
+      de: DEMO_SECTION.title,
+      en: DEMO_SECTION.title,
+    },
+    lead: {
+      de: DEMO_SECTION.lead,
+      en: DEMO_SECTION.lead,
+    },
+    note: {
+      de: DEMO_SECTION.note,
+      en: DEMO_SECTION.note,
+    },
+    items: {
+      de: DEMO_SECTION.items,
+      en: DEMO_SECTION.items,
+    },
   },
   processTitle: {
     de: PROCESS_SECTION_TITLE,
@@ -273,6 +416,10 @@ const HOME_STRINGS = {
     body: {
       de: QUALITY_SECTION.body,
       en: QUALITY_SECTION.body,
+    },
+    bullets: {
+      de: QUALITY_SECTION.bullets,
+      en: QUALITY_SECTION.bullets,
     },
     ctaFaq: {
       de: QUALITY_SECTION.ctaFaq,
@@ -360,12 +507,29 @@ export function getHomeStrings(locale: SupportedLocale | string) {
       body: pick(HOME_STRINGS.membershipHighlight.body),
       button: pick(HOME_STRINGS.membershipHighlight.button),
       overline: pick(HOME_STRINGS.membershipHighlight.overline),
+      asideTitle: pick(HOME_STRINGS.membershipHighlight.asideTitle),
+      asideBody: pick(HOME_STRINGS.membershipHighlight.asideBody),
+      shareLabel: pick(HOME_STRINGS.membershipHighlight.shareLabel),
+      shareCopyLabel: pick(HOME_STRINGS.membershipHighlight.shareCopyLabel),
+      shareWhatsappLabel: pick(HOME_STRINGS.membershipHighlight.shareWhatsappLabel),
+      shareEmailLabel: pick(HOME_STRINGS.membershipHighlight.shareEmailLabel),
+      shareSuccess: pick(HOME_STRINGS.membershipHighlight.shareSuccess),
+      shareError: pick(HOME_STRINGS.membershipHighlight.shareError),
+      shareText: pick(HOME_STRINGS.membershipHighlight.shareText),
     },
     heroVideoNote: pick(HOME_STRINGS.heroVideoNote),
     heroVideoLink: pick(HOME_STRINGS.heroVideoLink),
     audienceTitle: pick(HOME_STRINGS.audienceTitle),
     audienceLead: pick(HOME_STRINGS.audienceLead),
+    audienceNote: pick(HOME_STRINGS.audienceNote),
     uspItems: pick(HOME_STRINGS.uspItems),
+    demoSection: {
+      overline: pick(HOME_STRINGS.demoSection.overline),
+      title: pick(HOME_STRINGS.demoSection.title),
+      lead: pick(HOME_STRINGS.demoSection.lead),
+      note: pick(HOME_STRINGS.demoSection.note),
+      items: pick(HOME_STRINGS.demoSection.items),
+    },
     processTitle: pick(HOME_STRINGS.processTitle),
     majoritySection: {
       title: pick(HOME_STRINGS.majoritySection.title),
@@ -376,6 +540,7 @@ export function getHomeStrings(locale: SupportedLocale | string) {
     qualitySection: {
       title: pick(HOME_STRINGS.qualitySection.title),
       body: pick(HOME_STRINGS.qualitySection.body),
+      bullets: pick(HOME_STRINGS.qualitySection.bullets),
       ctaFaq: pick(HOME_STRINGS.qualitySection.ctaFaq),
     },
     closingSection: {

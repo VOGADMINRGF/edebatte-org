@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzePendingStatementCandidates } from "@features/feeds/analyzePending";
+import { requireAdminOrEditor } from "../_auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdminOrEditor(request);
+  if (gate) return gate;
+
   let limit: number | undefined;
   try {
     const body = await request.json().catch(() => ({}));

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { createHash } from "crypto";
 import { getCol, ObjectId } from "@core/db/triMongo";
 import { piiCol } from "@core/db/db/triMongo";
 import { CREDENTIAL_COLLECTION } from "../sharedAuth";
@@ -10,6 +11,8 @@ import { logIdentityEvent } from "@core/telemetry/identityEvents";
 import { sendMail } from "@/utils/mailer";
 import { buildVerificationMail } from "@/utils/emailTemplates";
 import { ensureBasicPiiProfile } from "@core/pii/userProfileService";
+import { incrementRateLimit } from "@/lib/security/rate-limit";
+import { verifyHumanToken } from "@/lib/security/human-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +28,24 @@ const schema = z.object({
   newsletterOptIn: z.boolean().optional(),
   title: z.string().trim().max(80).optional(),
   pronouns: z.string().trim().max(80).optional(),
+  humanToken: z.string().min(10).max(1024),
+  formStartedAt: z.coerce.number().optional(),
+  hp_register: z.string().optional(),
 });
+
+const RATE_LIMIT_MAX = 6;
+const RATE_LIMIT_WINDOW = 15 * 60; // 15 minutes
+const MIN_FILL_MS = 3000;
+const MAX_FILL_MS = 2 * 60 * 60 * 1000;
+
+function hashedClientKey(req: NextRequest) {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "0.0.0.0";
+  const ua = req.headers.get("user-agent") || "unknown";
+  return createHash("sha256").update(`${ip}|${ua}`).digest("hex").slice(0, 32);
+}
 
 export async function POST(req: NextRequest) {
   const json = await req.json().catch(() => null);
@@ -35,6 +55,29 @@ export async function POST(req: NextRequest) {
   }
 
   const body = parsed.data;
+  if (body.hp_register && body.hp_register.trim().length > 0) {
+    return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
+
+  const rateKey = hashedClientKey(req);
+  const attempts = await incrementRateLimit(`register:${rateKey}`, RATE_LIMIT_WINDOW);
+  if (attempts > RATE_LIMIT_MAX) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  const startedAt = body.formStartedAt;
+  const durationMs = typeof startedAt === "number" ? Date.now() - startedAt : null;
+  if (durationMs !== null) {
+    if (durationMs < MIN_FILL_MS || durationMs > MAX_FILL_MS) {
+      return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+    }
+  }
+
+  const humanPayload = await verifyHumanToken(body.humanToken);
+  if (!humanPayload || humanPayload.formId !== "register") {
+    return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
+
   const email = body.email.trim().toLowerCase();
   const locale = normalizeLocale(body.preferredLocale);
   const givenName = body.firstName?.trim() || undefined;

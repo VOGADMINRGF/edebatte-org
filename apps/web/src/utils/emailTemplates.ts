@@ -58,6 +58,50 @@ Wir freuen uns, dass du dabei bist.
   return { subject: "Bitte bestätige deine E-Mail-Adresse", html, text };
 }
 
+export function buildSetPasswordMail({
+  resetUrl,
+  displayName,
+}: {
+  resetUrl: string;
+  displayName?: string | null;
+}) {
+  const greeting = displayName ? `Hallo ${displayName}` : "Hallo";
+  const buttonStyle =
+    "display:inline-flex;padding:12px 20px;border-radius:999px;background:#0f172a;color:#fff;text-decoration:none;font-weight:700;letter-spacing:0.3px;font-size:15px;";
+
+  const html = `
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#0f172a;">
+      <tr><td style="padding:12px 0;">${greeting},</td></tr>
+      <tr><td style="padding:6px 0 12px 0; font-size:15px; line-height:1.5;">
+        dein Account wurde angelegt. Bitte setze jetzt dein Passwort, um dich einzuloggen.
+      </td></tr>
+      <tr><td style="padding:12px 0;">
+        <a href="${resetUrl}" style="${buttonStyle}">
+          Passwort setzen
+        </a>
+      </td></tr>
+      <tr><td style="padding:14px 0 0 0; font-size:14px; color:#334155;">
+        Falls du den Zugang nicht angefordert hast, kannst du diese Nachricht ignorieren.
+      </td></tr>
+      <tr><td style="padding:10px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
+        Viele Gruesse<br/>– Dein VoiceOpenGov Team
+      </td></tr>
+    </table>
+  `;
+
+  const text = `${greeting},
+
+dein Account wurde angelegt. Bitte setze dein Passwort:
+${resetUrl}
+
+Falls du den Zugang nicht angefordert hast, kannst du diese Nachricht ignorieren.
+
+Viele Gruesse
+– VoiceOpenGov Team`;
+
+  return { subject: "Passwort fuer deinen Account setzen", html, text };
+}
+
 export function buildTwoFactorCodeMail({ code }: { code: string }) {
   const subject = "Dein Login-Code für VoiceOpenGov";
   const html = `
@@ -150,12 +194,19 @@ function formatEuro(value: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(value);
 }
 
+function formatIban(value?: string | null) {
+  if (!value) return "n/a";
+  const cleaned = value.replace(/\s+/g, "").toUpperCase();
+  return cleaned.match(/.{1,4}/g)?.join(" ") ?? cleaned;
+}
+
 export function buildMembershipApplyUserMail(args: {
   displayName: string;
   amountPerPeriod: number;
   rhythm: MembershipRhythm;
   householdSize: number;
   membershipId: string;
+  accountUrl?: string;
   edebatte?: {
     enabled: boolean;
     planKey?: string;
@@ -171,6 +222,7 @@ export function buildMembershipApplyUserMail(args: {
     bankBic?: string | null;
     bankName?: string | null;
     accountMode?: string | null;
+    mandateStatus?: string | null;
   };
 }) {
   const {
@@ -179,6 +231,7 @@ export function buildMembershipApplyUserMail(args: {
     rhythm,
     householdSize,
     membershipId,
+    accountUrl,
     edebatte,
     paymentMethod,
     paymentReference,
@@ -205,6 +258,7 @@ export function buildMembershipApplyUserMail(args: {
     process.env.NEXT_PUBLIC_VOG_BANK_RECIPIENT ??
     "";
   const accountMode = paymentInfo?.accountMode ?? process.env.VOG_ACCOUNT_MODE ?? "private_preUG";
+  const showMicroTransfer = paymentInfo?.mandateStatus === "pending_microtransfer";
 
   const edebatteBlock =
     edebatte && edebatte.enabled && edebatte.finalPricePerMonth
@@ -232,6 +286,14 @@ export function buildMembershipApplyUserMail(args: {
       ${bankBic ? `BIC: ${bankBic}<br/>` : ""}
       Verwendungszweck: ${paymentReference ?? "Mitgliedsbeitrag"}
     </p>
+    ${
+      showMicroTransfer
+        ? `<p><strong>Konto-Verifikation</strong><br/>
+      Wir überweisen dir in den nächsten Tagen 0,01 € mit einem TAN-Code im Verwendungszweck. Bitte gib den Code im Zahlungsprofil ein${
+        accountUrl ? `: <a href="${accountUrl}">${accountUrl}</a>` : "."
+      }</p>`
+        : ""
+    }
     <p>Wichtig zur Transparenz:</p>
     <ul>
       <li>VoiceOpenGov befindet sich in der Gründungsphase (${
@@ -267,6 +329,11 @@ Bank: ${bankName || "n/a"}
 IBAN: ${bankIbanMasked}
 ${bankBic ? `BIC: ${bankBic}` : ""}
 Verwendungszweck: ${paymentReference ?? "Mitgliedsbeitrag"}
+${
+  showMicroTransfer
+    ? `\nKonto-Verifikation:\nWir überweisen dir in den nächsten Tagen 0,01 EUR mit einem TAN-Code im Verwendungszweck. Bitte gib den Code im Zahlungsprofil ein${accountUrl ? `: ${accountUrl}` : "."}`
+    : ""
+}
 
 Transparenz:
 - Aufbauphase (${accountMode === "private_preUG" ? "Privatkonto" : "Org-Konto"}), keine Spendenquittung, i.d.R. nicht absetzbar.
@@ -289,8 +356,12 @@ export function buildMembershipApplyAdminMail(args: {
   householdSize: number;
   paymentMethod?: string;
   paymentReference?: string;
+  payerName?: string;
+  payerIban?: string;
+  microTransferCode?: string;
 }) {
   const subject = "Neuer Mitgliedsantrag";
+  const payerIban = formatIban(args.payerIban);
   const html = `
     <p>Neuer Antrag eingegangen:</p>
     <ul>
@@ -301,6 +372,9 @@ export function buildMembershipApplyAdminMail(args: {
       <li>Haushalt: ${args.householdSize}</li>
       ${args.paymentMethod ? `<li>Zahlungsweg: ${args.paymentMethod}</li>` : ""}
       ${args.paymentReference ? `<li>Verwendungszweck: ${args.paymentReference}</li>` : ""}
+      ${args.payerName ? `<li>Zahlungsname: ${args.payerName}</li>` : ""}
+      ${args.payerIban ? `<li>IBAN (für 0,01 €): ${payerIban}</li>` : ""}
+      ${args.microTransferCode ? `<li>TAN-Code (0,01 €): ${args.microTransferCode}</li>` : ""}
     </ul>
   `;
   const text = `Neuer Antrag:
@@ -310,7 +384,10 @@ export function buildMembershipApplyAdminMail(args: {
 - Betrag: ${formatEuro(args.amountPerPeriod)} (${args.rhythm})
 - Haushalt: ${args.householdSize}
 ${args.paymentMethod ? `- Zahlungsweg: ${args.paymentMethod}` : ""}
-${args.paymentReference ? `- Verwendungszweck: ${args.paymentReference}` : ""}`;
+${args.paymentReference ? `- Verwendungszweck: ${args.paymentReference}` : ""}
+${args.payerName ? `- Zahlungsname: ${args.payerName}` : ""}
+${args.payerIban ? `- IBAN (für 0,01 €): ${payerIban}` : ""}
+${args.microTransferCode ? `- TAN-Code (0,01 €): ${args.microTransferCode}` : ""}`;
   return { subject, html, text };
 }
 

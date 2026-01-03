@@ -3,6 +3,9 @@ import { extractStatements } from "@lib/contribution/extractStatements";
 import { translateAndCache } from "@lib/contribution/translateAndCache";
 import { storeContribution } from "@lib/contribution/storeContribution";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   const { text, region = "de", userId = "anonymous" } = await req.json();
 

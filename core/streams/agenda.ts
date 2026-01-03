@@ -8,37 +8,6 @@ export type BuildAgendaOptions = {
   locale?: string;
 };
 
-const FALLBACK_ITEMS: Array<Omit<StreamAgendaItemDoc, "sessionId" | "creatorId" | "createdAt" | "updatedAt">> = [
-  {
-    kind: "info",
-    status: "queued",
-    description: "Einführung & Kontext – Worum geht es, warum jetzt?",
-    allowAnonymousVoting: true,
-    publicAttribution: "hidden",
-  },
-  {
-    kind: "statement",
-    status: "queued",
-    description: "Kern-Statements und Perspektiven vorstellen (Pro/Contra/Neutral).",
-    allowAnonymousVoting: true,
-    publicAttribution: "hidden",
-  },
-  {
-    kind: "question",
-    status: "queued",
-    customQuestion: "Welche offenen Fragen und Unsicherheiten müssen wir klären?",
-    allowAnonymousVoting: true,
-    publicAttribution: "hidden",
-  },
-  {
-    kind: "info",
-    status: "queued",
-    description: "Mögliche nächste Schritte und Beteiligungsoptionen.",
-    allowAnonymousVoting: true,
-    publicAttribution: "hidden",
-  },
-];
-
 async function loadSession(sessionId: string): Promise<StreamSessionDoc | null> {
   if (!ObjectId.isValid(sessionId)) return null;
   const col = await streamSessionsCol();
@@ -51,7 +20,7 @@ async function fetchTopicStatements(
 ): Promise<Array<{ id: string; title?: string | null; text?: string | null }>> {
   if (!topicKey) return [];
   const col = await coreCol("statements");
-  const match: Record<string, any> = { topic: topicKey };
+  const match: Record<string, any> = { $or: [{ category: topicKey }, { topic: topicKey }] };
   if (regionCode) {
     match.regionCode = regionCode;
   }
@@ -71,16 +40,7 @@ export async function buildAgendaForSession(options: BuildAgendaOptions): Promis
   const topicItems = hasTopic ? await fetchTopicStatements(session.topicKey ?? null, session.regionCode ?? null) : [];
   const now = new Date();
 
-  if (!hasTopic) {
-    return FALLBACK_ITEMS.map((item, idx) => ({
-      ...item,
-      sessionId: new ObjectId(options.sessionId),
-      creatorId: session.creatorId,
-      order: idx,
-      createdAt: now,
-      updatedAt: now,
-    }));
-  }
+  if (!hasTopic) return [];
   if (topicItems.length === 0) {
     return [];
   }
@@ -149,7 +109,12 @@ export async function applyAutofilledAgendaToSession(sessionId: string, locale?:
   const session = await loadSession(sessionId);
   if (!session) throw new Error("SESSION_NOT_FOUND");
 
+  if (!session.topicKey) throw new Error("TOPIC_REQUIRED");
+
   const agendaItems = await buildAgendaForSession({ sessionId, locale });
+  if (agendaItems.length === 0) {
+    throw new Error("TOPIC_EMPTY");
+  }
   const col = await streamAgendaCol();
   await col.deleteMany({ sessionId: new ObjectId(sessionId) });
   if (agendaItems.length) {

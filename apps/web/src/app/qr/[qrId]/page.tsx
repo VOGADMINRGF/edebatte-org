@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
+import { publicOrigin } from "@/utils/publicOrigin";
+import { QuestionSetClient } from "./QuestionSetClient";
 
 export default async function QRScanPage({ params }: any) {
   const { qrId } = params;
 
   // Call to API (server or client) to resolve QR-Entry
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/qr/resolve?qrId=${qrId}`,
-  );
+  const base = process.env.NEXT_PUBLIC_API_URL || publicOrigin();
+  const res = await fetch(`${base}/api/qr/resolve?qrId=${qrId}`, { cache: "no-store" });
   const { success, data } = await res.json();
   if (!success || !data) return notFound();
 
@@ -21,7 +22,9 @@ export default async function QRScanPage({ params }: any) {
     return <RedirectToStream id={data.targetIds[0]} />;
   }
   if (data.targetType === "set") {
-    return <QuestionSetFlow ids={data.targetIds} />;
+    const code = data.targetIds?.[0];
+    if (!code) return notFound();
+    return <QuestionSetClient code={code} />;
   }
   if (data.targetType === "custom") {
     return <CustomFlow data={data} />;
@@ -42,10 +45,6 @@ function RedirectToContribution({ id }: any) {
 function RedirectToStream({ id }: any) {
   // Stream-Komponente einbinden
   return <div>Stream ID: {id}</div>;
-}
-function QuestionSetFlow({ ids }: any) {
-  // Schritt-für-Schritt alle IDs abfragen
-  return <div>Fragen-Set: {ids.join(", ")}</div>;
 }
 function CustomFlow({ data }: any) {
   // Individueller Flow

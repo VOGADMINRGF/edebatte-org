@@ -9,7 +9,9 @@ const API_BASE = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").re
 );
 
 // Standard-Modell; kannst du per ENV überschreiben (z.B. gpt-4.1, gpt-4.1-mini, gpt-5 usw.)
-const MODEL = process.env.OPENAI_MODEL || "gpt-5";
+// Default bewusst auf ein breit verfügbares Modell gesetzt, damit lokale Setups nicht "alle Provider failed" sehen,
+// wenn OPENAI_MODEL nicht gesetzt ist.
+const MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
 export type AskArgs = {
   prompt: string;
@@ -20,6 +22,7 @@ export type AskArgs = {
   timeoutMs?: number;
   signal?: AbortSignal;
   forceJsonFormat?: boolean;
+  jsonSchema?: { name?: string; schema: any; strict?: boolean } | null;
 };
 
 export type AskResult = {
@@ -56,6 +59,7 @@ async function post(body: any, signal?: AbortSignal) {
     signal,
   });
 
+  const requestId = res.headers.get("x-request-id");
   const bodyText = await res.text();
   const data = (() => {
     try {
@@ -76,6 +80,7 @@ async function post(body: any, signal?: AbortSignal) {
       type: meta.type,
       param: meta.param,
       messageShort: typeof meta.message === "string" ? meta.message.slice(0, 200) : undefined,
+      requestId,
     };
     throw err;
   }
@@ -167,12 +172,20 @@ async function askOpenAI({
   timeoutMs,
   signal,
   forceJsonFormat = false,
+  jsonSchema,
 }: AskArgs): Promise<AskResult> {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY fehlt");
 
   const resolvedModel = model ?? MODEL;
   const resolvedMaxTokens = max_tokens ?? maxOutputTokens;
-  const timeoutController = timeoutMs ? new AbortController() : null;
+  const envTimeout = Number(process.env.OPENAI_TIMEOUT_MS ?? "");
+  const resolvedTimeoutMs =
+    typeof timeoutMs === "number" && timeoutMs > 0
+      ? timeoutMs
+      : Number.isFinite(envTimeout) && envTimeout > 0
+      ? envTimeout
+      : null;
+  const timeoutController = resolvedTimeoutMs ? new AbortController() : null;
   const onAbort = () => timeoutController?.abort();
   if (timeoutController) {
     if (signal?.aborted) {
@@ -181,18 +194,31 @@ async function askOpenAI({
       signal.addEventListener("abort", onAbort);
     }
   }
-  const timeout = timeoutController
-    ? setTimeout(() => timeoutController.abort(), timeoutMs)
-    : null;
+  const timeout =
+    timeoutController && resolvedTimeoutMs !== null
+      ? setTimeout(() => timeoutController.abort(), resolvedTimeoutMs)
+      : null;
   const requestSignal = timeoutController ? timeoutController.signal : signal;
 
   const safePrompt = prompt ?? "";
   const systemText = "";
   const userText = asJson ? withJsonInstruction(safePrompt) : safePrompt;
-  const mergedInput = [
-    { role: "system", content: systemText },
-    { role: "user", content: userText },
-  ];
+  const mergedInput = systemText
+    ? [
+        { role: "system", content: systemText },
+        { role: "user", content: userText },
+      ]
+    : [{ role: "user", content: userText }];
+
+  const schemaConfig = jsonSchema ?? (forceJsonFormat ? ANALYZE_JSON_SCHEMA : null);
+  const schema = schemaConfig?.schema ?? null;
+  const schemaName = schemaConfig?.name ?? "response_json";
+  const schemaStrict = schemaConfig?.strict ?? true;
+  const schemaEnabled = Boolean(schema);
+  const preferSchema =
+    schemaEnabled &&
+    (Boolean(jsonSchema) || forceJsonFormat || DEFAULT_TEXT_FORMAT === "json_schema");
+  const preferredFormat: "json_schema" | "json_object" = preferSchema ? "json_schema" : "json_object";
 
   const buildBody = (format: "json_schema" | "json_object") => ({
     model: resolvedModel,
@@ -202,12 +228,12 @@ async function askOpenAI({
       asJson || forceJsonFormat
         ? {
             format:
-              format === "json_schema"
+              format === "json_schema" && schemaEnabled
                 ? {
                     type: "json_schema",
-                    name: "contribution_analyze",
-                    schema: ANALYZE_JSON_SCHEMA.schema,
-                    strict: true,
+                    name: schemaName,
+                    schema,
+                    strict: schemaStrict,
                   }
                 : { type: "json_object" },
           }
@@ -232,7 +258,7 @@ async function askOpenAI({
       return { data, text };
     };
 
-    let attemptFormat: "json_schema" | "json_object" = DEFAULT_TEXT_FORMAT;
+    let attemptFormat: "json_schema" | "json_object" = schemaEnabled ? preferredFormat : "json_object";
     let didFallback = false;
     let fallbackMeta: { code?: string; message?: string } | null = null;
 
@@ -259,6 +285,7 @@ async function askOpenAI({
             )) ||
           err?.status === 422;
         const needsFallback =
+          schemaEnabled &&
           !didFallback &&
           attemptFormat === "json_schema" &&
           (isSchemaIssue || err?.message === "OPENAI_EMPTY_OUTPUT");

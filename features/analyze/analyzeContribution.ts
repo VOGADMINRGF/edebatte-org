@@ -2,6 +2,9 @@ import { AnalyzeResultSchema, normalizeDomains } from "./schemas";
 import type { AnalyzeResult, StatementRecord } from "./schemas";
 import { normalizeStatementRecord } from "./normalizeClaim";
 import { parseJsonLoose } from "./llmJson";
+import { computeEditorialAudit } from "./editorialAudit";
+import { computeRunReceipt } from "./runReceipt";
+import { computeEvidenceGraph } from "./evidenceGraph";
 import {
   callE150Orchestrator,
   OrchestratorNoProviderError,
@@ -16,6 +19,10 @@ export type AnalyzeInput = {
   locale?: string; // "de" | "en" | ...
   maxClaims?: number;
   pipeline?: AiPipelineName;
+  domain?: string;
+  domains?: string[];
+  contextPackIds?: string[];
+  contextPacks?: string[];
 };
 
 // Reduzierte Default-Anzahl, um JSON-Truncation zu vermeiden
@@ -76,6 +83,57 @@ type KnotT = AnalyzeResult["knots"][number];
 type RespPathT = NonNullable<AnalyzeResult["responsibilityPaths"]>[number];
 type EventualityT = NonNullable<AnalyzeResult["eventualities"]>[number];
 type DecisionTreeT = NonNullable<AnalyzeResult["decisionTrees"]>[number];
+type ConsequenceT = AnalyzeResult["consequences"]["consequences"][number];
+type ResponsibilityT = AnalyzeResult["consequences"]["responsibilities"][number];
+
+const CONSEQUENCE_SCOPES = new Set([
+  "local_short",
+  "local_long",
+  "national",
+  "global",
+  "systemic",
+]);
+
+function sanitizeConsequenceRecord(input: unknown): ConsequenceT | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as any;
+  const id = pickString(raw.id);
+  const scope = pickString(raw.scope);
+  const text = pickString(raw.text, raw.description, raw.label);
+  const statementIndex =
+    typeof raw.statementIndex === "number" && Number.isInteger(raw.statementIndex) && raw.statementIndex >= 0
+      ? raw.statementIndex
+      : null;
+  if (!id || !scope || !CONSEQUENCE_SCOPES.has(scope) || !text || statementIndex === null) return null;
+  const confidence =
+    typeof raw.confidence === "number" && raw.confidence >= 0 && raw.confidence <= 1 ? raw.confidence : null;
+  return {
+    id,
+    scope: scope as ConsequenceT["scope"],
+    statementIndex,
+    text,
+    ...(confidence !== null ? { confidence } : {}),
+  } as ConsequenceT;
+}
+
+function sanitizeResponsibilityRecord(input: unknown): ResponsibilityT | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as any;
+  const id = pickString(raw.id);
+  const level = pickString(raw.level);
+  const text = pickString(raw.text, raw.description, raw.label);
+  if (!id || !level || !RESPONSIBILITY_LEVELS.has(level) || !text) return null;
+  const actor = pickString(raw.actor);
+  const relevance =
+    typeof raw.relevance === "number" && raw.relevance >= 0 && raw.relevance <= 1 ? raw.relevance : null;
+  return {
+    id,
+    level: level as ResponsibilityT["level"],
+    text,
+    ...(actor ? { actor } : {}),
+    ...(relevance !== null ? { relevance } : {}),
+  } as ResponsibilityT;
+}
 
 function sanitizeNotes(input: unknown, max = 6): AnalyzeResult["notes"] {
   if (!Array.isArray(input)) return [];
@@ -257,6 +315,10 @@ function buildUserPrompt(
       "   - Baue für jede relevante Aussage einen DecisionTree mit den drei Optionen pro/neutral/contra.",
       "   - DecisionTree: { rootStatementId, createdAt (ISO), options: { pro, neutral?, contra } }.",
       "   - Jede Option ist ein EventualityNode: { id, statementId, label, narrative, stance, consequences[], responsibilities[], children[] }.",
+      "   - Konsequenz (ConsequenceRecord): { id, scope, statementIndex, text, confidence? }.",
+      "     scope ∈ local_short | local_long | national | global | systemic.",
+      "   - Zustaendigkeit (ResponsibilityRecord): { id, level, actor?, text, relevance? }.",
+      "     level ∈ municipality | district | state | federal | eu | ngo | private | unknown.",
       "   - Konsequenzen spiegeln regionale Tragweiten (local_short, local_long, national, global, systemic) wider; Zuständigkeiten nutzen Part06/10-Level.",
       "   - Zusätzliche What-if-Hinweise, die nicht direkt in die drei Optionen passen, gehen in `eventualities` (freistehende EventualityNodes).",
       "   - Wenn es keine Hinweise auf Eventualitäten gibt, liefere leere Arrays für decisionTrees/eventualities.",
@@ -328,6 +390,10 @@ function buildUserPrompt(
     "   - Build `decisionTrees` for each vote-relevant claim with options pro/neutral/contra.",
     "   - Each tree: { rootStatementId, createdAt (ISO string), options: { pro, neutral?, contra } }.",
     "   - Each option is an EventualityNode describing the narrative, consequences[], responsibilities[], and child branches.",
+    "   - ConsequenceRecord: { id, scope, statementIndex, text, confidence? }.",
+    "     scope ∈ local_short | local_long | national | global | systemic.",
+    "   - ResponsibilityRecord: { id, level, actor?, text, relevance? }.",
+    "     level ∈ municipality | district | state | federal | eu | ngo | private | unknown.",
     "   - Additional what-if branches outside the triad go into `eventualities` (array of EventualityNodes).",
     "   - Use empty arrays when the source text contains no scenario information.",
     "",
@@ -441,7 +507,7 @@ throw e;
       // strict parse first
       raw = safeParseJson(cleaned);
       if (!raw) {
-        const loose = parseJsonLoose(rawText);
+        const loose = parseJsonLoose(rawText, AnalyzeResultSchema);
         if (loose.ok) {
           raw = loose.value;
           if (/```/.test(rawText)) jsonCoercion = "fence";
@@ -512,7 +578,7 @@ throw e;
 
   if (!parsed.success) {
     // Fallback: try loose JSON extraction once more before failing
-    const loose = parseJsonLoose(rawText);
+    const loose = parseJsonLoose(rawText, AnalyzeResultSchema);
     if (loose.ok) {
       const parsedRetry = AnalyzeResultSchema.safeParse({
         mode: "E150",
@@ -569,6 +635,74 @@ throw e;
     report: parsed.data.report,
   };
 
+  let editorialAudit: AnalyzeResult["editorialAudit"] | undefined;
+  let evidenceGraph: AnalyzeResult["evidenceGraph"] | undefined;
+  let runReceipt: AnalyzeResult["runReceipt"] | undefined;
+  let rawSources: any[] = [];
+  try {
+    rawSources =
+      (Array.isArray((raw as any)?.sources) && (raw as any).sources) ||
+      (Array.isArray((raw as any)?.citations) && (raw as any).citations) ||
+      (Array.isArray((raw as any)?.research?.sources) && (raw as any).research.sources) ||
+      (Array.isArray((raw as any)?.research?.results) && (raw as any).research.results) ||
+      [];
+    const inputDomains =
+      Array.isArray((input as any)?.domains) && (input as any).domains.length
+        ? (input as any).domains
+        : typeof (input as any)?.domain === "string"
+          ? [(input as any).domain]
+          : undefined;
+    let domains: string[] | undefined = inputDomains;
+    if (!domains || !domains.length) {
+      const set = new Set<string>();
+      for (const c of base.claims ?? []) {
+        const { domain, domains: ds } = normalizeDomains((c as any)?.domain, (c as any)?.domains);
+        if (domain) set.add(domain);
+        (ds ?? []).forEach((d) => set.add(d));
+      }
+      if (set.size) domains = Array.from(set).slice(0, 8);
+    }
+
+    const contextPackIds =
+      Array.isArray((input as any)?.contextPackIds) && (input as any).contextPackIds.length
+        ? (input as any).contextPackIds
+        : Array.isArray((input as any)?.contextPacks) && (input as any).contextPacks.length
+          ? (input as any).contextPacks
+          : undefined;
+
+    editorialAudit = computeEditorialAudit({
+      inputText: sourceText,
+      sources: rawSources,
+      claims: base.claims,
+      language: language.startsWith("en") ? "en" : "de",
+      enableInternationalContrast: true,
+      domains,
+      contextPackIds,
+    });
+    evidenceGraph = computeEvidenceGraph({
+      claims: base.claims,
+      claimEvidence: editorialAudit?.burdenOfProof?.claimEvidence,
+      sources: rawSources,
+    });
+
+    const forHash: AnalyzeResult = {
+      ...base,
+      ...(editorialAudit ? { editorialAudit } : {}),
+      ...(evidenceGraph ? { evidenceGraph } : {}),
+    };
+    runReceipt = computeRunReceipt({
+      inputText: sourceText,
+      sources: rawSources,
+      outputJson: forHash,
+      language,
+      provider: orchestration.best?.provider,
+      model: orchestration.best?.modelName,
+      pipelineVersion: "E150+editorialAudit+drift5",
+    });
+  } catch {
+    // ignore
+  }
+
   const meta = {
     provider: orchestration.best?.provider,
     model: orchestration.best?.modelName,
@@ -581,8 +715,15 @@ throw e;
     trace: { providerUsed: orchestration.best?.provider ?? orchestration.best?.providerId, jsonCoercion },
   };
 
-  return {
+  const finalResult: AnalyzeResult = {
     ...base,
+    ...(editorialAudit ? { editorialAudit } : {}),
+    ...(evidenceGraph ? { evidenceGraph } : {}),
+    ...(runReceipt ? { runReceipt } : {}),
+  };
+
+  return {
+    ...finalResult,
     claims: base.claims ?? [],
     notes: base.notes ?? [],
     questions: base.questions ?? [],
@@ -679,10 +820,10 @@ function sanitizeEventualityNode(
       : null;
 
   const consequences = Array.isArray(node.consequences)
-    ? node.consequences.filter((c: unknown) => c && typeof c === "object")
+    ? node.consequences.map(sanitizeConsequenceRecord).filter((c): c is ConsequenceT => Boolean(c))
     : [];
   const responsibilities = Array.isArray(node.responsibilities)
-    ? node.responsibilities.filter((r: unknown) => r && typeof r === "object")
+    ? node.responsibilities.map(sanitizeResponsibilityRecord).filter((r): r is ResponsibilityT => Boolean(r))
     : [];
 
   const childrenRaw: unknown[] = Array.isArray(node.children) ? node.children : [];
@@ -708,8 +849,12 @@ function sanitizeEventualityNode(
 function ensureConsequenceBundle(value: unknown): AnalyzeResult["consequences"] {
   const v = value && typeof value === "object" ? (value as any) : {};
 
-  const consequences = Array.isArray(v.consequences) ? v.consequences : [];
-  const responsibilities = Array.isArray(v.responsibilities) ? v.responsibilities : [];
+  const consequences = Array.isArray(v.consequences)
+    ? v.consequences.map(sanitizeConsequenceRecord).filter((c): c is ConsequenceT => Boolean(c))
+    : [];
+  const responsibilities = Array.isArray(v.responsibilities)
+    ? v.responsibilities.map(sanitizeResponsibilityRecord).filter((r): r is ResponsibilityT => Boolean(r))
+    : [];
 
   return {
     consequences: consequences.slice(0, 8),

@@ -15,7 +15,7 @@ export default function FactcheckPage() {
       const enq = await fetch("/api/factcheck/enqueue", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-role": "admin" },
-        body: JSON.stringify({ text, language: "de", priority: 5 }),
+        body: JSON.stringify({ text, language: "de" }),
       });
       const ej = await enq.json();
       if (!enq.ok) throw new Error(ej?.message ?? "enqueue failed");
@@ -26,17 +26,12 @@ export default function FactcheckPage() {
           headers: { "x-role": "admin" },
         });
         const sj = await st.json();
-        if (
-          st.ok &&
-          (sj.job.status === "COMPLETED" || sj.job.status === "FAILED")
-        ) {
+        if (st.ok && (sj.job.status === "completed" || sj.job.status === "failed")) {
           setResult({
             job: sj.job,
-            verdicts: sj.claims.map((c: any) => ({
-              id: c.id,
+            claims: (sj.claims ?? []).map((c: any, idx: number) => ({
+              id: c.id ?? String(idx + 1),
               text: c.text,
-              verdict: c.consensus?.verdict,
-              confidence: c.consensus?.confidence,
             })),
           });
           setLoading(false);
@@ -74,13 +69,15 @@ export default function FactcheckPage() {
           <div className="text-sm text-gray-600">
             Job #{result.job.jobId} – {result.job.status}
           </div>
-          {result.verdicts.map((v: any) => (
-            <div key={v.id} className="p-3 bg-gray-50 rounded">
-              <div className="font-medium">{v.text}</div>
-              <div>
-                Verdict: <b>{v.verdict ?? "n/a"}</b> (confidence{" "}
-                {v.confidence ?? "n/a"})
-              </div>
+          {result.job?.verdict && (
+            <div className="text-xs text-gray-500">
+              Verdict: <b>{result.job.verdict}</b>
+              {typeof result.job.confidence === "number" ? ` (confidence ${result.job.confidence})` : ""}
+            </div>
+          )}
+          {result.claims.map((c: any) => (
+            <div key={c.id} className="p-3 bg-gray-50 rounded">
+              <div className="font-medium">{c.text}</div>
             </div>
           ))}
         </div>

@@ -39,6 +39,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (message === "SESSION_NOT_FOUND") {
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
+    if (message === "TOPIC_REQUIRED") {
+      return NextResponse.json({ ok: false, error: "topic_required" }, { status: 400 });
+    }
+    if (message === "TOPIC_EMPTY") {
+      return NextResponse.json({ ok: false, error: "topic_not_ready" }, { status: 400 });
+    }
     return NextResponse.json({ ok: false, error: "autofill_failed" }, { status: 500 });
   }
 }
