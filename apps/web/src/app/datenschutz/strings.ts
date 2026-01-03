@@ -141,12 +141,12 @@ const STRINGS = {
     de: [
       "Wir setzen ausgewählte KI- und API-Dienste ein, um Inhalte zu analysieren, zu strukturieren oder zu übersetzen (z. B. für Textanalyse, Moderation, Strukturierung von Beiträgen). Die Verarbeitung erfolgt dabei möglichst datensparsam; wo möglich, werden Inhalte pseudonymisiert oder gekürzt übertragen.",
       "",
-      "Näheres zu den jeweils eingesetzten Anbietern, Datenkategorien, Rechtsgrundlagen und Schutzmechanismen findest du unter /ki-nutzung. KI trifft bei VoiceOpenGov keine Entscheidungen allein: Ergebnisse werden durch Regeln, Logs und – wo nötig – menschliche Prüfungen abgesichert (E150/E200-Prinzipien).",
+      "Näheres zu den jeweils eingesetzten Anbietern, Datenkategorien, Rechtsgrundlagen und Schutzmechanismen findest du unter /ki-nutzung. KI trifft bei VoiceOpenGov keine Entscheidungen allein: Ergebnisse werden durch Regeln, Logs und – wo nötig – menschliche Prüfungen abgesichert.",
     ].join("\n"),
     en: [
       "We use selected AI and API services to analyse, structure or translate content (e.g. text analysis, moderation, structuring of contributions). We aim to minimise data and, where possible, use pseudonymisation or truncation before sending data to providers.",
       "",
-      "Further details on the providers used, categories of data, legal bases and safeguards can be found at /ki-nutzung. AI does not make decisions on its own at VoiceOpenGov: results are constrained by rules, logs and – where necessary – human review (E150/E200 principles).",
+      "Further details on the providers used, categories of data, legal bases and safeguards can be found at /ki-nutzung. AI does not make decisions on its own at VoiceOpenGov: results are constrained by rules, logs and – where necessary – human review.",
     ].join("\n"),
   } as LocaleValue<string>,
 

@@ -19,23 +19,23 @@ const PLAN_DEFINITIONS: PlanDefinition[] = [
   {
     id: "basis",
     title: "Basis",
-    description: "Kostenfreier Einstieg – Swipen & Citizen Journey bleiben offen.",
+    description: "Kostenfreier Einstieg – eDebatte Basis & Citizen Journey bleiben offen.",
     price: 0,
-    perks: ["Citizen Basic Zugang", "Contribution Credits durch XP", "Community-News per Mail"],
+    perks: ["eDebatte Basis Zugang", "Contribution Credits durch XP", "Bewegungs-News per Mail"],
   },
   {
     id: "pro",
     title: "Pro",
-    description: "Aktive Begleiter:innen – mehr Insights, Credits & Rabatte.",
+    description: "Aktive Begleiter:innen – mehr Insights, Credits & eDebatte-Rabatte.",
     price: 14.99,
     perks: ["Mehr Contribution Credits", "Früher Zugriff auf Streams", "25 % Rabatt auf eDebatte"],
   },
   {
     id: "premium",
     title: "Premium",
-    description: "Finanziert Moderation & Audit-Trails dauerhaft.",
+    description: "Finanziert Moderation & Prüfprotokolle dauerhaft.",
     price: 34.99,
-    perks: ["Unlimitierte Credits", "Priorisierter Support", "Community-Roadmap-Mitwirkung"],
+    perks: ["Unlimitierte Credits", "Priorisierter Support", "Bewegungs-Roadmap-Mitwirkung"],
   },
 ];
 
@@ -45,7 +45,7 @@ const PLAN_PRICE: Record<MembershipPackage, number> = {
   premium: 34.99,
 };
 
-const discountLabel = "Ich bin VOG-Mitglied (25 % Rabatt auf Pro/Premium)";
+const discountLabel = "Ich bin Mitglied bei VoiceOpenGov (25 % Rabatt auf Pro/Premium)";
 
 type MembershipResult = {
   reference: string;
@@ -128,7 +128,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}`);
+        throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
       }
 
       setResult({
@@ -148,11 +148,12 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
     <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
       <section className="mx-auto max-w-4xl px-4 py-12 space-y-8">
         <header className="space-y-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Citizen Core Journey</p>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">Beauftragung & Zahlung – VoiceOpenGov</h1>
+          <p className="text-xs uppercase tracking-wide text-slate-500">VoiceOpenGov Bewegung</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">Mitgliedschaft &amp; Zahlung – VoiceOpenGov</h1>
           <p className="text-sm md:text-base text-slate-700 leading-relaxed">
-            Wähle dein Paket, bestätige deine Pflichtangaben und erhalte direkt die Bankdaten für deine erste Gutschrift.
-            Wir stellen keine Spendenquittungen aus, weil wir als Bewegung unabhängig von Großspender:innen bleiben wollen.
+            Wähle dein Paket, unterstütze die direktdemokratische Bewegung und erhalte direkt die Bankdaten für deine
+            erste Gutschrift. Wir stellen keine Spendenquittungen aus, weil wir unabhängig von Großspender:innen
+            bleiben wollen.
           </p>
         </header>
 
@@ -191,7 +192,8 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Beiträge sind Gutschriften für Infrastruktur & Moderation – keine Spenden, keine Spendenquittung.
+                  Beiträge sind Gutschriften für Bewegung, Infrastruktur & Moderation – keine Spenden, keine
+                  Spendenquittung.
                 </p>
               </div>
             </section>
@@ -224,7 +226,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
               <textarea
                 rows={4}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                placeholder="z. B. Können wir dich für Moderation, Design oder Community-Aufgaben ansprechen?"
+                placeholder="z. B. Können wir dich für Moderation, Design oder Bewegungs-Aufgaben ansprechen?"
                 value={form.notes}
                 onChange={handleChange("notes")}
               />
@@ -237,7 +239,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
               </label>
               <label className="flex items-start gap-2">
                 <input required type="checkbox" className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
-                <span>Ich bin mit der Verarbeitung meiner Daten zur Bearbeitung der Beauftragung einverstanden.</span>
+                <span>Ich bin mit der Verarbeitung meiner Daten zur Bearbeitung des Antrags einverstanden.</span>
               </label>
             </div>
 
@@ -252,7 +254,7 @@ export function MitgliedAntragClient({ overview, initialIntent }: Props) {
                 disabled={busy}
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md disabled:opacity-60"
               >
-                {busy ? "Wird gesendet …" : "Beauftragung absenden"}
+                {busy ? "Wird gesendet …" : "Antrag absenden"}
               </button>
             </div>
           </form>

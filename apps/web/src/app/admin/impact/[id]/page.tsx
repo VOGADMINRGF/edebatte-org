@@ -84,7 +84,7 @@ export default function ImpactInspectorPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Admin · Impact Inspector</p>
         <h1 className="text-2xl font-bold text-slate-900">Contribution {contributionId}</h1>
         <p className="text-sm text-slate-600">
-          Snapshot der zuletzt gespeicherten E150-Impact-Daten (Eventualitäten, Konsequenzen, Zuständigkeiten).
+          Snapshot der zuletzt gespeicherten Impact-Daten (Eventualitäten, Konsequenzen, Zuständigkeiten).
         </p>
       </header>
       <section className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">

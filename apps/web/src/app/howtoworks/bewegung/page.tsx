@@ -109,7 +109,7 @@ const cooperationBlocks = [
     title_de: "Kooperationen mit Politik & Institutionen",
     title_en: "Cooperation with politics & institutions",
     body_de:
-      "VoiceOpenGov und die App eDebatte verstehen sich nicht als Konkurrenz zu bestehenden Parteien oder Vertretungen, sondern als zusätzliche, unabhängige Ebene. Wir liefern aktuelle Meinungsbilder, strukturierte Dossiers und Handlungsempfehlungen, damit gewählte Vertreter:innen bessere Entscheidungen treffen können – transparent und überprüfbar.",
+      "VoiceOpenGov und die App eDebatte verstehen sich nicht als Konkurrenz zu bestehenden Parteien oder Vertretungen, sondern als zusätzliche, unabhängige Ebene. Wir liefern aktuelle Meinungsbilder, strukturierte Dossiers und aufbereitete Entscheidungsgrundlagen, damit gewählte Vertreter:innen besser entscheiden können – transparent und überprüfbar.",
     body_en:
       "VoiceOpenGov and the eDebatte app are not competitors to existing parties or parliaments. We add an independent layer: current sentiment, structured dossiers, and actionable recommendations so elected officials can decide transparently and accountably.",
     bullets: [
@@ -123,7 +123,7 @@ const cooperationBlocks = [
       {
         id: "coop-politics-2",
         body_de:
-          "Empfehlungen kommen immer mit Quellen, Unsicherheiten und Minderheitsberichten – keine „Sprachregelungen“, sondern Entscheidungsgrundlagen.",
+          "Empfehlungen kommen immer mit Quellen, Unsicherheiten, Minderheitsberichten und Datenpaketen – keine „Sprachregelungen“, sondern Entscheidungsgrundlagen.",
         body_en:
           "Recommendations include sources, uncertainties, and minority reports – real decision support instead of talking points.",
       },
@@ -141,7 +141,7 @@ const cooperationBlocks = [
     title_de: "Journalismus – vom Zuschauen zum Mitgestalten",
     title_en: "Journalism – from observing to co-creating",
     body_de:
-      "Das alte Bild „Politik entscheidet, das Volk darf wählen, der Journalismus berichtet darüber“ ist für viele Krisen zu langsam und zu oberflächlich geworden. Wir wünschen uns kritischen Journalismus, der von Anfang an in Fragestellung und Auswertung hineingeht – lokal, investigativ und transparent.",
+      "Das alte Bild „Politik entscheidet, das Volk darf wählen, der Journalismus berichtet darüber“ ist für viele Krisen zu langsam und zu oberflächlich geworden. Wir wünschen uns kritischen Journalismus, der redaktionell mitgestaltet, Fragen sauber aufbereitet und von Anfang an in Auswertung und Einordnung hineingeht – lokal, investigativ und transparent.",
     body_en:
       "The old logic – politics decides, people vote, journalism comments – is too slow for current crises. We want critical journalism to join from the very beginning: asking questions, investigating locally, explaining data.",
     bullets: [
@@ -155,7 +155,7 @@ const cooperationBlocks = [
       {
         id: "coop-media-2",
         body_de:
-          "Jede Vorlage liefert eine Schablone mit relevanten Fragestellungen für Beiträge, Podcasts oder Streams.",
+          "Jede Vorlage liefert eine Schablone für Beiträge, Podcasts oder Streams – mit klaren Fragestellungen und nachvollziehbaren Quellen.",
         body_en:
           "Each template comes with ready-to-use question sets for articles, podcasts, or streams.",
       },
@@ -174,7 +174,7 @@ const joinPanel = {
   title_de: "Mitmachen & Kooperation",
   title_en: "Participate & cooperate",
   intro_de:
-    "Ohne Mitglieder, Unterstützer:innen und Partner funktioniert das alles nicht. Wenn dich die Idee überzeugt, kannst du auf drei Arten einsteigen – als Bürger:in, als politische Vertretung oder als Redaktion/Creator:",
+    "Ohne Mitglieder, Unterstützer:innen und Partner funktioniert das alles nicht. Wenn dich die Idee überzeugt, kannst du auf drei Arten einsteigen – als Bürger:in, als Verband/Verein oder als Redaktion/Creator:",
   intro_en:
     "None of this works without members, supporters, and partners. If the idea resonates with you, there are three ways to join – as a citizen, an elected body, or a newsroom/creator:",
   segments: [
@@ -182,21 +182,24 @@ const joinPanel = {
       id: "segment-citizen",
       label_de: "Für Bürger:innen",
       label_en: "For citizens",
-      body_de: "Mitglied werden, Anliegen einbringen, an Abstimmungen teilnehmen.",
+      body_de:
+        "Mitglied werden, Anliegen einbringen, an Abstimmungen teilnehmen – und als Creator Themen, Streams oder Regionen begleiten.",
       body_en: "Become a member, file concerns, take part in votes.",
     },
     {
       id: "segment-politics",
-      label_de: "Für Politik & Verbände",
+      label_de: "Für Politik, Verbände & Vereine",
       label_en: "For politics & associations",
-      body_de: "Dossiers und Meinungsbilder nutzen, Verfahren gemeinsam testen und skalieren.",
+      body_de:
+        "Aufbereitete Entscheidungsgrundlagen nutzen, Verfahren gemeinsam testen und in Regionen skalieren.",
       body_en: "Use dossiers and sentiment data, test the procedures together, scale them regionally.",
     },
     {
       id: "segment-media",
       label_de: "Für Journalist:innen & Creator",
       label_en: "For journalists & creators",
-      body_de: "Aktuelle Themen, Fragenschablonen und Daten für Beiträge, Podcasts oder Streams.",
+      body_de:
+        "Redaktionell mitgestalten: Faktenchecks, Fragenschablonen und Daten für Beiträge, Podcasts oder Streams.",
       body_en: "Current topics, question templates, and data for articles, podcasts, or live formats.",
     },
   ],

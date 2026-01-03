@@ -20,6 +20,9 @@ import type {
   DecisionTree,
   EventualityNode,
   ImpactAndResponsibility,
+  EditorialAudit,
+  EvidenceGraph,
+  RunReceipt,
 } from "@features/analyze/schemas";
 import { useLocale } from "@/context/LocaleContext";
 import { selectE150Questions } from "@features/e150/questions/catalog";
@@ -27,6 +30,12 @@ import { VERIFICATION_REQUIREMENTS, meetsVerificationLevel } from "@features/aut
 import type { VerificationLevel } from "@core/auth/verificationTypes";
 import VogVoteButtons, { type VoteValue } from "@features/vote/components/VogVoteButtons";
 import SerpResultsList from "@/features/research/SerpResultsList";
+import EditorialAuditPanel from "@/components/analyze/EditorialAuditPanel";
+import EvidenceGraphPanel from "@/components/analyze/EvidenceGraphPanel";
+import RunReceiptPanel from "@/components/analyze/RunReceiptPanel";
+import ContentLanguageSelect from "@/components/ContentLanguageSelect";
+import { useContentLang } from "@/lib/i18n/contentLanguage";
+import { DEFAULT_BASE_LANG, LANGUAGE_CODES, type LanguageCode } from "@features/i18n/languages";
 
 const MAX_LEVEL1_STATEMENTS = 3;
 
@@ -67,10 +76,11 @@ function TinyPill({
   );
 }
 
-const JOURNEY_OPTIONS = [
+const FLOW_OPTIONS = [
   {
-    id: "concern",
-    label: "Anliegen eingeben",
+    id: "express",
+    label: "Express",
+    description: "Schnell zu Kernaussagen und einer klaren Grundstruktur.",
     defaultLevel: 1 as 1 | 2 | 3 | 4,
     maxClaims: 3,
     openPanels: {
@@ -81,10 +91,13 @@ const JOURNEY_OPTIONS = [
       consequences: false,
       report: false,
     },
+    allowTrace: false,
+    allowResearch: false,
   },
   {
-    id: "context",
-    label: "Thema/Themen ermitteln",
+    id: "guided",
+    label: "Guided",
+    description: "Kontext, Fragen und ein Pruefplan als klare Leitplanke.",
     defaultLevel: 2 as 1 | 2 | 3 | 4,
     maxClaims: 8,
     openPanels: {
@@ -95,24 +108,13 @@ const JOURNEY_OPTIONS = [
       consequences: false,
       report: false,
     },
+    allowTrace: true,
+    allowResearch: true,
   },
   {
-    id: "connect",
-    label: "Richtig verbinden & einordnen",
-    defaultLevel: 3 as 1 | 2 | 3 | 4,
-    maxClaims: 12,
-    openPanels: {
-      notes: true,
-      questions: true,
-      knots: true,
-      eventualities: true,
-      consequences: true,
-      report: false,
-    },
-  },
-  {
-    id: "stay",
-    label: "Dranbleiben",
+    id: "editorial",
+    label: "Editorial",
+    description: "Tiefe Einordnung, Wirkung, Knoten und fertige Redaktion.",
     defaultLevel: 4 as 1 | 2 | 3 | 4,
     maxClaims: 12,
     openPanels: {
@@ -123,11 +125,98 @@ const JOURNEY_OPTIONS = [
       consequences: true,
       report: true,
     },
+    allowTrace: true,
+    allowResearch: true,
   },
 ] as const;
 
-type JourneyId = (typeof JOURNEY_OPTIONS)[number]["id"];
-type PanelKey = keyof (typeof JOURNEY_OPTIONS)[number]["openPanels"];
+const ACTION_VERBS = [
+  "soll",
+  "sollte",
+  "muss",
+  "fordern",
+  "abschaffen",
+  "einfuehren",
+  "erhoehen",
+  "senken",
+  "foerdern",
+  "verbieten",
+  "erlauben",
+  "regeln",
+  "investieren",
+  "ausbauen",
+  "reformieren",
+  "reduzieren",
+  "starken",
+  "stutzen",
+  "kuerzen",
+];
+
+const ACTOR_HINTS = [
+  "regierung",
+  "bund",
+  "land",
+  "kommune",
+  "stadt",
+  "gemeinde",
+  "parlament",
+  "bundestag",
+  "eu",
+  "ministerium",
+  "behoerde",
+  "agentur",
+  "unternehmen",
+  "verband",
+  "buerger",
+  "buergerinnen",
+];
+
+const TIME_HINTS = [
+  "bis",
+  "ab",
+  "seit",
+  "jahr",
+  "monat",
+  "woche",
+  "tag",
+  "frist",
+  "sofort",
+  "heute",
+  "morgen",
+  "naechst",
+  "quartal",
+  "halbjahr",
+  "202",
+  "203",
+];
+
+const EVIDENCE_HINTS = [
+  "laut",
+  "studie",
+  "bericht",
+  "statistik",
+  "daten",
+  "quelle",
+  "beleg",
+  "analyse",
+  "umfrage",
+  "fakten",
+];
+
+const TOPIC_HINTS = [
+  { label: "Klima & Energie", keywords: ["klima", "co2", "energie", "strom", "gas", "erneuerbar", "emission"] },
+  { label: "Gesundheit & Pflege", keywords: ["gesund", "krankenhaus", "pflege", "medizin", "patient"] },
+  { label: "Bildung", keywords: ["schule", "bildung", "uni", "hochschule", "kita", "lehr"] },
+  { label: "Wirtschaft", keywords: ["wirtschaft", "unternehmen", "arbeit", "lohn", "steuer", "inflation", "preise", "markt"] },
+  { label: "Soziales & Wohnen", keywords: ["rente", "sozial", "wohnung", "miete", "familie", "kind"] },
+  { label: "Demokratie & Medien", keywords: ["demokr", "parlament", "wahl", "medien", "presse", "lobby", "transparenz"] },
+  { label: "Sicherheit", keywords: ["polizei", "sicherheit", "kriminal", "terror", "verteidigung", "bundeswehr"] },
+  { label: "Migration", keywords: ["migration", "flucht", "asyl", "integration", "grenze"] },
+  { label: "Digitales", keywords: ["digital", "daten", "ki", "algorithmus", "plattform", "cyber", "it", "online"] },
+] as const;
+
+type FlowId = (typeof FLOW_OPTIONS)[number]["id"];
+type PanelKey = keyof (typeof FLOW_OPTIONS)[number]["openPanels"];
 
 const analyzeButtonTexts = {
   running: "Analyse läuft …",
@@ -154,6 +243,8 @@ type QuestionCard = {
 };
 
 type KnotCard = { id: string; title: string; category: string; body: string };
+
+type TranslationItem = { key: string; text: string };
 
 type TraceAttribution = {
   mode: "verbatim" | "paraphrase" | "inference";
@@ -413,11 +504,100 @@ function prepareText(raw: string): { original: string; prepared: string; ratio: 
   return { original, prepared, ratio };
 }
 
-function defaultJourneyForLevel(level?: number): JourneyId {
-  if (!level || level <= 1) return "concern";
-  if (level === 2) return "context";
-  if (level === 3) return "connect";
-  return "stay";
+function detectTopics(text: string) {
+  if (!text) return [];
+  const lower = text.toLowerCase();
+  return TOPIC_HINTS.filter((topic) => topic.keywords.some((kw) => lower.includes(kw))).map((topic) => topic.label);
+}
+
+function buildCommunityPrompt(params: {
+  preparedText: string;
+  report: any;
+  statements: StatementEntry[];
+  questions: QuestionCard[];
+}) {
+  const questionFromAi = params.questions[0]?.body?.trim();
+  if (questionFromAi) return questionFromAi;
+  const primaryStatement = params.statements[0]?.text?.trim();
+  if (primaryStatement) return `Wie bewertet ihr die Aussage: "${primaryStatement}"?`;
+  const summary =
+    params.report && typeof params.report.summary === "string" ? params.report.summary.trim() : "";
+  if (summary) return `Welche Perspektive fehlt in dieser Einordnung: "${summary}"?`;
+  if (params.preparedText.trim()) {
+    return "Welche Perspektiven oder Fakten fehlen hier? Wer sollte gehoert werden?";
+  }
+  return "";
+}
+
+function buildArticleDraft(params: {
+  preparedText: string;
+  report: any;
+  statements: StatementEntry[];
+  questions: QuestionCard[];
+  knots: KnotCard[];
+}) {
+  const hasReportSummary =
+    params.report && typeof params.report.summary === "string" && params.report.summary.trim();
+  if (!params.preparedText.trim() && !params.statements.length && !hasReportSummary) {
+    return "";
+  }
+  const lines: string[] = [];
+  const headlineCandidate =
+    (hasReportSummary ? params.report.summary.trim() : "") ||
+    params.statements[0]?.title ||
+    params.statements[0]?.text ||
+    "Artikel-Entwurf";
+  const headline = headlineCandidate.replace(/\s+/g, " ").trim();
+  const trimmedHeadline = headline.length > 110 ? `${headline.slice(0, 110).trim()}...` : headline;
+  lines.push(`Titel: ${trimmedHeadline}`);
+  lines.push("");
+
+  const summary =
+    params.report && typeof params.report.summary === "string" && params.report.summary.trim()
+      ? params.report.summary.trim()
+      : "";
+  if (summary) {
+    lines.push("Kurzfassung:");
+    lines.push(summary);
+    lines.push("");
+  } else if (params.preparedText.trim()) {
+    lines.push("Kurzfassung:");
+    lines.push(params.preparedText.trim().slice(0, 240));
+    lines.push("");
+  }
+
+  if (params.statements.length) {
+    lines.push("Kernaussagen:");
+    params.statements.slice(0, 5).forEach((s, idx) => {
+      lines.push(`${idx + 1}. ${s.text}`);
+    });
+    lines.push("");
+  }
+
+  if (params.knots.length) {
+    lines.push("Kontext:");
+    params.knots.slice(0, 4).forEach((k) => {
+      const label = k.title?.trim() || k.body?.trim();
+      if (label) lines.push(`- ${label}`);
+    });
+    lines.push("");
+  }
+
+  if (params.questions.length) {
+    lines.push("Offene Fragen:");
+    params.questions.slice(0, 4).forEach((q) => {
+      if (q.body?.trim()) lines.push(`- ${q.body.trim()}`);
+    });
+    lines.push("");
+  }
+
+  return lines.join("\n").trim();
+}
+
+function defaultFlowForLevel(level?: number): FlowId {
+  if (!level || level <= 1) return "express";
+  if (level === 2) return "guided";
+  return "editorial";
 }
 
 function hashLocalDraft(text: string) {
@@ -492,12 +672,17 @@ export default function AnalyzeWorkspace({
 }: AnalyzeWorkspaceProps) {
   const router = useRouter();
   const { locale } = useLocale();
-  const initialJourney = defaultJourneyForLevel(defaultLevel);
-  const journeyConfig = JOURNEY_OPTIONS.find((opt) => opt.id === initialJourney) ?? JOURNEY_OPTIONS[0];
-  const [journey, setJourney] = React.useState<JourneyId>(journeyConfig.id);
-  const [viewLevel, setViewLevel] = React.useState<1 | 2 | 3 | 4>(journeyConfig.defaultLevel);
-  const [maxClaims, setMaxClaims] = React.useState<number>(journeyConfig.maxClaims);
-  const [openPanels, setOpenPanels] = React.useState<Record<PanelKey, boolean>>(journeyConfig.openPanels);
+  const { lang: contentLang, setLang: setContentLang } = useContentLang();
+  const baseLang = React.useMemo(() => {
+    const short = (locale || "").slice(0, 2).toLowerCase();
+    return LANGUAGE_CODES.includes(short as LanguageCode) ? (short as LanguageCode) : DEFAULT_BASE_LANG;
+  }, [locale]);
+  const initialFlow = defaultFlowForLevel(defaultLevel);
+  const initialFlowConfig = FLOW_OPTIONS.find((opt) => opt.id === initialFlow) ?? FLOW_OPTIONS[0];
+  const [flow, setFlow] = React.useState<FlowId>(initialFlowConfig.id);
+  const [viewLevel, setViewLevel] = React.useState<1 | 2 | 3 | 4>(defaultLevel ?? initialFlowConfig.defaultLevel);
+  const [maxClaims, setMaxClaims] = React.useState<number>(initialFlowConfig.maxClaims);
+  const [openPanels, setOpenPanels] = React.useState<Record<PanelKey, boolean>>(initialFlowConfig.openPanels);
   const [text, setText] = React.useState("");
   const [evidenceInput, setEvidenceInput] = React.useState("");
   const [notes, setNotes] = React.useState<NoteSection[]>([]);
@@ -514,6 +699,9 @@ export default function AnalyzeWorkspace({
     responsibleActors: [],
   });
   const [report, setReport] = React.useState<any>(null);
+  const [editorialAudit, setEditorialAudit] = React.useState<EditorialAudit | null>(null);
+  const [evidenceGraph, setEvidenceGraph] = React.useState<EvidenceGraph | null>(null);
+  const [runReceipt, setRunReceipt] = React.useState<RunReceipt | null>(null);
   const [providerMatrix, setProviderMatrix] = React.useState<ProviderMatrixEntry[]>([]);
   const [steps, setSteps] = React.useState<AnalyzeStepState[]>(BASE_STEPS);
   const [analysisStatus, setAnalysisStatus] = React.useState<"idle" | "running" | "success" | "empty" | "error">("idle");
@@ -536,8 +724,197 @@ export default function AnalyzeWorkspace({
   const [researchGuidance, setResearchGuidance] = React.useState<ResearchGuidance | null>(null);
   const [researchError, setResearchError] = React.useState<string | null>(null);
   const [isResearching, setIsResearching] = React.useState(false);
-  const [insightTab, setInsightTab] = React.useState<"input" | "recherche">("recherche");
+  const [insightTab, setInsightTab] = React.useState<"input" | "recherche">("input");
   const [researchView, setResearchView] = React.useState<"serp" | "cards">("serp");
+  const [translations, setTranslations] = React.useState<Record<string, string>>({});
+  const [flowInfo, setFlowInfo] = React.useState<string | null>(null);
+  const [communityDraft, setCommunityDraft] = React.useState<string>("");
+  const [communityEdited, setCommunityEdited] = React.useState(false);
+  const [articleDraft, setArticleDraft] = React.useState<string>("");
+  const [articleDraftEdited, setArticleDraftEdited] = React.useState(false);
+
+  const flowConfig = FLOW_OPTIONS.find((opt) => opt.id === flow) ?? FLOW_OPTIONS[0];
+  const allowTrace = flowConfig.allowTrace;
+  const allowResearch = flowConfig.allowResearch;
+  const flowIsLite = !allowTrace && !allowResearch;
+
+  const translationItems = React.useMemo<TranslationItem[]>(() => {
+    if (contentLang === baseLang) return [];
+    const items: TranslationItem[] = [];
+    const seen = new Set<string>();
+    const add = (key: string, text: string | null | undefined) => {
+      if (items.length >= 120) return;
+      if (seen.has(key)) return;
+      if (typeof text !== "string") return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      seen.add(key);
+      items.push({ key, text: trimmed });
+    };
+
+    statements.forEach((s, idx) => {
+      const key = s.id ?? String(s.index ?? idx);
+      add(`statement:${key}:title`, s.title ?? "");
+      add(`statement:${key}:text`, s.text);
+    });
+
+    notes.forEach((note, idx) => {
+      const key = note.id ?? `note-${idx}`;
+      add(`note:${key}:title`, note.title);
+      add(`note:${key}:body`, note.body);
+    });
+
+    questions.forEach((q, idx) => {
+      const key = q.id ?? `q-${idx}`;
+      add(`question:${key}:label`, q.label);
+      add(`question:${key}:body`, q.body);
+    });
+
+    knots.forEach((k, idx) => {
+      const key = k.id ?? `k-${idx}`;
+      add(`knot:${key}:title`, k.title);
+      add(`knot:${key}:body`, k.body);
+    });
+
+    eventualities.forEach((e, idx) => {
+      const key = e.id ?? `ev-${idx}`;
+      add(`eventuality:${key}:text`, e.narrative || e.label || "");
+    });
+
+    (impactAndResponsibility.impacts ?? []).forEach((impact, idx) => {
+      add(`impact:${idx}:type`, impact.type);
+      add(`impact:${idx}:desc`, impact.description);
+    });
+
+    (impactAndResponsibility.responsibleActors ?? []).forEach((actor, idx) => {
+      add(`actor:${idx}:level`, actor.level);
+      add(`actor:${idx}:hint`, actor.hint);
+    });
+
+    if (report) {
+      add("report:summary", report.summary);
+      (report.keyConflicts ?? []).forEach((c: string, idx: number) => add(`report:key:${idx}`, c));
+      (report?.facts?.local ?? []).forEach((f: string, idx: number) => add(`report:fact:local:${idx}`, f));
+      (report?.facts?.international ?? []).forEach((f: string, idx: number) =>
+        add(`report:fact:intl:${idx}`, f),
+      );
+      (report.takeaways ?? []).forEach((t: string, idx: number) => add(`report:takeaway:${idx}`, t));
+    }
+
+    return items;
+  }, [contentLang, baseLang, statements, notes, questions, knots, eventualities, impactAndResponsibility, report]);
+
+  const translateQueueRef = React.useRef<TranslationItem[]>([]);
+  const translatePendingKeysRef = React.useRef(new Set<string>());
+  const translateInFlightRef = React.useRef(false);
+  const translateAbortRef = React.useRef<AbortController | null>(null);
+
+  React.useEffect(() => {
+    setTranslations({});
+    translateQueueRef.current = [];
+    translatePendingKeysRef.current.clear();
+    translateInFlightRef.current = false;
+    translateAbortRef.current?.abort();
+  }, [contentLang, baseLang]);
+
+  React.useEffect(() => {
+    if (contentLang === baseLang) return;
+    if (!translationItems.length) return;
+
+    const missing = translationItems.filter((item) => !translations[item.key]);
+    if (!missing.length) return;
+
+    for (const item of missing) {
+      if (!translatePendingKeysRef.current.has(item.key)) {
+        translatePendingKeysRef.current.add(item.key);
+        translateQueueRef.current.push(item);
+      }
+    }
+
+    if (translateInFlightRef.current) return;
+    translateInFlightRef.current = true;
+    let cancelled = false;
+
+    const runQueue = async () => {
+      while (translateQueueRef.current.length && !cancelled) {
+        const batch = translateQueueRef.current.splice(0, 40);
+        if (!batch.length) continue;
+        const ctrl = new AbortController();
+        translateAbortRef.current = ctrl;
+
+        const res = await fetch("/api/i18n/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            srcLang: baseLang,
+            tgtLang: contentLang,
+            items: batch,
+          }),
+          signal: ctrl.signal,
+        }).catch(() => null);
+
+        if (cancelled) return;
+
+        if (!res || !res.ok) {
+          batch.forEach((item) => translatePendingKeysRef.current.delete(item.key));
+          continue;
+        }
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        const mapped = data?.translations ?? null;
+        if (!mapped || typeof mapped !== "object") {
+          batch.forEach((item) => translatePendingKeysRef.current.delete(item.key));
+          continue;
+        }
+        setTranslations((prev) => ({ ...prev, ...mapped }));
+        batch.forEach((item) => translatePendingKeysRef.current.delete(item.key));
+      }
+    };
+
+    runQueue()
+      .catch(() => {
+        // ignore
+      })
+      .finally(() => {
+        translateInFlightRef.current = false;
+      });
+
+    return () => {
+      cancelled = true;
+      translateAbortRef.current?.abort();
+    };
+  }, [contentLang, baseLang, translationItems, translations]);
+
+  const translateText = React.useCallback(
+    (key: string, fallback: string | null | undefined) => {
+      if (typeof fallback !== "string") return fallback ?? "";
+      if (contentLang === baseLang) return fallback;
+      const translated = translations[key];
+      return translated && translated.trim() ? translated : fallback;
+    },
+    [contentLang, baseLang, translations],
+  );
+
+  const displayImpacts = React.useMemo(() => {
+    const impacts = impactAndResponsibility.impacts ?? [];
+    if (contentLang === baseLang) return impacts;
+    return impacts.map((impact, idx) => ({
+      ...impact,
+      type: translateText(`impact:${idx}:type`, impact.type),
+      description: translateText(`impact:${idx}:desc`, impact.description),
+    }));
+  }, [contentLang, baseLang, impactAndResponsibility.impacts, translateText]);
+
+  const displayResponsibleActors = React.useMemo(() => {
+    const actors = impactAndResponsibility.responsibleActors ?? [];
+    if (contentLang === baseLang) return actors;
+    return actors.map((actor, idx) => ({
+      ...actor,
+      level: translateText(`actor:${idx}:level`, actor.level),
+      hint: translateText(`actor:${idx}:hint`, actor.hint),
+    }));
+  }, [contentLang, baseLang, impactAndResponsibility.responsibleActors, translateText]);
+
   // --- Patch C: single-flight + abort + dedupe + debounce ---
   const mountedRef = React.useRef(true);
 
@@ -554,7 +931,8 @@ export default function AnalyzeWorkspace({
   const researchRunRef = React.useRef(0);
   const ctaRef = React.useRef<HTMLDivElement | null>(null);
   const workspaceRef = React.useRef<HTMLDivElement | null>(null);
-
+  const communityRef = React.useRef<HTMLDivElement | null>(null);
+  const articleRef = React.useRef<HTMLDivElement | null>(null);
   function makeKey(
     preparedTextValue: string,
     statementList: Array<{ id?: string; text?: string }>,
@@ -574,6 +952,106 @@ export default function AnalyzeWorkspace({
   const prepared = React.useMemo(() => prepareText(text), [text]);
   const preparedText = prepared.prepared;
   const preparedRatio = prepared.ratio;
+  const liveFeedback = React.useMemo(() => {
+    const trimmed = preparedText.trim();
+    const lower = trimmed.toLowerCase();
+    const words = trimmed ? trimmed.split(/\s+/).length : 0;
+    const sentences = trimmed ? trimmed.split(/[.!?]+/).filter((s) => s.trim().length > 0).length : 0;
+    const avgWordsPerSentence = sentences > 0 ? Math.round(words / sentences) : words;
+    const actionHits = ACTION_VERBS.filter((verb) => lower.includes(verb));
+    const actorHits = ACTOR_HINTS.filter((actor) => lower.includes(actor));
+    const timeHits = TIME_HINTS.filter((hint) => lower.includes(hint));
+    const evidenceHits = EVIDENCE_HINTS.filter((hint) => lower.includes(hint));
+    const hasNumber = /\d/.test(trimmed);
+    const hasQuestion = /\?/.test(trimmed);
+    const topics = detectTopics(trimmed);
+    let score = 35;
+    if (sentences >= 2) score += 10;
+    if (sentences >= 4) score += 5;
+    if (actionHits.length) score += 15;
+    if (actorHits.length) score += 10;
+    if (hasNumber) score += 8;
+    if (timeHits.length) score += 6;
+    if (evidenceHits.length) score += 6;
+    if (hasQuestion) score += 4;
+    if (avgWordsPerSentence > 28) score -= 8;
+    if (avgWordsPerSentence > 38) score -= 8;
+    if (words > 280) score -= 6;
+    if (words < 14) score -= 8;
+    score = Math.max(20, Math.min(100, score));
+    const missingSignals: string[] = [];
+    if (!actionHits.length) missingSignals.push("konkrete Forderung/Verb");
+    if (!actorHits.length) missingSignals.push("klarer Akteur");
+    if (!hasNumber) missingSignals.push("Zahl/Bezug");
+    if (!timeHits.length) missingSignals.push("Zeitbezug");
+    if (!evidenceHits.length) missingSignals.push("Quelle/Beleg");
+    let lengthHint = "";
+    if (words > 320) lengthHint = "Sehr lang – evtl. kuerzen oder in Abschnitte teilen.";
+    else if (words > 200) lengthHint = "Lang – evtl. auf das Wichtigste fokussieren.";
+    else if (words < 20 && trimmed) lengthHint = "Kurz – mit 1-2 Saetzen Kontext ergaenzen.";
+    return {
+      trimmed,
+      words,
+      sentences,
+      avgWordsPerSentence,
+      actionHits,
+      actorHits,
+      timeHits,
+      evidenceHits,
+      hasNumber,
+      hasQuestion,
+      topics,
+      score,
+      missingSignals,
+      lengthHint,
+    };
+  }, [preparedText]);
+  const coach = React.useMemo(() => {
+    if (!liveFeedback.trimmed) {
+      return {
+        title: "Starte mit 2-4 Saetzen.",
+        body: "Sag kurz, was dich stoert oder was sich aendern soll. Dann koennen wir es sauber strukturieren.",
+        tips: ["Wer soll handeln?", "Was genau soll passieren?", "Warum ist es wichtig?"],
+      };
+    }
+    if (analysisStatus === "running") {
+      return {
+        title: "Analyse laeuft …",
+        body: "Ich baue Kernaussagen, Fragen und Wirkung auf. Kurz warten.",
+        tips: ["Wenn du Quellen hast, kannst du sie im Pruefplan speichern."],
+      };
+    }
+    if (analysisStatus === "error") {
+      return {
+        title: "Analyse gestoppt.",
+        body: "Dein Text bleibt erhalten. Versuche es kurz, klar, ohne lange Schachtelsaetze.",
+        tips: ["Saetze kuerzen", "Eine Aussage pro Satz", "Optional auf Guided wechseln"],
+      };
+    }
+    if (analysisStatus === "empty") {
+      return {
+        title: "Noch keine Kernaussagen.",
+        body: "Formuliere klarere Einzel-Statements, dann klappt die Ableitung besser.",
+        tips: ["Aktiv-Verb nutzen", "Akteur benennen", "Zeitrahmen ergaenzen"],
+      };
+    }
+    if (analysisStatus === "success" && statements.length > 0) {
+      const suggestion = liveFeedback.missingSignals.slice(0, 2).map((m) => `Ergaenze ${m}.`);
+      const baseTips = suggestion.length
+        ? suggestion
+        : ["Waehle die besten Statements aus.", "Nutze den Pruefplan fuer Quellen."];
+      return {
+        title: "Bereit fuer den naechsten Schritt.",
+        body: `Du hast ${statements.length} Statements. Entscheide: schnell einreichen oder redaktionell vertiefen.`,
+        tips: baseTips.slice(0, 3),
+      };
+    }
+    return {
+      title: "Bereit fuer die Analyse.",
+      body: "Starte die Analyse, um Kernaussagen und den Flow aufzubauen.",
+      tips: ["Kernaussage + Kontext reichen fuer den Start."],
+    };
+  }, [analysisStatus, liveFeedback.missingSignals, liveFeedback.trimmed, statements.length]);
 
   const progressPlacement = <AnalyzeProgress steps={steps} providerMatrix={providerMatrix} compact />;
 
@@ -613,20 +1091,22 @@ export default function AnalyzeWorkspace({
     };
   }, []);
 
+  // RunReceipt persistence happens server-side in the analyze route.
+
   React.useEffect(() => {
     if (!storageKey) return;
     const payload: DraftStorage = {
       text,
       draftId,
       localDraftId,
-    savedAt,
-    evidenceInput,
-  };
-  try {
-    window.localStorage.setItem(storageKey, JSON.stringify(payload));
-  } catch {
-    // ignore
-  }
+      savedAt,
+      evidenceInput,
+    };
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
   }, [storageKey, text, draftId, localDraftId, savedAt, evidenceInput]);
 
   // Persist UI prefs for research view
@@ -637,6 +1117,35 @@ export default function AnalyzeWorkspace({
       // ignore
     }
   }, [researchView]);
+
+  React.useEffect(() => {
+    if (!flowInfo) return;
+    const timer = window.setTimeout(() => setFlowInfo(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [flowInfo]);
+
+  React.useEffect(() => {
+    if (communityEdited) return;
+    const next = buildCommunityPrompt({
+      preparedText,
+      report,
+      statements,
+      questions,
+    });
+    setCommunityDraft(next);
+  }, [communityEdited, preparedText, report, statements, questions]);
+
+  React.useEffect(() => {
+    if (articleDraftEdited) return;
+    const next = buildArticleDraft({
+      preparedText,
+      report,
+      statements,
+      questions,
+      knots,
+    });
+    setArticleDraft(next);
+  }, [articleDraftEdited, preparedText, report, statements, questions, knots]);
 
   React.useEffect(() => {
     const ids = statements.map((s) => s.id);
@@ -695,8 +1204,8 @@ export default function AnalyzeWorkspace({
     analysisStatus === "running" || !preparedText.trim() || verificationStatus === "loading" || !meetsLevel;
   const traceDisabled =
     insightTab === "input"
-      ? isTracing || isResearching || !preparedText.trim() || statements.length === 0
-      : isResearching || isTracing || !preparedText.trim();
+      ? !allowTrace || isTracing || isResearching || !preparedText.trim() || statements.length === 0
+      : !allowResearch || isResearching || isTracing || !preparedText.trim();
   const traceButtonLabel =
     insightTab === "input"
       ? isTracing
@@ -723,12 +1232,20 @@ export default function AnalyzeWorkspace({
       ? `Für diese Ansicht benötigst du mindestens Verifizierungs-Level "${requiredLevel}".`
       : null;
 
-  const handleJourneyChange = (nextId: JourneyId) => {
-    const config = JOURNEY_OPTIONS.find((opt) => opt.id === nextId) ?? JOURNEY_OPTIONS[0];
-    setJourney(config.id);
+  const handleFlowChange = (nextId: FlowId) => {
+    const config = FLOW_OPTIONS.find((opt) => opt.id === nextId) ?? FLOW_OPTIONS[0];
+    setFlow(config.id);
     setViewLevel(config.defaultLevel);
     setMaxClaims(config.maxClaims);
     setOpenPanels(config.openPanels);
+    if (!config.allowTrace && !config.allowResearch) {
+      setInsightTab("input");
+      setTraceResult(null);
+      setTraceError(null);
+      setResearchGuidance(null);
+      setResearchError(null);
+      setEvidenceInput("");
+    }
   };
 
   const togglePanel = (key: PanelKey, isOpen?: boolean) => {
@@ -857,6 +1374,11 @@ export default function AnalyzeWorkspace({
 
   const fetchResearchGuidance = React.useCallback(
     async (claimsOverride?: Array<{ id?: string; text?: string; domain?: string | null; domains?: string[] | null }>) => {
+      if (!allowResearch) {
+        setResearchGuidance(null);
+        setResearchError(null);
+        return;
+      }
       const claimsSource = claimsOverride ?? statements;
       const key = makeKey(preparedText, claimsSource, { mode: "research", locale });
 
@@ -918,12 +1440,18 @@ export default function AnalyzeWorkspace({
         }
       }
     },
-    [locale, preparedText, statements],
+    [allowResearch, locale, preparedText, statements],
   );
 
   const handleAnalyze = React.useCallback(async () => {
     if (analyzeDisabled) return;
-    const key = makeKey(preparedText, statements, { maxClaims, detailLevel: viewLevel, locale, evidence: evidenceInput.trim() });
+    const effectiveEvidenceInput = allowResearch ? evidenceInput.trim() : "";
+    const key = makeKey(preparedText, statements, {
+      maxClaims,
+      detailLevel: viewLevel,
+      locale,
+      evidence: effectiveEvidenceInput,
+    });
     if (analyzeCtrlRef.current && analyzeKeyRef.current === key) return;
     analyzeCtrlRef.current?.abort();
     const ctrl = new AbortController();
@@ -936,14 +1464,19 @@ export default function AnalyzeWorkspace({
     setTraceError(null);
     setResearchGuidance(null);
     setResearchError(null);
+    setEditorialAudit(null);
+    setEvidenceGraph(null);
+    setRunReceipt(null);
     setAnalysisStatus("running");
     setSteps(BASE_STEPS.map((s) => ({ ...s, state: "running" })));
 
     try {
-      const evidenceItems = evidenceInput
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
+      const evidenceItems = effectiveEvidenceInput
+        ? effectiveEvidenceInput
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [];
 
       const res = await fetch(analyzeEndpoint, {
         method: "POST",
@@ -1019,6 +1552,9 @@ export default function AnalyzeWorkspace({
       setEventualities(Array.isArray(result.eventualities) ? result.eventualities : []);
       setDecisionTrees(Array.isArray(result.decisionTrees) ? result.decisionTrees : []);
       setReport((result as any)?.report ?? null);
+      setEditorialAudit((result as any)?.editorialAudit ?? null);
+      setEvidenceGraph((result as any)?.evidenceGraph ?? null);
+      setRunReceipt((result as any)?.runReceipt ?? null);
 
       const matrixFromResponse: ProviderMatrixEntry[] = Array.isArray(data?.meta?.providerMatrix)
         ? data.meta.providerMatrix
@@ -1041,18 +1577,22 @@ export default function AnalyzeWorkspace({
       );
 
       if (degraded) {
-        setInsightTab("recherche");
+        setInsightTab(allowResearch ? "recherche" : "input");
         setAnalysisStatus("error");
         setError("KI temporär nicht erreichbar.");
         setInfo("Dein Entwurf bleibt erhalten. Bitte später erneut versuchen oder Provider/Keys prüfen.");
-        void fetchResearchGuidance(mappedStatements);
+        if (allowResearch) {
+          void fetchResearchGuidance(mappedStatements);
+        }
       } else if (mappedStatements.length === 0) {
-        setInsightTab("recherche");
+        setInsightTab(allowResearch ? "recherche" : "input");
         setAnalysisStatus("empty");
         setInfo(
           "Die Analyse konnte aus deinem Beitrag im Moment keine klaren Einzel-Statements ableiten. Du kannst deinen Text leicht anpassen (z.B. kuerzere Saetze) und die Analyse erneut starten.",
         );
-        void fetchResearchGuidance(mappedStatements);
+        if (allowResearch) {
+          void fetchResearchGuidance(mappedStatements);
+        }
       } else {
         setInsightTab("input");
         setAnalysisStatus("success");
@@ -1078,6 +1618,9 @@ export default function AnalyzeWorkspace({
       setDecisionTrees([]);
       setImpactAndResponsibility({ impacts: [], responsibleActors: [] });
       setReport(null);
+      setEditorialAudit(null);
+      setEvidenceGraph(null);
+      setRunReceipt(null);
       setSteps(
         computeStepStatesFromData({
           notes: [],
@@ -1089,14 +1632,28 @@ export default function AnalyzeWorkspace({
           failedReason: msg || "Analyse fehlgeschlagen",
         }),
       );
-      void fetchResearchGuidance([]);
+      if (allowResearch) {
+        void fetchResearchGuidance([]);
+      }
     } finally {
       if (mountedRef.current && myRun === analyzeRunRef.current) {
         analyzeCtrlRef.current = null;
         analyzeKeyRef.current = null;
       }
     }
-  }, [analyzeDisabled, analyzeEndpoint, evidenceInput, fetchResearchGuidance, locale, maxClaims, preparedText, statements, text, viewLevel]);
+  }, [
+    analyzeDisabled,
+    analyzeEndpoint,
+    allowResearch,
+    evidenceInput,
+    fetchResearchGuidance,
+    locale,
+    maxClaims,
+    preparedText,
+    statements,
+    text,
+    viewLevel,
+  ]);
 
   const scheduleTrace = React.useCallback(() => {
     const key = makeKey(preparedText, statements, { mode: "trace", locale });
@@ -1163,6 +1720,11 @@ export default function AnalyzeWorkspace({
   }, [locale, preparedText, statements, text]);
 
   React.useEffect(() => {
+    if (!allowTrace) {
+      setTraceResult(null);
+      setTraceError(null);
+      return;
+    }
     if (!preparedText?.trim() || statements.length === 0) {
       setTraceResult(null);
       setTraceError(null);
@@ -1172,11 +1734,19 @@ export default function AnalyzeWorkspace({
     }
     if (insightTab !== "input") return;
     scheduleTrace();
-  }, [insightTab, preparedText, scheduleTrace, statements]);
+  }, [allowTrace, insightTab, preparedText, scheduleTrace, statements]);
 
   const handleTrace = React.useCallback(() => {
     if (insightTab === "recherche") {
+      if (!allowResearch) {
+        setFlowInfo("Pruefplan ist im Express-Modus deaktiviert.");
+        return;
+      }
       fetchResearchGuidance();
+      return;
+    }
+    if (!allowTrace) {
+      setFlowInfo("Herkunft ist im Express-Modus deaktiviert.");
       return;
     }
     if (statements.length > 0) {
@@ -1185,7 +1755,46 @@ export default function AnalyzeWorkspace({
     }
     setInsightTab("recherche");
     fetchResearchGuidance();
-  }, [fetchResearchGuidance, insightTab, scheduleTrace, statements.length]);
+  }, [allowResearch, allowTrace, fetchResearchGuidance, insightTab, scheduleTrace, statements.length]);
+
+  const handleCopy = React.useCallback(async (value: string, label: string) => {
+    if (!value.trim()) {
+      setFlowInfo("Nichts zum Kopieren.");
+      return;
+    }
+    try {
+      if (!navigator?.clipboard?.writeText) throw new Error("Clipboard not available");
+      await navigator.clipboard.writeText(value);
+      setFlowInfo(`${label} kopiert.`);
+    } catch {
+      setFlowInfo("Kopieren nicht moeglich.");
+    }
+  }, []);
+
+  const handleRegenerateCommunity = React.useCallback(() => {
+    const next = buildCommunityPrompt({
+      preparedText,
+      report,
+      statements,
+      questions,
+    });
+    setCommunityDraft(next);
+    setCommunityEdited(false);
+    setFlowInfo("Community-Frage aktualisiert.");
+  }, [preparedText, questions, report, statements]);
+
+  const handleRegenerateArticle = React.useCallback(() => {
+    const next = buildArticleDraft({
+      preparedText,
+      report,
+      statements,
+      questions,
+      knots,
+    });
+    setArticleDraft(next);
+    setArticleDraftEdited(false);
+    setFlowInfo("Artikel-Entwurf aktualisiert.");
+  }, [knots, preparedText, questions, report, statements]);
 
   const toggleSelected = (id: string) => {
     setHasManualSelection(true);
@@ -1210,37 +1819,55 @@ export default function AnalyzeWorkspace({
     ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const scrollToCommunity = () => {
+    communityRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const scrollToArticle = () => {
+    articleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div ref={workspaceRef} className="min-h-[calc(100vh-64px)] bg-[linear-gradient(180deg,#e9f6ff_0%,#c0f8ff_45%,#a4fcec_100%)]">
       <div className={["container-vog max-w-none px-4 space-y-4 pt-6", totalStatements > 0 ? "pb-40" : "pb-24"].join(" ")}>
-        <div className="space-y-2">
-          <h1 className="vog-head text-3xl sm:text-4xl">
-            {mode === "statement" ? (
-              <>
-                <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">
-                  Statement
-                </span>{" "}
-                analysieren
-              </>
-            ) : (
-              <>
-                <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">
-                  Beitrag
-                </span>{" "}
-                analysieren
-              </>
-            )}
-          </h1>
-          <p className="text-xs text-slate-600">
-            Klare Einordnung, nachvollziehbare Kernaussagen und ein Prüfplan – ohne externe Fakten.
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-2">
+            <h1 className="vog-head text-3xl sm:text-4xl">
+              {mode === "statement" ? (
+                <>
+                  <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">
+                    Statement
+                  </span>{" "}
+                  analysieren
+                </>
+              ) : (
+                <>
+                  <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">
+                    Beitrag
+                  </span>{" "}
+                  analysieren
+                </>
+              )}
+            </h1>
+            <p className="text-xs text-slate-600">
+              {flowIsLite
+                ? "Express: schnelle Kernaussagen, ohne Pruefplan oder externe Fakten."
+                : `${flowConfig.label}: ${flowConfig.description} Keine externen Fakten.`}
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-2 text-[11px] text-slate-500 sm:items-end">
+            <span>
+              UI: <span className="font-medium uppercase">{locale || "-"}</span>
+            </span>
+            <ContentLanguageSelect value={contentLang} onChange={setContentLang} />
+          </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 shadow-sm ring-1 ring-white/40 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-0.5">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Modus</div>
-              <div className="text-[11px] text-slate-600">Bestimme Fokus &amp; Detailtiefe.</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Flow</div>
+              <div className="text-[11px] text-slate-600">Waehle Tempo, Tiefe und Output.</div>
             </div>
 
             <span className="hidden sm:inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
@@ -1248,57 +1875,85 @@ export default function AnalyzeWorkspace({
             </span>
           </div>
 
-          <div className="mt-3 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="inline-flex min-w-max gap-2 rounded-full bg-slate-100/80 p-1 ring-1 ring-inset ring-slate-200/60">
-              {JOURNEY_OPTIONS.map((opt) => {
-                const active = journey === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleJourneyChange(opt.id)}
-                    className={[
-                      "rounded-full px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap transition",
-                      active
-                        ? "bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 text-white shadow-sm"
-                        : "text-slate-700 hover:bg-white/70 hover:text-slate-900",
-                    ].join(" ")}
-                    aria-pressed={active}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {FLOW_OPTIONS.map((opt) => {
+              const active = flow === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => handleFlowChange(opt.id)}
+                  className={[
+                    "rounded-2xl border px-3 py-2 text-left transition",
+                    active
+                      ? "border-sky-200 bg-gradient-to-r from-sky-500/10 via-cyan-500/10 to-emerald-500/10"
+                      : "border-slate-200 bg-white/80 hover:border-slate-300",
+                  ].join(" ")}
+                  aria-pressed={active}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-800">{opt.label}</span>
+                    {active ? (
+                      <span className="rounded-full bg-sky-500 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                        aktiv
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-600">{opt.description}</p>
+                  <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-slate-600">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5">Level {opt.defaultLevel}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5">max {opt.maxClaims}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                      {opt.allowResearch ? "Pruefplan an" : "Pruefplan aus"}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
             <span className="inline-flex rounded-full bg-white/70 px-2 py-1 ring-1 ring-inset ring-slate-200">
-              {journeyConfig.label}
+              {flowConfig.label}
             </span>
             <span className="inline-flex rounded-full bg-white/70 px-2 py-1 ring-1 ring-inset ring-slate-200">
               max. {maxClaims} Kernaussagen
+            </span>
+            <span className="inline-flex rounded-full bg-white/70 px-2 py-1 ring-1 ring-inset ring-slate-200">
+              {allowResearch ? "Pruefplan aktiv" : "Pruefplan aus"}
             </span>
           </div>
         </div>
 
         <div className="max-w-4xl mx-auto space-y-5">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fortschritt</span>
-              <span className="text-[10px] text-slate-500">Kontext · Kernaussagen · Fragen · Wirkung · Zuständigkeit</span>
+          {flowIsLite ? (
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Express-Flow</div>
+              <p className="mt-1 text-sm text-slate-700">
+                Max. {maxClaims} Kernaussagen. Schnell, ohne Pruefplan oder externe Fakten.
+              </p>
             </div>
-            <div className="w-full">{progressPlacement}</div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fortschritt</span>
+                <span className="text-[10px] text-slate-500">
+                  Kontext · Kernaussagen · Fragen · Wirkung · Zustaendigkeit
+                </span>
+              </div>
+              <div className="w-full">{progressPlacement}</div>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-800">Dein Text</h2>
-                <p className="text-[11px] text-slate-500">Dieser Text bildet die Basis für Kernaussagen, Fragen und Wirkung.</p>
-              </div>
-              <div className="text-[11px] text-slate-500">
-                Sprache: <span className="font-medium uppercase">{locale}</span>
+                <p className="text-[11px] text-slate-500">
+                  {flowIsLite
+                    ? "Kurz und klar. Wir nutzen nur deinen Text."
+                    : "Dieser Text bildet die Basis fuer Kernaussagen, Fragen und Wirkung."}
+                </p>
               </div>
             </div>
 
@@ -1309,19 +1964,205 @@ export default function AnalyzeWorkspace({
               rows={14}
             />
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-800">Recherche-Input (optional)</h3>
-                <span className="text-[11px] text-slate-500">Links oder Stichpunkte</span>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200/70 bg-white/80 p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Echtzeit-Feedback</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                    Score {liveFeedback.score}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+                  <div
+                    className="h-2 rounded-full bg-gradient-to-r from-sky-400 via-cyan-400 to-emerald-400"
+                    style={{ width: `${liveFeedback.score}%` }}
+                  />
+                </div>
+
+                {!liveFeedback.trimmed ? (
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Schreibe ein paar Saetze, dann analysiere ich Klarheit, Akteure und Kontext.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                      <span>{liveFeedback.words} Woerter</span>
+                      <span>{liveFeedback.sentences} Saetze</span>
+                      <span>Durchschnitt {liveFeedback.avgWordsPerSentence} Woerter/Satz</span>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                      <TinyPill
+                        className={
+                          liveFeedback.actionHits.length
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                        }
+                      >
+                        Verb
+                      </TinyPill>
+                      <TinyPill
+                        className={
+                          liveFeedback.actorHits.length
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                        }
+                      >
+                        Akteur
+                      </TinyPill>
+                      <TinyPill
+                        className={
+                          liveFeedback.hasNumber
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                        }
+                      >
+                        Zahl
+                      </TinyPill>
+                      <TinyPill
+                        className={
+                          liveFeedback.timeHits.length
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                        }
+                      >
+                        Zeit
+                      </TinyPill>
+                      <TinyPill
+                        className={
+                          liveFeedback.evidenceHits.length
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                        }
+                      >
+                        Beleg
+                      </TinyPill>
+                      <TinyPill
+                        className={
+                          liveFeedback.hasQuestion
+                            ? "bg-amber-50 text-amber-700 ring-amber-100"
+                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                        }
+                      >
+                        Frage
+                      </TinyPill>
+                    </div>
+
+                    {liveFeedback.topics.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1 text-[10px]">
+                        {liveFeedback.topics.map((topic) => (
+                          <TinyPill key={topic} className="bg-sky-50 text-sky-700 ring-sky-100">
+                            {topic}
+                          </TinyPill>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[11px] text-slate-500">Noch kein klares Thema erkannt.</p>
+                    )}
+
+                    {liveFeedback.missingSignals.length ? (
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Fehlt evtl.: {liveFeedback.missingSignals.slice(0, 3).join(", ")}.
+                      </p>
+                    ) : null}
+                    {liveFeedback.lengthHint ? (
+                      <p className="mt-2 text-[11px] text-slate-500">{liveFeedback.lengthHint}</p>
+                    ) : null}
+                  </>
+                )}
               </div>
-              <textarea
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
-                rows={4}
-                value={evidenceInput}
-                onChange={(event) => setEvidenceInput(event.target.value)}
-                placeholder="Quellen oder Hinweise, die der KI als Kontext dienen (z. B. Links, Stichpunkte)."
-              />
+
+              <div className="rounded-xl border border-slate-200/70 bg-white/80 p-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 text-[11px] font-bold text-white">
+                    VOG
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Flow Coach</p>
+                    <p className="text-[11px] text-slate-500">Guided durch Schnellstart, Deep-Dive &amp; Redaktion.</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+                  <p className="font-semibold text-slate-900">{coach.title}</p>
+                  <p className="mt-1 text-slate-600">{coach.body}</p>
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-slate-600">
+                  {coach.tips.map((tip) => (
+                    <TinyPill key={tip} className="bg-white text-slate-600 ring-slate-200">
+                      {tip}
+                    </TinyPill>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {preparedText.trim() ? (
+                    <button
+                      type="button"
+                      onClick={handleAnalyze}
+                      disabled={analyzeDisabled || analyzing}
+                      className="rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {analysisStatus === "running" ? "Analyse laeuft" : "Analyse starten"}
+                    </button>
+                  ) : null}
+                  {totalStatements > 0 ? (
+                    flowIsLite ? (
+                      <button
+                        type="button"
+                        onClick={() => handleFlowChange("guided")}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        Zu Guided wechseln
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={scrollToNextLevel}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        Weiter im Flow
+                      </button>
+                    )
+                  ) : null}
+                  {communityDraft.trim() ? (
+                    <button
+                      type="button"
+                      onClick={scrollToCommunity}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Community-Frage
+                    </button>
+                  ) : null}
+                  {articleDraft.trim() ? (
+                    <button
+                      type="button"
+                      onClick={scrollToArticle}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Artikel-Entwurf
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
+
+            {allowResearch && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-800">Recherche-Input (optional)</h3>
+                  <span className="text-[11px] text-slate-500">Links oder Stichpunkte</span>
+                </div>
+                <textarea
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  rows={4}
+                  value={evidenceInput}
+                  onChange={(event) => setEvidenceInput(event.target.value)}
+                  placeholder="Quellen oder Hinweise, die der KI als Kontext dienen (z. B. Links, Stichpunkte)."
+                />
+              </div>
+            )}
 
             <div className="rounded-xl bg-slate-50/80 px-3 py-2 text-[11px] text-slate-600 ring-1 ring-inset ring-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1384,6 +2225,9 @@ export default function AnalyzeWorkspace({
             {info && (
               <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">{info}</p>
             )}
+            {flowInfo && (
+              <p className="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-[11px] text-sky-700">{flowInfo}</p>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -1393,7 +2237,7 @@ export default function AnalyzeWorkspace({
                   <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schnellblick</p>
                     {report?.summary ? (
-                      <p className="mt-1 text-sm text-slate-800">{report.summary}</p>
+                      <p className="mt-1 text-sm text-slate-800">{translateText("report:summary", report.summary)}</p>
                     ) : (
                       <p className="mt-1 text-sm text-slate-500">Noch keine Zusammenfassung vorhanden.</p>
                     )}
@@ -1415,7 +2259,7 @@ export default function AnalyzeWorkspace({
                 </div>
 
                 <div className="space-y-3">
-                  {levelStatements.map((s) => {
+                  {levelStatements.map((s, idx) => {
                     const stanceLabel =
                       s.stance === "pro"
                         ? "pro"
@@ -1432,15 +2276,22 @@ export default function AnalyzeWorkspace({
                     const extraTags = tagsAll.slice(2);
                     const attribution = traceResult?.attribution?.[s.id] ?? null;
                     const modeMeta = attribution ? TRACE_MODE_STYLE[attribution.mode] : null;
+                    const titleBase = s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`;
+                    const translationKey = s.id ?? String(s.index ?? idx);
+                    const statementTitle = s.title
+                      ? translateText(`statement:${translationKey}:title`, s.title)
+                      : titleBase;
+                    const statementText = translateText(`statement:${translationKey}:text`, s.text);
+                    const showOriginal = contentLang !== baseLang && statementText !== s.text;
 
                     return (
                       <StatementCard
                         key={s.id}
                         variant="analyze"
                         statementId={s.id}
-                        text={s.text}
-                        title={s.title && s.title.trim().length > 0 ? s.title : `Statement #${s.index + 1}`}
-                        mainCategory={s.title ?? `Statement #${s.index + 1}`}
+                        text={statementText}
+                        title={statementTitle}
+                        mainCategory={statementTitle}
                         jurisdiction={s.responsibility || undefined}
                         topic={s.topic || undefined}
                         tags={tags}
@@ -1448,6 +2299,11 @@ export default function AnalyzeWorkspace({
                         showVoteButtons={false}
                       >
                         <div className="space-y-3">
+                          {showOriginal && (
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Original ({baseLang.toUpperCase()})
+                            </div>
+                          )}
                           <InlineEditableText
                             value={s.text}
                             onChange={(val) =>
@@ -1498,16 +2354,20 @@ export default function AnalyzeWorkspace({
                               </div>
                             </details>
                           )}
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <VogVoteButtons
-                              value={s.vote ?? null}
-                              size="sm"
-                              onChange={(next) =>
-                                setStatements((prev) =>
-                                  prev.map((entry) => (entry.id === s.id ? { ...entry, vote: next } : entry)),
-                                )
-                              }
-                            />
+                          <div
+                            className={`flex flex-wrap items-center ${flowIsLite ? "justify-end" : "justify-between"} gap-3`}
+                          >
+                            {!flowIsLite && (
+                              <VogVoteButtons
+                                value={s.vote ?? null}
+                                size="sm"
+                                onChange={(next) =>
+                                  setStatements((prev) =>
+                                    prev.map((entry) => (entry.id === s.id ? { ...entry, vote: next } : entry)),
+                                  )
+                                }
+                              />
+                            )}
                             <label className="inline-flex items-center gap-2 text-[11px] text-slate-600">
                               <input
                                 type="checkbox"
@@ -1543,7 +2403,7 @@ export default function AnalyzeWorkspace({
                       ) : null}
                     </div>
                     <ImpactSection
-                      impacts={impactAndResponsibility.impacts ?? []}
+                      impacts={displayImpacts}
                       onChange={(next) => setImpactAndResponsibility((prev) => ({ ...prev, impacts: next }))}
                     />
                   </div>
@@ -1557,7 +2417,7 @@ export default function AnalyzeWorkspace({
                       ) : null}
                     </div>
                     <ResponsibilitySection
-                      actors={impactAndResponsibility.responsibleActors ?? []}
+                      actors={displayResponsibleActors}
                       onChange={(next) =>
                         setImpactAndResponsibility((prev) => ({ ...prev, responsibleActors: next }))
                       }
@@ -1585,14 +2445,19 @@ export default function AnalyzeWorkspace({
                     <p className="mt-2 text-sm text-slate-500">Noch keine Notizen vorhanden.</p>
                   ) : (
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                      {notes.map((note, idx) => (
-                        <li key={note.id ?? `note-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {note.title ?? `Notiz ${idx + 1}`}
-                          </p>
-                          <p className="text-sm text-slate-800">{note.body}</p>
-                        </li>
-                      ))}
+                      {notes.map((note, idx) => {
+                        const key = note.id ?? `note-${idx}`;
+                        const title = note.title
+                          ? translateText(`note:${key}:title`, note.title)
+                          : `Notiz ${idx + 1}`;
+                        const body = translateText(`note:${key}:body`, note.body);
+                        return (
+                          <li key={key} className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+                            <p className="text-sm text-slate-800">{body}</p>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </details>
@@ -1607,14 +2472,19 @@ export default function AnalyzeWorkspace({
                     <p className="mt-2 text-sm text-slate-500">Noch keine Fragen vorhanden.</p>
                   ) : (
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                      {questions.map((q, idx) => (
-                        <li key={q.id ?? `q-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {q.label ?? `Frage ${idx + 1}`}
-                          </p>
-                          <p className="text-sm text-slate-800">{q.body}</p>
-                        </li>
-                      ))}
+                      {questions.map((q, idx) => {
+                        const key = q.id ?? `q-${idx}`;
+                        const label = q.label
+                          ? translateText(`question:${key}:label`, q.label)
+                          : `Frage ${idx + 1}`;
+                        const body = translateText(`question:${key}:body`, q.body);
+                        return (
+                          <li key={key} className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                            <p className="text-sm text-slate-800">{body}</p>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </details>
@@ -1629,14 +2499,19 @@ export default function AnalyzeWorkspace({
                     <p className="mt-2 text-sm text-slate-500">Noch keine Knoten vorhanden.</p>
                   ) : (
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                      {knots.map((k, idx) => (
-                        <li key={k.id ?? `k-${idx}`} className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {k.title ?? `Knoten ${idx + 1}`}
-                          </p>
-                          <p className="text-sm text-slate-800">{k.body}</p>
-                        </li>
-                      ))}
+                      {knots.map((k, idx) => {
+                        const key = k.id ?? `k-${idx}`;
+                        const title = k.title
+                          ? translateText(`knot:${key}:title`, k.title)
+                          : `Knoten ${idx + 1}`;
+                        const body = translateText(`knot:${key}:body`, k.body);
+                        return (
+                          <li key={key} className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+                            <p className="text-sm text-slate-800">{body}</p>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </details>
@@ -1657,9 +2532,11 @@ export default function AnalyzeWorkspace({
                         <div>
                           <p className="text-xs font-semibold uppercase text-slate-500">Eventualitaeten</p>
                           <ul className="mt-1 list-disc space-y-1 pl-4">
-                            {eventualities.map((e, idx) => (
-                              <li key={e.id ?? `ev-${idx}`}>{e.narrative || e.label}</li>
-                            ))}
+                            {eventualities.map((e, idx) => {
+                              const key = e.id ?? `ev-${idx}`;
+                              const text = translateText(`eventuality:${key}:text`, e.narrative || e.label || "");
+                              return <li key={key}>{text}</li>;
+                            })}
                           </ul>
                         </div>
                       )}
@@ -1701,13 +2578,13 @@ export default function AnalyzeWorkspace({
                   <summary className="cursor-pointer text-sm font-semibold text-slate-800">Bericht</summary>
                   {report ? (
                     <div className="mt-3 space-y-3 text-sm text-slate-800">
-                      {report.summary && <p>{report.summary}</p>}
+                      {report.summary && <p>{translateText("report:summary", report.summary)}</p>}
                       {Array.isArray(report.keyConflicts) && report.keyConflicts.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold uppercase text-slate-500">Konfliktlinien</p>
                           <ul className="mt-1 list-disc space-y-1 pl-4">
                             {report.keyConflicts.map((c: string, idx: number) => (
-                              <li key={`${c}-${idx}`}>{c}</li>
+                              <li key={`${c}-${idx}`}>{translateText(`report:key:${idx}`, c)}</li>
                             ))}
                           </ul>
                         </div>
@@ -1718,7 +2595,7 @@ export default function AnalyzeWorkspace({
                             <p className="text-xs font-semibold uppercase text-slate-500">Fakten (lokal)</p>
                             <ul className="mt-1 list-disc space-y-1 pl-4">
                               {(report.facts.local ?? []).map((f: string, idx: number) => (
-                                <li key={`f-l-${idx}`}>{f}</li>
+                                <li key={`f-l-${idx}`}>{translateText(`report:fact:local:${idx}`, f)}</li>
                               ))}
                             </ul>
                           </div>
@@ -1726,7 +2603,7 @@ export default function AnalyzeWorkspace({
                             <p className="text-xs font-semibold uppercase text-slate-500">Fakten (international)</p>
                             <ul className="mt-1 list-disc space-y-1 pl-4">
                               {(report.facts.international ?? []).map((f: string, idx: number) => (
-                                <li key={`f-i-${idx}`}>{f}</li>
+                                <li key={`f-i-${idx}`}>{translateText(`report:fact:intl:${idx}`, f)}</li>
                               ))}
                             </ul>
                           </div>
@@ -1737,7 +2614,7 @@ export default function AnalyzeWorkspace({
                           <p className="text-xs font-semibold uppercase text-slate-500">Takeaways</p>
                           <ul className="mt-1 list-disc space-y-1 pl-4">
                             {report.takeaways.map((c: string, idx: number) => (
-                              <li key={`t-${idx}`}>{c}</li>
+                              <li key={`t-${idx}`}>{translateText(`report:takeaway:${idx}`, c)}</li>
                             ))}
                           </ul>
                         </div>
@@ -1747,303 +2624,424 @@ export default function AnalyzeWorkspace({
                     <p className="mt-2 text-sm text-slate-500">Noch kein Bericht vorhanden.</p>
                   )}
                 </details>
+
+                {editorialAudit && <EditorialAuditPanel audit={editorialAudit} />}
+                {evidenceGraph && <EvidenceGraphPanel graph={evidenceGraph} />}
+                {runReceipt && <RunReceiptPanel receipt={runReceipt} />}
               </div>
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div ref={communityRef} className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Einordnung & nächste Schritte</p>
-                  <p className="text-[11px] text-slate-500">Vorschläge / Prüfplan – keine recherchierten Fakten.</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Community</p>
+                  <h3 className="mt-1 text-sm font-semibold text-slate-800">Offene Frage an Community / Dachverbaende</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Sammle Perspektiven oder Fakten, bevor du final einreichst.
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={handleTrace}
-                  disabled={traceDisabled}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => handleCopy(communityDraft, "Community-Frage")}
+                  disabled={!communityDraft.trim()}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 >
-                  {traceButtonLabel}
+                  Kopieren
                 </button>
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setInsightTab("input")}
-                    className={[
-                      "rounded-full px-3 py-1 transition",
-                      insightTab === "input" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                    ].join(" ")}
-                    aria-pressed={insightTab === "input"}
-                  >
-                    Aus Input
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInsightTab("recherche")}
-                    className={[
-                      "rounded-full px-3 py-1 transition",
-                      insightTab === "recherche" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-                    ].join(" ")}
-                    aria-pressed={insightTab === "recherche"}
-                  >
-                    Recherche
-                  </button>
-                </div>
+              <textarea
+                className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                rows={5}
+                value={communityDraft}
+                onChange={(event) => {
+                  setCommunityDraft(event.target.value);
+                  setCommunityEdited(true);
+                }}
+                placeholder="Formuliere eine offene Frage, z.B. 'Welche Auswirkungen seht ihr auf ...?'"
+              />
 
-                {insightTab === "input" && statements.length === 0 ? (
-                  <span className="text-[11px] text-slate-500">Für „Aus Input“ erst Analyse starten.</span>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <button
+                  type="button"
+                  onClick={handleRegenerateCommunity}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Neu generieren
+                </button>
+                {questions.length ? (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] text-slate-600">
+                    {Math.min(questions.length, 3)} KI-Fragen verfuegbar
+                  </span>
                 ) : null}
               </div>
 
-              {guidanceError && <p className="mt-2 text-[11px] font-semibold text-rose-600">{guidanceError}</p>}
-
-              {!hasGuidance && !guidanceError ? (
-                <p className="mt-2 text-[11px] text-slate-500">
-                  {insightTab === "input"
-                    ? "Erzeuge Herkunftshinweise und einen Prüfplan auf Basis deiner Kernaussagen (Statements)."
-                    : "Erzeuge einen Prüfplan / Recherche-Hinweise – ohne externe Fakten zu übernehmen."}
-                </p>
+              {questions.length ? (
+                <div className="mt-3 space-y-2 text-[11px] text-slate-700">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">KI-Vorschlaege</p>
+                  <ul className="space-y-1">
+                    {questions.slice(0, 3).map((q, idx) => {
+                      const key = q.id ?? `q-${idx}`;
+                      const body = translateText(`question:${key}:body`, q.body);
+                      return (
+                        <li key={q.id ?? `community-q-${idx}`} className="rounded-lg bg-slate-50 px-2 py-1">
+                          {body}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ) : null}
+            </div>
 
-              {insightTab === "input" && guidance ? (
-                <div className="mt-3 space-y-3 text-[11px] text-slate-700">
-                  {guidance.concern ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Anliegen</p>
-                      <p className="mt-1 text-sm text-slate-800">{guidance.concern}</p>
-                    </div>
+            <div ref={articleRef} className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Redaktion</p>
+                  <h3 className="mt-1 text-sm font-semibold text-slate-800">Artikel-Entwurf</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Ein vorstrukturierter Entwurf, den du nur noch abnicken oder bearbeiten kannst.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(articleDraft, "Artikel-Entwurf")}
+                    disabled={!articleDraft.trim()}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    Kopieren
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateArticle}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Neu generieren
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                rows={10}
+                value={articleDraft}
+                onChange={(event) => {
+                  setArticleDraft(event.target.value);
+                  setArticleDraftEdited(true);
+                }}
+                placeholder="Starte mit einer Analyse, um einen Entwurf zu generieren."
+              />
+
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                <span>Nutze den Entwurf fuer redaktionelle Abstimmung oder Einreichung.</span>
+              </div>
+            </div>
+          </div>
+
+          {(allowTrace || allowResearch) && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Einordnung & naechste Schritte</p>
+                    <p className="text-[11px] text-slate-500">
+                      Vorschlaege und Pruefplan basieren nur auf deinem Input.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTrace}
+                    disabled={traceDisabled}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {traceButtonLabel}
+                  </button>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setInsightTab("input")}
+                      disabled={!allowTrace}
+                      className={[
+                        "rounded-full px-3 py-1 transition",
+                        insightTab === "input" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+                        !allowTrace ? "cursor-not-allowed opacity-60" : "",
+                      ].join(" ")}
+                      aria-pressed={insightTab === "input"}
+                    >
+                      Aus Input
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInsightTab("recherche")}
+                      disabled={!allowResearch}
+                      className={[
+                        "rounded-full px-3 py-1 transition",
+                        insightTab === "recherche" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+                        !allowResearch ? "cursor-not-allowed opacity-60" : "",
+                      ].join(" ")}
+                      aria-pressed={insightTab === "recherche"}
+                    >
+                      Recherche
+                    </button>
+                  </div>
+
+                  {insightTab === "input" && statements.length === 0 ? (
+                    <span className="text-[11px] text-slate-500">Fuer "Aus Input" erst Analyse starten.</span>
                   ) : null}
+                </div>
 
-                  {guidance.scopeHints?.levels?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ebenen</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {guidance.scopeHints.levels.map((lvl) => (
-                          <span key={lvl} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
-                            {lvl}
-                          </span>
-                        ))}
+                {guidanceError && <p className="mt-2 text-[11px] font-semibold text-rose-600">{guidanceError}</p>}
+
+                {!hasGuidance && !guidanceError ? (
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    {insightTab === "input"
+                      ? "Erzeuge Herkunftshinweise und einen Pruefplan auf Basis deiner Kernaussagen (Statements)."
+                      : "Erzeuge einen Pruefplan / Recherche-Hinweise - ohne externe Fakten zu uebernehmen."}
+                  </p>
+                ) : null}
+
+                {insightTab === "input" && guidance ? (
+                  <div className="mt-3 space-y-3 text-[11px] text-slate-700">
+                    {guidance.concern ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Anliegen</p>
+                        <p className="mt-1 text-sm text-slate-800">{guidance.concern}</p>
                       </div>
-                      {guidance.scopeHints.why ? (
-                        <p className="mt-1 text-[11px] text-slate-600">{guidance.scopeHints.why}</p>
-                      ) : null}
-                    </div>
-                  ) : null}
+                    ) : null}
 
-                  {guidance.istStandChecklist &&
-                  (guidance.istStandChecklist.society?.length ||
-                    guidance.istStandChecklist.media?.length ||
-                    guidance.istStandChecklist.politics?.length) ? (
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {([
-                        { key: "society", label: "Gesellschaft" },
-                        { key: "media", label: "Medien" },
-                        { key: "politics", label: "Politik" },
-                      ] as const).map(({ key, label }) => {
-                        const items = guidance.istStandChecklist[key] ?? [];
-                        if (!items.length) return null;
-                        return (
-                          <div key={key} className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                    {guidance.scopeHints?.levels?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ebenen</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {guidance.scopeHints.levels.map((lvl) => (
+                            <span key={lvl} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                              {lvl}
+                            </span>
+                          ))}
+                        </div>
+                        {guidance.scopeHints.why ? (
+                          <p className="mt-1 text-[11px] text-slate-600">{guidance.scopeHints.why}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {guidance.istStandChecklist &&
+                    (guidance.istStandChecklist.society?.length ||
+                      guidance.istStandChecklist.media?.length ||
+                      guidance.istStandChecklist.politics?.length) ? (
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {([
+                          { key: "society", label: "Gesellschaft" },
+                          { key: "media", label: "Medien" },
+                          { key: "politics", label: "Politik" },
+                        ] as const).map(({ key, label }) => {
+                          const items = guidance.istStandChecklist[key] ?? [];
+                          if (!items.length) return null;
+                          return (
+                            <div key={key} className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                              <ul className="mt-1 space-y-1">
+                                {items.map((item) => (
+                                  <li key={item} className="text-[11px] text-slate-700">
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {(guidance.proFrames?.length || guidance.contraFrames?.length) ? (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {guidance.proFrames?.length ? (
+                          <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pro-Frames</p>
                             <ul className="mt-1 space-y-1">
-                              {items.map((item) => (
-                                <li key={item} className="text-[11px] text-slate-700">
-                                  {item}
+                              {guidance.proFrames.map((frame, idx) => (
+                                <li key={`${frame.frame}-${idx}`}>
+                                  <span className="font-semibold text-slate-700">{frame.frame}</span>
+                                  {frame.stakeholders?.length ? (
+                                    <span className="text-slate-500"> · {frame.stakeholders.join(", ")}</span>
+                                  ) : null}
                                 </li>
                               ))}
                             </ul>
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  {(guidance.proFrames?.length || guidance.contraFrames?.length) ? (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {guidance.proFrames?.length ? (
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pro-Frames</p>
-                          <ul className="mt-1 space-y-1">
-                            {guidance.proFrames.map((frame, idx) => (
-                              <li key={`${frame.frame}-${idx}`}>
-                                <span className="font-semibold text-slate-700">{frame.frame}</span>
-                                {frame.stakeholders?.length ? (
-                                  <span className="text-slate-500"> · {frame.stakeholders.join(", ")}</span>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                      {guidance.contraFrames?.length ? (
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Contra-Frames</p>
-                          <ul className="mt-1 space-y-1">
-                            {guidance.contraFrames.map((frame, idx) => (
-                              <li key={`${frame.frame}-${idx}`}>
-                                <span className="font-semibold text-slate-700">{frame.frame}</span>
-                                {frame.stakeholders?.length ? (
-                                  <span className="text-slate-500"> · {frame.stakeholders.join(", ")}</span>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {guidance.alternatives?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Alternativen</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                        {guidance.alternatives.map((alt) => (
-                          <li key={alt}>{alt}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {guidance.searchQueries?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suchbegriffe</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                        {guidance.searchQueries.map((query) => (
-                          <li key={query}>{query}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {guidance.sourceTypes?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Quellentypen</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {guidance.sourceTypes.map((source) => (
-                          <span key={source} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
-                            {source}
-                          </span>
-                        ))}
+                        ) : null}
+                        {guidance.contraFrames?.length ? (
+                          <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Contra-Frames</p>
+                            <ul className="mt-1 space-y-1">
+                              {guidance.contraFrames.map((frame, idx) => (
+                                <li key={`${frame.frame}-${idx}`}>
+                                  <span className="font-semibold text-slate-700">{frame.frame}</span>
+                                  {frame.stakeholders?.length ? (
+                                    <span className="text-slate-500"> · {frame.stakeholders.join(", ")}</span>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                    ) : null}
 
-              {insightTab === "recherche" && researchGuidance ? (
-                <div className="mt-3 space-y-3 text-[11px] text-slate-700">
-                  {hasResearchSources ? (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="font-semibold text-slate-700">Darstellung:</span>
-                        {(["serp", "cards"] as const).map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => setResearchView(v)}
-                            className={`rounded-full px-2.5 py-1 text-[11px] ${
-                              researchView === v
-                                ? "bg-slate-800 text-white"
-                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            }`}
-                          >
-                            {v === "serp" ? "SERP" : "Cards"}
-                          </button>
-                        ))}
+                    {guidance.alternatives?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Alternativen</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                          {guidance.alternatives.map((alt) => (
+                            <li key={alt}>{alt}</li>
+                          ))}
+                        </ul>
                       </div>
-                      <SerpResultsList
-                        results={(researchGuidance.sources ?? []).map((label) => ({
-                          url: "",
-                          title: label,
-                          siteName: "Prüfplan",
-                          breadcrumb: "Quellenbereich",
-                          snippet:
-                            SOURCE_HINTS[label] ||
-                            "Vorschlag für den Prüfplan: Prüfe Informationen in diesem Quellentyp.",
-                        }))}
-                        view={researchView}
-                      />
-                    </div>
-                  ) : null}
+                    ) : null}
 
-                  {researchGuidance.focus?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fokus</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {researchGuidance.focus.map((item) => (
-                          <span key={item} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
-                            {item}
-                          </span>
-                        ))}
+                    {guidance.searchQueries?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suchbegriffe</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                          {guidance.searchQueries.map((query) => (
+                            <li key={query}>{query}</li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : null}
 
-                  {researchGuidance.stakeholders?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Stakeholder</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                        {researchGuidance.stakeholders.map((s) => (
-                          <li key={s}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {researchGuidance.sources?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Quellen-Typen</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                        {researchGuidance.sources.map((s) => (
-                          <li key={s}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {researchGuidance.queries?.length ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suchanfragen</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                        {researchGuidance.queries.map((q) => (
-                          <li key={q}>{q}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {researchGuidance.feeds?.length || researchGuidance.risks?.length ? (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {researchGuidance.feeds?.length ? (
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Feeds</p>
-                          <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                            {researchGuidance.feeds.map((f) => (
-                              <li key={f}>{f}</li>
-                            ))}
-                          </ul>
+                    {guidance.sourceTypes?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Quellentypen</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {guidance.sourceTypes.map((source) => (
+                            <span key={source} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                              {source}
+                            </span>
+                          ))}
                         </div>
-                      ) : null}
-                      {researchGuidance.risks?.length ? (
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Risiken</p>
-                          <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
-                            {(researchGuidance.risks ?? []).map((r) => (
-                              <li key={r}>{r}</li>
-                            ))}
-                          </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {insightTab === "recherche" && researchGuidance ? (
+                  <div className="mt-3 space-y-3 text-[11px] text-slate-700">
+                    {hasResearchSources ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="font-semibold text-slate-700">Darstellung:</span>
+                          {(["serp", "cards"] as const).map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setResearchView(v)}
+                              className={`rounded-full px-2.5 py-1 text-[11px] ${
+                                researchView === v
+                                  ? "bg-slate-800 text-white"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              }`}
+                            >
+                              {v === "serp" ? "SERP" : "Cards"}
+                            </button>
+                          ))}
                         </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                        <SerpResultsList
+                          results={(researchGuidance.sources ?? []).map((label) => ({
+                            url: "",
+                            title: label,
+                            siteName: "Pruefplan",
+                            breadcrumb: "Quellenbereich",
+                            snippet:
+                              SOURCE_HINTS[label] ||
+                              "Vorschlag fuer den Pruefplan: Pruefe Informationen in diesem Quellentyp.",
+                          }))}
+                          view={researchView}
+                        />
+                      </div>
+                    ) : null}
+
+                    {researchGuidance.focus?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fokus</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {researchGuidance.focus.map((item) => (
+                            <span key={item} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {researchGuidance.stakeholders?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Stakeholder</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                          {researchGuidance.stakeholders.map((s) => (
+                            <li key={s}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {researchGuidance.sources?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Quellen-Typen</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                          {researchGuidance.sources.map((s) => (
+                            <li key={s}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {researchGuidance.queries?.length ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suchanfragen</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                          {researchGuidance.queries.map((q) => (
+                            <li key={q}>{q}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {researchGuidance.feeds?.length || researchGuidance.risks?.length ? (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {researchGuidance.feeds?.length ? (
+                          <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Feeds</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                              {researchGuidance.feeds.map((f) => (
+                                <li key={f}>{f}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {researchGuidance.risks?.length ? (
+                          <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Risiken</p>
+                            <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-700">
+                              {(researchGuidance.risks ?? []).map((r) => (
+                                <li key={r}>{r}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

@@ -1,0 +1,62 @@
+{
+  "project": "VoiceOpenGov / eDebatte",
+  "version": 1,
+  "contracts": {
+    "primary_datastore": "triMongo",
+    "triMongo": {
+      "canonical_rule": "triMongo is the only source of truth for MVP and production data. No Prisma-based canonical storage.",
+      "databases": {
+        "core": "Entities (statements, candidates, drafts, reports, factcheck jobs, moderation, etc.)",
+        "votes": "Votes, swipe events, voting aggregates",
+        "pii": "Sensitive user/profile data (verification, private fields)",
+        "ai_core_reader": "Read-only mirror for AI/analysis workloads (no writes)"
+      },
+      "ids": {
+        "canonical": "MongoDB ObjectId",
+        "relation_style": "Relations via IDs (statementId, impactId, authorId, etc.)"
+      }
+    },
+    "graphdb": {
+      "role": "mirror_only",
+      "canonical_rule": "GraphDB (Neo4j/Arango/Memgraph) is a derived mirror for analytics, recommendations, semantic condensation. It must never be the primary source of truth.",
+      "node_key": "mongo:<collection>:<objectId>",
+      "sync_rule": "Graph sync is async/best-effort and must never block publish or user flows.",
+      "providers": [
+        "neo4j",
+        "arango",
+        "memgraph"
+      ]
+    },
+    "legacy": {
+      "mongoose_rule": "Mongoose may exist only as a transitional adapter for legacy UI. It must not be imported by critical pipelines (feeds/factcheck/analyze).",
+      "prisma_rule": "Prisma must not be required for the MVP core flows (feeds/factcheck/swipe)."
+    }
+  },
+  "pipelines": {
+    "feeds": {
+      "collections_core": [
+        "statement_candidates",
+        "analyze_results",
+        "vote_drafts",
+        "feed_statements"
+      ],
+      "rule": "All feed ingestion and analysis must persist to triMongo core collections."
+    },
+    "factcheck": {
+      "collections_core": [
+        "factcheck_jobs"
+      ],
+      "rule": "Factcheck jobs must be persisted in triMongo core and must not depend on Prisma."
+    }
+  },
+  "forbidden_imports": {
+    "pipeline_routes": [
+      "@prisma/client",
+      "@/lib/prisma",
+      "mongoose",
+      "@/models",
+      "dbConnect("
+    ]
+  }
+}
+

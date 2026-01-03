@@ -43,6 +43,18 @@ const PLAN_PRICE: Record<MembershipPackage, number> = {
 };
 
 export async function POST(req: NextRequest) {
+  if (process.env.MEMBERSHIP_LEGACY_APPLY_DISABLED !== "0") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "deprecated_endpoint",
+        message: "Dieser Endpoint ist veraltet. Bitte nutze /mitglied-antrag.",
+        next: "/mitglied-antrag",
+      },
+      { status: 410 },
+    );
+  }
+
   const cookieStore = cookies();
   const userId = cookieStore.get("u_id")?.value;
   if (!userId) {

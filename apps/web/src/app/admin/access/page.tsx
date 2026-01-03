@@ -2,16 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AccessGroup, RoutePolicy } from "@features/access/types";
+import type { AccessTier } from "@features/pricing/types";
+import { ACCESS_TIER_CONFIG } from "@core/access/accessTiers";
 
 type RouteRow = RoutePolicy & { overrides: number };
 
+type InventoryItem = {
+  path: string;
+  file: string;
+  kind: "page" | "api";
+};
+
 const ACCESS_GROUP_OPTIONS: AccessGroup[] = [
-  "public",
-  "citizenBasic",
-  "citizenPremium",
-  "institutionBasic",
-  "institutionPremium",
-  "staff",
+  ...(Object.keys(ACCESS_TIER_CONFIG) as AccessTier[]),
   "admin",
   "creator",
 ];
@@ -20,6 +23,9 @@ export default function AccessCenterPage() {
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 12;
@@ -28,15 +34,31 @@ export default function AccessCenterPage() {
     let ignore = false;
     async function load() {
       setLoading(true);
+      setInventoryLoading(true);
       try {
-        const res = await fetch("/api/admin/access/routes", { cache: "no-store" });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body?.error || res.statusText);
-        if (!ignore) setRoutes(body.routes ?? []);
+        const [routesRes, inventoryRes] = await Promise.all([
+          fetch("/api/admin/access/routes", { cache: "no-store" }),
+          fetch("/api/admin/access/routes/inventory", { cache: "no-store" }),
+        ]);
+
+        const routesBody = await routesRes.json().catch(() => ({}));
+        if (!routesRes.ok) throw new Error(routesBody?.error || routesRes.statusText);
+        if (!ignore) setRoutes(routesBody.routes ?? []);
+
+        const inventoryBody = await inventoryRes.json().catch(() => ({}));
+        if (!inventoryRes.ok) throw new Error(inventoryBody?.error || inventoryRes.statusText);
+        if (!ignore) setInventory(inventoryBody.items ?? []);
       } catch (err: any) {
-        if (!ignore) setError(err?.message ?? "Konnte Route-Policies nicht laden.");
+        if (!ignore) {
+          const message = err?.message ?? "Konnte Route-Policies nicht laden.";
+          setError(message);
+          setInventoryError(message);
+        }
       } finally {
-        if (!ignore) setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+          setInventoryLoading(false);
+        }
       }
     }
     load();
@@ -66,6 +88,23 @@ export default function AccessCenterPage() {
     });
   }, [routes, query]);
 
+  const unmanagedRoutes = useMemo(() => {
+    if (!inventory.length) return [];
+    return inventory
+      .filter((item) => item.kind === "page")
+      .filter((item) => !routes.some((route) => matchesPolicy(route, item.path)));
+  }, [inventory, routes]);
+
+  const filteredUnmanaged = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return unmanagedRoutes;
+    const terms = normalized.split(/\s+/).filter(Boolean);
+    return unmanagedRoutes.filter((item) => {
+      const haystack = [item.path, item.file].join(" ").toLowerCase();
+      return terms.every((term) => haystack.includes(term));
+    });
+  }, [unmanagedRoutes, query]);
+
   useEffect(() => {
     setPage(1);
   }, [query]);
@@ -87,6 +126,31 @@ export default function AccessCenterPage() {
     setRoutes((prev) =>
       prev.map((route) => (route.routeId === routeId ? { ...route, ...body.policy } : route)),
     );
+  };
+
+  const resetPolicy = async (routeId: string) => {
+    const res = await fetch(`/api/admin/access/routes/${routeId}`, { method: "DELETE" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body?.error || res.statusText);
+    const refreshed = await fetch("/api/admin/access/routes", { cache: "no-store" });
+    const data = await refreshed.json().catch(() => ({}));
+    setRoutes(data.routes ?? []);
+  };
+
+  const createPolicy = async (item: InventoryItem) => {
+    const res = await fetch("/api/admin/access/routes/custom", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        pathPattern: item.path,
+        label: item.path,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body?.error || res.statusText);
+    const refreshed = await fetch("/api/admin/access/routes", { cache: "no-store" });
+    const data = await refreshed.json().catch(() => ({}));
+    setRoutes(data.routes ?? []);
   };
 
   return (
@@ -163,18 +227,19 @@ export default function AccessCenterPage() {
               <th className="px-4 py-3">Gruppen</th>
               <th className="px-4 py-3">Anonym</th>
               <th className="px-4 py-3">Overrides</th>
+              <th className="px-4 py-3 text-right">Aktionen</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   Lädt …
                 </td>
               </tr>
             ) : filteredRoutes.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   Keine Treffer für „{query}“.
                 </td>
               </tr>
@@ -255,12 +320,129 @@ export default function AccessCenterPage() {
                       {route.overrides}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    {!route.locked && (
+                      <button
+                        type="button"
+                        disabled={!route.routeId.startsWith("custom:") && route.overrides === 0}
+                        onClick={async () => {
+                          if (!route.routeId.startsWith("custom:") && route.overrides === 0) return;
+                          const label = route.routeId.startsWith("custom:")
+                            ? "Custom-Policy entfernen?"
+                            : "Overrides zuruecksetzen?";
+                          if (!window.confirm(label)) return;
+                          try {
+                            await resetPolicy(route.routeId);
+                          } catch (err: any) {
+                            setError(err?.message ?? "Aktion fehlgeschlagen");
+                          }
+                        }}
+                        className="text-xs font-semibold text-slate-600 underline-offset-2 hover:underline disabled:opacity-50"
+                      >
+                        {route.routeId.startsWith("custom:") ? "Entfernen" : "Zuruecksetzen"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <section className="rounded-3xl bg-white/90 p-4 shadow ring-1 ring-slate-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Unverwaltete Seiten
+            </p>
+            <h2 className="text-sm font-semibold text-slate-900">Route-Index</h2>
+            <p className="text-xs text-slate-500">
+              Seiten, die noch keine Access-Policy besitzen. Hinzufuegen erzeugt eine Custom-Policy.
+            </p>
+          </div>
+          <span className="text-xs text-slate-500">
+            {inventoryLoading ? "laedt" : `${filteredUnmanaged.length} Eintraege`}
+          </span>
+        </div>
+
+        {inventoryError && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {inventoryError}
+          </div>
+        )}
+
+        <div className="mt-3 space-y-2">
+          {filteredUnmanaged.length === 0 && !inventoryLoading && (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+              Keine weiteren Seiten gefunden.
+            </div>
+          )}
+          {filteredUnmanaged.map((item) => (
+            <div
+              key={item.path}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-100 px-3 py-2 text-sm"
+            >
+              <div>
+                <div className="font-semibold text-slate-900">{item.path}</div>
+                <div className="text-[11px] text-slate-500">{item.file}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={item.path}
+                  className="text-xs font-semibold text-sky-700 underline-offset-2 hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  oeffnen
+                </a>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await createPolicy(item);
+                    } catch (err: any) {
+                      setError(err?.message ?? "Policy konnte nicht angelegt werden");
+                    }
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-sky-200 hover:text-sky-700"
+                >
+                  Hinzufuegen
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
+}
+
+function matchesPolicy(policy: RoutePolicy, pathname: string): boolean {
+  const regex = new RegExp(pathPatternToRegex(policy.pathPattern, policy.matchMode));
+  return regex.test(pathname);
+}
+
+function pathPatternToRegex(pattern: string, mode: RoutePolicy["matchMode"] = "prefix"): string {
+  let safePattern = pattern;
+  if (!safePattern.startsWith("/")) {
+    safePattern = `/${safePattern}`;
+  }
+  const segments = safePattern.split("/").filter((seg, index) => !(index === 0 && seg.length === 0));
+  const regexParts = segments.map((segment) => {
+    if (!segment) return "";
+    if (segment.startsWith(":")) {
+      return "[^/]+";
+    }
+    return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  });
+  const pathBody = regexParts.filter(Boolean).join("/");
+  const base = pathBody.length ? `/${pathBody}` : "/";
+  const suffix =
+    mode === "exact"
+      ? base === "/"
+        ? ""
+        : "/?"
+      : "(?:/.*)?";
+  return `^${base}${suffix}$`;
 }

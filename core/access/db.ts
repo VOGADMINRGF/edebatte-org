@@ -8,6 +8,7 @@ import type {
 import { DEFAULT_ROUTE_POLICIES } from "../../features/access/types";
 
 const POLICIES_COLLECTION = "route_policies";
+const CUSTOM_POLICIES_COLLECTION = "route_custom_policies";
 const OVERRIDES_COLLECTION = "route_overrides";
 
 type RoutePolicyOverrideDoc = {
@@ -17,6 +18,12 @@ type RoutePolicyOverrideDoc = {
   allowAnonymous?: boolean;
   updatedAt: Date;
   createdAt: Date;
+};
+
+type CustomRoutePolicyDoc = RoutePolicy & {
+  _id?: any;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type RouteOverrideDoc = UserRouteOverride & {
@@ -38,6 +45,12 @@ async function overridesCol() {
   return col;
 }
 
+async function customPoliciesCol() {
+  const col = await coreCol<CustomRoutePolicyDoc>(CUSTOM_POLICIES_COLLECTION);
+  await col.createIndex({ routeId: 1 }, { unique: true });
+  return col;
+}
+
 function mergePolicy(route: RoutePolicy, override?: RoutePolicyOverrideDoc | null): RoutePolicy {
   if (!override) return route;
   return {
@@ -52,14 +65,19 @@ export async function getEffectiveRoutePolicies(): Promise<RoutePolicy[]> {
   const map = new Map<RouteId, RoutePolicyOverrideDoc>();
   overrides.forEach((doc) => map.set(doc.routeId, doc));
 
-  return DEFAULT_ROUTE_POLICIES.map((route) => mergePolicy(route, map.get(route.routeId)));
+  const custom = await (await customPoliciesCol()).find({}).toArray();
+  const basePolicies = [...DEFAULT_ROUTE_POLICIES, ...custom];
+
+  return basePolicies.map((route) => mergePolicy(route, map.get(route.routeId)));
 }
 
 export async function getEffectiveRoutePolicy(routeId: RouteId): Promise<RoutePolicy | null> {
   const base = DEFAULT_ROUTE_POLICIES.find((r) => r.routeId === routeId);
-  if (!base) return null;
+  const custom = base ? null : await (await customPoliciesCol()).findOne({ routeId });
+  const policy = base ?? custom;
+  if (!policy) return null;
   const override = await (await policiesCol()).findOne({ routeId });
-  return mergePolicy(base, override ?? undefined);
+  return mergePolicy(policy as RoutePolicy, override ?? undefined);
 }
 
 export async function upsertRoutePolicy(
@@ -81,6 +99,36 @@ export async function upsertRoutePolicy(
     },
     { upsert: true },
   );
+}
+
+export async function deleteRoutePolicyOverride(routeId: RouteId) {
+  await (await policiesCol()).deleteOne({ routeId });
+}
+
+export async function getCustomRoutePolicy(routeId: RouteId): Promise<RoutePolicy | null> {
+  const custom = await (await customPoliciesCol()).findOne({ routeId });
+  return custom ? (custom as RoutePolicy) : null;
+}
+
+export async function upsertCustomRoutePolicy(policy: RoutePolicy) {
+  const col = await customPoliciesCol();
+  await col.updateOne(
+    { routeId: policy.routeId },
+    {
+      $set: {
+        ...policy,
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    },
+    { upsert: true },
+  );
+}
+
+export async function deleteCustomRoutePolicy(routeId: RouteId) {
+  await (await customPoliciesCol()).deleteOne({ routeId });
 }
 
 export async function getUserOverrides(userId: string): Promise<UserRouteOverride[]> {

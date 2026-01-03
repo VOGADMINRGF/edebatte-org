@@ -42,14 +42,14 @@ export default function ContributionsAnalyzeLevel3Page() {
     <main className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50 to-emerald-100">
       <div className="container-vog py-8">
         <header className="mb-6 text-center">
-          <h1 className="vog-head mb-2">Themen-Reports & Wissensstände (E150)</h1>
+          <h1 className="vog-head mb-2">Themen-Reports & Wissensstände</h1>
           <p className="max-w-3xl mx-auto text-sm text-slate-600">
-            Hier bündelt eDebatte alle Statements, Evidenz-Slots und Fragen zu zentralen Knoten
+            Hier bündelt eDebatte Aussagen, Belege und offene Fragen zu zentralen Knoten
             (z.B. Tierschutz ↔ Agrarwirtschaft). Diese Ebene ist für Reports, Politik, Medien und
             Forschung gedacht.
           </p>
           <p className="mt-2 text-[11px] text-slate-400">
-            Die Daten stammen aus Bürger-Beiträgen (Level 1), E150-Analysen (Level 2), Newsfeeds und
+            Die Daten stammen aus Bürger-Beiträgen (Stufe 1), strukturierten Analysen (Stufe 2), Newsfeeds und
             weiteren Quellen.
           </p>
         </header>
@@ -75,13 +75,13 @@ export default function ContributionsAnalyzeLevel3Page() {
               <dl className="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
                 <div className="rounded-2xl bg-sky-50 px-3 py-2">
                   <dt className="text-[10px] uppercase text-sky-700 mb-0.5">
-                    Statements
+                    Aussagen
                   </dt>
                   <dd className="text-base font-semibold">{t.statements}</dd>
                 </div>
                 <div className="rounded-2xl bg-emerald-50 px-3 py-2">
                   <dt className="text-[10px] uppercase text-emerald-700 mb-0.5">
-                    Evidenz-Slots
+                    Belege
                   </dt>
                   <dd className="text-base font-semibold">{t.evidenceSlots}</dd>
                 </div>

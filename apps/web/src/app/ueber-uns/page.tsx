@@ -206,14 +206,15 @@ export default function AboutRickyPage() {
                   Fördermittel?
                 </h3>
                 <p className="mt-1 leading-relaxed">
-  VoiceOpenGov ist eine Initiative im Aufbau; die Gründung einer
-  UG (haftungsbeschränkt) ist in Vorbereitung. Wir finanzieren uns
-  bewusst über viele kleinere Beiträge statt über wenige Großzahler:innen
-  und gehen mit klassischer Dauerförderung sehr vorsichtig um.
-  Um unabhängig von Stadt, Land und EU zu bleiben, verzichten wir
-  derzeit auf öffentliche Förderprogramme – eine Lösung aus der
-  Gesellschaft für die Gesellschaft.
-</p>
+                  VoiceOpenGov ist eine unabhängige Initiative; die Gründung
+                  einer UG (haftungsbeschränkt) ist in Vorbereitung. Wir
+                  finanzieren uns bewusst über viele kleinere Beiträge statt
+                  über wenige Großzahler:innen und gehen mit klassischer
+                  Dauerförderung sehr vorsichtig um. Um unabhängig von Stadt,
+                  Land und EU zu bleiben, verzichten wir derzeit auf öffentliche
+                  Förderprogramme – eine Lösung aus der Gesellschaft für die
+                  Gesellschaft.
+                </p>
               </div>
 
               <div>
@@ -264,8 +265,8 @@ export default function AboutRickyPage() {
                 Rechtlicher Rahmen
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-200">
-                VoiceOpenGov ist eine Initiative im Aufbau mit Sitz in Berlin.
-                Die Gründung einer UG (haftungsbeschränkt) wird vorbereitet, um
+                VoiceOpenGov ist eine Initiative mit Sitz in Berlin. Die
+                Gründung einer UG (haftungsbeschränkt) wird vorbereitet, um
                 Betrieb, Verantwortung und Zusammenarbeit auf eine klare
                 rechtliche Basis zu stellen.
               </p>

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { EDEBATTE_PACKAGES_WITH_NONE, EDEBATTE_PACKAGES } from "@/config/edebatte";
 import type { UserRole } from "@/types/user";
 
-// Konsistente Button-Styles im VOG-Gradient-CI
+// Konsistente Button-Styles im VoiceOpenGov-Gradient-CI
 const primaryButtonClass =
   "inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_rgba(14,116,144,0.35)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -114,6 +114,13 @@ export type AccountOverview = {
   edebatte: EDebattePackageInfo;
   usage: UsageInfo;
   membership: MembershipInfo;
+  membershipSnapshot?: {
+    status?: string | null;
+    paymentReference?: string | null;
+    paymentInfo?: {
+      mandateStatus?: string | null;
+    } | null;
+  } | null;
   roles: RoleInfo[];
   security: SecurityInfo;
   payment: PaymentInfo;
@@ -130,6 +137,9 @@ export type AccountClientProps = {
 
 export function AccountClient({ initialData, membershipNotice }: AccountClientProps) {
   const [data, setData] = useState<NormalizedOverview>(normalizeOverview(initialData));
+  const pendingMicroTransfer =
+    data.membershipSnapshot?.status === "waiting_payment" &&
+    data.membershipSnapshot?.paymentInfo?.mandateStatus === "pending_microtransfer";
 
   async function refreshOverview() {
     try {
@@ -146,6 +156,9 @@ export function AccountClient({ initialData, membershipNotice }: AccountClientPr
   return (
     <div className="flex flex-col gap-10">
       {membershipNotice && <MembershipBanner />}
+      {pendingMicroTransfer && (
+        <MicroTransferBanner paymentReference={data.membershipSnapshot?.paymentReference} />
+      )}
 
       <ProfileAndPackageSection profile={data.profile} edebatte={data.edebatte} usage={data.usage} onRefresh={refreshOverview} />
 
@@ -265,6 +278,7 @@ function normalizeOverview(src: any): AccountOverview {
     edebatte,
     usage,
     membership,
+    membershipSnapshot: src?.membershipSnapshot ?? null,
     roles,
     security,
     payment,
@@ -288,6 +302,31 @@ function MembershipBanner() {
         Dein eDebatte-Paket ist in deinem Konto hinterlegt. Sobald die App startet, erhältst du eine separate Bestätigung mit allen Details per
         E-Mail.
       </p>
+    </section>
+  );
+}
+
+function MicroTransferBanner({ paymentReference }: { paymentReference?: string | null }) {
+  return (
+    <section className="rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900 shadow-[0_16px_50px_rgba(14,116,144,0.12)]">
+      <p className="font-semibold">Deine Mitgliedschaft wartet auf die 0,01 €-Verifikation.</p>
+      <p className="mt-1 text-xs text-sky-800">
+        Sobald der TAN-Code aus der 0,01 €-Überweisung vorliegt, kannst du ihn im Zahlungsprofil
+        eingeben.
+      </p>
+      {paymentReference && (
+        <p className="mt-2 text-[11px] text-sky-700">
+          Beitrags-Verwendungszweck: <span className="font-semibold">{paymentReference}</span>
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href="/account/payment" className={primaryButtonSmallClass}>
+          TAN-Code eingeben
+        </Link>
+        <Link href="/account/payment" className={secondaryLightButtonClass}>
+          Zahlungsprofil öffnen
+        </Link>
+      </div>
     </section>
   );
 }
@@ -398,7 +437,7 @@ function ProfileCard({ profile, onRefresh }: ProfileCardProps) {
       .filter(Boolean)
       .map((part) => part[0]?.toUpperCase())
       .slice(0, 2)
-      .join("") || "VOG";
+      .join("") || "VO";
 
   return (
     <form onSubmit={handleSubmit} className="overflow-hidden rounded-3xl bg-white/95 shadow-[0_22px_65px_rgba(15,23,42,0.10)] ring-1 ring-slate-100">

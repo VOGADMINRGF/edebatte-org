@@ -104,7 +104,7 @@ export default function AiTelemetryDashboard() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Admin · Telemetry · AI
         </p>
-        <h1 className="text-3xl font-bold text-slate-900">E150 Orchestrator Telemetrie</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Orchestrator-Telemetrie</h1>
         <p className="text-sm text-slate-600">
           Live-Sicht auf die letzten Provider-Aufrufe. Enthält nur technische Metriken –
           keine Rohtexte oder PII.

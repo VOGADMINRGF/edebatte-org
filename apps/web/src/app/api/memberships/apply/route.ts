@@ -4,7 +4,10 @@ import { ObjectId, coreCol, piiCol } from "@core/db/triMongo";
 import { z } from "zod";
 import { upsertMembershipPaymentProfile } from "@core/db/pii/userPaymentProfiles";
 import { safeRandomId } from "@core/utils/random";
+import crypto from "node:crypto";
 import { sendMail } from "@/utils/mailer";
+import { incrementRateLimit } from "@/lib/security/rate-limit";
+import { verifyHumanToken } from "@/lib/security/human-token";
 import {
   buildHouseholdInviteMail,
   buildMembershipApplyAdminMail,
@@ -23,6 +26,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_COUNTRY = (process.env.GEO_DEFAULT_COUNTRY ?? "de").toLowerCase();
+const MICRO_TRANSFER_EXPIRES_DAYS = 14;
+const RATE_LIMIT_MAX = 6;
+const RATE_LIMIT_WINDOW = 15 * 60; // 15 Minuten
+const MIN_FORM_MS = 3000;
+const MAX_FORM_MS = 2 * 60 * 60 * 1000;
+
+function hashedClientKey(req: NextRequest) {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "0.0.0.0";
+  const ua = req.headers.get("user-agent") || "unknown";
+  return crypto.createHash("sha256").update(`${ip}|${ua}`).digest("hex").slice(0, 32);
+}
 
 const memberSchema = z.object({
   givenName: z.string().min(1).max(120).optional(),
@@ -39,7 +56,7 @@ const paymentSchema = z.object({
   postalCode: z.string().min(2).max(20).optional(),
   city: z.string().min(2).max(100).optional(),
   country: z.string().min(2).max(100).optional(),
-  iban: z.string().min(10).max(40).optional(),
+  iban: z.string().min(15).max(34),
   mandateReference: z.string().max(140).optional(),
   geo: z
     .object({
@@ -72,6 +89,9 @@ const bodySchema = z.object({
       billingMode: z.enum(["monthly", "yearly"]).optional(),
     })
     .optional(),
+  humanToken: z.string().min(10).max(1024),
+  formStartedAt: z.coerce.number().optional(),
+  hp_membership: z.string().optional(),
 });
 
 function normalizeIban(raw?: string) {
@@ -84,6 +104,30 @@ function maskIban(raw?: string) {
   if (cleaned.length <= 8) return cleaned;
   const last4 = cleaned.slice(-4);
   return `${cleaned.slice(0, 2)}** **** **** ${last4}`;
+}
+
+function isValidIban(iban: string) {
+  const cleaned = normalizeIban(iban);
+  if (!cleaned || cleaned.length < 15 || cleaned.length > 34) return false;
+  if (!/^[A-Z]{2}[0-9A-Z]+$/.test(cleaned)) return false;
+  const rearranged = cleaned.slice(4) + cleaned.slice(0, 4);
+  let remainder = 0;
+  for (const ch of rearranged) {
+    const code = ch.charCodeAt(0);
+    const value = code >= 65 && code <= 90 ? String(code - 55) : ch;
+    for (const digit of value) {
+      remainder = (remainder * 10 + Number(digit)) % 97;
+    }
+  }
+  return remainder === 1;
+}
+
+function createMicroTransferCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashMicroTransferCode(code: string) {
+  return crypto.createHash("sha256").update(code).digest("hex");
 }
 
 export async function POST(req: NextRequest) {
@@ -103,6 +147,45 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = parsedBody.data;
+  if (body.hp_membership && body.hp_membership.trim().length > 0) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_input", message: "Ungültige Eingabedaten." },
+      { status: 400 },
+    );
+  }
+
+  const rateKey = hashedClientKey(req);
+  const attempts = await incrementRateLimit(`membership:apply:${rateKey}`, RATE_LIMIT_WINDOW);
+  if (attempts > RATE_LIMIT_MAX) {
+    return NextResponse.json(
+      { ok: false, error: "rate_limited", message: "Zu viele Versuche. Bitte später erneut versuchen." },
+      { status: 429 },
+    );
+  }
+
+  if (typeof body.formStartedAt === "number") {
+    const durationMs = Date.now() - body.formStartedAt;
+    if (durationMs < MIN_FORM_MS || durationMs > MAX_FORM_MS) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_input", message: "Ungültige Eingabedaten." },
+        { status: 400 },
+      );
+    }
+  }
+
+  const humanPayload = await verifyHumanToken(body.humanToken);
+  if (!humanPayload || humanPayload.formId !== "membership-apply") {
+    return NextResponse.json(
+      { ok: false, error: "invalid_input", message: "Ungültige Eingabedaten." },
+      { status: 400 },
+    );
+  }
+  if (!isValidIban(body.payment.iban)) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_iban", message: "Ungültige IBAN." },
+      { status: 400 },
+    );
+  }
 
   const paymentEnv = {
     accountMode: (process.env.VOG_ACCOUNT_MODE as any) || "private_preUG",
@@ -160,6 +243,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "email_not_verified" }, { status: 403 });
   }
 
+  const microTransferCode = createMicroTransferCode();
+  const microTransferHash = hashMicroTransferCode(microTransferCode);
+  const payerIban = normalizeIban(body.payment.iban);
+  const microTransferExpiresAt = new Date(
+    Date.now() + MICRO_TRANSFER_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
+  );
+
   // Zahlungsprofil anlegen/updaten
   const paymentProfileId = await upsertMembershipPaymentProfile(new ObjectId(userId), {
     type: body.payment.type,
@@ -170,8 +260,12 @@ export async function POST(req: NextRequest) {
       city: body.payment.city,
       country: body.payment.country,
     },
-    iban: normalizeIban(body.payment.iban),
+    iban: payerIban,
     mandateReference: body.payment.mandateReference,
+    microTransferHash,
+    microTransferExpiresAt,
+    microTransferAttempts: 0,
+    microTransferVerifiedAt: null,
   });
 
   const now = new Date();
@@ -211,7 +305,7 @@ export async function POST(req: NextRequest) {
       bankBic: paymentEnv.bic || null,
       bankName: paymentEnv.bankName || null,
       accountMode: paymentEnv.accountMode as any,
-      mandateStatus: "planned",
+      mandateStatus: "pending_microtransfer",
     },
     legalAcceptedAt: now,
     transparencyVersion: "2025-12-01",
@@ -300,6 +394,10 @@ export async function POST(req: NextRequest) {
   // Mails
   const payerMail = user.email;
   const payerName = user.name || memberRefs.find((m) => m.role === "primary")?.givenName || "Mitglied";
+  const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const base = origin.replace(/\/$/, "");
+  const accountUrl = `${base}/account/payment`;
+
   if (payerMail) {
     const mail = buildMembershipApplyUserMail({
       displayName: payerName,
@@ -307,6 +405,7 @@ export async function POST(req: NextRequest) {
       rhythm: body.rhythm,
       householdSize: body.householdSize,
       membershipId: String(application._id),
+      accountUrl,
       edebatte: body.edebatte,
       paymentMethod: application.paymentMethod,
       paymentReference,
@@ -330,6 +429,9 @@ export async function POST(req: NextRequest) {
     householdSize: body.householdSize,
     paymentMethod: application.paymentMethod,
     paymentReference,
+    payerName: body.payment.billingName,
+    payerIban: payerIban ?? undefined,
+    microTransferCode,
   });
   await sendMail({
     to: adminTo,
@@ -351,8 +453,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (invitesCreated > 0) {
-    const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
-    const base = origin.replace(/\/$/, "");
     for (const inv of inviteTokens) {
       const inviteUrl = `${base}/register?invite=${encodeURIComponent(inv.token)}`;
       const inviteMail = buildHouseholdInviteMail({

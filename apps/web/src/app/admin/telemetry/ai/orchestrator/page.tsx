@@ -46,7 +46,7 @@ export default function OrchestratorTelemetryPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Admin · Telemetry · AI
         </p>
-        <h1 className="text-2xl font-bold text-slate-900">E150 Orchestrator Health</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Orchestrator-Status</h1>
         <p className="text-sm text-slate-600">
           Teste, welche Provider aktuell erreichbar sind und wie lange sie brauchen.
           Ergebnisse werden nicht gespeichert – für langfristige Zahlen siehe{" "}
@@ -70,7 +70,7 @@ export default function OrchestratorTelemetryPage() {
           onClick={() => runSmoke("full")}
           disabled={loading}
         >
-          {loading ? "…" : "E150 Full-Smoke"}
+          {loading ? "…" : "Volltest"}
         </button>
         {error && <span className="text-sm text-rose-600">{error}</span>}
       </div>

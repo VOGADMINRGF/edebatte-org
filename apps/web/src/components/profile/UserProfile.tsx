@@ -115,7 +115,7 @@ export default function UserProfile() {
 
         <div className="mt-6 flex flex-col gap-3 md:flex-row">
           <a
-            href="/swipe"
+            href="/swipes"
             className="flex-1 rounded-full bg-brand-grad px-6 py-3 text-center text-white font-semibold shadow-lg"
           >
             Weiter swipen

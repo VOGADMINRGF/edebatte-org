@@ -93,7 +93,7 @@ export default async function EvidenceRegionPage({
         </p>
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600">
           Evidence-Claims entstehen aus automatisierter Analyse (Block B) und werden redaktionell geprüft. Jede
-          Aussage kann Evidence-Items (z. B. News-Artikel) und Decisions (Votes) verknüpft haben – zusammen ergibt sich der
+          Aussage kann Evidence-Items (z. B. News-Artikel) und Entscheidungen (Abstimmungen) verknüpft haben – zusammen ergibt sich der
           Evidence-Graph.
         </div>
       </header>

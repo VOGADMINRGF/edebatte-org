@@ -1,10 +1,5 @@
 // apps/web/src/middleware.ts
 import { NextRequest, NextResponse } from "next/server";
-import { canViewRouteEdge } from "@features/access/checkRouteAccessEdge";
-import { matchRoute } from "@features/access/routeMatchers";
-import type { AccessUser } from "@features/access/types";
-import type { AccessTier } from "@features/pricing/types";
-
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
@@ -23,44 +18,39 @@ export async function middleware(req: NextRequest) {
     return allowNext();
   }
 
-  const routeId = matchRoute(pathname);
-  if (!routeId) {
+  if (pathname === "/api/access/check") {
     return allowNext();
   }
 
-  const user = extractUser(req);
-  const decision = canViewRouteEdge(routeId, user);
-
-  if (decision.allowed) {
+  try {
+    const checkUrl = new URL("/api/access/check", req.url);
+    checkUrl.searchParams.set("path", pathname);
+    const checkRes = await fetch(checkUrl, {
+      headers: {
+        cookie: req.headers.get("cookie") ?? "",
+      },
+    });
+    const body = (await checkRes.json().catch(() => null)) as {
+      decision?: "allowed" | "login_required" | "forbidden";
+    } | null;
+    if (body?.decision === "allowed") {
+      return allowNext();
+    }
+    if (body?.decision === "login_required") {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    if (body?.decision === "forbidden") {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+  } catch {
     return allowNext();
   }
 
-  if (decision.requireLogin) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  return allowNext();
 }
 
 function allowNext() {
   return (NextResponse as any).next();
-}
-
-function extractUser(req: NextRequest): AccessUser | null {
-  const userId = req.cookies.get("u_id")?.value;
-  if (!userId) return null;
-  const tier = req.cookies.get("u_tier")?.value as AccessTier | undefined;
-  const primaryRole = req.cookies.get("u_role")?.value;
-  const groupsCookie = req.cookies.get("u_groups")?.value;
-  const groups = groupsCookie ? (groupsCookie.split(",").map((s) => s.trim()).filter(Boolean) as AccessUser["groups"]) : [];
-  const roles = primaryRole ? [primaryRole] : undefined;
-
-  return {
-    id: userId,
-    accessTier: tier ?? null,
-    roles,
-    groups: groups ?? [],
-  };
 }
 
 // Nur echte Seiten, keine statics

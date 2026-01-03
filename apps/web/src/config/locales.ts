@@ -29,6 +29,7 @@ export const LOCALE_CONFIG: LocaleConfig[] = [
   { code: "fr", label: "Français", flagEmoji: "🇫🇷", defaultRegion: "FR" },
   { code: "pl", label: "Polski", flagEmoji: "🇵🇱", defaultRegion: "PL" },
   { code: "es", label: "Español", flagEmoji: "🇪🇸", defaultRegion: "ES" },
+  { code: "it", label: "Italiano", flagEmoji: "🇮🇹", defaultRegion: "IT" },
   { code: "tr", label: "Türkçe", flagEmoji: "🇹🇷", defaultRegion: "TR" },
   { code: "ar", label: "العربية", flagEmoji: "🇦🇪", defaultRegion: "MENA" },
   { code: "ru", label: "Русский", flagEmoji: "🇷🇺", defaultRegion: "RU" },

@@ -1,9 +1,13 @@
 // apps/web/src/app/api/_diag/gpt/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { callOpenAI } from "@features/ai/providers/openai";
+import { requireAdminOrEditor } from "../../feeds/_auth";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const gate = await requireAdminOrEditor(req);
+  if (gate) return gate;
+
   const t0 = Date.now();
   try {
     const prompt = 'Gib NUR JSON: {"ok":true,"echo":"hi"}';

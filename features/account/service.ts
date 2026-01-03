@@ -6,6 +6,7 @@ import { getUserSignature } from "@core/db/pii/userSignatures";
 import type { AccessTier } from "@features/pricing/types";
 import type {
   AccountOverview,
+  AccountEdebateInfo,
   AccountProfile,
   AccountProfileUpdate,
   AccountSettingsUpdate,
@@ -97,6 +98,14 @@ type UserDoc = {
     lastVerifiedAt?: Date | null;
     preferredRegionCode?: string | null;
   };
+  edebatte?: {
+    package?: string | null;
+    status?: string | null;
+    billingInterval?: "monthly" | "yearly" | null;
+    nextBillingDate?: Date | string | null;
+    validFrom?: Date | string | null;
+    validTo?: Date | string | null;
+  };
 };
 
 export async function getAccountOverview(userId: string): Promise<AccountOverview | null> {
@@ -130,6 +139,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
         verifiedEmail: 1,
         emailVerified: 1,
         verification: 1,
+        edebatte: 1,
       },
     },
   );
@@ -189,6 +199,18 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
       }
     : null;
 
+  const edebatte: AccountEdebateInfo =
+    doc.edebatte || membershipSnapshot?.edebatte?.enabled
+      ? {
+          package: normalizeEdebatePackage(doc.edebatte?.package ?? membershipSnapshot?.edebatte?.planKey),
+          status: normalizeEdebateStatus(doc.edebatte?.status ?? (membershipSnapshot?.edebatte?.enabled ? "preorder" : "none")),
+          billingInterval: doc.edebatte?.billingInterval ?? membershipSnapshot?.edebatte?.billingMode ?? undefined,
+          nextBillingDate: toIsoDate(doc.edebatte?.nextBillingDate),
+          validFrom: toIsoDate(doc.edebatte?.validFrom),
+          validTo: toIsoDate(doc.edebatte?.validTo),
+        }
+      : { package: "none", status: "none" };
+
   return {
     userId: String(doc._id),
     email: doc.email ?? "",
@@ -204,6 +226,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
     vogMembershipStatus: doc.membership?.status ?? "none",
     hasVogMembership,
     membershipSnapshot,
+    edebatte,
     verification,
     pricingTier: derivePricingTier(doc, accessTier),
     stats,
@@ -332,6 +355,23 @@ function normalizePublicFlags(flags?: ProfilePublicFlags | null): ProfilePublicF
     }
   });
   return result;
+}
+
+function normalizeEdebatePackage(value?: string | null): "basis" | "start" | "pro" | "none" {
+  const cleaned = (value ?? "").replace(/^edb-/, "").toLowerCase();
+  if (cleaned === "basis" || cleaned === "start" || cleaned === "pro") return cleaned;
+  return "none";
+}
+
+function normalizeEdebateStatus(value?: string | null): "none" | "preorder" | "active" | "canceled" {
+  if (value === "preorder" || value === "active" || value === "canceled") return value;
+  return "none";
+}
+
+function toIsoDate(value?: Date | string | null): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function deriveDisplayName(doc: UserDoc): string | null {

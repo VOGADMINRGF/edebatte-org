@@ -127,10 +127,24 @@ export default function AdminDashboardPage() {
         )}
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <LinkCard title="Graph & Evidence" href="/admin/graph/impact" description="Impact-Summary, Graph-Knoten & Verantwortlichkeiten" />
-        <LinkCard title="AI Telemetry" href="/admin/telemetry/ai" description="Usage, Live-Events und Smoke-Tests an einem Ort" />
-        <LinkCard title="Analytics" href="/admin/analytics" description="Nutzungs- und Beteiligungsstatistiken" />
+      <section className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Admin Hubs</p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <LinkCard title="People Hub" href="/admin/people" description="User, Rollen, Newsletter & Regeln" />
+          <LinkCard title="Content Hub" href="/admin/content" description="Evidence, Graph, Feeds & Reports" />
+          <LinkCard title="Telemetry Hub" href="/admin/telemetry" description="AI Usage, Health & Logs" />
+          <LinkCard title="System Hub" href="/admin/system" description="Settings & Analytics" />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Direktzugriff</p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <LinkCard title="Access Center" href="/admin/access" description="Seitenzugriffe verwalten" />
+          <LinkCard title="Graph Impact" href="/admin/graph/impact" description="Impact-Summary & Knoten" />
+          <LinkCard title="Reports" href="/admin/reports" description="Topic- und Region-Reports" />
+          <LinkCard title="AI Telemetry" href="/admin/telemetry/ai" description="Usage, Live-Events & Smoke-Tests" />
+        </div>
       </section>
     </div>
   );

@@ -22,6 +22,7 @@ export default function StreamsDashboardPage() {
   const [playerUrl, setPlayerUrl] = useState("");
   const [visibility, setVisibility] = useState<"public" | "unlisted">("unlisted");
   const [autofillAgenda, setAutofillAgenda] = useState(false);
+  const [topicOptions, setTopicOptions] = useState<Array<{ key: string; label: string; source: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +42,23 @@ export default function StreamsDashboardPage() {
       }
     }
     load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    async function loadTopics() {
+      try {
+        const res = await fetch("/api/streams/topics", { cache: "no-store" });
+        const body = await res.json().catch(() => ({}));
+        if (!ignore && res.ok) setTopicOptions(body.topics ?? []);
+      } catch {
+        if (!ignore) setTopicOptions([]);
+      }
+    }
+    loadTopics();
     return () => {
       ignore = true;
     };
@@ -69,7 +87,13 @@ export default function StreamsDashboardPage() {
         body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error || res.statusText);
+      if (!res.ok) {
+        const msg = body?.error || res.statusText;
+        if (msg === "topic_not_registered") {
+          throw new Error("Thema nicht im System. Bitte erst einmal den Workflow durchlaufen.");
+        }
+        throw new Error(msg);
+      }
       setTitle("");
       setTopicKey("");
       setRegionCode("");
@@ -87,6 +111,11 @@ export default function StreamsDashboardPage() {
         },
         ...prev,
       ]);
+      if (body?.autofillError === "topic_required") {
+        setError("Agenda konnte nicht automatisch gefüllt werden: Bitte Thema setzen.");
+      } else if (body?.autofillError === "topic_not_ready") {
+        setError("Agenda konnte nicht automatisch gefüllt werden: Thema noch nicht im Workflow.");
+      }
     } catch (err: any) {
       setError(err?.message ?? "Session konnte nicht erstellt werden");
     } finally {
@@ -118,7 +147,15 @@ export default function StreamsDashboardPage() {
             placeholder="Thema (topicKey)"
             value={topicKey}
             onChange={(e) => setTopicKey(e.target.value)}
+            list="stream-topic-options"
           />
+          <datalist id="stream-topic-options">
+            {topicOptions.map((topic) => (
+              <option key={topic.key} value={topic.key}>
+                {topic.label}
+              </option>
+            ))}
+          </datalist>
           <input
             className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
             placeholder="Region (z. B. DE-BE oder PLZ)"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Summary = {
   packages: { code: string; count: number }[];
@@ -11,6 +12,7 @@ type Summary = {
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     let active = true;
@@ -18,7 +20,7 @@ export default function AdminAnalyticsPage() {
       setLoading(true);
       const res = await fetch("/api/admin/dashboard/summary", { cache: "no-store" });
       if (res.status === 401 || res.status === 403) {
-        window.location.href = "/login?next=/admin/analytics";
+        router.replace("/login?next=/admin/analytics");
         return;
       }
       const body = (await res.json()) as { data: Summary };
@@ -31,7 +33,7 @@ export default function AdminAnalyticsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   return (
     <div className="space-y-6">

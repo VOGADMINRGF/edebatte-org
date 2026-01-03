@@ -20,6 +20,10 @@ export type UserPaymentProfileDoc = {
   encryptedIban?: string | null;
   bic?: string | null;
   mandateReference?: string | null;
+  microTransferHash?: string | null;
+  microTransferExpiresAt?: Date | null;
+  microTransferAttempts?: number | null;
+  microTransferVerifiedAt?: Date | null;
 
   createdAt: Date;
   updatedAt: Date;

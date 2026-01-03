@@ -22,6 +22,18 @@ export type PricingTier =
   | "staff"
   | "custom";
 
+export type EDebattePackage = "basis" | "start" | "pro" | "none";
+export type EDebatteStatus = "none" | "preorder" | "active" | "canceled";
+
+export type AccountEdebateInfo = {
+  package: EDebattePackage;
+  status: EDebatteStatus;
+  billingInterval?: "monthly" | "yearly";
+  nextBillingDate?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+};
+
 export type AccountStats = {
   swipesThisMonth: number;
   remainingPostsLevel1: number;
@@ -112,6 +124,7 @@ export type AccountOverview = {
       discountPercent?: number | null;
     } | null;
   } | null;
+  edebatte?: AccountEdebateInfo;
   pricingTier: PricingTier;
   stats: AccountStats;
   preferredLocale: SupportedLocale;

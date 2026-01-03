@@ -3,7 +3,7 @@ const steps = [
   "Berechtigung prüfen: eine Person = eine Stimme; Region-Nachweis nur bei Bedarf.",
   "Stimme abgeben: geheim – Identität getrennt von Stimme.",
   "Zählen & prüfen: Quorum, definierte Mehrheiten (z. B. 2/3 bei Grundsatzfragen).",
-  "Veröffentlichen: Ergebnis, Beteiligung, Minderheitenbericht, Audit-Trail.",
+  "Veröffentlichen: Ergebnis, Beteiligung, Minderheitenbericht, Prüfprotokoll.",
 ];
 
 const graphLegend = [
@@ -90,7 +90,7 @@ export default function VotePage() {
                 <div className="rounded-full bg-emerald-100 px-3 py-2 font-semibold text-emerald-700">
                   Belege sammeln
                 </div>
-                <p>Studien, Daten, Erfahrungsberichte – alles mit Provenance (wer? wann? Kontext?).</p>
+                <p>Studien, Daten, Erfahrungsberichte – alles mit Herkunft (wer? wann? Kontext?).</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
                 <div className="rounded-full bg-rose-100 px-3 py-2 font-semibold text-rose-700">
@@ -103,7 +103,7 @@ export default function VotePage() {
                   Entscheidung
                 </div>
                 <p>
-                  Auf Basis der Quellen entscheidet die Community; Audit-Trail zeigt, warum und mit welchem Vertrauen.
+                  Auf Basis der Quellen entscheidet die Community; das Prüfprotokoll zeigt, warum und mit welchem Vertrauen.
                 </p>
               </div>
             </div>
@@ -115,7 +115,7 @@ export default function VotePage() {
           <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
             <li>Quorum 10 % (Standard). Grundsatzthemen erfordern 2/3 Mehrheit.</li>
             <li>Minderheitenbericht wird automatisch erstellt.</li>
-            <li>Audit-Trail hält Ergebnis, Beteiligung, Quorum, Vertrauen fest.</li>
+            <li>Prüfprotokoll hält Ergebnis, Beteiligung, Quorum, Vertrauen fest.</li>
           </ul>
         </section>
 

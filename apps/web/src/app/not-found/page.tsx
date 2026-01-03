@@ -5,8 +5,12 @@ export default function NotfoundPage() {
         404 - Seite nicht gefunden
       </h1>
       <p className="text-gray-700 text-lg text-center">
-        Diese Seite ist aktuell im Aufbau und wird bald mit relevanten Inhalten
-        rund um VoiceOpenGov ergänzt.
+        Die Seite, die du gesucht hast, gibt es nicht oder sie wurde verschoben.
+      </p>
+      <p className="text-center">
+        <a className="text-coral underline" href="/">
+          Zur Startseite
+        </a>
       </p>
     </main>
   );

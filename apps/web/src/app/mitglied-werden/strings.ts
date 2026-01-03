@@ -6,21 +6,21 @@ type LocaleString = Record<"de", string> & Partial<Record<SupportedLocale, strin
 type LocaleStringArray = Record<"de", string[]> & Partial<Record<SupportedLocale, string[]>>;
 
 const STRINGS = {
-  heroTitle: { de: "VoiceOpenGov & eDebatte beauftragen" } as LocaleString,
+  heroTitle: { de: "VoiceOpenGov beitreten & eDebatte nutzen" } as LocaleString,
   heroIntro: {
-    de: "VoiceOpenGov ist die Bewegung hinter eDebatte – eine unabhängige, über Grenzen hinaus wachsende Initiative für digitale, direktdemokratische Beteiligung. Deine Mitgliedschaft trägt die gemeinsame Vision und finanziert die dafür nötige Infrastruktur. Wir handeln bewusst unabhängig; wie wir das absichern, erfährst du in unserem Transparenzbericht. eDebatte ist das Werkzeug, in dem diese Beteiligung stattfindet. Es steht allen offen – unabhängig von Herkunft, Religion oder politischer Überzeugung. Ziel ist es, mehrheitsfähige Entscheidungen vorzubereiten und zugleich Kompromisse, Minderheitenpositionen und mögliche Folgen sichtbar zu machen. VoiceOpenGov ist das Dach darüber: die Gemeinschaft, die Regeln, Qualität und Weiterentwicklung trägt. Mit deiner Mitgliedschaft hilfst du, dieses Werkzeug dauerhaft unabhängig und gemeinwohlorientiert zu halten.",
+    de: "VoiceOpenGov ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Mit eDebatte, unserem eigens entwickelten Werkzeug, unterstützen wir die Digitalisierung von Beteiligung und bauen eine neue Infrastruktur für nachvollziehbare Entscheidungen. Deine Mitgliedschaft trägt diese Bewegung und hält eDebatte unabhängig. Wie wir das absichern, zeigen wir im Transparenzbericht.",
   } as LocaleString,
 
   transparencyTitle: { de: "Wichtiger Hinweis zur Transparenz" } as LocaleString,
   transparencyBody: {
-    de: "VoiceOpenGov befindet sich in der Gründungsphase – umso wichtiger ist deine Unterstützung, ob monatlich, einmalig oder als Vorbestellung der eDebatte. Bis zur Eintragung gehen Beiträge über PayPal oder – bevorzugt – per Überweisung an das Konto des Initiators und werden strikt projektbezogen verbucht; wir stellen derzeit keine Spendenquittungen aus, Beiträge sind in der Regel nicht steuerlich absetzbar. VoiceOpenGov soll dauerhaft von vielen Privatpersonen getragen werden – nach dem Prinzip „eine Person, eine Stimme“; die eDebatte-Pakete, inklusive eDebatte Basis (kostenfrei), sind unten beschrieben und frei wählbar und zubuchbar.",
+    de: "VoiceOpenGov befindet sich in der Gründungsphase – umso wichtiger ist deine Unterstützung, ob monatlich, einmalig oder als Vorbestellung der eDebatte. Bis zur Eintragung gehen Beiträge über PayPal oder – bevorzugt – per Überweisung an das Konto des Initiators und werden strikt projektbezogen verbucht; wir stellen derzeit keine Spendenquittungen aus, Beiträge sind in der Regel nicht steuerlich absetzbar. Die Bewegung soll dauerhaft von vielen Menschen getragen werden – nach dem Prinzip „eine Person, eine Stimme“. Die eDebatte-Pakete, inklusive eDebatte Basis (kostenfrei), sind unten beschrieben und frei wählbar und zubuchbar.",
   } as LocaleString,
 
   enableTitle: { de: "Was du mit deiner Mitgliedschaft ermöglichst" } as LocaleString,
   enableList: {
     de: [
-      "Du wirst Mitglied bei VoiceOpenGov, weil du möchtest, dass eDebatte überall auf der Welt eingesetzt werden kann – überall dort, wo Menschen gemeinsam Entscheidungen treffen müssen. Uns interessieren keine territorialen Ansprüche, sondern das Hier und Jetzt: Menschen, die ihre Lebensrealität einbringen und auf Augenhöhe verhandeln.",
-      "Deine Mitgliedschaft finanziert den weiteren Ausbau von eDebatte, sichert faire Gehälter und Lebensunterhalt für das Team und ermöglicht eine stabile, unabhängige Infrastruktur. So bleibt eDebatte weltweit als Werkzeug für alle offen – getragen von vielen Bürger:innen statt von einzelnen Großinteressen. Wie wir mit diesen Mitteln umgehen, legen wir im Transparenzbericht offen.",
+      "Du wirst Mitglied bei VoiceOpenGov, weil du die direktdemokratische Bewegung stärken willst. eDebatte ist unser Werkzeug, das überall dort eingesetzt werden kann, wo Menschen gemeinsam Entscheidungen treffen.",
+      "Dein Beitrag ermöglicht Moderation, Weiterentwicklung und Betrieb der Infrastruktur. So kann eDebatte weltweit wachsen – getragen von vielen Menschen statt von einzelnen Großinteressen. Wie wir mit den Mitteln umgehen, zeigen wir im Transparenzbericht.",
     ],
   } as LocaleStringArray,
 
@@ -29,23 +29,23 @@ const STRINGS = {
   } as LocaleString,
   
   tiersIntro: {
-    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Uns ist wichtig, dass du dich damit wohlfühlst. Diese Stufen zeigen dir, was dein Beitrag heute ermöglicht – sie sind Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; der einzige finanzielle Vorteil ist der allgemeine 25 %-Member-Rabatt.",
+    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Uns ist wichtig, dass du dich damit wohlfühlst – jede Mitgliedschaft zählt gleich viel. Diese Stufen zeigen dir nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; der einzige finanzielle Vorteil ist der allgemeine 25 % Mitgliederrabatt.",
   } as LocaleString,
   
   tiersList: {
     de: [
-      "<strong>5,63 €</strong> – Unser Basisbeitrag: Hilft uns, Server, Sicherheit und Grundbetrieb zu sichern.",
-      "<strong>10 €</strong> – Danke für deine Unterstützung: Macht stabile Weiterentwicklung möglich.",
-      "<strong>25 €</strong> – Für alle, die uns stärker tragen möchten: Sichert Planung und Priorisierung.",
+      "<strong>5,63 €</strong> – Unser Basisbeitrag: Hilft, die Bewegung und den Grundbetrieb zu tragen.",
+      "<strong>10 €</strong> – Danke für deine Unterstützung: Macht Weiterentwicklung und Qualitätssicherung möglich.",
+      "<strong>25 €</strong> – Für alle, die uns stärker tragen möchten: Sichert Planung und Stabilität.",
       "<strong>50 €+</strong> – Echte Solidarität: Ermöglicht niedrigere Beiträge für andere und stärkt Team & Infrastruktur.",
-      "Ganz gleich, welchen Betrag du wählst – <strong>wir freuen uns sehr, wenn du Teil von VoiceOpenGov wirst.</strong>",
+      "Ganz gleich, welchen Betrag du wählst – <strong>wir freuen uns sehr, wenn du Teil der Bewegung wirst.</strong>",
     ],
   } as LocaleStringArray,
   
 
   calculatorTitle: { de: "Beitrag berechnen – VoiceOpenGov" } as LocaleString,
   calculatorIntro: {
-    de: "Empfehlung: 1 % vom frei verfügbaren Haushaltsnettoeinkommen (Netto minus Warmmiete), mindestens 5,63 € pro Person ab 16 Jahren. Dieser Betrag entspricht dem sozial verträglichen Minimum, an dem wir uns orientieren.",
+    de: "Empfehlung: 1 % vom frei verfügbaren Haushaltsnettoeinkommen (Netto minus Warmmiete), mindestens 5,63 € pro Person ab 16 Jahren. Dieser Betrag entspricht dem sozial verträglichen Minimum, an dem wir uns orientieren, damit die Bewegung wachsen kann.",
   } as LocaleString,
 
   householdNetLabel: { de: "Haushaltsnetto (€/Monat)" } as LocaleString,
@@ -82,39 +82,39 @@ const STRINGS = {
     de: "Du hast einen monatlichen Betrag eingetragen, aber die Mitgliedschaft ist deaktiviert. Aktuell würdest du nur ein eDebatte-Paket buchen. Wenn du die Bewegung mit einem Mitgliedsbeitrag unterstützen möchtest, aktiviere bitte oben die Mitgliedschaft.",
   } as LocaleString,
   summaryMembershipHintOnce: {
-    de: "Du hast einen einmaligen Betrag eingetragen, ohne eine laufende Mitgliedschaft zu wählen. Danke für deine Unterstützung – wir würden uns freuen, dich später als Mitglied zu begrüßen.",
+    de: "Du hast einen einmaligen Betrag eingetragen, ohne eine laufende Mitgliedschaft zu wählen. Danke für deine Unterstützung – wir würden uns freuen, dich später als Mitglied der Bewegung zu begrüßen.",
   } as LocaleString,
-  summaryButton: { de: "Weiter zur Beauftragung" } as LocaleString,
+  summaryButton: { de: "Weiter zum Antrag" } as LocaleString,
 
   finalTitle: { de: "Mehr als ein Beitrag – wie du noch mitmachen kannst" } as LocaleString,
   finalIntro: {
-    de: "Ohne Mitglieder, Unterstützer:innen und Partner funktioniert das alles nicht. Wenn dich die Idee überzeugt, kannst du auf unterschiedliche Weise einsteigen – als Bürger:in, als politische Vertretung oder als Redaktion/Creator:",
+    de: "Ohne Mitglieder, Unterstützer:innen und Partner funktioniert das alles nicht. Wenn dich die Idee überzeugt, kannst du auf unterschiedliche Weise einsteigen – als Bürger:in, als Verband/Verein oder als Redaktion/Creator:",
   } as LocaleString,
   finalList: {
     de: [
       {
         label: "Für Bürger:innen:",
-        body: "Mitglied werden, Anliegen einbringen, an Abstimmungen teilnehmen und andere mit ins Boot holen – online wie offline.",
+        body: "Mitglied werden, Anliegen einbringen, an Abstimmungen teilnehmen – und als Creator Themen, Streams oder Regionen begleiten.",
       },
       {
-        label: "Für Politik & Verbände:",
-        body: "Dossiers und Meinungsbilder nutzen, Verfahren gemeinsam testen und auf weitere Regionen übertragen – ohne Regeln oder Ergebnisse kaufen zu können.",
+        label: "Für Politik, Verbände & Vereine:",
+        body: "Aufbereitete Entscheidungsgrundlagen nutzen, Verfahren gemeinsam testen und auf weitere Regionen übertragen – ohne Regeln oder Ergebnisse kaufen zu können.",
       },
       {
         label: "Für Journalist:innen & Presse:",
-        body: "Aktuelle Themen, Fragenschablonen und Daten für Beiträge, Podcasts, Streams oder Social-Media-Formate – mit offener Methodik und klarer Trennung von Faktenlage und Kommentar.",
+        body: "Redaktionell mitgestalten: Faktenchecks, Fragenschablonen und Daten für Beiträge, Podcasts, Streams oder Social-Media-Formate – mit offener Methodik und klarer Trennung von Faktenlage und Kommentar.",
       },
     ],
   } as Record<"de", { label: string; body: string }[]> &
     Partial<Record<SupportedLocale, { label: string; body: string }[]>>,
 
   creatorBox: {
-    de: "Wenn du zusätzlich zu deiner Mitgliedschaft als VOG-Creator bzw. VOG-Repräsentant:in, als Institution oder Redaktion enger zusammenarbeiten möchtest, kannst du dich direkt über unsere Team-Seite melden. Gemeinsam klären wir, welches Setup für dich passt.",
+    de: "Wenn du zusätzlich zu deiner Mitgliedschaft als Creator:in oder Repräsentant:in, als Institution oder Redaktion enger zusammenarbeiten möchtest, kannst du dich direkt über unsere Team-Seite melden. Gemeinsam klären wir, welches Setup für dich passt.",
   } as LocaleString,
   creatorButtons: {
     de: [
       {
-        label: "VOG-Creator / VOG-Repräsentant:in bewerben",
+        label: "Als Creator:in / Repräsentant:in bewerben",
         href: "/team?focus=creator",
         variant: "primary",
       },
@@ -144,7 +144,7 @@ const STRINGS = {
     de: "Mitgliedschaft & eDebatte-App",
   } as LocaleString,
   membershipAppBody: {
-    de: "Die eDebatte-App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu intensiven Pro-Paketen für Redaktionen oder Kommunen. VOG-Mitglieder erhalten einen festen Nachlass auf kostenpflichtige eDebatte-Pakete. Die Mitgliedschaft bleibt dabei ideell – App-Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
+    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu intensiven Pro-Paketen für Redaktionen oder Kommunen. Mitglieder erhalten einen festen Nachlass auf kostenpflichtige eDebatte-Pakete. Die Mitgliedschaft bleibt dabei ideell – App-Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
   } as LocaleString,
   merchNote: {
     de: "Sobald unser Merchandise-Shop startet, gilt derselbe Nachlass automatisch auch dort für Mitglieder.",

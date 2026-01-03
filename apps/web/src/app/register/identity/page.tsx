@@ -163,7 +163,7 @@ export default function IdentityStepPage() {
       <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-700 space-y-3">
         <h3 className="font-semibold text-slate-900">Warum dieser Aufwand?</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Citizen Votes werden international beobachtet – starke Legitimation schützt Ergebnisse vor Manipulation.</li>
+          <li>Bürgerabstimmungen werden international beobachtet – starke Legitimation schützt Ergebnisse vor Manipulation.</li>
           <li>Doppelter Opt-in: Du bestätigst E-Mail und Identität, damit wir keine fremden Accounts freischalten.</li>
           <li>Ab Mitte Januar kannst du Zahlungsanschrift & Bankeinzug komfortabel im Konto hinterlegen – die Legitimation hier sorgt dafür, dass wir diese Daten sicher zuordnen.</li>
           <li>Familien- oder Teamkonten: Du kannst später in deinem Profil zusätzliche Personen einladen oder Gönner-E-Mails hinterlegen.</li>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { I18nStringSchema } from "@features/i18n/i18nText";
 
 /* ---------- Redaktionelle Domains (Zuordnung) ---------- */
 
@@ -56,6 +57,299 @@ export function normalizeDomains(
     null;
   return { domain: domain || null, domains };
 }
+
+/* ---------- Editorial Audit (optional) ---------- */
+
+export const EDITORIAL_SOURCE_CLASSES = [
+  "gov",
+  "military",
+  "party_political",
+  "wire_service",
+  "independent_media",
+  "ngo",
+  "igo_un",
+  "academic",
+  "osint",
+  "affected_witness",
+  "corporate",
+  "unknown",
+] as const;
+
+export type EditorialSourceClass = (typeof EDITORIAL_SOURCE_CLASSES)[number];
+
+export const EditorialSourceClassSchema = z.enum(EDITORIAL_SOURCE_CLASSES);
+
+export const EditorialFlagSeveritySchema = z.enum(["low", "medium", "high"]);
+export type EditorialFlagSeverity = z.infer<typeof EditorialFlagSeveritySchema>;
+
+export const EditorialAgencyFlagSchema = z
+  .object({
+    sentence: z.string(),
+    reason: z.string(),
+    suggestion: z.string().optional(),
+    severity: EditorialFlagSeveritySchema.default("low"),
+  })
+  .strict();
+export type EditorialAgencyFlag = z.infer<typeof EditorialAgencyFlagSchema>;
+
+export const EditorialTermFlagSchema = z
+  .object({
+    term: z.string(),
+    matchedText: z.string().optional(),
+    suggestion: z.string().optional(),
+    rationale: z.string(),
+    severity: EditorialFlagSeveritySchema.default("low"),
+  })
+  .strict();
+export type EditorialTermFlag = z.infer<typeof EditorialTermFlagSchema>;
+
+export const EditorialPowerFlagSchema = z
+  .object({
+    snippet: z.string(),
+    reason: z.string(),
+    suggestion: z.string().optional(),
+    severity: EditorialFlagSeveritySchema.default("medium"),
+  })
+  .strict();
+export type EditorialPowerFlag = z.infer<typeof EditorialPowerFlagSchema>;
+
+export const EditorialSourceBalanceSchema = z
+  .object({
+    countsByClass: z.record(z.string(), z.number().int().nonnegative()),
+    total: z.number().int().nonnegative(),
+    dominantClass: z.string().optional(),
+    balanceScore: z.number().min(0).max(1),
+    missingVoices: z.array(z.string()).default([]),
+  })
+  .strict();
+export type EditorialSourceBalance = z.infer<typeof EditorialSourceBalanceSchema>;
+
+export const EditorialBurdenOfProofSchema = z
+  .object({
+    unmetClaims: z.array(z.string()).default([]),
+    claimEvidence: z
+      .array(
+        z
+          .object({
+            claim: z.string(),
+            evidenceScore: z.number().min(0).max(1).default(0),
+            linkedSources: z
+              .array(
+                z
+                  .object({
+                    url: z.string().optional(),
+                    title: z.string().optional(),
+                    publisher: z.string().optional(),
+                    sourceClass: z.string().optional(),
+                    score: z.number().min(0).max(1),
+                  })
+                  .strict(),
+              )
+              .default([]),
+          })
+          .strict(),
+      )
+      .default([]),
+    notes: z.array(z.string()).default([]),
+  })
+  .strict();
+export type EditorialBurdenOfProof = z.infer<typeof EditorialBurdenOfProofSchema>;
+
+export const EditorialContrastFindingSchema = z
+  .object({
+    outlet: z.string(),
+    url: z.string().optional(),
+    localeHint: z.enum(["de_like", "international_like", "unknown"]).default("unknown"),
+    hasAttribution: z.boolean().default(false),
+    hasEvidenceCaveat: z.boolean().default(false),
+    usesPassiveAgency: z.boolean().default(false),
+    headlineOrTitle: z.string().optional(),
+  })
+  .strict();
+export type EditorialContrastFinding = z.infer<typeof EditorialContrastFindingSchema>;
+
+export const EditorialInternationalContrastSchema = z
+  .object({
+    findings: z.array(EditorialContrastFindingSchema).default([]),
+    differences: z.array(z.string()).default([]),
+    notes: z.array(z.string()).default([]),
+  })
+  .strict();
+export type EditorialInternationalContrast = z.infer<typeof EditorialInternationalContrastSchema>;
+
+export const EuphemismFindingSchema = z
+  .object({
+    kind: z.enum(["lexicon", "pattern"]),
+    key: z.string(),
+    severity: z.enum(["low", "medium", "high"]).default("medium"),
+    matched: z.string(),
+    preferredWording: z.string().optional(),
+    rationale: z.string().optional(),
+    preferredWordingI18n: I18nStringSchema.optional(),
+    rationaleI18n: I18nStringSchema.optional(),
+  })
+  .strict();
+export type EuphemismFinding = z.infer<typeof EuphemismFindingSchema>;
+
+export const VoiceRoleSchema = z.enum([
+  "power_government",
+  "power_military",
+  "affected_local",
+  "medical_on_ground",
+  "human_rights_monitor",
+  "international_law",
+  "independent_academic",
+  "on_the_ground_journalist",
+  "opposition_alt_position",
+  "other",
+]);
+export type VoiceRole = z.infer<typeof VoiceRoleSchema>;
+
+export const VoiceCoverageSchema = z
+  .object({
+    required: z.array(VoiceRoleSchema).default([]),
+    present: z.array(VoiceRoleSchema).default([]),
+    missing: z.array(VoiceRoleSchema).default([]),
+    score: z.number().min(0).max(1).default(0),
+    notes: z.array(z.string()).default([]),
+  })
+  .strict();
+export type VoiceCoverage = z.infer<typeof VoiceCoverageSchema>;
+
+export const ContextGapSchema = z
+  .object({
+    key: z.enum(["timeframe", "location", "actors", "agency", "evidence", "legal_frame", "numbers", "definitions"]),
+    severity: z.enum(["low", "medium", "high"]).default("medium"),
+    rationale: z.string().optional(),
+    rationaleI18n: I18nStringSchema.optional(),
+  })
+  .strict();
+export type ContextGap = z.infer<typeof ContextGapSchema>;
+
+export const ContextPackRefSchema = z
+  .object({
+    id: z.string(),
+    version: z.string(),
+    title: z.string(),
+    scope: z
+      .object({
+        domains: z.array(z.string()).default([]),
+        region: z.string().optional(),
+        topic: z.string().optional(),
+      })
+      .strict(),
+    summary: z.string().optional(),
+    titleI18n: I18nStringSchema.optional(),
+    summaryI18n: I18nStringSchema.optional(),
+  })
+  .strict();
+export type ContextPackRef = z.infer<typeof ContextPackRefSchema>;
+
+export const PolicyPackInfoSchema = z
+  .object({
+    id: z.string(),
+    version: z.string(),
+    updatedAt: z.string().optional(),
+  })
+  .strict();
+export type PolicyPackInfo = z.infer<typeof PolicyPackInfoSchema>;
+
+export const EditorialAuditSchema = z
+  .object({
+    sourceBalance: EditorialSourceBalanceSchema,
+    agencyOpacityFlags: z.array(EditorialAgencyFlagSchema).default([]),
+    euphemismTermFlags: z.array(EditorialTermFlagSchema).default([]),
+    powerStenographyFlags: z.array(EditorialPowerFlagSchema).default([]),
+    burdenOfProof: EditorialBurdenOfProofSchema,
+    internationalContrast: EditorialInternationalContrastSchema.optional(),
+    policyPack: PolicyPackInfoSchema.optional(),
+    euphemismFindings: z.array(EuphemismFindingSchema).default([]),
+    voiceCoverage: VoiceCoverageSchema.optional(),
+    contextGaps: z.array(ContextGapSchema).default([]),
+    attachedContextPacks: z.array(ContextPackRefSchema).default([]),
+    notesForTraining: z.array(z.string()).default([]),
+    confidence: z.number().min(0).max(1).default(0.6),
+  })
+  .strict();
+export type EditorialAudit = z.infer<typeof EditorialAuditSchema>;
+
+export const EvidenceNodeSchema = z
+  .object({
+    id: z.string(),
+    type: z.enum(["claim", "evidence"]),
+    label: z.string(),
+    url: z.string().optional(),
+    publisher: z.string().optional(),
+    sourceClass: z.string().optional(),
+    weight: z.number().min(0).max(1).optional(),
+  })
+  .strict();
+
+export const EvidenceEdgeSchema = z
+  .object({
+    from: z.string(),
+    to: z.string(),
+    kind: z.enum(["supports", "refutes", "mentions"]).default("supports"),
+    weight: z.number().min(0).max(1).default(0.5),
+  })
+  .strict();
+
+export const EvidenceGraphSchema = z
+  .object({
+    nodes: z.array(EvidenceNodeSchema).default([]),
+    edges: z.array(EvidenceEdgeSchema).default([]),
+    summary: z
+      .object({
+        claimCount: z.number().int().nonnegative().default(0),
+        evidenceCount: z.number().int().nonnegative().default(0),
+        linkedClaimCount: z.number().int().nonnegative().default(0),
+        unlinkedClaimCount: z.number().int().nonnegative().default(0),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type EvidenceGraph = z.infer<typeof EvidenceGraphSchema>;
+
+export const RunReceiptSourceSchema = z
+  .object({
+    canonicalUrl: z.string(),
+    host: z.string().optional(),
+    publisher: z.string().optional(),
+    publisherKey: z.string().optional(),
+    sourceClass: z.string().optional(),
+    fetchedAt: z.string().optional(),
+    title: z.string().optional(),
+  })
+  .strict();
+
+export const RunReceiptSchema = z
+  .object({
+    id: z.string(),
+    createdAt: z.string(),
+    pipelineVersion: z.string(),
+    provider: z.string().optional(),
+    model: z.string().optional(),
+    promptVersion: z.string().optional(),
+    language: z.string().optional(),
+    inputHash: z.string(),
+    sourcesHash: z.string(),
+    outputHash: z.string(),
+    receiptHash: z.string(),
+    snapshotId: z.string().optional(),
+    sourceSet: z.array(RunReceiptSourceSchema).default([]),
+    contentPolicy: z
+      .object({
+        maxSnippetChars: z.number().int().positive().default(240),
+        storeFullText: z.boolean().default(false),
+        storeSnippets: z.boolean().default(false),
+        storeTitles: z.boolean().default(true),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type RunReceipt = z.infer<typeof RunReceiptSchema>;
 
 /* ---------- Statements / Claims ---------- */
 
@@ -256,9 +550,41 @@ export const AnalyzeResultSchema = z.object({
   decisionTrees: z.array(DecisionTreeSchema),
   impactAndResponsibility: ImpactAndResponsibilitySchema,
   report: ReportSchema,
+  editorialAudit: EditorialAuditSchema.optional(),
+  evidenceGraph: EvidenceGraphSchema.optional(),
+  runReceipt: RunReceiptSchema.optional(),
 });
 
 export type AnalyzeResult = z.infer<typeof AnalyzeResultSchema>;
+
+export const EDITORIAL_SOURCE_CLASS_LABELS_DE: Record<EditorialSourceClass, string> = {
+  gov: "Regierung/Behoerden",
+  military: "Militaer/Sicherheitsapparat",
+  party_political: "Partei/Politik",
+  wire_service: "Agentur (Wire)",
+  independent_media: "Medien (redaktionell)",
+  ngo: "NGO/Zivilgesellschaft",
+  igo_un: "UN/IGO",
+  academic: "Wissenschaft",
+  osint: "OSINT/Tech",
+  affected_witness: "Betroffene/Zeugen",
+  corporate: "Unternehmen",
+  unknown: "Unklar",
+};
+
+const I18N_STRING_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    de: { type: "string" },
+    en: { type: "string" },
+    es: { type: "string" },
+    it: { type: "string" },
+    pl: { type: "string" },
+    fr: { type: "string" },
+    tr: { type: "string" },
+  },
+} as const;
 
 /* ---------- JSON-Schema (für Responses API) ---------- */
 
@@ -271,35 +597,10 @@ export const ANALYZE_JSON_SCHEMA = {
       mode: { type: "string" },
       sourceText: { type: ["string", "null"] },
       language: { type: "string" },
-
-      claims: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            id: { type: "string" },
-            text: { type: "string" },
-            title: { type: ["string", "null"] },
-            responsibility: { type: ["string", "null"] },
-            importance: { type: ["integer", "null"], minimum: 1, maximum: 5 },
-            topic: { type: ["string", "null"] },
-            domain: { type: ["string", "null"] },
-            domains: {
-              type: ["array", "null"],
-              items: { type: "string" },
-              description:
-                "Weitere redaktionelle Domains (z.B. ['gesellschaft','aussenbeziehungen_nachbarlaender']). Optional.",
-            },
-            stance: { type: ["string", "null"], enum: ["pro", "neutral", "contra", null] },
-          },
-          required: ["id", "text"],
-        },
-      },
+      claims: { type: "array" },
       notes: { type: "array" },
       questions: { type: "array" },
       knots: { type: "array" },
-
       consequences: {
         type: "object",
         additionalProperties: false,
@@ -309,11 +610,9 @@ export const ANALYZE_JSON_SCHEMA = {
         },
         required: ["consequences", "responsibilities"],
       },
-
       responsibilityPaths: { type: "array" },
       eventualities: { type: "array" },
       decisionTrees: { type: "array" },
-
       impactAndResponsibility: {
         type: "object",
         additionalProperties: false,
@@ -323,7 +622,6 @@ export const ANALYZE_JSON_SCHEMA = {
         },
         required: ["impacts", "responsibleActors"],
       },
-
       report: {
         type: "object",
         additionalProperties: false,

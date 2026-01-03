@@ -320,13 +320,13 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
               label="VoiceOpenGov-Beitrag"
               description={
                 <>
-                  Unterstützt den Aufbau und Betrieb der demokratischen
-                  Infrastruktur. Mindestbeitrag{" "}
+                  Unterstützt die direktdemokratische Bewegung und den Aufbau
+                  der digitalen Infrastruktur mit eDebatte. Mindestbeitrag{" "}
                   <strong>
                     {formatEuro(membershipPlan.suggestedPerPersonPerMonth)}
                   </strong>{" "}
                   pro Monat und Person – ab diesem Betrag gilt für alle der
-                  gleiche VOG-Member-Goodie.
+                  gleiche Mitgliedsvorteile.
                 </>
               }
               onClick={() =>
@@ -345,10 +345,10 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
               label="eDebatte-App nutzen"
               description={
                 <>
-                  Zugang zur eDebatte-App mit Swipe-Interface,
-                  Beitragsanalyse und Live-Formaten. Auch ohne Mitgliedschaft
-                  möglich – als VOG-Member mit laufendem Beitrag ab
-                  Basisbetrag erhältst du{" "}
+                  eDebatte ist unser eigens entwickeltes Werkzeug für digitale
+                  Teilhabe. Zugang zur App mit Swipe-Interface, Beitragsanalyse
+                  und Live-Formaten. Auch ohne Mitgliedschaft möglich – als
+                  Mitglied mit laufendem Beitrag ab Basisbetrag erhältst du{" "}
                   <strong>{MEMBER_DISCOUNT.percent}% Rabatt</strong> auf dein
                   eDebatte-Paket.
                   <br />
@@ -442,7 +442,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                             {showMemberLine && (
                               <p className="text-emerald-700">
                                 <span className="font-semibold">
-                                  VOG Member −{memberDiscountPercent}%:{" "}
+                                  Mitgliedsrabatt −{memberDiscountPercent}%:{" "}
                                   {billingInterval === "monthly"
                                     ? `${memberPriceMonthly.toFixed(2)} € / Monat`
                                     : `${memberPriceYearly.toFixed(2)} € / Jahr (~${(memberPriceYearly / 12).toFixed(2)} € / Monat)`}
@@ -739,7 +739,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   <dd className="font-medium">{size}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt>VOG Basisbeitrag (laufend):</dt>
+                  <dt>Mitgliedsbeitrag (laufend):</dt>
                   <dd className="font-medium">
                     {membershipActive
                       ? rhythm === "monthly"
@@ -749,7 +749,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt>VOG Unterstützung (einmalig):</dt>
+                  <dt>Einmalige Unterstützung:</dt>
                   <dd className="font-medium">
                     {oneTimeActive ? "Ja" : "Nicht gewählt"}
                   </dd>
@@ -765,8 +765,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                           ? "Abrechnung monatlich."
                           : "Abrechnung jährlich (inkl. 8 % Skonto auf den App-Preis)."}{" "}
                         {memberDiscountPercent > 0
-                          ? `VOG Member-Rabatt (−${memberDiscountPercent} %) ist im Betrag berücksichtigt.`
-                          : `VOG Member-Rabatt (−${MEMBER_DISCOUNT.percent} % auf den App-Preis) greift, wenn du eine laufende Mitgliedschaft ab Basisbetrag wählst.`}
+                          ? `Mitgliedsrabatt (−${memberDiscountPercent} %) ist im Betrag berücksichtigt.`
+                          : `Mitgliedsrabatt (−${MEMBER_DISCOUNT.percent} % auf den App-Preis) greift, wenn du eine laufende Mitgliedschaft ab Basisbetrag wählst.`}
                       </span>
                     </dd>
                   </div>
@@ -791,10 +791,10 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-semibold">
                         {membershipActive
-                          ? `VOG Basisbeitrag: ${formatEuro(membershipMonthly)} ${
+                          ? `Mitgliedsbeitrag: ${formatEuro(membershipMonthly)} ${
                               rhythm === "yearly" ? "/ Jahr" : "/ Monat"
                             }`
-                          : `VOG Unterstützung (einmalig): ${formatEuro(oneOffMembershipAmount)}`}
+                          : `Einmalige Unterstützung: ${formatEuro(oneOffMembershipAmount)}`}
                         <br />
                         {size} Person(en){" "}
                         {membershipActive
@@ -805,7 +805,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                       </p>
                       <button
                         type="button"
-                        aria-label="VOG-Beitrag entfernen"
+                        aria-label="Beitrag entfernen"
                         onClick={removeMembership}
                         className="rounded-full px-2 text-[11px] font-semibold text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                       >
@@ -819,7 +819,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     )}
                   </div>
                 ) : (
-                  <p className="mt-1">Kein VOG-Beitrag ausgewählt.</p>
+                  <p className="mt-1">Kein Beitrag ausgewählt.</p>
                 )}
 
                 {/* eDebatte */}
@@ -853,7 +853,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     )}
                     {memberDiscountPercent > 0 && selectedPlan.listPrice.amount > 0 && (
                       <p className="text-[11px] text-emerald-700">
-                        VOG Member-Rabatt −{memberDiscountPercent}% auf den App-Preis
+                        Mitgliedsrabatt −{memberDiscountPercent}% auf den App-Preis
                       </p>
                     )}
                     {billingInterval === "yearly" && (

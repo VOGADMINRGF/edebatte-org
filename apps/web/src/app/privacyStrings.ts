@@ -1,4 +1,4 @@
-// E200: Zentrale Texte für VOG-Cookie-/Datenschutzbanner & KI-Hinweis
+// E200: Zentrale Texte für VoiceOpenGov-Cookie-/Datenschutzbanner & KI-Hinweis
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/config/locales";
 
 type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
@@ -24,7 +24,7 @@ const ANALYTICS_TITLE = {
 };
 
 const ANALYTICS_BODY = {
-  de: "Wir möchten verstehen, wie das VOG-System genutzt wird – datensparsam und ohne Werbenetzwerke. Wenn du zustimmst, helfen uns anonyme Nutzungsstatistiken dabei, Inhalte und Abläufe zu verbessern. Du kannst diese Option jederzeit wieder deaktivieren.",
+  de: "Wir möchten verstehen, wie das VoiceOpenGov-System genutzt wird – datensparsam und ohne Werbenetzwerke. Wenn du zustimmst, helfen uns anonyme Nutzungsstatistiken dabei, Inhalte und Abläufe zu verbessern. Du kannst diese Option jederzeit wieder deaktivieren.",
 };
 
 const BUTTON_ACCEPT_ALL = {

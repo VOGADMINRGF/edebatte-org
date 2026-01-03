@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
   const users = await coreCol("users");
-  const user = await users.findOne({ email_lc });
+  const user = await users.findOne({ $or: [{ email: email_lc }, { email_lc }] });
   // immer 200 zurückgeben, um User-Enumeration zu vermeiden
   if (!user) return NextResponse.json({ ok: true });
 

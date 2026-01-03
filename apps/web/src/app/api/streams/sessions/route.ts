@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ObjectId } from "@core/db/triMongo";
+import { ObjectId, coreCol } from "@core/db/triMongo";
 import { rateLimit } from "@/utils/rateLimit";
 import { streamSessionsCol } from "@features/stream/db";
 import type {
@@ -13,6 +13,8 @@ import type {
 } from "@features/stream/types";
 import { resolveSessionStatus } from "@features/stream/types";
 import { enforceStreamHost, requireCreatorContext } from "../utils";
+import { TOPIC_CHOICES } from "@features/interests/topics";
+import { applyAutofilledAgendaToSession } from "@core/streams/agenda";
 
 const CreateSessionBodySchema = z.object({
   title: z.string().min(1),
@@ -22,7 +24,18 @@ const CreateSessionBodySchema = z.object({
   startsAt: z.string().nullable().optional(),
   playerUrl: z.string().nullable().optional(),
   visibility: z.enum(["public", "unlisted"]).optional(),
+  autofillAgenda: z.boolean().optional(),
 });
+
+async function isTopicRegistered(topicKey: string): Promise<boolean> {
+  if (TOPIC_CHOICES.some((t) => t.key === topicKey)) return true;
+  const col = await coreCol("statements");
+  const match = await col.findOne(
+    { $or: [{ category: topicKey }, { topic: topicKey }] },
+    { projection: { _id: 1 } },
+  );
+  return Boolean(match);
+}
 
 export async function GET(req: NextRequest) {
   const ctx = await requireCreatorContext(req);
@@ -89,6 +102,13 @@ export async function POST(req: NextRequest) {
   const status: StreamSessionStatus =
     parsedStartsAt && parsedStartsAt > new Date() ? "scheduled" : "draft";
 
+  if (topicKey && !(await isTopicRegistered(topicKey))) {
+    return NextResponse.json(
+      { ok: false, error: "topic_not_registered" },
+      { status: 400 },
+    );
+  }
+
   const now = new Date();
   const doc: StreamSessionDoc = {
     creatorId: ctx.userId,
@@ -107,9 +127,26 @@ export async function POST(req: NextRequest) {
 
   const col = await streamSessionsCol();
   const result = await col.insertOne(doc);
+  const sessionId = result.insertedId.toHexString();
+
+  let autofillError: string | null = null;
+  if (body.autofillAgenda) {
+    try {
+      await applyAutofilledAgendaToSession(sessionId);
+    } catch (err: any) {
+      const message = typeof err?.message === "string" ? err.message : "autofill_failed";
+      autofillError =
+        message === "TOPIC_REQUIRED"
+          ? "topic_required"
+          : message === "TOPIC_EMPTY"
+            ? "topic_not_ready"
+            : "autofill_failed";
+    }
+  }
 
   return NextResponse.json({
     ok: true,
-    sessionId: result.insertedId.toHexString(),
+    sessionId,
+    autofillError,
   });
 }

@@ -59,7 +59,7 @@ export default function GraphImpactPage() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
       <header className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Admin · Graph Impact</p>
-        <h1 className="text-2xl font-bold text-slate-900">E150 Impact Summary</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Impact-Zusammenfassung</h1>
         <p className="text-sm text-slate-600">
           Aggregierte Kennzahlen direkt aus dem Graph. Dient als früher Indikator, dass Eventualitäten,
           Konsequenzen und Zuständigkeiten korrekt synchronisiert werden.

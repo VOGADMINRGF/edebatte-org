@@ -61,7 +61,7 @@ export type TransparenzSection = {
               bullets: [
                 [
                   "Software-Entwicklung (Backend, Frontend, Datenbank-Design, AI-Orchestrierung)",
-                  "Konzeption und Spezifikation (z. B. E150/E200-Blueprints)",
+                  "Konzeption und Spezifikation (z. B. Analyse- und Qualitäts-Blueprints)",
                   "Erste Infrastrukturkosten (Domains, Hosting, Datenbanken, Tools)",
                   "Vorbereitende Rechts- und Gründungsberatung",
                 ],

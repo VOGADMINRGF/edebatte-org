@@ -20,7 +20,7 @@ export default function SwipeTeaser() {
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
             Schnell reinswipen & Position finden
           </h2>
-          <Link href="/swipe">
+          <Link href="/swipes">
             <Button variant="secondary">Jetzt swipen</Button>
           </Link>
         </div>

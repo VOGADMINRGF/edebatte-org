@@ -9,11 +9,12 @@ import {
   normalizeLocale,
 } from "@features/feeds/utils";
 import {
-  findCandidateByHash,
-  insertStatementCandidate,
-  saveFeedItemRaw,
+  findCandidateHashes,
+  saveFeedItemsRaw,
+  upsertStatementCandidates,
 } from "@features/feeds/storage";
 import { normalizeRegionCode } from "@core/regions/types";
+import { requireAdminOrEditor } from "../_auth";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -28,6 +29,9 @@ function fail(message: string, status = 400) {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const gate = await requireAdminOrEditor(req);
+  if (gate) return gate;
+
   let body: FeedBatchBody | null = null;
   try {
     body = await req.json();
@@ -40,7 +44,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const seenHashes = new Set<string>();
-  const candidates: StatementCandidate[] = [];
+  const normalized: Array<FeedItemInput & { canonicalHash: string }> = [];
 
   for (const item of body.items) {
     if (!item || typeof item.url !== "string" || !item.url.trim()) continue;
@@ -50,22 +54,20 @@ export async function POST(req: NextRequest): Promise<Response> {
     if (seenHashes.has(canonicalHash)) continue;
     seenHashes.add(canonicalHash);
 
-    await saveFeedItemRaw({ ...normalizedItem, canonicalHash }).catch(() => {
-      /* optional collection – ignore errors */
+    normalized.push({ ...normalizedItem, canonicalHash });
+  }
+
+  const existingHashes = await findCandidateHashes(normalized.map((i) => i.canonicalHash));
+  const newItems = normalized.filter((i) => !existingHashes.has(i.canonicalHash));
+  const candidates: StatementCandidate[] = newItems.map((item) =>
+    buildStatementCandidate(item, item.canonicalHash),
+  );
+
+  if (newItems.length) {
+    await saveFeedItemsRaw(newItems).catch(() => {
+      /* optional collection - ignore errors */
     });
-
-    const exists = await findCandidateByHash(canonicalHash);
-    if (exists) continue;
-
-    const candidate = buildStatementCandidate(normalizedItem, canonicalHash);
-
-    try {
-      await insertStatementCandidate(candidate);
-      candidates.push(candidate);
-    } catch (error: any) {
-      if (error?.code === 11000) continue;
-      throw error;
-    }
+    await upsertStatementCandidates(candidates);
   }
 
   return NextResponse.json({ ok: true, results: candidates }, { headers: JSON_HEADERS });

@@ -1,6 +1,6 @@
 import type { AccessTier } from "@features/pricing/types";
 
-export type RouteId =
+export type KnownRouteId =
   | "home"
   | "howtoworks_movement"
   | "howtoworks_edebatte"
@@ -13,6 +13,10 @@ export type RouteId =
   | "dashboard_streams"
   | "admin_ai_root"
   | "admin_dashboard"
+  | "admin_people"
+  | "admin_content"
+  | "admin_telemetry"
+  | "admin_system"
   | "admin_users"
   | "admin_analytics"
   | "admin_newsletter"
@@ -21,7 +25,9 @@ export type RouteId =
   | "admin_access_users"
   | "admin_ai_dashboard"
   | "admin_ai_usage"
+  | "admin_ai_flow"
   | "admin_ai_orchestrator"
+  | "admin_telemetry_identity"
   | "admin_eventualities"
   | "admin_graph"
   | "admin_impact"
@@ -32,6 +38,8 @@ export type RouteId =
   | "admin_feeds"
   | "admin_evidence"
   | "account";
+
+export type RouteId = KnownRouteId | `custom:${string}`;
 
 export type AccessGroup = AccessTier | "admin" | "creator";
 
@@ -167,12 +175,49 @@ export const DEFAULT_ROUTE_POLICIES: RoutePolicy[] = [
     matchMode: "exact",
   },
   {
+    routeId: "admin_people",
+    pathPattern: "/admin/people",
+    label: "Admin · People Hub",
+    defaultGroups: ["staff", "admin"],
+    allowAnonymous: false,
+    locked: true,
+    matchMode: "exact",
+  },
+  {
+    routeId: "admin_content",
+    pathPattern: "/admin/content",
+    label: "Admin · Content Hub",
+    defaultGroups: ["staff", "admin"],
+    allowAnonymous: false,
+    locked: true,
+    matchMode: "exact",
+  },
+  {
+    routeId: "admin_telemetry",
+    pathPattern: "/admin/telemetry",
+    label: "Admin · Telemetry Hub",
+    defaultGroups: ["staff", "admin"],
+    allowAnonymous: false,
+    locked: true,
+    matchMode: "exact",
+  },
+  {
+    routeId: "admin_system",
+    pathPattern: "/admin/system",
+    label: "Admin · System Hub",
+    defaultGroups: ["staff", "admin"],
+    allowAnonymous: false,
+    locked: true,
+    matchMode: "exact",
+  },
+  {
     routeId: "admin_ai_root",
     pathPattern: "/admin/telemetry/ai",
     label: "Admin · AI Telemetry",
     defaultGroups: ["staff", "admin"],
     allowAnonymous: false,
     locked: true,
+    matchMode: "exact",
   },
   {
     routeId: "admin_users",
@@ -245,6 +290,7 @@ export const DEFAULT_ROUTE_POLICIES: RoutePolicy[] = [
     defaultGroups: ["staff", "admin"],
     allowAnonymous: false,
     locked: true,
+    matchMode: "exact",
   },
   {
     routeId: "admin_ai_usage",
@@ -253,6 +299,16 @@ export const DEFAULT_ROUTE_POLICIES: RoutePolicy[] = [
     defaultGroups: ["staff", "admin"],
     allowAnonymous: false,
     locked: true,
+    matchMode: "exact",
+  },
+  {
+    routeId: "admin_ai_flow",
+    pathPattern: "/admin/telemetry/ai/flow",
+    label: "Admin · AI Flow Health",
+    defaultGroups: ["staff", "admin"],
+    allowAnonymous: false,
+    locked: true,
+    matchMode: "exact",
   },
   {
     routeId: "admin_ai_orchestrator",
@@ -261,6 +317,16 @@ export const DEFAULT_ROUTE_POLICIES: RoutePolicy[] = [
     defaultGroups: ["staff", "admin"],
     allowAnonymous: false,
     locked: true,
+    matchMode: "exact",
+  },
+  {
+    routeId: "admin_telemetry_identity",
+    pathPattern: "/admin/telemetry/identity",
+    label: "Admin · Identity Telemetry",
+    defaultGroups: ["staff", "admin"],
+    allowAnonymous: false,
+    locked: true,
+    matchMode: "exact",
   },
   {
     routeId: "admin_eventualities",

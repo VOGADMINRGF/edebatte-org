@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CORE_LOCALES, EXTENDED_LOCALES } from "@/config/locales";
+import { HumanCheck } from "@/components/security/HumanCheck";
 import { RegisterStepper } from "./RegisterStepper";
 
 function okPwd(p: string) {
@@ -62,6 +63,7 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
     searchParams?.birthDate ? sanitizeBirthDateInput(String(searchParams.birthDate)) : "",
   );
   const datePickerRef = useRef<HTMLInputElement | null>(null);
+  const [useNativeDate, setUseNativeDate] = useState(false);
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [errMsg, setErrMsg] = useState<string>();
@@ -69,8 +71,26 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
   const [busy, setBusy] = useState(false);
   const [preferredLocale, setPreferredLocale] = useState<string>("de");
   const [newsletterOptIn, setNewsletterOptIn] = useState(true);
+  const [humanToken, setHumanToken] = useState<string | null>(null);
+  const [humanNote, setHumanNote] = useState<string | null>(null);
+  const [formStartedAt, setFormStartedAt] = useState<number | null>(null);
+  const [hpRegister, setHpRegister] = useState("");
   const router = useRouter();
   const birthDateIso = toIsoBirthdate(birthDate);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+    const hoverNone = window.matchMedia?.("(hover: none)")?.matches ?? false;
+    const probe = document.createElement("input");
+    probe.type = "date";
+    const supportsDate = probe.type === "date";
+    setUseNativeDate(supportsDate && (coarse || hoverNone));
+  }, []);
+
+  useEffect(() => {
+    setFormStartedAt(Date.now());
+  }, []);
 
   const openDatePicker = () => {
     const el = datePickerRef.current;
@@ -79,13 +99,21 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
     // Chrome/Edge unterstützen showPicker; iOS Safari öffnet via click/focus
     const picker = el as HTMLInputElement & { showPicker?: () => void };
     if (typeof picker.showPicker === "function") picker.showPicker();
-    else el.click();
+    else {
+      el.focus();
+      el.click();
+    }
   };
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrMsg(undefined);
     setOkMsg(undefined);
+
+    if (!humanToken) {
+      setErrMsg("Bitte Sicherheitscheck bestätigen.");
+      return;
+    }
 
     if (firstName.trim().length < 2 || lastName.trim().length < 2) {
       setErrMsg("Vor- und Nachname: jeweils mindestens 2 Zeichen.");
@@ -112,6 +140,7 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
           ? `/api/auth/register?householdSize=${encodeURIComponent(String(personCount))}`
           : "/api/auth/register";
 
+      const startedAt = formStartedAt ?? Date.now();
       const r = await fetch(registerUrl, {
         method: "POST",
         headers: {
@@ -131,6 +160,9 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
           birthDate: birthDateIso,
           title: title.trim() || undefined,
           pronouns: pronouns.trim() || undefined,
+          humanToken,
+          formStartedAt: startedAt,
+          hp_register: hpRegister,
         }),
         signal: ac.signal,
       });
@@ -179,6 +211,18 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
       )}
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-3xl border border-slate-100 bg-white/95 p-5 shadow-sm">
+        <div className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+          <label htmlFor="hp_register">Bitte leer lassen</label>
+          <input
+            id="hp_register"
+            name="hp_register"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={hpRegister}
+            onChange={(e) => setHpRegister(e.target.value)}
+          />
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <label htmlFor="firstName" className="text-xs font-medium text-slate-700">
@@ -248,45 +292,55 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="birthDate" className="text-xs font-medium text-slate-700">
+          <label htmlFor={useNativeDate ? "birthDateNative" : "birthDate"} className="text-xs font-medium text-slate-700">
             Geburtsdatum
           </label>
           <input
             ref={datePickerRef}
+            id="birthDateNative"
+            name={useNativeDate ? "birthDate" : undefined}
             type="date"
-            className="sr-only"
+            className={
+              useNativeDate
+                ? "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                : "sr-only"
+            }
             value={birthDateIso ?? ""}
             onChange={(e) => {
               const iso = e.currentTarget.value;
               if (iso) setBirthDate(isoToDe(iso));
             }}
+            required={useNativeDate}
+            disabled={busy}
           />
-          <div className="relative">
-            <input
-              id="birthDate"
-              name="birthDate"
-              type="text"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-              value={birthDate}
-              onChange={(e) => setBirthDate(sanitizeBirthDateInput(e.target.value))}
-              required
-              placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
-              inputMode="text"
-              maxLength={10}
-              autoComplete="bday"
-              title="TT.MM.JJJJ oder JJJJ-MM-TT"
-              disabled={busy}
-            />
-            <button
-              type="button"
-              onClick={openDatePicker}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm"
-              aria-label="Datum auswählen"
-              title="Datum auswählen"
-            >
-              Kalender
-            </button>
-          </div>
+          {!useNativeDate && (
+            <div className="relative">
+              <input
+                id="birthDate"
+                name="birthDate"
+                type="text"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                value={birthDate}
+                onChange={(e) => setBirthDate(sanitizeBirthDateInput(e.target.value))}
+                required
+                placeholder="TT.MM.JJJJ oder JJJJ-MM-TT"
+                inputMode="text"
+                maxLength={10}
+                autoComplete="bday"
+                title="TT.MM.JJJJ oder JJJJ-MM-TT"
+                disabled={busy}
+              />
+              <button
+                type="button"
+                onClick={openDatePicker}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm"
+                aria-label="Datum auswählen"
+                title="Datum auswählen"
+              >
+                Kalender
+              </button>
+            </div>
+          )}
           <p className="text-[11px] text-slate-500">Für faire Citizen Votes: Teilnahme ab 16 Jahren.</p>
         </div>
 
@@ -382,6 +436,25 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
           />
           Ich möchte Updates & Hinweise per E-Mail erhalten.
         </label>
+
+        <div className="space-y-2">
+          <HumanCheck
+            formId="register"
+            onSolved={(res) => {
+              setHumanToken(res.token);
+              setHumanNote("Sicherheitscheck bestanden.");
+            }}
+            onError={() => {
+              setHumanToken(null);
+              setHumanNote("Sicherheitscheck fehlgeschlagen. Bitte erneut.");
+            }}
+          />
+          {humanNote && (
+            <p className="text-xs text-slate-600" aria-live="polite">
+              {humanNote}
+            </p>
+          )}
+        </div>
 
         <button
           type="submit"

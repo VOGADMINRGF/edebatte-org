@@ -51,7 +51,7 @@ const BaseSchema = z
 
     // AI / PROVIDER
     OPENAI_API_KEY: z.string().optional(),
-    OPENAI_MODEL: z.string().min(1),
+    OPENAI_MODEL: z.string().min(1).optional().default("gpt-4.1-mini"),
     OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
     OPENAI_URL: z
       .string()

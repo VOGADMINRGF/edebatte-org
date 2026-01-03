@@ -21,6 +21,8 @@ export type VoteDoc = {
   updatedAt?: Date;
   streamSessionId?: string | ObjectId | null;
   agendaItemId?: string | ObjectId | null;
+  qrSetId?: string | ObjectId | null;
+  qrQuestionId?: string | ObjectId | null;
 };
 
 export async function VoteModel(): Promise<Collection<VoteDoc>> {

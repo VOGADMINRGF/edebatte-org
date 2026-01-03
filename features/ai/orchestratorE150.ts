@@ -26,6 +26,7 @@ import { callAriLLM as askAri } from "@features/ai/providers/ari_llm";
 import { healthScore } from "@features/ai/orchestrator";
 import { PROVIDER_CAPABILITIES, providerSupports } from "./e150/providers";
 import { AnalyzeResultSchema, type AnalyzeResult } from "@features/analyze/schemas";
+import { parseJsonLoose } from "@features/analyze/llmJson";
 
 /* ------------------------------------------------------------------------- */
 /* Typen                                                                     */
@@ -263,6 +264,7 @@ function mapErrorToKind(error: unknown): AiErrorKind {
 }
 
 const OPENAI_TIMEOUT_DEFAULT = Number(process.env.OPENAI_TIMEOUT_MS ?? 45_000);
+const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
 const OPENAI_BASE_FOR_PROBE = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(
   /\/+$/,
   "",
@@ -309,16 +311,17 @@ const PROVIDERS: ProviderProfile[] = [
     capabilities: [...(PROVIDER_CAPABILITIES.openai ?? [])],
     probe: async () => probeOpenAI(),
     call: async ({ prompt, signal, maxTokens }) => {
-      const { text } = await askOpenAI({
+      const { text, model } = await askOpenAI({
         prompt,
         asJson: true,
         forceJsonFormat: true,
+        model: DEFAULT_OPENAI_MODEL,
         maxOutputTokens: maxTokens,
         signal,
       });
       return {
         text,
-        modelName: process.env.OPENAI_MODEL ?? "gpt-4.1",
+        modelName: model ?? DEFAULT_OPENAI_MODEL,
         strictJson: true,
       };
     },
@@ -792,7 +795,7 @@ async function probeOpenAI(): Promise<ProbeResult> {
         authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`,
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL ?? "gpt-4.1",
+        model: DEFAULT_OPENAI_MODEL,
         max_output_tokens: 1,
         input: [{ role: "user", content: "ping" }],
         text: { format: { type: "json_object" } },
@@ -1077,6 +1080,9 @@ function buildPrompt(
   if (roleGuidance) sections.push("", roleGuidance);
   if (user?.trim()) sections.push("", user.trim());
   sections.push("", "Return ONLY valid JSON (RFC8259). No Markdown, no commentary.");
+  sections.push(
+    "Output must start with '{' and end with '}'. No trailing commas. Include all required keys; use null or [] when unsure.",
+  );
   return sections.join("\n");
 }
 
@@ -1140,12 +1146,31 @@ function sanitizeJsonText(raw: string): string {
   return text;
 }
 
+function repairJsonText(raw: string): string {
+  let text = raw ?? "";
+  // Replace smart quotes with ASCII quotes.
+  text = text.replace(/[\u201C\u201D]/g, "\"").replace(/[\u2018\u2019]/g, "'");
+  // Remove trailing commas before } or ].
+  text = text.replace(/,\s*([}\]])/g, "$1");
+  return text;
+}
+
 function tryParseJson<T = any>(raw: string): { ok: true; value: T } | { ok: false } {
   try {
     return { ok: true, value: JSON.parse(raw) };
   } catch {
-    return { ok: false };
+    // ignore
   }
+
+  try {
+    const repaired = repairJsonText(raw);
+    if (repaired !== raw) {
+      return { ok: true, value: JSON.parse(repaired) };
+    }
+  } catch {
+    // ignore
+  }
+  return { ok: false };
 }
 
 function clampAnalysis(data: any): AnalyzeResult {
@@ -1197,6 +1222,25 @@ function clampAnalysis(data: any): AnalyzeResult {
   } as AnalyzeResult;
 }
 
+function parseAnalyzeResult(
+  rawText: string,
+): { ok: true; value: AnalyzeResult } | { ok: false; reason: "BAD_JSON" } {
+  const cleaned = rawText
+    .replace(/```json/gi, "```")
+    .replace(/```/g, "")
+    .trim();
+
+  const direct = tryParseJson(cleaned);
+  if (direct.ok) {
+    const validated = AnalyzeResultSchema.safeParse(direct.value);
+    if (validated.success) return { ok: true, value: clampAnalysis(validated.data) };
+  }
+
+  const loose = parseJsonLoose(rawText, AnalyzeResultSchema);
+  if (loose.ok) return { ok: true, value: clampAnalysis(loose.value) };
+
+  return { ok: false, reason: "BAD_JSON" };
+}
 
 function validateCandidate(
   rawText: string,
@@ -1213,17 +1257,13 @@ function validateCandidate(
     }
   }
 
-  const parsed = tryParseJson(cleaned);
+  const parsed = parseAnalyzeResult(rawText);
   if (!parsed.ok) return { ok: false, reason: "BAD_JSON" };
-  const capped = clampAnalysis(parsed.value as AnalyzeResult);
-  const validated = AnalyzeResultSchema.safeParse(capped);
-  if (!validated.success) {
-    return { ok: false, reason: "BAD_JSON" };
-  }
+
   return {
     ok: true,
-    jsonText: JSON.stringify(validated.data),
-    parsed: validated.data,
+    jsonText: JSON.stringify(parsed.value),
+    parsed: parsed.value,
   };
 }
 

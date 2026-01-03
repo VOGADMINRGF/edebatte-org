@@ -8,16 +8,19 @@ const infoLinks = [
 ];
 
 const platformLinks = [
-  { href: "/mitglied-werden", label: "Swipe" },
-  { href: "/mitglied-werden", label: "Statement verfassen" },
-  { href: "/mitglied-werden", label: "Streams & Events" },
-  { href: "/mitglied-werden", label: "Reportings" },
+  { href: "/swipes", label: "Abstimmen" },
+  { href: "/statements", label: "Einreichen" },
+  { href: "/stream", label: "Präsentieren" },
+  { href: "/reports", label: "Archiv nachschlagen" },
 ];
 
 const legalLinks = [
   { href: "/kontakt", label: "Kontakt" },
   { href: "/impressum", label: "Impressum" },
   { href: "/datenschutz", label: "Datenschutz" },
+  { href: "/privatsphaere", label: "Privatsphäre" },
+  { href: "/agb", label: "AGB" },
+  { href: "/widerrufsbelehrung", label: "Widerrufsbelehrung" },
   { href: "/widerspruch", label: "Widerspruchserklärung" },
 ];
 

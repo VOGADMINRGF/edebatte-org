@@ -17,7 +17,7 @@ export default function IntroSection() {
         </p>
 
         <div className="mt-8 flex justify-center gap-3 flex-wrap">
-          <Link href="/swipe">
+          <Link href="/swipes">
             <Button variant="secondary">Themen entdecken</Button>
           </Link>
           <Link href="/beitraege">

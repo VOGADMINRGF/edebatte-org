@@ -112,7 +112,7 @@ function ContributionGate({ variant, overview }: ContributionGateProps) {
 
   const title =
     variant === "anon"
-      ? "Registriere dich fuer deinen ersten E150-Beitrag"
+      ? "Registriere dich fuer deinen ersten Beitrag"
       : "Du brauchst einen Contribution-Credit oder citizenPremium+";
   const description =
     variant === "anon"
@@ -143,7 +143,7 @@ function ContributionGate({ variant, overview }: ContributionGateProps) {
 
         <div className="flex flex-col gap-3 md:flex-row">
           <a
-            href="/swipe"
+            href="/swipes"
             className="flex-1 rounded-full bg-brand-grad px-5 py-3 text-center text-white font-semibold shadow-lg"
           >
             Weiter swipen
