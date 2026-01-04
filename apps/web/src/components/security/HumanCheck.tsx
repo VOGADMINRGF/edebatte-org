@@ -36,8 +36,7 @@ export function HumanCheck({
 
   const puzzle = useMemo(() => (puzzleSeed ? derivePuzzle(puzzleSeed) : null), [puzzleSeed]);
 
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerify = async () => {
     setStatus("checking");
     setMessage(null);
 
@@ -109,8 +108,7 @@ export function HumanCheck({
   }
 
   return (
-    <form
-      onSubmit={handleVerify}
+    <div
       className={`space-y-3 rounded-xl border p-4 ${
         isCompact
           ? "border-slate-200 bg-white/95 shadow-sm"
@@ -171,6 +169,12 @@ export function HumanCheck({
           pattern="[0-9]*"
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (status !== "checking") void handleVerify();
+          }}
           className={`w-24 rounded-lg border bg-white px-3 py-2 text-sm outline-none ${
             isCompact
               ? "border-slate-200 text-slate-900 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
@@ -179,8 +183,11 @@ export function HumanCheck({
           aria-label="Ergebnis eintragen"
         />
         <button
-          type="submit"
+          type="button"
           disabled={status === "checking"}
+          onClick={() => {
+            if (status !== "checking") void handleVerify();
+          }}
           className={`ml-auto inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold text-white shadow disabled:opacity-60 ${
             isCompact
               ? "bg-slate-900 hover:bg-slate-800"
@@ -196,6 +203,6 @@ export function HumanCheck({
           {message}
         </p>
       )}
-    </form>
+    </div>
   );
 }
