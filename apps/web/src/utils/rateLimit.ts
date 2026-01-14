@@ -1,3 +1,5 @@
+import "server-only";
+
 // apps/web/src/utils/rateLimit.ts  — E150 unified
 // Runtime-safe hashing + deterministic fixed-window + useful return shape
 
@@ -33,7 +35,7 @@ async function hashKey(key: string, salt = ""): Promise<string> {
   // Node-Fallback
 
   // @ts-ignore
-  const { createHash } = await import("node:crypto");
+  const { createHash } = await import("crypto");
   return createHash("sha256").update(data).digest("hex");
 }
 
