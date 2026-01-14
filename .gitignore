@@ -56,3 +56,5 @@ out
 .envrc
 .envrc
 .turbo/
+.envrc.local
+.env.local
