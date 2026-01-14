@@ -30,7 +30,7 @@
     "mongodb": "6.20.0",
     "mongoose": "^8.18.3",
     "neo4j-driver": "^5.28.2",
-    "next": "16.0.7",
+    "next": "16.0.10",
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.6",
     "openai": "^4.104.0",
