@@ -1,7 +1,7 @@
 // apps/web/src/app/api/public/updates/confirm/route.ts
 // Bestätigt Double-Opt-in und verschickt Willkommensmail.
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { Collection } from "mongodb";
 import { coreCol } from "@core/db/triMongo";

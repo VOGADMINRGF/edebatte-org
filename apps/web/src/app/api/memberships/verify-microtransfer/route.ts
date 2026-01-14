@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { ObjectId, coreCol, piiCol } from "@core/db/triMongo";
 import { getUserPaymentProfile } from "@core/db/pii/userPaymentProfiles";
 

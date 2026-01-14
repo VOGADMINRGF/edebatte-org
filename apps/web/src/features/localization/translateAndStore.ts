@@ -1,6 +1,6 @@
 // LEGACY: kept for VPM25 translation experiments; currently not wired into
 // active flows but preserved as a reference for future provider rollouts.
-import { createHash } from "node:crypto";
+import { createHash } from "crypto";
 import { coreCol } from "@core/db/triMongo";
 import { logAiUsage } from "@core/telemetry/aiUsage";
 import type { AiErrorKind, AiPipelineName } from "@core/telemetry/aiUsageTypes";

@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { evaluateContactSpam } from "@/lib/spam/contactSpam";
 import { verifyHumanChallenge } from "@/lib/spam/humanChallenge";
-import { rateLimit } from "@/utils/rateLimit";
 import { sendMail } from "@/utils/mailer";
 import {
   getClientIp,
   rateLimitFromRequest,
   rateLimitHeaders,
+  rateLimitOrThrow,
 } from "@/utils/rateLimitHelpers";
 
 export const runtime = "nodejs";
@@ -329,7 +329,7 @@ export async function POST(req: NextRequest) {
     if (classification !== "ham") allowMail = false;
   }
 
-  const emailRate = await rateLimit(
+  const emailRate = await rateLimitOrThrow(
     `contact-email:${cleanEmail}`,
     EMAIL_RATE_LIMIT.limit,
     EMAIL_RATE_LIMIT.windowMs,

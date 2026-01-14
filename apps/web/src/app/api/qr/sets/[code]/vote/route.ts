@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { coreCol } from "@core/db/triMongo";
 import { VoteModel } from "@/models/votes/Vote";
-import { createHash } from "node:crypto";
+import { createHash } from "crypto";
 import { z } from "zod";
 
 const VoteSchema = z.object({

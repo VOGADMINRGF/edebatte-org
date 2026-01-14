@@ -20,8 +20,8 @@ const EDGE_RELS = ["supports", "refutes", "mentions", "depends_on", "questions",
 const NODE_TYPES = ["claim", "source", "finding", "open_question"];
 const FINDING_VERDICTS = ["supports", "refutes", "unclear", "mixed"];
 
-export default function AdminDossierPage({ params }: { params: { dossierId: string } }) {
-  const dossierId = params.dossierId;
+export default async function AdminDossierPage({ params }: { params: Promise<{ dossierId: string }> }) {
+  const { dossierId } = await params;
   const [bundle, setBundle] = useState<DossierBundle | null>(null);
   const [revisions, setRevisions] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);

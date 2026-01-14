@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { listTasks } from "@core/research";
 import { logger } from "@/utils/logger";
 import { getCookie } from "@/lib/http/typedCookies";
-import { rateLimit } from "@/utils/rateLimit";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 async function readCookie(name: string): Promise<string | undefined> {
   const raw = await getCookie(name);
@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "verification_required" }, { status: 403 });
   }
 
-  const rl = await rateLimit(`research:list:${userId}`, 60, 60 * 60 * 1000, { salt: "research" });
+  const rl = await rateLimitOrThrow(`research:list:${userId}`, 60, 60 * 60 * 1000, {
+    salt: "research",
+  });
   if (!rl.ok) {
     return NextResponse.json(
       { ok: false, error: "rate_limited", retryInMs: rl.retryIn },

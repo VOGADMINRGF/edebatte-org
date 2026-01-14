@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import type { RateLimitResult } from "./rateLimit";
+import type { RateLimitResult } from "./rateLimitHelpers";
 import { rateLimitFromRequest } from "./rateLimitHelpers";
 
 const DISABLE_RATE_LIMIT = process.env.VOG_DISABLE_RATE_LIMIT === "1";

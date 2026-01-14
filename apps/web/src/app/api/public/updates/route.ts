@@ -1,7 +1,7 @@
 // apps/web/src/app/api/public/updates/route.ts
 // Public Updates mit HumanCheck, Rate-Limit + Double-Opt-in Start.
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import type { Collection } from "mongodb";

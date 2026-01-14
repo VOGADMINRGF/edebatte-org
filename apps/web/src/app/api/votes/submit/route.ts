@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { ObjectId } from "@core/db/triMongo";
 import { NextRequest, NextResponse } from "next/server";
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { coreCol, votesCol } from "@core/db/db/triMongo";
 
 type Val = "agree" | "neutral" | "disagree";

@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { cookies } from "next/headers";
 import { createSession } from "@/utils/session";
 import { ensureVerificationDefaults } from "@core/auth/verificationTypes";

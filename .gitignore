@@ -58,3 +58,10 @@ out
 .turbo/
 .envrc.local
 .env.local
+
+# Turbo / build logs
+**/.turbo/
+**/turbo-build.log
+
+# Prisma generated client (should be generated in CI)
+packages/**/src/generated/

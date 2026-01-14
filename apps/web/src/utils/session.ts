@@ -5,7 +5,7 @@ import { env } from "@/utils/env";
 import { cookies } from "next/headers";
 import { getCookie } from "@/lib/http/typedCookies";
 import type { UserRole } from "@/types/user";
-import crypto from "node:crypto";
+import crypto from "crypto";
 
 const COOKIE_NAME = "session_token";
 if (!env.JWT_SECRET) throw new Error("env.JWT_SECRET missing");

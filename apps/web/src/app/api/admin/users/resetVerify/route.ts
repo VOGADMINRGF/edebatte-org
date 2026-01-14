@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCol } from "@core/db/db/triMongo";
 import { piiCol } from "@core/db/db/triMongo";
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   const { id } = await req.json().catch(() => ({}));

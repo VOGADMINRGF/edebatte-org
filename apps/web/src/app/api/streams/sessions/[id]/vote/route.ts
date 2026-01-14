@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
 import { streamAgendaCol, streamSessionsCol } from "@features/stream/db";
 import { VoteModel } from "@/models/votes/Vote";
-import { createHash } from "node:crypto";
+import { createHash } from "crypto";
 import { resolveSessionStatus } from "@features/stream/types";
 
 function hashSession(input: string) {

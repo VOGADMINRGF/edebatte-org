@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import crypto from "node:crypto";
+import crypto from "crypto";
 import StreamEvent from "@/models/core/StreamEvent";
 
 export const dynamic = "force-dynamic";

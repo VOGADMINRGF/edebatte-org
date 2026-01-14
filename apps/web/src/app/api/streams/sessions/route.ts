@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ObjectId, coreCol } from "@core/db/triMongo";
-import { rateLimit } from "@/utils/rateLimit";
 import { streamSessionsCol } from "@features/stream/db";
 import type {
   StreamSessionDoc,
@@ -15,6 +14,7 @@ import { resolveSessionStatus } from "@features/stream/types";
 import { enforceStreamHost, requireCreatorContext } from "../utils";
 import { TOPIC_CHOICES } from "@features/interests/topics";
 import { applyAutofilledAgendaToSession } from "@core/streams/agenda";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 const CreateSessionBodySchema = z.object({
   title: z.string().min(1),
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   if (gating) return gating;
 
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const rl = await rateLimit(`stream:create:${ctx.userId}:${ip}`, 10, 60 * 60 * 1000, {
+  const rl = await rateLimitOrThrow(`stream:create:${ctx.userId}:${ip}`, 10, 60 * 60 * 1000, {
     salt: "stream-session",
   });
   if (!rl.ok) {

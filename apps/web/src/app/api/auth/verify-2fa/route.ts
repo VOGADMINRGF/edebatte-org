@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { coreCol, piiCol, ObjectId } from "@core/db/triMongo";
-import { rateLimit } from "@/utils/rateLimit";
 import { logAuthEvent } from "@core/telemetry/authEvents";
 import {
   applySessionCookies,
@@ -16,6 +15,7 @@ import {
   clearPendingTwoFactorCookie,
 } from "../sharedAuth";
 import { verifyTotpToken } from "../totp/totpHelpers";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 export const runtime = "nodejs";
 
@@ -30,7 +30,9 @@ type VerifyBody = {
 export async function POST(req: NextRequest) {
   try {
     const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-    const ipLimit = await rateLimit(`2fa:ip:${ip}`, 12, CODE_WINDOW_MS, { salt: "auth" });
+    const ipLimit = await rateLimitOrThrow(`2fa:ip:${ip}`, 12, CODE_WINDOW_MS, {
+      salt: "auth",
+    });
     if (!ipLimit.ok) {
       return NextResponse.json({ error: "rate_limited" }, { status: 429 });
     }
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "method_mismatch" }, { status: 400 });
     }
 
-    const userLimit = await rateLimit(
+    const userLimit = await rateLimitOrThrow(
       `2fa:user:${String(challenge.userId)}`,
       8,
       CODE_WINDOW_MS,

@@ -1,8 +1,7 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { coreCol, piiCol } from "@core/db/db/triMongo";
 import { ObjectId } from "@core/db/triMongo";
-import { rateLimit } from "@/utils/rateLimit";
 import { verifyPassword } from "@/utils/password";
 import { sendMail } from "@/utils/mailer";
 import { buildTwoFactorCodeMail } from "@/utils/emailTemplates";
@@ -24,6 +23,7 @@ import {
   TwoFactorChallengeDoc,
   TwoFactorMethod,
 } from "../sharedAuth";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 export const runtime = "nodejs";
 
@@ -87,7 +87,9 @@ function maybeBackfillCredentials(
 
 export async function POST(req: NextRequest) {
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const ipLimit = await rateLimit(`login:ip:${ip}`, 10, LOGIN_WINDOW_MS, { salt: "auth" });
+  const ipLimit = await rateLimitOrThrow(`login:ip:${ip}`, 10, LOGIN_WINDOW_MS, {
+    salt: "auth",
+  });
   if (!ipLimit.ok) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
   }
 
-  const perUser = await rateLimit(`login:user:${String(user._id)}`, 8, LOGIN_WINDOW_MS, {
+  const perUser = await rateLimitOrThrow(`login:user:${String(user._id)}`, 8, LOGIN_WINDOW_MS, {
     salt: "auth-user",
   });
   if (!perUser.ok) {

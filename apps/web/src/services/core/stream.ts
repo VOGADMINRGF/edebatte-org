@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 import StreamEvent from "@/models/core/StreamEvent";
 
 function sha1(s: string) {

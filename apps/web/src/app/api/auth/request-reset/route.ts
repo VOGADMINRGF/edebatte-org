@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { ResetRequestSchema } from "@/utils/authSchemas";
 import { coreCol } from "@core/db/triMongo";
-import { rateLimit } from "@/utils/rateLimit";
 import { createToken } from "@/utils/tokens";
 import { sendMail, resetEmailLink } from "@/utils/email";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { email } = ResetRequestSchema.parse(body);
   const email_lc = email.trim().toLowerCase();
 
-  const rl = await rateLimit(`reset:${email_lc}`, 3, 10 * 60_000);
+  const rl = await rateLimitOrThrow(`reset:${email_lc}`, 3, 10 * 60_000);
   if (!rl.ok)
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 

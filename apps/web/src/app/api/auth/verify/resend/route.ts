@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { getCol } from "@core/db/triMongo";
 import { piiCol } from "@core/db/triMongo";
 import { sendMail } from "@/utils/mailer";

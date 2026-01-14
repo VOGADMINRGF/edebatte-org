@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createContribution, getTaskById } from "@core/research";
 import { logger } from "@/utils/logger";
 import { getCookie } from "@/lib/http/typedCookies";
-import { rateLimit } from "@/utils/rateLimit";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 async function readCookie(name: string): Promise<string | undefined> {
   const raw = await getCookie(name);
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, context: any) {
   }
 
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const rl = await rateLimit(`research:contrib:${userId}:${ip}`, 10, 60 * 60 * 1000, {
+  const rl = await rateLimitOrThrow(`research:contrib:${userId}:${ip}`, 10, 60 * 60 * 1000, {
     salt: "research-contrib",
   });
   if (!rl.ok) {

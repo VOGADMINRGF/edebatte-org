@@ -3,7 +3,7 @@
 import { NextRequest } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { ANALYZE_JSON_SCHEMA } from "@features/analyze/schemas"; // ggf. Pfad anpassen
 
 export const runtime = "nodejs";

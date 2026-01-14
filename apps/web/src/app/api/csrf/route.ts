@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { randomBytes } from "node:crypto";
+import { randomBytes } from "crypto";
 
 export async function GET() {
   const jar = await cookies();

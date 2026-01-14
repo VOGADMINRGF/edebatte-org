@@ -4,20 +4,20 @@ import {
   analyzeContribution,
   type AnalyzeResultWithMeta,
 } from "@features/analyze/analyzeContribution";
-import { rateLimit } from "@/utils/rateLimit";
 import { logger } from "@/utils/logger";
 import { deriveContextNotes } from "@features/analyze/context";
 import {
   deriveCriticalQuestions,
   deriveKnots,
 } from "@features/analyze/questionizers";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 import { syncAnalyzeResultToGraph } from "@core/graph";
 import { persistEventualitiesSnapshot } from "@core/eventualities";
 import { upsertRunReceipt } from "@/lib/db/runReceiptsRepo";
 import { maskUserId } from "@core/pii/redact";
 import type { ProviderMatrixEntry } from "@features/ai/orchestratorE150";
 import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { parseAnalyzeRequestBody, type AnalyzeRequestParsed } from "./parseAnalyzeRequest";
 
 export const runtime = "nodejs";
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   const contributionId = resolveContributionId(body.contributionId, text);
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
 
-  const rl = await rateLimit(`analyze:ip:${ip}`, 15, 10 * 60 * 1000, { salt: "analyze" });
+  const rl = await rateLimitOrThrow(`analyze:ip:${ip}`, 15, 10 * 60 * 1000, { salt: "analyze" });
   if (!rl.ok) {
     return err("RATE_LIMITED", "Too many analyze requests. Please retry later.", 429, {
       retryInMs: rl.retryIn,

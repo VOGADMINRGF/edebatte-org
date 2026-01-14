@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { coreCol, ObjectId } from "@core/db/triMongo";

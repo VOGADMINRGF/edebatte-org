@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { rateLimit } from "@/utils/rateLimit";
 import callOpenAI from "@features/ai/providers/openai";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 const TraceSchema = z.object({
   textOriginal: z.string().min(1).max(10_000),
@@ -59,7 +59,7 @@ Gib zurück (JSON):
 
 export async function POST(req: NextRequest) {
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const rl = await rateLimit(`trace:ip:${ip}`, 30, 10 * 60 * 1000, { salt: "trace" });
+  const rl = await rateLimitOrThrow(`trace:ip:${ip}`, 30, 10 * 60 * 1000, { salt: "trace" });
   if (!rl.ok) {
     return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }

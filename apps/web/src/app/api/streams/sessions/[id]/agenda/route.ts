@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
-import { rateLimit } from "@/utils/rateLimit";
 import {
   streamAgendaCol,
   streamSessionsCol,
@@ -16,6 +15,7 @@ import type {
 } from "@features/stream/types";
 import { resolveSessionStatus } from "@features/stream/types";
 import { enforceStreamHost, requireCreatorContext } from "../../../utils";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 async function loadSession(sessionId: string) {
   const col = await streamSessionsCol();
@@ -68,7 +68,7 @@ export async function POST(
   const gating = await enforceStreamHost(ctx);
   if (gating) return gating;
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const rl = await rateLimit(`stream:agenda:add:${ctx.userId}:${ip}`, 30, 60 * 60 * 1000, {
+  const rl = await rateLimitOrThrow(`stream:agenda:add:${ctx.userId}:${ip}`, 30, 60 * 60 * 1000, {
     salt: "stream-agenda",
   });
   if (!rl.ok) {
@@ -130,7 +130,7 @@ export async function PATCH(
   const gating = await enforceStreamHost(ctx);
   if (gating) return gating;
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const rl = await rateLimit(`stream:agenda:update:${ctx.userId}:${ip}`, 60, 60 * 60 * 1000, {
+  const rl = await rateLimitOrThrow(`stream:agenda:update:${ctx.userId}:${ip}`, 60, 60 * 60 * 1000, {
     salt: "stream-agenda",
   });
   if (!rl.ok) {

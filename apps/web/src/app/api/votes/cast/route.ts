@@ -1,11 +1,11 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { votesCol, coreCol, ObjectId } from "@core/db/triMongo";
-import { rateLimit } from "src/utils/rateLimit";
 import UserGameStats from "src/models/game/UserGameStats";
 import { ensureUserMeetsVerificationLevel } from "@features/auth/verificationAccess";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 type Val = "agree" | "neutral" | "disagree";
 
@@ -73,7 +73,7 @@ async function summaryOf(statementId: ObjectId) {
 
 export async function POST(req: NextRequest) {
   // Rate Limit (z. B. 120 Aktionen / Minute)
-  const lim = await rateLimit("vote:cast", 120, 60_000);
+  const lim = await rateLimitOrThrow("vote:cast", 120, 60_000);
   if (!lim.ok) {
     return NextResponse.json({ error: "too_many_requests" }, { status: 429 });
     // Tipp: lim enthält i.d.R. resetAt/remaining -> kann in Headers zurückgegeben werden

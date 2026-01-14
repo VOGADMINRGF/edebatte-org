@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ResponsibilityPath from "@/models/responsibility/Path";
-import { rateLimit } from "@/utils/rateLimit";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const gate = await requireAdminOrResponse(req);
   if (gate instanceof Response) return gate;
 
-  const rl = await rateLimit("admin:responsibility:paths", 30, 60 * 60 * 1000, {
+  const rl = await rateLimitOrThrow("admin:responsibility:paths", 30, 60 * 60 * 1000, {
     salt: "admin",
   });
   if (!rl.ok) {

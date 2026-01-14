@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ResponsibilityDirectoryEntry from "@/models/responsibility/DirectoryEntry";
 import { logger } from "@/utils/logger";
-import { rateLimit } from "@/utils/rateLimit";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,9 @@ export async function GET(req: NextRequest) {
   if (level) filter.level = level;
   if (regionCode) filter.regionCode = regionCode;
 
-  const rl = await rateLimit("responsibility:directory", 200, 60 * 60 * 1000, { salt: "public" });
+  const rl = await rateLimitOrThrow("responsibility:directory", 200, 60 * 60 * 1000, {
+    salt: "public",
+  });
   if (!rl.ok) {
     return NextResponse.json(
       { ok: false, error: "rate_limited", retryInMs: rl.retryIn },

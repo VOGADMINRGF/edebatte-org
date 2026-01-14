@@ -4,7 +4,7 @@ import { ObjectId, coreCol, piiCol } from "@core/db/triMongo";
 import { z } from "zod";
 import { upsertMembershipPaymentProfile } from "@core/db/pii/userPaymentProfiles";
 import { safeRandomId } from "@core/utils/random";
-import crypto from "node:crypto";
+import crypto from "crypto";
 import { sendMail } from "@/utils/mailer";
 import { incrementRateLimit } from "@/lib/security/rate-limit";
 import { verifyHumanTokenDetailed } from "@/lib/security/human-token";

@@ -2,9 +2,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { rateLimit } from "@/utils/rateLimit";
 import { applyAutofilledAgendaToSession } from "@core/streams/agenda";
 import { enforceStreamHost, requireCreatorContext } from "../../../../utils";
+import { rateLimitOrThrow } from "@/utils/rateLimitHelpers";
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const ctx = await requireCreatorContext(req);
@@ -16,9 +16,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const { id } = await context.params;
   const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
-  const rl = await rateLimit(`stream:agenda:autofill:${ctx.userId}:${id}:${ip}`, 10, 15 * 60 * 1000, {
-    salt: "stream-agenda-autofill",
-  });
+  const rl = await rateLimitOrThrow(
+    `stream:agenda:autofill:${ctx.userId}:${id}:${ip}`,
+    10,
+    15 * 60 * 1000,
+    {
+      salt: "stream-agenda-autofill",
+    },
+  );
   if (!rl.ok) {
     return NextResponse.json(
       { ok: false, error: "rate_limited", retryInMs: rl.retryIn },
