@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(pwd)"
-echo "🧩 VOG UI workflow: apply pages + api + layout"
+echo "🧩 eDebatte UI workflow: apply pages + api + layout"
 mkdir -p "$root/apps/web/src/app/contributions/analyze" \
          "$root/apps/web/src/app/contributions/new" \
          "$root/apps/web/src/app/api/contributions/analyze" \
@@ -29,7 +29,7 @@ export default function SiteHeader(){
   return (
     <header className="border-b bg-white">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/" className="font-bold text-lg">VoiceOpenGov</a>
+        <a href="/" className="font-bold text-lg">eDebatte</a>
         <button aria-label="Menu" className="md:hidden p-2 border rounded" onClick={()=>setOpen(x=>!x)}>☰</button>
         <nav className="hidden md:flex gap-4 text-sm">
           <a href="/contributions/new" className="hover:underline">Neu</a>
@@ -52,7 +52,7 @@ export default function SiteFooter(){
   return (
     <footer className="border-t mt-12">
       <div className="max-w-6xl mx-auto px-4 py-6 text-sm text-gray-600">
-        © VoiceOpenGov — transparent & nachvollziehbar
+        © eDebatte — transparent & nachvollziehbar
       </div>
     </footer>
   );

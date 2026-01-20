@@ -70,7 +70,7 @@ export function PricingWidget_eDbtt({ hasVogMembership = false }: PricingWidgetP
                   </div>
                   {hasVogMembership && (
                     <p className="text-xs font-semibold text-emerald-700">
-                      VOG-Mitgliedsrabatt −{MEMBER_DISCOUNT.percent} %
+                      Mitgliedsrabatt −{MEMBER_DISCOUNT.percent} %
                     </p>
                   )}
                 </div>

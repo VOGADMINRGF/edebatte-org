@@ -118,15 +118,15 @@ function useTurnstile() {
 }
 
 const errorText: Record<string, string> = {
-  ratelimit: "Kurz zu viele Anfragen. Bitte versuche es in ein paar Minuten erneut oder schreib direkt an kontakt@voiceopengov.org.",
+  ratelimit: "Kurz zu viele Anfragen. Bitte versuche es in ein paar Minuten erneut oder schreib direkt an kontakt@edebatte.org.",
   captcha:
-    "Die Verifizierung konnte nicht abgeschlossen werden. Bitte lade die Seite neu oder schreib uns direkt an kontakt@voiceopengov.org.",
+    "Die Verifizierung konnte nicht abgeschlossen werden. Bitte lade die Seite neu oder schreib uns direkt an kontakt@edebatte.org.",
   invalid:
-    "Die Angaben waren unvollständig. Bitte prüfe die Felder oder schreib direkt an kontakt@voiceopengov.org.",
+    "Die Angaben waren unvollständig. Bitte prüfe die Felder oder schreib direkt an kontakt@edebatte.org.",
   challenge:
-    "Die Sicherheitsfrage wurde nicht korrekt beantwortet. Bitte versuche es erneut oder schreib uns direkt an kontakt@voiceopengov.org.",
+    "Die Sicherheitsfrage wurde nicht korrekt beantwortet. Bitte versuche es erneut oder schreib uns direkt an kontakt@edebatte.org.",
   shape:
-    "Bitte klicke die korrekte Form an (Kreis). Sollte das nicht funktionieren, schreib uns direkt an kontakt@voiceopengov.org.",
+    "Bitte klicke die korrekte Form an (Kreis). Sollte das nicht funktionieren, schreib uns direkt an kontakt@edebatte.org.",
 };
 
 export default function KontaktForm({ sent, error, challenge }: Props) {
@@ -170,10 +170,10 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
           Die Schutzabfrage konnte nicht geladen werden. Du kannst das Formular trotzdem absenden
           oder uns direkt per Mail an{" "}
           <a
-            href="mailto:kontakt@voiceopengov.org"
+            href="mailto:kontakt@edebatte.org"
             className="font-semibold text-amber-900 underline underline-offset-4"
           >
-            kontakt@voiceopengov.org
+            kontakt@edebatte.org
           </a>{" "}
           schreiben.
         </div>
@@ -383,7 +383,7 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
             className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
           />
           <label htmlFor="newsletterOptIn" className="text-[11px] leading-snug text-slate-600">
-            Ich möchte gelegentlich Updates und Informationen zu VoiceOpenGov erhalten (Newsletter).
+            Ich möchte gelegentlich Updates und Informationen zu eDebatte erhalten (Newsletter).
             Du kannst dich jederzeit wieder abmelden.
           </label>
         </div>
@@ -403,7 +403,7 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
           </button>
 
           <Link
-            href="mailto:kontakt@voiceopengov.org"
+            href="mailto:kontakt@edebatte.org"
             className="w-full rounded-full border border-sky-200 bg-sky-50/60 px-4 py-3 text-center text-sm font-semibold text-sky-700 shadow-[0_6px_18px_rgba(14,165,233,0.15)] transition hover:border-sky-400 hover:bg-white hover:text-sky-900 md:w-auto"
           >
             Oder direkt per E-Mail schreiben

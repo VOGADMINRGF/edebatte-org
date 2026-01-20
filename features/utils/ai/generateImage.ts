@@ -39,7 +39,7 @@ function mapAspectRatioToSize(ar?: string): "1792x1024" | "1024x1792" | "1024x10
 
 export async function generateVOGImage({
   prompt,
-  fallbackText = "VoiceOpenGov",
+  fallbackText = "eDebatte",
   aspectRatio = "16:9",
   ciColors = ["#FF6F61", "#00B3A6", "#4B0082"],
 }: GenerateVOGImageParams): Promise<string> {

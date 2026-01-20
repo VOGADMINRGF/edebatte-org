@@ -82,7 +82,7 @@ say "✓ types: $TYPES_FILE"
 ATOMICIZER_PROMPT="$PROMPTS_DIR/atomicizer.ts"
 backup_if_exists "$ATOMICIZER_PROMPT"
 cat > "$ATOMICIZER_PROMPT" <<'TS'
-export const ATOMICIZER_V1 = String.raw`You are VOG Atomicizer.
+export const ATOMICIZER_V1 = String.raw`You are eDebatte Atomicizer.
 Task: Extract atomic political claims (German, B1/B2), one sentence each. Fill slots.
 
 STRICT JSON:
@@ -101,7 +101,7 @@ say "✓ prompt: atomicizer"
 ASSIGNER_PROMPT="$PROMPTS_DIR/assigner.ts"
 backup_if_exists "$ASSIGNER_PROMPT"
 cat > "$ASSIGNER_PROMPT" <<'TS'
-export const ASSIGNER_V1 = String.raw`You are VOG Assigner.
+export const ASSIGNER_V1 = String.raw`You are eDebatte Assigner.
 Map each claim to DE/EU responsibility (EU/Bund/Land/Kommune) + concrete organ with short reasoning.
 
 STRICT JSON:
@@ -116,7 +116,7 @@ say "✓ prompt: assigner"
 EVIDENCE_PROMPT="$PROMPTS_DIR/evidence.ts"
 backup_if_exists "$EVIDENCE_PROMPT"
 cat > "$EVIDENCE_PROMPT" <<'TS'
-export const EVIDENCE_V1 = String.raw`You are VOG Evidence Planner.
+export const EVIDENCE_V1 = String.raw`You are eDebatte Evidence Planner.
 Return short German queries per claim for amtlich/presse/forschung.
 
 STRICT JSON:
@@ -130,7 +130,7 @@ say "✓ prompt: evidence"
 PERSPECTIVES_PROMPT="$PROMPTS_DIR/perspectives.ts"
 backup_if_exists "$PERSPECTIVES_PROMPT"
 cat > "$PERSPECTIVES_PROMPT" <<'TS'
-export const PERSPECTIVES_V1 = String.raw`You are VOG Perspective Editor.
+export const PERSPECTIVES_V1 = String.raw`You are eDebatte Perspective Editor.
 For each claim: pro/contra/alternative (max 3 bullets each), balanced German.
 
 STRICT JSON:
@@ -143,7 +143,7 @@ say "✓ prompt: perspectives"
 RATER_PROMPT="$PROMPTS_DIR/editor_rater.ts"
 backup_if_exists "$RATER_PROMPT"
 cat > "$RATER_PROMPT" <<'TS'
-export const EDITOR_RATER_V1 = String.raw`You are VOG Editorial Rater.
+export const EDITOR_RATER_V1 = String.raw`You are eDebatte Editorial Rater.
 Score claims on 5 dims (0..1) + short reasons.
 
 STRICT JSON:

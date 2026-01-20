@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const CONTACT_EMAIL = "kontakt@voiceopengov.org";
+const CONTACT_EMAIL = "kontakt@edebatte.org";
 
 export default function AgbPage() {
   return (
@@ -15,7 +15,7 @@ export default function AgbPage() {
               Allgemeine Geschaeftsbedingungen (AGB)
             </h1>
             <p className="text-sm leading-relaxed text-slate-700 md:text-base">
-              Hier findest du die AGB fuer VoiceOpenGov und eDebatte. Wir
+              Hier findest du die AGB fuer eDebatte und eDebatte. Wir
               finalisieren die rechtsverbindliche Fassung und veroeffentlichen
               sie hier, sobald sie vorliegt.
             </p>

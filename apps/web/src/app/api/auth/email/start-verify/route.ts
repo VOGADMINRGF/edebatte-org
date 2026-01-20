@@ -4,6 +4,7 @@ import { getCol, ObjectId } from "@core/db/triMongo";
 import { createEmailVerificationToken } from "@core/auth/emailVerificationService";
 import { logIdentityEvent } from "@core/telemetry/identityEvents";
 import { sendMail } from "@/utils/mailer";
+import { publicOrigin } from "@/utils/publicOrigin";
 import { buildVerificationMail } from "@/utils/emailTemplates";
 
 export const runtime = "nodejs";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
       userId: String(user._id),
       meta: { email },
     });
-    const origin = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const origin = publicOrigin();
     const verifyUrl = `${origin.replace(/\/$/, "")}/register/verify-email?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
     const mail = buildVerificationMail({
       verifyUrl,

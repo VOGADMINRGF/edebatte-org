@@ -23,7 +23,7 @@ const demoReports: ReportFull[] = [
     subtitle: "Wie viel Integration braucht Europa?",
     createdAt: "2025-07-25",
     updatedAt: "2025-07-27",
-    author: "VOG-Redaktion",
+    author: "eDebatte-Redaktion",
     status: "active",
     visibility: "public",
     language: "de",

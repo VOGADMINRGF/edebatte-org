@@ -1,8 +1,8 @@
-# VoiceOpenGov & eDebatte – zentrale Pricing-Struktur
+# eDebatte & eDebatte – zentrale Pricing-Struktur
 
 Alle membership- und App-Pricings liegen in `apps/web/src/config/pricing.ts` und werden von den Seiten `/mitglied-werden`, `/mitglied-antrag` und `/nutzungsmodell` genutzt. Die Datei ist TS-strikt typisiert und enthält:
 
-- **`VOG_MEMBERSHIP_PLAN`** – Basisdaten der VoiceOpenGov-Mitgliedschaft (Bezeichnung, Beschreibung, orientierender Monatsbeitrag pro Person).
+- **`VOG_MEMBERSHIP_PLAN`** – Basisdaten der eDebatte-Mitgliedschaft (Bezeichnung, Beschreibung, orientierender Monatsbeitrag pro Person).
 - **`EDEBATTE_PLANS`** – Liste der eDebatte-Pakete (`edb-start`, `edb-pro`) mit Label, Beschreibung und Listenpreis (Amount + Interval `month | year`).
 - **`MEMBER_DISCOUNT`** – zentrale Rabattregel (aktuell 25 %) inklusive Anwendungsbereich (`edebatte`, `merch`).
 - **`calcDiscountedPrice`** – Helper, der den rabattierten Preis aus dem Listenpreis berechnet.

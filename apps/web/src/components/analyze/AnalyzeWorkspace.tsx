@@ -320,6 +320,7 @@ type AnalyzeWorkspaceProps = {
   afterFinalizeNavigateTo?: string;
   verificationLevel?: VerificationLevel;
   verificationStatus?: "loading" | "ok" | "login_required" | "error";
+  initialText?: string;
 };
 
 const BASE_STEPS: AnalyzeStepState[] = [
@@ -669,6 +670,7 @@ export default function AnalyzeWorkspace({
   afterFinalizeNavigateTo,
   verificationLevel,
   verificationStatus,
+  initialText,
 }: AnalyzeWorkspaceProps) {
   const router = useRouter();
   const { locale } = useLocale();
@@ -683,7 +685,7 @@ export default function AnalyzeWorkspace({
   const [viewLevel, setViewLevel] = React.useState<1 | 2 | 3 | 4>(defaultLevel ?? initialFlowConfig.defaultLevel);
   const [maxClaims, setMaxClaims] = React.useState<number>(initialFlowConfig.maxClaims);
   const [openPanels, setOpenPanels] = React.useState<Record<PanelKey, boolean>>(initialFlowConfig.openPanels);
-  const [text, setText] = React.useState("");
+  const [text, setText] = React.useState(initialText ?? "");
   const [evidenceInput, setEvidenceInput] = React.useState("");
   const [notes, setNotes] = React.useState<NoteSection[]>([]);
   const [questions, setQuestions] = React.useState<QuestionCard[]>([]);
@@ -1059,9 +1061,16 @@ export default function AnalyzeWorkspace({
     if (!storageKey) return;
     try {
       const raw = window.localStorage.getItem(storageKey);
-      if (!raw) return;
+      if (!raw) {
+        if (initialText) setText(initialText);
+        return;
+      }
       const parsed = JSON.parse(raw) as DraftStorage;
-      if (parsed.text) setText(parsed.text);
+      if (parsed.text) {
+        setText(parsed.text);
+      } else if (initialText) {
+        setText(initialText);
+      }
       if (parsed.evidenceInput) setEvidenceInput(parsed.evidenceInput);
       if (parsed.draftId) setDraftId(parsed.draftId);
       if (parsed.localDraftId) setLocalDraftId(parsed.localDraftId);
@@ -1069,7 +1078,7 @@ export default function AnalyzeWorkspace({
     } catch {
       // ignore
     }
-  }, [storageKey]);
+  }, [storageKey, initialText]);
 
   React.useEffect(() => {
     try {
@@ -2075,7 +2084,7 @@ export default function AnalyzeWorkspace({
               <div className="rounded-xl border border-slate-200/70 bg-white/80 p-3 shadow-sm">
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 text-[11px] font-bold text-white">
-                    VOG
+                    EDB
                   </span>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Flow Coach</p>

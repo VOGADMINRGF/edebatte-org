@@ -49,7 +49,7 @@ export function MembershipCalculator_VOG() {
     <section className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm space-y-5">
       <header>
         <h2 className="text-xl font-semibold text-slate-900">
-          Beitrag berechnen – VoiceOpenGov
+          Beitrag berechnen – eDebatte
         </h2>
         <p className="text-sm text-slate-600">
           Empfehlung: 1 % von (Haushaltsnetto – Miete), mindestens 5,63 € pro

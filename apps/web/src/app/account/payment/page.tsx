@@ -5,7 +5,7 @@ import { PaymentProfileForm } from "./PaymentProfileForm";
 import { MicroTransferVerificationForm } from "./MicroTransferVerificationForm";
 
 export const metadata = {
-  title: "Zahlungsprofil · VoiceOpenGov",
+  title: "Zahlungsprofil · eDebatte",
 };
 
 export default async function PaymentPage() {
@@ -82,8 +82,8 @@ export default async function PaymentPage() {
 
           <div className="rounded-2xl bg-slate-900/90 px-4 py-3 text-[11px] text-slate-100">
             Wenn etwas unklar ist, schreib uns kurz an{" "}
-            <a href="mailto:members@voiceopengov.org" className="font-semibold underline">
-              members@voiceopengov.org
+            <a href="mailto:members@edebatte.org" className="font-semibold underline">
+              members@edebatte.org
             </a>
             . Wir helfen dir gern weiter.
           </div>

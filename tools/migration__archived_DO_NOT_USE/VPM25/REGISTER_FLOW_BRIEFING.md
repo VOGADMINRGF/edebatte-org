@@ -1,6 +1,6 @@
 # Register- & Identity-Flow – V3 Briefing
 
-Ziel: Moderne, sichere und stufenweise Identifizierung der Nutzer*innen für VoiceOpenGov / eDbtt:
+Ziel: Moderne, sichere und stufenweise Identifizierung der Nutzer*innen für eDebatte / eDbtt:
 
 1. **Schritt 1 – Account + E-Mail-Verifizierung**
    - Klassische Registrierung mit Name, E-Mail, Passwort.

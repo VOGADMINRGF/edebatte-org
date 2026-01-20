@@ -256,7 +256,7 @@ async function fetchText(url: string, timeoutMs = 15000): Promise<string> {
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
-      headers: { "user-agent": "VOG-NewsSurveyTopics/1.0" },
+      headers: { "user-agent": "eDebatte-NewsSurveyTopics/1.0" },
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     return await res.text();
@@ -301,7 +301,7 @@ async function callOpenAIAnalyze(prompt: string): Promise<BatchLikeAnalyzeResult
         {
           role: "system",
           content:
-            "Du arbeitest im News→Survey-Topic-Modus für VoiceOpenGov / eDebatte. " +
+            "Du arbeitest im News→Survey-Topic-Modus für eDebatte / eDebatte. " +
             "Halte dich strikt an das JSON-Schema und erfinde keine zusätzlichen Felder.",
         },
         { role: "user", content: prompt },
@@ -346,7 +346,7 @@ function buildPromptForCluster(cluster: TopicCluster): string {
   });
 
   return [
-    "Du arbeitest für das Projekt VoiceOpenGov / eDebatte.",
+    "Du arbeitest für das Projekt eDebatte / eDebatte.",
     "Aus mehreren seriösen Nachrichtenmeldungen zu einem gemeinsamen Thema sollen neutrale,",
     "prüfbare Statements entstehen, die sich gut als Abstimmungs- oder Umfragefragen eignen.",
     "",

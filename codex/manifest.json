@@ -1,5 +1,5 @@
 {
-  "project": "VoiceOpenGov / eDebatte",
+  "project": "eDebatte / eDebatte",
   "version": 1,
   "contracts": {
     "primary_datastore": "triMongo",

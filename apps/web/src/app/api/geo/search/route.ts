@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const url = `${NOMINATIM_BASE}/search?${params.toString()}`;
   const res = await fetch(url, {
     headers: {
-      "User-Agent": NOMINATIM_EMAIL ? `VoiceOpenGov/${NOMINATIM_EMAIL}` : "VoiceOpenGov",
+      "User-Agent": NOMINATIM_EMAIL ? `eDebatte/${NOMINATIM_EMAIL}` : "eDebatte",
       Accept: "application/json",
     },
   });

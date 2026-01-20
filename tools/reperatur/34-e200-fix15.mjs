@@ -51,8 +51,8 @@ const ex = (p) => fs.existsSync(p);
   if (ex(p)) {
     let s = rd(p);
     s = s.replace(
-      /await\s+generateVOGImage\(\s*statement\s*,\s*["']VoiceOpenGov["']\s*\)/,
-      'await generateVOGImage({ prompt: statement, fallbackText: "VoiceOpenGov" })'
+      /await\s+generateVOGImage\(\s*statement\s*,\s*["']eDebatte["']\s*\)/,
+      'await generateVOGImage({ prompt: statement, fallbackText: "eDebatte" })'
     );
     wr(p, s);
   }

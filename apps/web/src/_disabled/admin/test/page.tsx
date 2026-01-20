@@ -17,7 +17,7 @@ const checkItems = [
 export default function AdminTestPage() {
   return (
     <div className="max-w-2xl mx-auto py-10 px-4">
-      <h1 className="text-2xl font-bold mb-6">✅ VOG Admin Checkliste</h1>
+      <h1 className="text-2xl font-bold mb-6">✅ eDebatte Admin Checkliste</h1>
       <ul className="space-y-4">
         {checkItems.map((item) => (
           <li

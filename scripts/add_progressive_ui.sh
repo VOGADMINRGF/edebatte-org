@@ -93,9 +93,9 @@ import Grow from "./Grow";
 import { usePipeline } from "@/store/pipeline";
 
 type Renderers = {
-  stance?: () => JSX.Element;   // VOG-AI 1: Lager/Varianten
-  civic?: () => JSX.Element;    // VOG-AI 2: Recherche
-  analyze?: () => JSX.Element;  // VOG-AI 3: Claims/Essenz
+  stance?: () => JSX.Element;   // eDebatte-AI 1: Lager/Varianten
+  civic?: () => JSX.Element;    // eDebatte-AI 2: Recherche
+  analyze?: () => JSX.Element;  // eDebatte-AI 3: Claims/Essenz
 };
 export default function ProgressiveSlots({ render }: { render: Renderers }){
   const { steps } = usePipeline();
@@ -134,9 +134,9 @@ import { PropsWithChildren, useEffect } from "react";
 import { reset, setAnalyzing, setStep } from "@/store/pipeline";
 
 const WATCH = [
-  { id:"stance",  match:/\/api\/stance\/expand/,            label:"VOG-AI 1 · Lager/Varianten"},
-  { id:"civic",   match:/\/api\/search\/civic/,             label:"VOG-AI 2 · Recherche"},
-  { id:"analyze", match:/\/api\/contributions\/analyze/,    label:"VOG-AI 3 · Claims"}
+  { id:"stance",  match:/\/api\/stance\/expand/,            label:"eDebatte-AI 1 · Lager/Varianten"},
+  { id:"civic",   match:/\/api\/search\/civic/,             label:"eDebatte-AI 2 · Recherche"},
+  { id:"analyze", match:/\/api\/contributions\/analyze/,    label:"eDebatte-AI 3 · Claims"}
 ];
 
 export default function FetchInstrument({children}:PropsWithChildren){

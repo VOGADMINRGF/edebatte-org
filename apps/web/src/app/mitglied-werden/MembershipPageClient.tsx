@@ -317,7 +317,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
           <div className="grid gap-4 md:grid-cols-2">
             <ToggleCard
               active={membershipActive || oneTimeActive}
-              label="VoiceOpenGov-Beitrag"
+              label="eDebatte-Beitrag"
               description={
                 <>
                   Unterstützt die direktdemokratische Bewegung und den Aufbau

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "› Edebatte/VOG – Orchestrator+Fixes (all-in-one) – start"
+echo "› Edebatte/eDebatte – Orchestrator+Fixes (all-in-one) – start"
 
 # --- Flags (safe defaults) -------------------------------------------------
 SKIP_UI="${SKIP_UI:-1}"          # 1 = Seite nicht überschreiben; 0 = überschreiben

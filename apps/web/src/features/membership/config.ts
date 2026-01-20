@@ -8,7 +8,7 @@ export const MEMBERSHIP_PRESETS: Record<MembershipProduct, number[]> = {
 export const MEMBERSHIP_PLANS: Record<MembershipProduct, MembershipPlan> = {
   VOG_PRIVATE: {
     product: "VOG_PRIVATE",
-    label: "VoiceOpenGov Privat",
+    label: "eDebatte Privat",
     description: "1 % von (Haushaltsnetto – Miete), mindestens 5,63 € pro Person.",
     presets: MEMBERSHIP_PRESETS.VOG_PRIVATE,
     minPerPerson: 5.63,

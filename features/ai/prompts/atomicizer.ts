@@ -26,7 +26,7 @@ Return JSON exactly of shape:
 If any required value is missing, set a single string field "needs_info" with the missing key name.`;
 
 // Multi-Claim (V2-Felder, max 8 Claims)
-export const ATOMICIZER_MULTICLAIM_V2 = String.raw`You are VOG Atomicizer (V2).
+export const ATOMICIZER_MULTICLAIM_V2 = String.raw`You are eDebatte Atomicizer (V2).
 Task: Extract atomic political claims (German, B1/B2), one sentence each. Split multiple ideas (max 8); keep content; normalize tone; no censorship.
 
 Return STRICT JSON only:
@@ -59,7 +59,7 @@ Rules:
 // ——— V1 (Legacy) ———
 
 // Multi-Claim (Legacy-Feldschreibweise; kompatibel zu Altpfaden)
-export const ATOMICIZER_V1 = String.raw`You are VOG Atomicizer.
+export const ATOMICIZER_V1 = String.raw`You are eDebatte Atomicizer.
 Task: Extract atomic political claims (German, B1/B2), one sentence each. Fill slots.
 
 STRICT JSON:

@@ -94,7 +94,7 @@ async function fetchText(url:string, timeoutMs=8000) {
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
-      headers: { "user-agent": "VoiceOpenGov/1.0 (+civic-search)" },
+      headers: { "user-agent": "eDebatte/1.0 (+civic-search)" },
       signal: ctrl.signal
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

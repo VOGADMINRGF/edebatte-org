@@ -9,7 +9,7 @@ Part13 bündelt drei Querschnittsthemen:
 3. **Community & Social** – einfache, konstruktive Interaktionsformen ohne Bubble-Building.
 
 Ziel:  
-VoiceOpenGov / eDebatte ist von Anfang an **inklusive, europäisch und sozial verträglich** gedacht.
+eDebatte / eDebatte ist von Anfang an **inklusive, europäisch und sozial verträglich** gedacht.
 
 ---
 
@@ -141,7 +141,7 @@ Regeln:
 
 - keine automatischen „Du solltest Pro/Contra stimmen“-Texte,
 - nur neutrale Beschreibung:
-  - „Sieh dir dieses Thema bei VoiceOpenGov an“.
+  - „Sieh dir dieses Thema bei eDebatte an“.
 
 ---
 

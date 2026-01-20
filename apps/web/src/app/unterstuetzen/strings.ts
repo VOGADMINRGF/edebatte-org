@@ -8,8 +8,8 @@ const STRINGS = {
     en: "Unterstützen",
   },
   heroIntro: {
-    de: "VoiceOpenGov ist eine gemeinwohlorientierte Plattform – unabhängig, datensicher und demokratisch. Deine Unterstützung macht politische Teilhabe möglich.",
-    en: "VoiceOpenGov ist eine gemeinwohlorientierte Plattform – unabhängig, datensicher und demokratisch. Deine Unterstützung macht politische Teilhabe möglich.",
+    de: "eDebatte ist eine gemeinwohlorientierte Plattform – unabhängig, datensicher und demokratisch. Deine Unterstützung macht politische Teilhabe möglich.",
+    en: "eDebatte ist eine gemeinwohlorientierte Plattform – unabhängig, datensicher und demokratisch. Deine Unterstützung macht politische Teilhabe möglich.",
   },
   whyTitle: {
     de: "Warum unterstützen?",

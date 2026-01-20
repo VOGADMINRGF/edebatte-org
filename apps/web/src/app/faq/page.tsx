@@ -46,9 +46,9 @@ const faqCategories: FaqCategory[] = [
     faqs: [
       {
         id: "grundlagen-1",
-        question: "Was ist VoiceOpenGov?",
+        question: "Was ist eDebatte?",
         answer:
-          "VoiceOpenGov ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Mit eDebatte, unserem eigens entwickelten Werkzeug, bauen wir eine digitale Infrastruktur für nachvollziehbare Entscheidungen.",
+          "eDebatte ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Mit eDebatte, unserem eigens entwickelten Werkzeug, bauen wir eine digitale Infrastruktur für nachvollziehbare Entscheidungen.",
       },
       {
         id: "grundlagen-1b",
@@ -58,15 +58,15 @@ const faqCategories: FaqCategory[] = [
       },
       {
         id: "grundlagen-2",
-        question: "Ist VoiceOpenGov eine Partei?",
+        question: "Ist eDebatte eine Partei?",
         answer:
-          "Nein. VoiceOpenGov ist keine Partei, sondern eine unabhängige Bewegung und Infrastruktur. Mit eDebatte stellen wir Werkzeuge bereit, mit denen Bürger:innen, Initiativen, Parteien oder Kommunen Themen einbringen, diskutieren und abstimmen können. Niemand erhält Sonderstimmrechte aufgrund von Rolle oder finanziellen Beiträgen.",
+          "Nein. eDebatte ist keine Partei, sondern eine unabhängige Bewegung und Infrastruktur. Mit eDebatte stellen wir Werkzeuge bereit, mit denen Bürger:innen, Initiativen, Parteien oder Kommunen Themen einbringen, diskutieren und abstimmen können. Niemand erhält Sonderstimmrechte aufgrund von Rolle oder finanziellen Beiträgen.",
       },
       {
         id: "grundlagen-3",
         question: "Warum spricht ihr von Infrastruktur?",
         answer:
-          "Weil wir digitale Teilhabe als dauerhaftes Fundament sehen. Mit VoiceOpenGov und eDebatte machen wir Entscheidungsprozesse sichtbar: Wer schlägt was vor, welche Belege gibt es, wie wurde abgestimmt – und warum. Diese Infrastruktur soll überall funktionieren, wo Menschen gemeinsam entscheiden.",
+          "Weil wir digitale Teilhabe als dauerhaftes Fundament sehen. Mit eDebatte und eDebatte machen wir Entscheidungsprozesse sichtbar: Wer schlägt was vor, welche Belege gibt es, wie wurde abgestimmt – und warum. Diese Infrastruktur soll überall funktionieren, wo Menschen gemeinsam entscheiden.",
       },
     ],
   },
@@ -124,7 +124,7 @@ const faqCategories: FaqCategory[] = [
       },
       {
         id: "mitmachen-3b",
-        question: "Wie können Verbände und Vereine VoiceOpenGov nutzen?",
+        question: "Wie können Verbände und Vereine eDebatte nutzen?",
         answer:
           "Verbände und Vereine können Mitgliederbefragungen, interne Abstimmungen und Arbeitsgruppen in eDebatte aufsetzen. Dossiers bündeln Quellen und Argumente; Ergebnisse liefern Mandate für Mitgliederkommunikation und Beschlüsse.",
       },
@@ -154,9 +154,9 @@ const faqCategories: FaqCategory[] = [
       },
       {
         id: "datenschutz-2",
-        question: "Wie finanziert sich VoiceOpenGov?",
+        question: "Wie finanziert sich eDebatte?",
         answer:
-          "VoiceOpenGov soll sich langfristig über viele kleine Beiträge tragen: Mitgliedschaften, einmalige Gutschriften und Nutzung der Plattform durch Organisationen. So bleibt die Bewegung unabhängig. Details zur aktuellen Finanzierungslogik findest du im Transparenzbericht.",
+          "eDebatte soll sich langfristig über viele kleine Beiträge tragen: Mitgliedschaften, einmalige Gutschriften und Nutzung der Plattform durch Organisationen. So bleibt die Bewegung unabhängig. Details zur aktuellen Finanzierungslogik findest du im Transparenzbericht.",
       },
       {
         id: "datenschutz-3",
@@ -195,10 +195,10 @@ export default function FaqPage() {
               FAQ & How it works
             </p>
             <h1 className="text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">
-              VoiceOpenGov – kurz erklärt
+              eDebatte – kurz erklärt
             </h1>
             <p className="text-sm leading-relaxed text-slate-700 md:text-base">
-              Hier erfährst du, was VoiceOpenGov als Bewegung ist, wie eDebatte als Werkzeug
+              Hier erfährst du, was eDebatte als Bewegung ist, wie eDebatte als Werkzeug
               funktioniert, wer mitmachen kann und wie wir mit Daten und Finanzierung umgehen.
             </p>
           </header>
@@ -210,7 +210,7 @@ export default function FaqPage() {
                 In drei Schritten von der Idee zur Entscheidung
               </h2>
               <p className="mt-1 text-xs text-slate-700 md:text-sm">
-                Die Idee hinter VoiceOpenGov und eDebatte: Themen werden strukturiert vorbereitet,
+                Die Idee hinter eDebatte und eDebatte: Themen werden strukturiert vorbereitet,
                 inhaltlich geprüft und anschließend fair, nachvollziehbar und datenschutzfreundlich
                 entschieden.
               </p>

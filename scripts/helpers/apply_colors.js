@@ -12,7 +12,7 @@ function ensureFile(p, content) {
 }
 
 const TW = `
-/* VoiceOpenGov → e‑Debatte gradient tokens */
+/* eDebatte → e‑Debatte gradient tokens */
 :root {
   --brand-from: #00B3A6; /* turquoise */
   --brand-to:   #005BFF; /* blue */

@@ -1,5 +1,5 @@
 # Identity & Account Flow – Implementation Briefing  
-_VoiceOpenGov / eDbtt – Auth, Verification, OTB & Level‑2 Data_
+_eDebatte / eDbtt – Auth, Verification, OTB & Level‑2 Data_
 
 > **Zweck:** Dieses Dokument bündelt den aktuellen Stand rund um Login/Registrierung/Verifikation und beschreibt _konkret_ die nächsten Implementierungsschritte für Codex.  
 > Fokus: `/api/auth/*`, Verification‑Modell, OTB‑Stub, Bankdaten/Unterschrift (Level 2), Account‑UI & Telemetrie.

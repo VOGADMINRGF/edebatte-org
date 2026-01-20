@@ -5,7 +5,7 @@ import { ContributionNewClient } from "./ContributionNewClient";
 import { getAccountOverview } from "@features/account/service";
 
 export const metadata = {
-  title: "Beitrag analysieren – VoiceOpenGov",
+  title: "Beitrag analysieren – eDebatte",
   description: "Beitrag analysieren und strukturiert aufbereiten.",
 };
 

@@ -6,7 +6,7 @@ export default function VerhaltenskodexPage() {
       </h1>
       <div className="space-y-4 text-gray-700 text-lg">
         <p className="text-center">
-          VoiceOpenGov lebt von respektvollem Austausch. Unser Anspruch ist ein
+          eDebatte lebt von respektvollem Austausch. Unser Anspruch ist ein
           fairer, sachlicher und sicherer Raum für alle.
         </p>
         <ul className="list-disc pl-6 space-y-2 text-base">

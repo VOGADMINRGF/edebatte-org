@@ -31,7 +31,7 @@ Rules:
 - Be neutral, specific, policy-relevant. No extra fields, no commentary.`;
 
 // Multi-Claim (V2) — erwartet ITEMS-Liste mit {claim_canonical_id, claim}
-export const RATER_MULTI_V2 = String.raw`You are VOG Editorial Rater (V2). German (B1/B2). Output STRICT JSON only.
+export const RATER_MULTI_V2 = String.raw`You are eDebatte Editorial Rater (V2). German (B1/B2). Output STRICT JSON only.
 For each item, rate on the five criteria and provide one short reason per criterion.
 
 Return exactly:
@@ -64,7 +64,7 @@ Constraints:
 
 // ——— V1 (Legacy) ———
 
-export const EDITOR_RATER_V1 = String.raw`You are VOG Editorial Rater.
+export const EDITOR_RATER_V1 = String.raw`You are eDebatte Editorial Rater.
 Score each claim on: praezision, pruefbarkeit, relevanz, lesbarkeit, ausgewogenheit (0..1) with short "gruende".
 
 STRICT JSON:

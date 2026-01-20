@@ -43,7 +43,7 @@ export default function SiteFooter() {
                 color: "transparent",
               }}
             >
-              VoiceOpenGov
+              eDebatte
             </Link>
             <p className="mt-2 text-sm font-semibold text-slate-900">
               Offene Infrastruktur für direkte Demokratie.
@@ -55,10 +55,10 @@ export default function SiteFooter() {
             </p>
           </div>
 
-          {/* Über VOG */}
+          {/* Über eDebatte */}
           <FooterNav
-            title="Über VoiceOpenGov"
-            ariaLabel="Footer Navigation: Über VoiceOpenGov"
+            title="Über eDebatte"
+            ariaLabel="Footer Navigation: Über eDebatte"
             links={infoLinks}
           />
 
@@ -78,7 +78,7 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-8 border-t border-slate-200/70 pt-6 text-xs text-slate-500 md:flex md:items-center md:justify-between">
-          <p>© {currentYear} VoiceOpenGov</p>
+          <p>© {currentYear} eDebatte</p>
           <p className="mt-2 text-[11px] text-slate-500 md:mt-0">
             Beta-Version – wir entwickeln diese Infrastruktur gemeinsam weiter.
           </p>

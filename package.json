@@ -44,7 +44,9 @@
     "smoke:analyze": "tsx scripts/smoke_e150_analyze.ts",
     "smoke:e150-full": "tsx scripts/smoke_e150_full.ts",
     "smoke:swipe": "tsx scripts/smoke_e150_swipe.ts",
-    "membership:dunning": "tsx scripts/membership_dunning.ts"
+    "membership:dunning": "tsx scripts/membership_dunning.ts",
+    "brandcheck": "node scripts/check-branding.mjs",
+    "smoke:edb-assistant": "tsx scripts/smoke_edebatte_assistant.ts"
   },
   "pnpm": {
     "overrides": {

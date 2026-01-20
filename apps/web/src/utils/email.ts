@@ -1,4 +1,5 @@
 import { env } from "@/utils/env";
+import { BRAND } from "@/lib/brand";
 import type { Transporter } from "nodemailer";
 import nodemailer from "nodemailer";
 
@@ -18,7 +19,11 @@ type AlertMail = {
   linkLabel?: string; // z.B. "Systemübersicht öffnen"
   note?: string; // freie Zusatzzeile
 };
-const PUBLIC_BASE = process.env.PUBLIC_BASE_URL ?? "http://localhost:3000";
+const PUBLIC_BASE =
+  process.env.PUBLIC_BASE_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  BRAND.baseUrl ||
+  "http://localhost:3000";
 
 // Cache den Transporter (Singleton)
 let transporterPromise: Promise<Transporter | null> | null = null;
@@ -147,7 +152,7 @@ export async function sendAlertEmail({
   linkLabel = "Systemübersicht öffnen",
   note,
 }: AlertMail) {
-  const subject = `[VOG Alert] ${title}`;
+  const subject = `[eDebatte Alert] ${title}`;
   const html = renderAlertHtml({
     title,
     severity,

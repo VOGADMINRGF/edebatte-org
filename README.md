@@ -1,6 +1,6 @@
-# VoiceOpenGov / eDbtt – Monorepo
+# eDebatte / eDbtt – Monorepo
 
-eDbtt bündelt die VoiceOpenGov-Apps (Next.js 15 App Router), die Domain-Logik und die KI-Orchestrierung für den E150-Standard. Ziel ist eine transparente Plattform für demokratische Beteiligung mit klarer Trennung von Kern-, Votes- und PII-Daten.
+eDbtt bündelt die eDebatte-Apps (Next.js 15 App Router), die Domain-Logik und die KI-Orchestrierung für den E150-Standard. Ziel ist eine transparente Plattform für demokratische Beteiligung mit klarer Trennung von Kern-, Votes- und PII-Daten.
 
 ## Architektur-Überblick
 

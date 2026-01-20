@@ -14,22 +14,22 @@ const HERO_ACCENT = "nicht die Schlagzeile";
 const HERO_SUFFIX = "– lokal, national und global.";
 
 const HERO_INTRO =
-  "VoiceOpenGov ist die direktdemokratische Bewegung – offen für alle, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Wir freuen uns über jedes Interesse und jedes Mitmachen. Mit eDebatte, unserem eigens entwickelten Werkzeug, unterstützen wir die Digitalisierung politischer Teilhabe und bauen eine neue, überprüfbare Infrastruktur auf. Entscheidungen folgen dem Grundsatz „eine Person, eine Stimme“. Du kannst Vorschläge einbringen, Varianten abwägen und jeden Schritt offen nachvollziehen – ohne Parteibuch, ohne Hinterzimmer.";
+  "eDebatte ist die neutrale Infrastruktur für nachvollziehbare Beteiligung. Jedes Anliegen durchläuft drei Schritte: Check der Behauptung, Dossier mit Quellen und offenen Fragen, Beteiligung mit dokumentierten Ergebnissen – digital, hybrid oder analog.";
 
 const HERO_BULLETS = [
-  "<strong>Direkt beteiligt:</strong> Themen einreichen, Argumente prüfen und mitentscheiden – vom Handy oder Laptop, alleine oder gemeinsam mit deiner Community.",
-  "<strong>Transparent statt intransparent:</strong> Von Quellen über Argumente bis zu Ergebnissen ist jeder Schritt einsehbar – auch für internationale Partner:innen und Medien.",
-  "<strong>Inklusive & global gedacht:</strong> Verfahren können an Sprachen, Regionen und Quoren angepasst werden, damit vielfältige Perspektiven sichtbar bleiben und starke Mehrheiten entstehen.",
+  "<strong>Check:</strong> Behauptung oder Thema prüfen, Quellen offenlegen und fehlende Perspektiven markieren.",
+  "<strong>Dossier:</strong> Claims, Pro/Contra, offene Fragen und Kontextkarten strukturiert bündeln.",
+  "<strong>Beteiligung:</strong> Abstimmungen und Feedback per App, QR-Code oder analog – Ergebnisse nachvollziehbar dokumentiert.",
 ];
 
 const HERO_CTAS = {
-  primary: "Mitglied werden",
+  primary: "Assistent starten",
   secondary: "Abstimmungen ansehen",
-  tertiary: "Thema einreichen",
+  tertiary: "Mitglied werden",
 };
 
 const HERO_CTA_NOTE =
-  "Keine Parteibindung, kein Datenverkauf. Mitgliedschaften sind monatlich kündbar – Abstimmungen bleiben kostenlos.";
+  "Keine Parteibindung, kein Datenverkauf. Mitgliedschaften finanzieren den Betrieb von eDebatte und sind monatlich kündbar – Abstimmungen bleiben offen.";
 
 /**
  * AUDIENCE / ROLLEN
@@ -75,13 +75,13 @@ const HERO_CARDS = [
  */
 
 const MEMBERSHIP_HIGHLIGHT = {
-  title: "VoiceOpenGov ist die direktdemokratische Bewegung.",
-  body: "Ab 5,63 € im Monat finanzierst du die weltweite Bewegung für direkte Teilhabe. Eine Gemeinschaft, die sich jetzt findet und wächst. eDebatte ist unser eigenes Werkzeug, mit dem wir diese digitale Infrastruktur aufbauen.",
+  title: "eDebatte ist die Infrastruktur für nachvollziehbare Beteiligung.",
+  body: "Ab 5,63 € im Monat finanzierst du den Betrieb von Check → Dossier → Beteiligung. Wir dokumentieren Quellen, Mehrheiten und Entscheidungen so, dass sie überprüfbar bleiben – unabhängig von Parteien oder kurzfristigen Stimmungen.",
   button: "Mitglied werden ab 5,63 €",
-  overline: "Jetzt Teil der Bewegung werden",
-  asideTitle: "Teile die Bewegung",
+  overline: "Jetzt eDebatte-Mitglied werden",
+  asideTitle: "Teile eDebatte",
   asideBody:
-    "Wir freuen uns über jedes Interesse am Mehrheitsprinzip. Wenn du möchtest, hilf uns, sichtbarer zu werden.",
+    "Wir freuen uns über jede Perspektive und jedes Mitmachen. Wenn du möchtest, hilf uns, sichtbarer zu werden.",
   shareLabel: "Teilen",
   shareCopyLabel: "Link kopieren",
   shareWhatsappLabel: "WhatsApp",
@@ -89,7 +89,7 @@ const MEMBERSHIP_HIGHLIGHT = {
   shareSuccess: "Link kopiert.",
   shareError: "Teilen nicht verfügbar.",
   shareText:
-    "VoiceOpenGov ist die direktdemokratische Bewegung. Unterstütze den Aufbau der eDebatte-Infrastruktur.",
+    "eDebatte ist die Infrastruktur für nachvollziehbare Beteiligung. Unterstütze den Ausbau mit deiner Mitgliedschaft.",
 };
 
 /**
@@ -103,9 +103,9 @@ const HERO_VIDEO_LINK = "Mehr erfahren →";
  * AUDIENCE
  */
 
-const AUDIENCE_TITLE = "Für wen VoiceOpenGov und eDebatte gedacht sind";
+const AUDIENCE_TITLE = "Für wen eDebatte gedacht ist";
 const AUDIENCE_LEAD =
-  "Drei Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren und gut dokumentierte Mehrheiten.";
+  "Drei Rollen, ein gemeinsamer Auftrag: bessere Entscheidungen durch nachvollziehbare Verfahren und dokumentierte Mehrheiten.";
 const AUDIENCE_NOTE =
   "Die Rollen lassen sich erweitern. Wähle eine Rolle und sieh Möglichkeiten und ein Fallbeispiel im Detail.";
 
@@ -124,7 +124,7 @@ const DEMO_SECTION = {
       title: "Dossier & Faktencheck",
       body: "Quellen, offene Fragen und Pro/Contra in klarer Struktur.",
       tag: "Schritt 1",
-      image: "/vog_startpage/Dossier.png",
+      image: "/edebatte_startpage/Dossier.png",
       alt: "Screenshot eines Dossiers mit Quellen",
       href: "/howtoworks/edebatte/dossier",
       cta: "Details ansehen",
@@ -134,7 +134,7 @@ const DEMO_SECTION = {
       title: "Abstimmen & Ergebnis",
       body: "Geheime Stimmabgabe, Quorum und Ergebnis-Transparenz in einer klaren Ansicht.",
       tag: "Schritt 2",
-      image: "/vog_startpage/Abstimmen.png",
+      image: "/edebatte_startpage/Abstimmen.png",
       alt: "Screenshot einer Abstimmungsansicht",
       href: "/howtoworks/edebatte/abstimmen",
       cta: "Details ansehen",
@@ -144,7 +144,7 @@ const DEMO_SECTION = {
       title: "Mandat & Umsetzung",
       body: "Meilensteine, Risiken und Wirkung öffentlich nachverfolgen.",
       tag: "Schritt 3",
-      image: "/vog_startpage/Mandat.png",
+      image: "/edebatte_startpage/Mandat.png",
       alt: "Screenshot eines Umsetzungs-Trackings",
       href: "/howtoworks/edebatte/mandat",
       cta: "Details ansehen",
@@ -205,14 +205,14 @@ const QUALITY_SECTION = {
 
 const MAJORITY_SECTION = {
   title: "Mehrheit entscheidet – informiert, fair und nachvollziehbar",
-  lead: "VoiceOpenGov strukturiert Debatten so, dass Entscheidungen nicht vom lautesten Publikum, sondern von nachvollziehbar informierten Mehrheiten getragen werden.",
+  lead: "eDebatte strukturiert Debatten so, dass Entscheidungen nicht vom lautesten Publikum, sondern von nachvollziehbar informierten Mehrheiten getragen werden.",
   bullets: [
     "Symmetrische Darstellung von Pro, Contra und Risiken – keine einseitigen Debatten.",
     "Quoren und Ablaufpläne, die auf Gemeinde-, Kreis- oder Landesebene angepasst werden können – bis hin zu qualifizierten Mehrheiten wie zwei Dritteln.",
     "Öffentliche Dokumentation jedes Schritts, damit Mandate, Legitimität und Umsetzung überprüfbar bleiben.",
   ],
   closing:
-    "Mehrheiten entstehen aus nachvollziehbaren Verfahren – nicht aus spontanen Stimmungen. VoiceOpenGov liefert dafür die Infrastruktur.",
+    "Mehrheiten entstehen aus nachvollziehbaren Verfahren – nicht aus spontanen Stimmungen. eDebatte liefert dafür die Infrastruktur.",
 };
 
 /**

@@ -17,6 +17,7 @@ import { upsertRunReceipt } from "@/lib/db/runReceiptsRepo";
 import { maskUserId } from "@core/pii/redact";
 import type { ProviderMatrixEntry } from "@features/ai/orchestratorE150";
 import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
+import { buildHeuristicAnalyzeResult } from "@features/analyze/heuristics";
 import crypto from "crypto";
 import { parseAnalyzeRequestBody, type AnalyzeRequestParsed } from "./parseAnalyzeRequest";
 
@@ -187,18 +188,15 @@ export async function POST(req: NextRequest): Promise<Response> {
       err: error instanceof Error ? error.message : String(error),
     });
     const normalized = normalizeAnalyzerError(error);
-    if (shouldUseFallback(normalized) && process.env.E150_ANALYZE_FALLBACK === "1") {
-      const fallback = buildFallbackResult(analyzeInput, normalized.code);
-      return NextResponse.json(
-        {
-          ok: false,
-          fallback: true,
-          errorCode: normalized.code,
-          message: normalized.message,
-          result: fallback,
-        },
-        { status: normalized.status ?? 502 },
-      );
+    if (shouldUseFallback(normalized)) {
+      const fallback = buildHeuristicAnalyzeResult({ text, locale });
+      return NextResponse.json({
+        ok: true,
+        fallback: true,
+        errorCode: normalized.code,
+        message: normalized.message,
+        result: fallback,
+      });
     }
     if (normalized.code === "BAD_JSON" || normalized.code === "ANALYZE_PROVIDER_FAILED") {
       const meta = (error as any)?.meta ?? {};
@@ -222,12 +220,14 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
         ],
         questions: [],
+        missingPerspectives: [],
         knots: [],
         consequences: { consequences: [], responsibilities: [] },
         responsibilityPaths: [],
         eventualities: [],
         decisionTrees: [],
         impactAndResponsibility: { impacts: [], responsibleActors: [] },
+        participationCandidates: [],
         report: {
           summary: null,
           keyConflicts: [],
@@ -444,7 +444,7 @@ function normalizeAnalyzerError(error: unknown): NormalizedAnalyzerError {
     return {
       code: "NO_ANALYZE_PROVIDER",
       message:
-        "AnalyzeContribution: Kein KI-Provider konfiguriert. Bitte wende dich an das VoiceOpenGov-Team.",
+        "AnalyzeContribution: Kein KI-Provider konfiguriert. Bitte wende dich an das eDebatte-Team.",
       status: 503,
     };
   }
@@ -493,6 +493,8 @@ const FALLBACK_ELIGIBLE_CODES = new Set([
   "MISSING_ENV",
   "INVALID_AI_RESPONSE",
   "ANALYZE_FAILED",
+  "BAD_JSON",
+  "ANALYZE_PROVIDER_FAILED",
 ]);
 
 function shouldUseFallback(err: unknown) {
@@ -609,64 +611,6 @@ function buildProviderMatrixResponse(
       reason: "KI temporär nicht erreichbar",
     };
   });
-}
-
-function buildFallbackResult(
-  input: AnalyzeJobInput,
-  reason: string,
-): AnalyzeResultWithMeta {
-  const sentences = input.text
-    .split(/[\n\r.!?]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const fallbackClaims =
-    sentences.length > 0
-      ? sentences
-      : [input.text.trim().slice(0, 240)];
-
-  const claims = fallbackClaims.slice(0, input.maxClaims).map((sentence, idx) => ({
-    id: `fb-${input.contributionId}-${idx + 1}`,
-    text: sentence,
-    title: sentence.slice(0, 60) || `Statement ${idx + 1}`,
-    responsibility: "unbestimmt",
-    importance: 3,
-    stance: "neutral" as const,
-  }));
-
-  return {
-    mode: "E150",
-    sourceText: input.text,
-    language: input.locale,
-    claims,
-    notes: [
-      {
-        id: `note-fallback`,
-        text:
-          "Fallback-Analyse: Der KI-Orchestrator war nicht verfügbar. Die Aussagen wurden automatisch aus deinem Text extrahiert.",
-        kind: reason,
-      },
-    ],
-    questions: [],
-    knots: [],
-    consequences: { consequences: [], responsibilities: [] },
-    responsibilityPaths: [],
-    eventualities: [],
-    decisionTrees: [],
-    impactAndResponsibility: { impacts: [], responsibleActors: [] },
-    report: {
-      summary: null,
-      keyConflicts: [],
-      facts: { local: [], international: [] },
-      openQuestions: [],
-      takeaways: [],
-    },
-    _meta: {
-      provider: "fallback",
-      model: reason,
-      pipeline: "contribution_analyze",
-    },
-  };
 }
 
 function resolveContributionId(rawId: unknown, text: string): string {

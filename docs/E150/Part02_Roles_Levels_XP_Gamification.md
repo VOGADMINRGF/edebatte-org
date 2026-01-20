@@ -4,7 +4,7 @@
 
 Part 02 beschreibt alle **Rollen**, **Zugangsmodelle (Tiers)**,  
 **Engagement-Level**, **XP-Logiken**, sowie alle **Gamification-Elemente**  
-der Plattform VoiceOpenGov / eDebatte.
+der Plattform eDebatte / eDebatte.
 
 Ziel:
 

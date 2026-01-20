@@ -37,9 +37,9 @@ import { PropsWithChildren, useEffect } from "react";
 import { setStep, setAnalyzing, reset } from "@/store/pipeline";
 
 const WATCH = [
-  { id:"stance",  match:/\/api\/stance\/expand/ , label:"VOG-AI 1 · Lager/Varianten"},
-  { id:"civic",   match:/\/api\/search\/civic/  , label:"VOG-AI 2 · Recherche"     },
-  { id:"analyze", match:/\/api\/contributions\/analyze/, label:"VOG-AI 3 · Claims" }
+  { id:"stance",  match:/\/api\/stance\/expand/ , label:"eDebatte-AI 1 · Lager/Varianten"},
+  { id:"civic",   match:/\/api\/search\/civic/  , label:"eDebatte-AI 2 · Recherche"     },
+  { id:"analyze", match:/\/api\/contributions\/analyze/, label:"eDebatte-AI 3 · Claims" }
 ];
 
 export default function FetchInstrument({children}:PropsWithChildren){
@@ -124,9 +124,9 @@ fi
 
 # CSS-Gating & Skeleton
 CSS="$APP/src/app/globals.css"
-grep -q "/* VOG gating */" "$CSS" 2>/dev/null || cat >> "$CSS" <<'CSS'
+grep -q "/* eDebatte gating */" "$CSS" 2>/dev/null || cat >> "$CSS" <<'CSS'
 
-/* VOG gating */
+/* eDebatte gating */
 body[data-analyzing="1"] [data-requires-analysis] { display: none; }
 body:not([data-analysis-ready="1"]) [data-requires-analysis] { display: none; }
 /* Simple skeleton */

@@ -6,38 +6,49 @@ import Link from "next/link";
 import type { PrivacyStrings } from "@/app/privacyStrings";
 import {
   CONSENT_COOKIE_NAME,
+  LEGACY_CONSENT_COOKIE_NAME,
   buildConsentCookie,
   parseConsentCookie,
-  type VogConsent,
+  type Consent,
 } from "@/lib/privacy/consent";
 
-interface VogCookieBannerProps {
+interface CookieBannerProps {
   strings: PrivacyStrings;
-  initialConsent?: VogConsent | null;
+  initialConsent?: Consent | null;
 }
 
-function readConsentFromDocument(): VogConsent | null {
-  if (typeof document === "undefined") return null;
-  const raw = document.cookie
-    .split("; ")
+function readConsentFromDocument(): { consent: Consent | null; source: "primary" | "legacy" | null } {
+  if (typeof document === "undefined") return { consent: null, source: null };
+  const entries = document.cookie.split("; ");
+  const primaryRaw = entries
     .find((entry) => entry.startsWith(`${CONSENT_COOKIE_NAME}=`))
     ?.split("=")[1];
-  return parseConsentCookie(raw);
+  if (primaryRaw) {
+    return { consent: parseConsentCookie(primaryRaw), source: "primary" };
+  }
+  const legacyRaw = entries
+    .find((entry) => entry.startsWith(`${LEGACY_CONSENT_COOKIE_NAME}=`))
+    ?.split("=")[1];
+  if (!legacyRaw) return { consent: null, source: null };
+  return { consent: parseConsentCookie(legacyRaw), source: "legacy" };
 }
 
-export function VogCookieBanner({ strings, initialConsent }: VogCookieBannerProps) {
-  const [consent, setConsent] = useState<VogConsent | null>(initialConsent ?? null);
+export function CookieBanner({ strings, initialConsent }: CookieBannerProps) {
+  const [consent, setConsent] = useState<Consent | null>(initialConsent ?? null);
   const [show, setShow] = useState(!initialConsent);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [analyticsOptIn, setAnalyticsOptIn] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialConsent) return;
-    const existing = readConsentFromDocument();
+    const { consent: existing, source } = readConsentFromDocument();
     if (existing) {
       setConsent(existing);
       setAnalyticsOptIn(existing.analytics);
       setShow(false);
+      if (source === "legacy" && typeof document !== "undefined") {
+        document.cookie = buildConsentCookie(existing);
+      }
     }
   }, [initialConsent]);
 
@@ -47,7 +58,7 @@ export function VogCookieBanner({ strings, initialConsent }: VogCookieBannerProp
     }
   }, [consent]);
 
-  const persistConsent = (value: VogConsent) => {
+  const persistConsent = (value: Consent) => {
     if (typeof document === "undefined") return;
     const cookie = buildConsentCookie(value);
     document.cookie = cookie;

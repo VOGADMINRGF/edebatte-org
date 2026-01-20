@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(pwd)"
-echo "🧩 VOG Analyze Repair – start in: $ROOT"
+echo "🧩 eDebatte Analyze Repair – start in: $ROOT"
 
 # 0) Zielordner sicherstellen
 mkdir -p "$ROOT/features/analyze"
@@ -29,7 +29,7 @@ copy_zip "factcheck.zip" "$ROOT/features/factcheck"
 TARGET_ANALYZE="$ROOT/features/analyze/analyzeContribution.ts"
 cat > "$TARGET_ANALYZE" <<'TS'
 // features/analyze/analyzeContribution.ts
-/*  VOG Analyze v3 – GPT-first, ARI Fallback
+/*  eDebatte Analyze v3 – GPT-first, ARI Fallback
     - OpenAI Responses API (input_text + text.format=json_object)
     - forceFallback → ARI
     - Zusätzliche Felder: pulse (quellen/aktualität grob), scoreHints (0.4/1.0/1.2/1.4)

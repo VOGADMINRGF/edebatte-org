@@ -4,7 +4,7 @@
 
 Dieser Part definiert alle **B2G- (Behörden/Gemeinden/Landkreise)**  
 und **B2B- (Unternehmen/Organisationen)** Modelle, Pläne, Limits und  
-Entscheidungslogiken für VoiceOpenGov / eDebatte.
+Entscheidungslogiken für eDebatte / eDebatte.
 
 Ziele:
 

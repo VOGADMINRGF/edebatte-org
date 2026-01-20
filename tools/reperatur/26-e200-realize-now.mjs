@@ -49,7 +49,7 @@ export function isLocationOnboarding(pathname: string): boolean {
 write(path.join(src, "shims", "features", "utils", "ai", "generateImage.ts"), `
 // Realer OpenAI-Aufruf (Images). Fallback: Platzhalter-Asset.
 type GenOpts = { prompt: string; fallbackText?: string; aspectRatio?: "16:9"|"1:1"|"9:16" };
-export default async function generateVOGImage({ prompt, fallbackText="VoiceOpenGov", aspectRatio="16:9" }: GenOpts): Promise<string> {
+export default async function generateVOGImage({ prompt, fallbackText="eDebatte", aspectRatio="16:9" }: GenOpts): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return "/dummy/vog-default.jpg";
   try {
@@ -86,7 +86,7 @@ const creds = Credentials({
     const email = (creds?.email||"").toString().toLowerCase().trim();
     const pw = (creds?.password||"").toString();
     // DEV-Minimum: akzeptiere eine definierte Dev-User-Kombi via ENV (oder Demo)
-    const devUser = process.env.NEXTAUTH_DEV_USER || "dev@voiceopengov.org";
+    const devUser = process.env.NEXTAUTH_DEV_USER || "dev@edebatte.org";
     const devPass = process.env.NEXTAUTH_DEV_PASS || "devpass";
     if (process.env.NEXTAUTH_DEV_ALLOW === "1" && email === devUser && pw === devPass) {
       return { id: "dev-1", name: "Developer", email };
@@ -236,7 +236,7 @@ for (const f of apiFiles) {
 
 // ---------- G) NextAuth .env Hinweise (nur informative Ausgabe) ----------
 console.log("ℹ️  NextAuth läuft mit Credentials. Für Dev-Login ENV setzen:");
-console.log("    NEXTAUTH_DEV_ALLOW=1  NEXTAUTH_DEV_USER=dev@voiceopengov.org  NEXTAUTH_DEV_PASS=devpass");
+console.log("    NEXTAUTH_DEV_ALLOW=1  NEXTAUTH_DEV_USER=dev@edebatte.org  NEXTAUTH_DEV_PASS=devpass");
 console.log("    production: NEXTAUTH_SECRET, (optional) Prisma Adapter konfigurieren.");
 
 // ---------- H) Done ----------

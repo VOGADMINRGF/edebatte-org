@@ -1,13 +1,19 @@
 "use client";
-import React from "react";
-import { useParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import reportData from "../data/reportData";
 import Swipe from "./Swipe";
 
 export default function Report() {
-  const params = useParams();
-  const report = reportData.find(r => r.id === params.id);
+  const [reportId, setReportId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const path = window.location.pathname.split("/").filter(Boolean);
+    setReportId(path[path.length - 1] ?? null);
+  }, []);
+
+  const report = reportData.find((r) => r.id === reportId);
+
+  if (!reportId) return null;
   if (!report) return <div>Report nicht gefunden.</div>;
 
   return (

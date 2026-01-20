@@ -12,7 +12,7 @@ type Props = {
 };
 
 export const metadata = {
-  title: "Admin · VoiceOpenGov",
+  title: "Admin · eDebatte",
 };
 
 export default async function AdminLayout({ children }: Props) {

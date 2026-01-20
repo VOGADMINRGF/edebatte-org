@@ -22,7 +22,7 @@ const heroChips = [
 ];
 
 const heroImage = {
-  src: "/vogpage_default/dossier/flow_pipeline.svg",
+  src: "/edebattepage_default/dossier/flow_pipeline.svg",
   alt: "Flowchart: Vom Anliegen zum Dossier",
 };
 
@@ -37,7 +37,7 @@ const introBlocks = [
     id: "worum",
     title_de: "Worum es geht",
     body_de:
-      "VoiceOpenGov und eDebatte übersetzen Anliegen aus Alltagssprache in prüfbare Aussagen und klare Fragestellungen. Das Dossier verknüpft diese mit Quellen und Gegenbelegen. So wird sichtbar, worauf eine Entscheidung aufbaut – und wo Daten fehlen.",
+      "eDebatte und eDebatte übersetzen Anliegen aus Alltagssprache in prüfbare Aussagen und klare Fragestellungen. Das Dossier verknüpft diese mit Quellen und Gegenbelegen. So wird sichtbar, worauf eine Entscheidung aufbaut – und wo Daten fehlen.",
   },
   {
     id: "trennung",
@@ -59,25 +59,25 @@ const visuals = {
     {
       title: "1) Vom Anliegen zum Dossier",
       body: "Aus einem Anliegen wird eine prüfbare Frage. Quellen und Kontext werden ergänzt. Findings zeigen: stützt, widerspricht oder unklar.",
-      imgSrc: "/vogpage_default/dossier/flow_pipeline.svg",
+      imgSrc: "/edebattepage_default/dossier/flow_pipeline.svg",
       imgAlt: "Flowchart: Vom Anliegen zum Dossier",
     },
     {
       title: "2) Evidenz-Graph",
       body: "Der Evidenz-Graph zeigt Verbindungen: Aussage ↔ Quelle ↔ Finding ↔ offene Fragen. Alles ist anklickbar und nachvollziehbar.",
-      imgSrc: "/vogpage_default/dossier/flow_evidence_graph.svg",
+      imgSrc: "/edebattepage_default/dossier/flow_evidence_graph.svg",
       imgAlt: "Grafik: Evidenz-Graph",
     },
     {
       title: "3) Korrekturen & Einspruch",
       body: "Fehler passieren. Wichtig ist: Änderungen sind begründet, versioniert und bleiben sichtbar. Einsprüche werden dokumentiert.",
-      imgSrc: "/vogpage_default/dossier/flow_corrections.svg",
+      imgSrc: "/edebattepage_default/dossier/flow_corrections.svg",
       imgAlt: "Flowchart: Korrektur und Einspruch",
     },
     {
       title: "4) Evidenz-Indikator (optional)",
       body: "Wenn wir ein Signal anzeigen, dann mit Rubrik und Begründung. Kein „Wahrheits-Score“, sondern ein erklärtes Indiz.",
-      imgSrc: "/vogpage_default/dossier/flow_rubric.svg",
+      imgSrc: "/edebattepage_default/dossier/flow_rubric.svg",
       imgAlt: "Grafik: Evidenz-Indikator",
     },
   ],

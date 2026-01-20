@@ -9,6 +9,7 @@ import { coreCol } from "@core/db/triMongo";
 import { incrementRateLimit } from "@/lib/security/rate-limit";
 import { verifyHumanTokenDetailed } from "@/lib/security/human-token";
 import { sendMail } from "@/utils/mailer";
+import { publicOrigin } from "@/utils/publicOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,13 +68,8 @@ function hashConfirmToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function getPublicOrigin(req: NextRequest) {
-  const envOrigin =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.WEB_BASE_URL ||
-    process.env.PUBLIC_BASE_URL;
-  const raw = envOrigin || req.nextUrl.origin;
-  return raw.replace(/\/$/, "");
+function getPublicOrigin() {
+  return publicOrigin().replace(/\/$/, "");
 }
 
 function getMembershipUrl(origin: string) {
@@ -92,7 +88,7 @@ function buildConfirmMail(opts: {
 
   const html = `
     <p>${greeting},</p>
-    <p>du hast deine E-Mail-Adresse <strong>${email}</strong> für Updates von VoiceOpenGov eingetragen.</p>
+    <p>du hast deine E-Mail-Adresse <strong>${email}</strong> für Updates von eDebatte eingetragen.</p>
     <p>Bitte bestätige deine Anmeldung mit einem Klick:</p>
     <p>
       <a href="${confirmUrl}"
@@ -107,12 +103,12 @@ function buildConfirmMail(opts: {
     <p>Wenn du unsere Arbeit langfristig stärken möchtest, kannst du jederzeit
       <a href="${membershipUrl}">Mitglied werden</a> oder uns auch anonym unterstützen.</p>
     <p>Falls du dich nicht selbst eingetragen hast, kannst du diese Nachricht ignorieren.</p>
-    <p>– Dein Team von VoiceOpenGov</p>
+    <p>– Dein Team von eDebatte</p>
   `;
 
   const text = `${greeting},
 
-du hast deine E-Mail-Adresse ${email} für Updates von VoiceOpenGov eingetragen.
+du hast deine E-Mail-Adresse ${email} für Updates von eDebatte eingetragen.
 
 Bitte bestätige deine Anmeldung über diesen Link:
 ${confirmUrl}
@@ -124,10 +120,10 @@ ${membershipUrl}
 
 Falls du dich nicht selbst eingetragen hast, kannst du diese Nachricht ignorieren.
 
-– Dein Team von VoiceOpenGov`;
+– Dein Team von eDebatte`;
 
   return {
-    subject: "Bitte bestätige deine Anmeldung für VoiceOpenGov-Updates",
+    subject: "Bitte bestätige deine Anmeldung für eDebatte-Updates",
     html,
     text,
   };
@@ -140,7 +136,7 @@ function buildInternalNotifyMail(opts: {
 }) {
   const { email, name, interests } = opts;
   const subject =
-    "Neue Anmeldung für VoiceOpenGov-Updates (Double-Opt-in gestartet)";
+    "Neue Anmeldung für eDebatte-Updates (Double-Opt-in gestartet)";
   const html = `
     <p>Es gibt eine neue Anmeldung für den Updates-Verteiler.</p>
     <ul>
@@ -284,7 +280,7 @@ export async function POST(req: NextRequest) {
     { upsert: true },
   );
 
-  const origin = getPublicOrigin(req);
+  const origin = getPublicOrigin();
   const confirmUrl = `${origin}/api/public/updates/confirm?token=${encodeURIComponent(
     confirmToken,
   )}&email=${encodeURIComponent(email)}`;

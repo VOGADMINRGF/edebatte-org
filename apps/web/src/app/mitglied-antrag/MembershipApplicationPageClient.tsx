@@ -803,7 +803,7 @@ export function MembershipApplicationPageClient() {
               Mitgliedschaft abschließen
             </h1>
             <p className="mt-1 text-sm text-slate-700">
-              Mit deinem Beitrag unterstützt du VoiceOpenGov, die direktdemokratische Bewegung.
+              Mit deinem Beitrag unterstützt du eDebatte, die direktdemokratische Bewegung.
               eDebatte ist unser Werkzeug für die digitale Infrastruktur, die wir gemeinsam
               aufbauen.
             </p>
@@ -1373,7 +1373,7 @@ export function MembershipApplicationPageClient() {
                       className="mt-[2px] h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                     />
                     <span>
-                      Ich habe den Transparenz-Hinweis gelesen und akzeptiere, dass VoiceOpenGov
+                      Ich habe den Transparenz-Hinweis gelesen und akzeptiere, dass eDebatte
                       als UG (haftungsbeschränkt) in Gründung keine Spendenquittungen ausstellt und
                       Mitgliedsbeiträge üblicherweise nicht steuerlich absetzbar sind.
                     </span>

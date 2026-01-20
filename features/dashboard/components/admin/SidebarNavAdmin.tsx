@@ -1,8 +1,7 @@
 // features/dashboard/components/admin/SidebarNavAdmin.tsx
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 
 type NavItem = { href: string; label: string };
@@ -15,7 +14,11 @@ const NAV: NavItem[] = [
 ];
 
 export default function SidebarNavAdmin() {
-  const pathname = usePathname();
+  const [pathname, setPathname] = useState("");
+
+  useEffect(() => {
+    setPathname(window.location.pathname);
+  }, []);
 
   return (
     <aside className="w-56 bg-white shadow flex flex-col gap-1 p-4 dark:bg-neutral-900">
@@ -23,7 +26,7 @@ export default function SidebarNavAdmin() {
       {NAV.map((nav) => {
         const active = pathname?.startsWith(nav.href);
         return (
-          <Link
+          <a
             key={nav.href}
             href={nav.href}
             className={clsx(
@@ -32,7 +35,7 @@ export default function SidebarNavAdmin() {
             )}
           >
             {nav.label}
-          </Link>
+          </a>
         );
       })}
     </aside>

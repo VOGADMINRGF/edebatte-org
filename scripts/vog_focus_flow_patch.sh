@@ -316,7 +316,7 @@ export default function InPlaceHUD({ log, analyzing }: { log:string[]; analyzing
       </ul>
       {analyzing && <div className="h-2 w-24 bg-slate-200 animate-pulse rounded mt-2" />}
       <style jsx global>{`
-        /* Schaltet globale VOG Toasts aus, falls aktiv */
+        /* Schaltet globale eDebatte Toasts aus, falls aktiv */
         .vog-toast, [data-vog-toast], .fetch-instrument { display: none !important; }
       `}</style>
     </div>

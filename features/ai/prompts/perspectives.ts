@@ -24,7 +24,7 @@ Rules:
 - No sources, no extra fields, no commentary. STRICT JSON only.`;
 
 // Multi-Claim (V2). Erwartet eine ITEMS-Liste mit {claim_canonical_id, claim}
-export const PERSPECTIVES_MULTI_V2 = String.raw`You are VOG Perspective Editor (V2).
+export const PERSPECTIVES_MULTI_V2 = String.raw`You are eDebatte Perspective Editor (V2).
 For each item, produce balanced pros/cons (<=3 each) and one constructive alternative. No ad-hominem. German B1/B2. STRICT JSON only.
 
 Return exactly:
@@ -51,7 +51,7 @@ Guidelines:
 // ——— V1 (Legacy) ———
 
 // Multi-Claim (Legacy-Feldschreibweise: "contra" statt "kontra")
-export const PERSPECTIVES_V1 = String.raw`You are VOG Perspective Editor.
+export const PERSPECTIVES_V1 = String.raw`You are eDebatte Perspective Editor.
 For each claim: pro/contra/alternative (max 3 bullets each), balanced German.
 
 STRICT JSON:

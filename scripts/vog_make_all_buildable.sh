@@ -248,7 +248,7 @@ export type AnalyzeJSON = {
   statements: Array<{ text:string }>;
 };
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const SYSTEM = `Du bist ARI/VOG. Extrahiere: topics(max 6, score 0..1), theses(1..n), statements(<=5) und summary{topics,theses,avgRelevance}. Antworte NUR als JSON.`;
+const SYSTEM = `Du bist ARI/eDebatte. Extrahiere: topics(max 6, score 0..1), theses(1..n), statements(<=5) und summary{topics,theses,avgRelevance}. Antworte NUR als JSON.`;
 
 export async function analyzeWithGptStrict(text: string, model = process.env.OPENAI_MODEL ?? "gpt-5.0-mini"): Promise<AnalyzeJSON> {
   const user = `Text:\n${text}\n---\nGib strikt JSON zurück.`;
@@ -286,7 +286,7 @@ function extractUrls(t: string): string[] {
 }
 async function fetchPlain(url: string): Promise<string> {
   try {
-    const r = await fetch(url, { headers: { "user-agent": "VOG/1.0 (+https://voiceopengov.org)" } });
+    const r = await fetch(url, { headers: { "user-agent": "eDebatte/1.0 (+https://edebatte.org)" } });
     const html = await r.text();
     const title = (html.match(/<title[^>]*>(.*?)<\/title>/i)?.[1] || "").trim();
     const body = html.replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ");
@@ -350,7 +350,7 @@ function extractUrls(t: string): string[] {
 }
 async function fetchPlain(url: string): Promise<string> {
   try {
-    const r = await fetch(url, { headers: { "user-agent": "VOG/1.0 (+https://voiceopengov.org)" } });
+    const r = await fetch(url, { headers: { "user-agent": "eDebatte/1.0 (+https://edebatte.org)" } });
     const html = await r.text();
     const title = (html.match(/<title[^>]*>(.*?)<\/title>/i)?.[1] || "").trim();
     const body = html.replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ");

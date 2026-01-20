@@ -2,6 +2,10 @@
 ├── .DS_Store
 ├── .env.local
 ├── .envrc
+├── .envrc.bak.20260114-104140
+├── .envrc.bak.20260114-104855
+├── .envrc.local
+├── .envrc.save
 ├── .github
 │   ├── pull_request_template.md
 │   └── workflows
@@ -12,7 +16,7 @@
 │   └── .DS_Store
 ├── .zap
 │   └── rules.tsv
-├── NR-VOG-Ordnerstructure.txt
+├── NR-eDebatte-Ordnerstructure.txt
 ├── ORPHAN_FEATURES_VPM25.md
 ├── README.md
 ├── _legacy_src
@@ -207,16 +211,21 @@
 │       │   │   │   ├── access
 │       │   │   │   ├── adminNav.ts
 │       │   │   │   ├── analytics
+│       │   │   │   ├── audit
 │       │   │   │   ├── content
+│       │   │   │   ├── dossiers
+│       │   │   │   ├── editorial
 │       │   │   │   ├── errors
 │       │   │   │   ├── eventualities
 │       │   │   │   ├── evidence
+│       │   │   │   ├── factcheck
 │       │   │   │   ├── feeds
 │       │   │   │   ├── graph
 │       │   │   │   ├── identity
 │       │   │   │   ├── impact
 │       │   │   │   ├── layout.tsx
 │       │   │   │   ├── newsletter
+│       │   │   │   ├── orgs
 │       │   │   │   ├── page.tsx
 │       │   │   │   ├── people
 │       │   │   │   ├── pitch
@@ -343,6 +352,8 @@
 │       │   │   │   └── votes
 │       │   │   ├── dossier
 │       │   │   │   └── [dossierId]
+│       │   │   ├── embed
+│       │   │   │   └── dossier
 │       │   │   ├── evidence
 │       │   │   │   └── [regionCode]
 │       │   │   ├── faq
@@ -417,6 +428,7 @@
 │       │   │   ├── privatsphaere
 │       │   │   │   └── page.tsx
 │       │   │   ├── profile
+│       │   │   │   ├── [shareId]
 │       │   │   │   └── page.tsx
 │       │   │   ├── projekts.tsx
 │       │   │   ├── providers.tsx
@@ -749,6 +761,8 @@
 │       │   │   ├── dbWeb.ts
 │       │   │   ├── demo
 │       │   │   │   └── demoAccess.ts
+│       │   │   ├── editorial
+│       │   │   │   └── status.ts
 │       │   │   ├── env
 │       │   │   │   └── payment.ts
 │       │   │   ├── errors
@@ -978,6 +992,7 @@
 │       │       ├── normalizeStatus.ts
 │       │       ├── password.ts
 │       │       ├── publicOrigin.ts
+│       │       ├── publicRateLimit.ts
 │       │       ├── rateLimit.ts
 │       │       ├── rateLimitHelpers.ts
 │       │       ├── rateLimiter.ts
@@ -1208,8 +1223,11 @@
 │   ├── PII_ZONES_E150.md
 │   ├── architecture
 │   │   └── TRIMONGO_GRAPH_CONTRACT.md
-│   └── auth
-│       └── admin-flows.md
+│   ├── auth
+│   │   └── admin-flows.md
+│   └── ops
+│       ├── dossier-hardening-v1_1.md
+│       └── mega-hardening-plan.md
 ├── eDbtt-Ordnerstructure.txt
 ├── features
 │   ├── .DS_Store
@@ -1320,6 +1338,9 @@
 │   │   │   └── EditorView.tsx
 │   │   ├── voiceRegistry.ts
 │   │   └── wrapper.ts
+│   ├── audit
+│   │   ├── recordAuditEvent.ts
+│   │   └── types.ts
 │   ├── auth
 │   │   ├── components
 │   │   │   ├── index.ts
@@ -1406,9 +1427,12 @@
 │   │   └── tsconfig.tsbuildinfo
 │   ├── dossier
 │   │   ├── db.ts
+│   │   ├── effective.ts
 │   │   ├── factcheck.ts
 │   │   ├── ids.ts
+│   │   ├── limits.ts
 │   │   ├── lookup.ts
+│   │   ├── revisionHash.ts
 │   │   ├── revisions.ts
 │   │   ├── schemas.ts
 │   │   ├── seed.ts
@@ -1430,6 +1454,11 @@
 │   │   └── utils
 │   │       ├── http.ts
 │   │       └── index.ts
+│   ├── editorial
+│   │   ├── db.ts
+│   │   ├── schemas.ts
+│   │   ├── status.ts
+│   │   └── types.ts
 │   ├── eslintrc.js
 │   ├── event
 │   │   ├── components
@@ -1470,6 +1499,10 @@
 │   │   ├── types.ts
 │   │   ├── utils.ts
 │   │   └── voteDrafts.ts
+│   ├── graphAdmin
+│   │   ├── db.ts
+│   │   ├── schemas.ts
+│   │   └── types.ts
 │   ├── i18n
 │   │   ├── i18nText.ts
 │   │   └── languages.ts
@@ -1497,6 +1530,12 @@
 │   ├── ngo
 │   │   └── components
 │   │       └── EngagementStats.tsx
+│   ├── org
+│   │   ├── db.ts
+│   │   ├── invite.ts
+│   │   ├── schemas.ts
+│   │   ├── slug.ts
+│   │   └── types.ts
 │   ├── organization
 │   │   ├── REDAME.md
 │   │   ├── components
@@ -1569,6 +1608,10 @@
 │   ├── reports
 │   │   ├── mock.ts
 │   │   ├── service.ts
+│   │   └── types.ts
+│   ├── reportsAssets
+│   │   ├── db.ts
+│   │   ├── schemas.ts
 │   │   └── types.ts
 │   ├── routing
 │   │   └── linkResolver.ts
@@ -1860,8 +1903,12 @@
 │   ├── add_analysis_fallback_bundle.sh
 │   ├── add_progressive_ui.sh
 │   ├── apply_vog_ux_pipeline.sh
+│   ├── backfill_dossiers_from_statements.ts
+│   ├── backfill_revision_hash_chain.ts
 │   ├── build-feature-barrels.mjs
 │   ├── claims_stabilize_and_debug.sh
+│   ├── clamp_existing_sources.ts
+│   ├── cleanup_stale_edges.ts
 │   ├── codemods
 │   │   ├── cookies-headers.ts
 │   │   ├── prisma-order-to-sortOrder.ts
@@ -1930,6 +1977,7 @@
 │   ├── make-review-snapshot.mjs
 │   ├── make_review_snapshot.mjs
 │   ├── membership_dunning.ts
+│   ├── migrate_findings_producedBy.ts
 │   ├── migrations
 │   │   └── 2025-01-15_split_name_to_given_family.ts
 │   ├── oldscripts
@@ -2176,4 +2224,4 @@
     └── factcheck
         └── worker.ts
 
-618 directories, 1559 files
+633 directories, 1592 files

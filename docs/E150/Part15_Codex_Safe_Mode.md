@@ -3,7 +3,7 @@
 ## 1. Zweck
 
 Dieses Dokument definiert einen **Safe Mode** für Codex-Arbeiten im Repo  
-„eDbtt / VoiceOpenGov“.
+„eDbtt / eDebatte“.
 
 Ziele:
 

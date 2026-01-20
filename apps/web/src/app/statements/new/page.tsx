@@ -1,8 +1,16 @@
-"use client";
-
 import AnalyzeWorkspace from "@/components/analyze/AnalyzeWorkspace";
+import { getDraft } from "@/server/draftStore";
 
-export default function StatementNewPage() {
+export default async function StatementNewPage({
+  searchParams,
+}: {
+  searchParams?: { prefill?: string; draftId?: string };
+}) {
+  const prefill = searchParams?.prefill ? decodeURIComponent(searchParams.prefill) : undefined;
+  const draftId = searchParams?.draftId ?? null;
+  const draft = draftId ? await getDraft(draftId).catch(() => null) : null;
+  const initialText = draft?.text ?? prefill;
+
   return (
     <AnalyzeWorkspace
       mode="statement"
@@ -12,6 +20,7 @@ export default function StatementNewPage() {
       saveEndpoint="/api/contributions/save"
       finalizeEndpoint="/api/contributions/finalize"
       afterFinalizeNavigateTo="/swipes"
+      initialText={initialText}
     />
   );
 }

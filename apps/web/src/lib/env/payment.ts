@@ -34,13 +34,13 @@ const EnvSchema = z.object({
     .refine((value) => isValidIban(value), "invalid iban"),
   VOG_PAYMENT_BANK_BIC: z.string().optional().default(""),
   VOG_PAYMENT_BANK_NAME: z.string().optional().default(""),
-  VOG_PAYMENT_REFERENCE_PREFIX: z.string().optional().default("VOG-"),
+  VOG_PAYMENT_REFERENCE_PREFIX: z.string().optional().default("eDebatte-"),
 
   VOG_MEMBERSHIP_CONTACT_EMAIL: z
     .string()
     .email()
     .optional()
-    .default("members@voiceopengov.org"),
+    .default("members@edebatte.org"),
 });
 
 export type PaymentEnv = {
@@ -69,7 +69,7 @@ export function getPaymentEnv(): PaymentEnv {
     iban: e.VOG_PAYMENT_BANK_IBAN,
     bic: e.VOG_PAYMENT_BANK_BIC ?? "",
     bankName: e.VOG_PAYMENT_BANK_NAME ?? "",
-    referencePrefix: e.VOG_PAYMENT_REFERENCE_PREFIX ?? "VOG-",
-    membershipContactEmail: e.VOG_MEMBERSHIP_CONTACT_EMAIL ?? "members@voiceopengov.org",
+    referencePrefix: e.VOG_PAYMENT_REFERENCE_PREFIX ?? "eDebatte-",
+    membershipContactEmail: e.VOG_MEMBERSHIP_CONTACT_EMAIL ?? "members@edebatte.org",
   };
 }

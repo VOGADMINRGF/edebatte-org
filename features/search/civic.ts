@@ -42,7 +42,7 @@ async function fetchText(url: string, timeoutMs=8000): Promise<string> {
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { "user-agent":"VOG-CivicSearch/1.0" } });
+    const res = await fetch(url, { signal: ctrl.signal, headers: { "user-agent":"eDebatte-CivicSearch/1.0" } });
     if (!res.ok) throw new Error("HTTP "+res.status);
     return await res.text();
   } finally { clearTimeout(t); }

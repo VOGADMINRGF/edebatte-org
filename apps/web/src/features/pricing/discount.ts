@@ -32,7 +32,7 @@ export function canApplyVogDiscount(context: VogDiscountContext): boolean {
   return true;
 }
 
-// E150 Part03 – VOG-Mitgliedsrabatt für eDebatte-Produkte
+// E150 Part03 – Mitgliedsrabatt für eDebatte-Produkte
 // Preise werden auf Cents gerundet, um Brüche in Zahlungsflüssen zu vermeiden.
 export function applyVogMembershipDiscount(
   priceCents: number,

@@ -27,15 +27,15 @@ export type TransparenzSection = {
       case "de":
       default:
         return {
-          title: "Startphase VoiceOpenGov / eDebatte",
+          title: "Startphase eDebatte / eDebatte",
           subtitle: "Aufbauphase und Vorschau auf den Jahresbericht 2026",
           meta: {
             stand: "Stand: Dezember 2025",
-            projekt: "Projekt: VoiceOpenGov – Infrastruktur für digitale direkte Demokratie",
+            projekt: "Projekt: eDebatte – Infrastruktur für digitale direkte Demokratie",
             produkt: "Produkt: eDebatte (mehrstufige Beteiligungsplattform)",
-            rechtsform: "Rechtsform: VoiceOpenGov UG (haftungsbeschränkt), in Gründung",
+            rechtsform: "Rechtsform: eDebatte UG (haftungsbeschränkt), in Gründung",
             verantwortung:
-              "Verantwortlich für diesen Bericht ist Ricky G. Fleischer als Initiator und künftiger Geschäftsführer der VoiceOpenGov UG (haftungsbeschränkt).",
+              "Verantwortlich für diesen Bericht ist Ricky G. Fleischer als Initiator und künftiger Geschäftsführer der eDebatte UG (haftungsbeschränkt).",
           },
           introNote:
             "Dieser Transparenzbericht beschreibt die aktuelle Finanzierungslogik in der Aufbauphase, macht das geschätzte Start-Minus aus Entwicklungsleistungen sichtbar und skizziert, wie ab 2026 regelmäßige Transparenzberichte aussehen sollen.",
@@ -44,7 +44,7 @@ export type TransparenzSection = {
               id: "warum",
               title: "1. Warum es diesen Transparenzbericht gibt",
               paragraphs: [
-                "VoiceOpenGov soll eine Infrastruktur für digitale direkte Demokratie werden, der man bei politischen Entscheidungen vertrauen kann. Dieses Vertrauen entsteht nicht nur durch guten Code und robuste Abstimmungsverfahren, sondern auch durch nachvollziehbare Finanzen.",
+                "eDebatte soll eine Infrastruktur für digitale direkte Demokratie werden, der man bei politischen Entscheidungen vertrauen kann. Dieses Vertrauen entsteht nicht nur durch guten Code und robuste Abstimmungsverfahren, sondern auch durch nachvollziehbare Finanzen.",
                 "Wir starten mit einem Projekt, in das bereits sehr viel Zeit, Know-how und persönliche Ressourcen geflossen sind. Gleichzeitig befinden wir uns rechtlich und finanziell noch in einer frühen Aufbauphase.",
                 "Mit diesem Transparenzbericht legen wir offen, mit welchem geschätzten Minus wir starten, wie wir die ersten Einnahmen priorisieren und wie zukünftige Transparenzberichte – etwa für das Jahr 2026 – gestaltet sein werden.",
               ],
@@ -71,7 +71,7 @@ export type TransparenzSection = {
               id: "konten",
               title: "3. Kontoführung in der Gründungsphase",
               paragraphs: [
-                "Bis zur Eintragung der VoiceOpenGov UG (haftungsbeschränkt) werden Mitgliedsbeiträge, einmalige Unterstützungen (Gutschriften) und eDebatte-Vorbestellungen über ein privates Konto von Ricky G. Fleischer entgegengenommen.",
+                "Bis zur Eintragung der eDebatte UG (haftungsbeschränkt) werden Mitgliedsbeiträge, einmalige Unterstützungen (Gutschriften) und eDebatte-Vorbestellungen über ein privates Konto von Ricky G. Fleischer entgegengenommen.",
                 "Diese Gelder werden buchhalterisch strikt vom privaten Vermögen getrennt erfasst. Nach Eintragung der UG werden die Projektmittel sukzessive auf ein Geschäftskonto überführt.",
                 "Es werden aktuell keine Spendenquittungen ausgestellt. Beiträge sind in der Regel nicht steuerlich absetzbar. Sobald sich die rechtliche Struktur verfestigt, wird geprüft, ob und wie sich hier mittelfristig Verbesserungen erreichen lassen, ohne die Unabhängigkeit des Projekts zu gefährden.",
               ],
@@ -106,7 +106,7 @@ export type TransparenzSection = {
               id: "unabhaengigkeit",
               title: "5. Unabhängigkeit und Grundsätze der Finanzierung",
               paragraphs: [
-                "VoiceOpenGov soll eine Infrastruktur sein, die langfristig nicht von einzelnen großen Geldgeber:innen oder staatlichen Zuschüssen abhängt. Unabhängigkeit ist ein zentrales Designprinzip.",
+                "eDebatte soll eine Infrastruktur sein, die langfristig nicht von einzelnen großen Geldgeber:innen oder staatlichen Zuschüssen abhängt. Unabhängigkeit ist ein zentrales Designprinzip.",
                 "In der aktuellen Phase nehmen wir keine Gelder von politischen Parteien oder parteinahen Organisationen an. Auch staatliche oder EU-Fördermittel werden sehr kritisch geprüft und nur in Betracht gezogen, wenn Konditionen und Einflussmöglichkeiten klar begrenzt sind und mit der Community transparent besprochen werden.",
                 "Für Mitbestimmung gilt unabhängig von finanziellen Beiträgen das Prinzip: eine Person, eine Stimme. Geld kauft weder zusätzliche Stimmen noch Sonderrechte bei Abstimmungen.",
               ],

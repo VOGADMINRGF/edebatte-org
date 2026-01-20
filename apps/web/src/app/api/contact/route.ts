@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       );
     }
     return new Response(
-      `<p style="font-family: system-ui; margin: 24px;">Zu viele Anfragen. Bitte versuche es in ein paar Minuten erneut oder schreib uns direkt an <a href="mailto:kontakt@voiceopengov.org">kontakt@voiceopengov.org</a>.</p>`,
+      `<p style="font-family: system-ui; margin: 24px;">Zu viele Anfragen. Bitte versuche es in ein paar Minuten erneut oder schreib uns direkt an <a href="mailto:kontakt@edebatte.org">kontakt@edebatte.org</a>.</p>`,
       { status: 429, headers: { "content-type": "text/html; charset=utf-8", ...headers } },
     );
   }
@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
     return redirect(req, "error=ratelimit", headers);
   }
 
-  const to = process.env.CONTACT_INBOX || "kontakt@voiceopengov.org";
+  const to = process.env.CONTACT_INBOX || "kontakt@edebatte.org";
   const safeSubject =
     cleanSubject && cleanSubject.trim().length > 0 ? cleanSubject.trim() : `Kontakt (${cleanCategory})`;
   const outboundSubject =
@@ -379,7 +379,7 @@ export async function POST(req: NextRequest) {
 
     await sendMail({
       to: cleanEmail,
-      subject: "Danke für deine Nachricht an VoiceOpenGov",
+      subject: "Danke für deine Nachricht an eDebatte",
       html: `
         <p>Hi ${escapeHtml(cleanName)},</p>
         <p>danke für deine Nachricht – wir freuen uns über jedes Feedback und melden uns so schnell wie möglich.</p>
@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
           ${safeSubject ? `<li><strong>Betreff:</strong> ${escapeHtml(safeSubject)}</li>` : ""}
           <li><strong>Nachricht:</strong><br/>${escapeHtml(cleanMessage).replace(/\n/g, "<br/>")}</li>
         </ul>
-        <p>Viele Grüße<br/>dein VoiceOpenGov Team</p>
+        <p>Viele Grüße<br/>dein eDebatte Team</p>
       `,
     });
   }

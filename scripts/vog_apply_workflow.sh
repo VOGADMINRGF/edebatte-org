@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WEB_TSC="$ROOT/apps/web/tsconfig.json"
 
-echo "🧩 VoiceOpenGov workflow: apply patches"
+echo "🧩 eDebatte workflow: apply patches"
 cd "$ROOT"
 
 echo "📦 deps prüfen"
@@ -73,7 +73,7 @@ const AnalyzeSchema = z.object({
 export type AnalyzeResult = z.infer<typeof AnalyzeSchema>;
 
 const SYS = `
-Du bist ein strenger Extraktor für VoiceOpenGov (VOG).
+Du bist ein strenger Extraktor für eDebatte (eDebatte).
 Ziele (hart):
 - MaxClaims ≤ 8 (lieber 5–6 präzise).
 - Jede claim.text = genau EINE prüfbare Aussage (keine „und/oder“-Ketten), 1–2 Sätze, ≤180 Zeichen.

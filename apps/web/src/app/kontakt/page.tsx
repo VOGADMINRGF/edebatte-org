@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
 import { pickHumanChallenge } from "@/lib/spam/humanChallenge";
 import KontaktForm from "./KontaktForm";
 
@@ -35,25 +36,30 @@ export default function KontaktPage({
                 <p>
                   <span className="font-semibold">E-Mail:</span>{" "}
                   <a
-                    href="mailto:kontakt@voiceopengov.org"
+                    href={`mailto:${BRAND.contactEmail}`}
                     className="font-semibold text-sky-700 underline underline-offset-4"
                   >
-                    kontakt@voiceopengov.org
+                    {BRAND.contactEmail}
                   </a>
                 </p>
-                <p>Direkt ans Team VoiceOpenGov</p>
+                <p>Direkt an das eDebatte-Team</p>
                 <p className="text-xs text-slate-600">
                   Anfragen versuchen wir binnen von 24 Stunden zu beantworten.
                 </p>
               </div>
 
               <div className="space-y-1 md:text-right">
-                <p className="font-semibold text-slate-900">Ladungsfähige Geschäftsanschrift</p>
-                <p>VoiceOpenGov UG (haftungsbeschränkt) i. G.</p>
-                <p>Ricky G. Fleischer</p>
-                <p>Kolonnenstraße 8</p>
-                <p>10827 Berlin</p>
-                <p>Deutschland</p>
+                <p className="font-semibold text-slate-900">Ladungsfähige Anschrift</p>
+                <p className="leading-relaxed text-slate-700">
+                  Siehe{" "}
+                  <Link
+                    href="/impressum"
+                    className="font-semibold text-sky-700 underline underline-offset-4"
+                  >
+                    Impressum
+                  </Link>
+                  .
+                </p>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Weitere Angaben findest du im Impressum.
                 </p>
@@ -66,10 +72,10 @@ export default function KontaktPage({
           <div className="mt-6 text-center text-xs text-slate-500">
             Sollte das Formular einmal nicht funktionieren, erreichst du uns jederzeit unter{" "}
             <a
-              href="mailto:kontakt@voiceopengov.org"
+              href={`mailto:${BRAND.contactEmail}`}
               className="font-semibold text-sky-700 underline underline-offset-4"
             >
-              kontakt@voiceopengov.org
+              {BRAND.contactEmail}
             </a>
             .
           </div>

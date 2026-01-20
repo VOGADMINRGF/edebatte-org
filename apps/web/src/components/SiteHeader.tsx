@@ -6,17 +6,19 @@ export default function SiteHeader(){
   return (
     <header className="border-b bg-white">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/" className="font-bold text-lg">VoiceOpenGov</a>
+        <a href="/" className="font-bold text-lg">eDebatte</a>
         <button aria-label="Menu" className="md:hidden p-2 border rounded" onClick={()=>setOpen(x=>!x)}>☰</button>
         <nav className="hidden md:flex gap-4 text-sm">
-          <a href="/contributions/new" className="hover:underline">Neu</a>
-          <a href="/contributions/analyze" className="hover:underline">Erweitert</a>
+          <a href="/howtoworks/edebatte/dossier" className="hover:underline">Dossier &amp; Faktencheck</a>
+          <a href="/swipes" className="hover:underline">Abstimmen</a>
+          <a href="/mitglied-werden" className="hover:underline">Mitmachen</a>
         </nav>
       </div>
       {open && (
         <nav className="md:hidden border-t px-4 py-2 flex flex-col gap-2 text-sm bg-white">
-          <a href="/contributions/new" className="py-1">Neu</a>
-          <a href="/contributions/analyze" className="py-1">Erweitert</a>
+          <a href="/howtoworks/edebatte/dossier" className="py-1">Dossier &amp; Faktencheck</a>
+          <a href="/swipes" className="py-1">Abstimmen</a>
+          <a href="/mitglied-werden" className="py-1">Mitmachen</a>
         </nav>
       )}
     </header>

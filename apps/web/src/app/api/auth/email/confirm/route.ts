@@ -6,6 +6,7 @@ import { logIdentityEvent } from "@core/telemetry/identityEvents";
 import { applySessionCookies, ensureVerificationDefaults, type CoreUserAuthSnapshot } from "../../sharedAuth";
 import { sendMail } from "@/utils/mailer";
 import { buildAccountWelcomeMail } from "@/utils/emailTemplates";
+import { publicOrigin } from "@/utils/publicOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (user.email) {
-    const origin = (process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin).replace(/\/$/, "");
+    const origin = publicOrigin().replace(/\/$/, "");
     const displayName = (user as any)?.profile?.displayName || (user as any)?.name || null;
     const mail = buildAccountWelcomeMail({
       accountUrl: `${origin}/account`,

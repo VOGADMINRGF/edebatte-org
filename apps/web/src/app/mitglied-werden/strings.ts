@@ -6,20 +6,20 @@ type LocaleString = Record<"de", string> & Partial<Record<SupportedLocale, strin
 type LocaleStringArray = Record<"de", string[]> & Partial<Record<SupportedLocale, string[]>>;
 
 const STRINGS = {
-  heroTitle: { de: "VoiceOpenGov beitreten & eDebatte nutzen" } as LocaleString,
+  heroTitle: { de: "eDebatte beitreten & eDebatte nutzen" } as LocaleString,
   heroIntro: {
-    de: "VoiceOpenGov ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Mit eDebatte, unserem eigens entwickelten Werkzeug, unterstützen wir die Digitalisierung von Beteiligung und bauen eine neue Infrastruktur für nachvollziehbare Entscheidungen. Deine Mitgliedschaft trägt diese Bewegung und hält eDebatte unabhängig. Wie wir das absichern, zeigen wir im Transparenzbericht.",
+    de: "eDebatte ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Mit eDebatte, unserem eigens entwickelten Werkzeug, unterstützen wir die Digitalisierung von Beteiligung und bauen eine neue Infrastruktur für nachvollziehbare Entscheidungen. Deine Mitgliedschaft trägt diese Bewegung und hält eDebatte unabhängig. Wie wir das absichern, zeigen wir im Transparenzbericht.",
   } as LocaleString,
 
   transparencyTitle: { de: "Wichtiger Hinweis zur Transparenz" } as LocaleString,
   transparencyBody: {
-    de: "VoiceOpenGov befindet sich in der Gründungsphase – umso wichtiger ist deine Unterstützung, ob monatlich, einmalig oder als Vorbestellung der eDebatte. Bis zur Eintragung gehen Beiträge über PayPal oder – bevorzugt – per Überweisung an das Konto des Initiators und werden strikt projektbezogen verbucht; wir stellen derzeit keine Spendenquittungen aus, Beiträge sind in der Regel nicht steuerlich absetzbar. Die Bewegung soll dauerhaft von vielen Menschen getragen werden – nach dem Prinzip „eine Person, eine Stimme“. Die eDebatte-Pakete, inklusive eDebatte Basis (kostenfrei), sind unten beschrieben und frei wählbar und zubuchbar.",
+    de: "eDebatte befindet sich in der Gründungsphase – umso wichtiger ist deine Unterstützung, ob monatlich, einmalig oder als Vorbestellung der eDebatte. Bis zur Eintragung gehen Beiträge über PayPal oder – bevorzugt – per Überweisung an das Konto des Initiators und werden strikt projektbezogen verbucht; wir stellen derzeit keine Spendenquittungen aus, Beiträge sind in der Regel nicht steuerlich absetzbar. Die Bewegung soll dauerhaft von vielen Menschen getragen werden – nach dem Prinzip „eine Person, eine Stimme“. Die eDebatte-Pakete, inklusive eDebatte Basis (kostenfrei), sind unten beschrieben und frei wählbar und zubuchbar.",
   } as LocaleString,
 
   enableTitle: { de: "Was du mit deiner Mitgliedschaft ermöglichst" } as LocaleString,
   enableList: {
     de: [
-      "Du wirst Mitglied bei VoiceOpenGov, weil du die direktdemokratische Bewegung stärken willst. eDebatte ist unser Werkzeug, das überall dort eingesetzt werden kann, wo Menschen gemeinsam Entscheidungen treffen.",
+      "Du wirst Mitglied bei eDebatte, weil du die direktdemokratische Bewegung stärken willst. eDebatte ist unser Werkzeug, das überall dort eingesetzt werden kann, wo Menschen gemeinsam Entscheidungen treffen.",
       "Dein Beitrag ermöglicht Moderation, Weiterentwicklung und Betrieb der Infrastruktur. So kann eDebatte weltweit wachsen – getragen von vielen Menschen statt von einzelnen Großinteressen. Wie wir mit den Mitteln umgehen, zeigen wir im Transparenzbericht.",
     ],
   } as LocaleStringArray,
@@ -43,7 +43,7 @@ const STRINGS = {
   } as LocaleStringArray,
   
 
-  calculatorTitle: { de: "Beitrag berechnen – VoiceOpenGov" } as LocaleString,
+  calculatorTitle: { de: "Beitrag berechnen – eDebatte" } as LocaleString,
   calculatorIntro: {
     de: "Empfehlung: 1 % vom frei verfügbaren Haushaltsnettoeinkommen (Netto minus Warmmiete), mindestens 5,63 € pro Person ab 16 Jahren. Dieser Betrag entspricht dem sozial verträglichen Minimum, an dem wir uns orientieren, damit die Bewegung wachsen kann.",
   } as LocaleString,

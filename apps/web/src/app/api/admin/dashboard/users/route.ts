@@ -11,6 +11,7 @@ import { hashPassword } from "@/utils/password";
 import { createEmailVerificationToken } from "@core/auth/emailVerificationService";
 import { buildSetPasswordMail, buildVerificationMail } from "@/utils/emailTemplates";
 import { sendMail } from "@/utils/mailer";
+import { publicOrigin } from "@/utils/publicOrigin";
 import { DEFAULT_LOCALE } from "@core/locale/locales";
 import { logIdentityEvent } from "@core/telemetry/identityEvents";
 import { ensureBasicPiiProfile } from "@core/pii/userProfileService";
@@ -327,7 +328,7 @@ export async function POST(req: NextRequest) {
   let verifyUrl: string | null = null;
   if (body.sendVerification ?? true) {
     const { rawToken } = await createEmailVerificationToken(userId, email);
-    const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+    const origin = publicOrigin();
     verifyUrl = `${origin.replace(/\/$/, "")}/register/verify-email?token=${encodeURIComponent(
       rawToken,
     )}&email=${encodeURIComponent(email)}`;

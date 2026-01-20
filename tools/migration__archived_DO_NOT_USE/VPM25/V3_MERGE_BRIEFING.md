@@ -17,7 +17,7 @@ E150-Analyzer & Multi-Provider-Orchestrator
 
 triMongo-Kern für Core/Votes/PII
 
-Membership/Pricing-Split (VoiceOpenGov vs eDbtt-Nutzung)
+Membership/Pricing-Split (eDebatte vs eDbtt-Nutzung)
 
 Feeds-Pipeline inkl. StatementCandidates, Analyze-Queue & VoteDrafts
 
@@ -141,7 +141,7 @@ Map & Reports nutzen Region-Keys + Übersetzungen statt Hardcoded-Strings.
 
 1.6 Membership & Pricing
 
-VoiceOpenGov-Mitgliedschaft (Bewegung)
+eDebatte-Mitgliedschaft (Bewegung)
 
 Modul: apps/web/src/features/membership/*
 
@@ -335,7 +335,7 @@ tools/migration/VPM25/feeds_backfill_candidates.ts
 B.3 – Neuer Fokus: News/RSS als Evidence-Quelle („Plan B – Faktencheck only“) (🚧)
 
 Idee:
-RSS/News dienen nicht zur Produktion eigener VOG-Statements, sondern als Evidence-Quellen für Claims.
+RSS/News dienen nicht zur Produktion eigener eDebatte-Statements, sondern als Evidence-Quellen für Claims.
 Wir speichern nur Kurztexte + Metadaten, keine Volltexte. Darstellung immer mit Link auf das Original.
 
 Bestehende Feeds/StatementCandidates/Evidence-Funktionen (Block B, Evidence, Reports, Map) sollen weiter funktionieren – wir erweitern/refactoren, bauen nichts ab.
@@ -679,7 +679,7 @@ Block E – Membership & Pricing (Bewegung vs Nutzung)
 
 Status:
 
-✅ VoiceOpenGov-Membership:
+✅ eDebatte-Membership:
 
 features/membership/*, MembershipCalculator_VOG
 

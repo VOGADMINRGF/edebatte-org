@@ -13,7 +13,7 @@ fix_one() {
   cp -f "$f" "$f.bak.$(date +%s)"
 
   cat > "$f" <<'TS'
-// Fixed Responses API usage for VOG analyzer
+// Fixed Responses API usage for eDebatte analyzer
 // - content type: "input_text" (NOT "text")
 // - system prompt goes into top-level `instructions`
 // - JSON mode via text.format: { type: "json_object" }
@@ -67,7 +67,7 @@ export type AnalyzeInput = { text: string; maxClaims?: number; mode?: "offline" 
 /* ── Prompt ──────────────────────────────────────────────────────────────── */
 function buildSystemPrompt() {
   return `
-Du bist ein strenger Extraktor für VoiceOpenGov (VOG). Antworte **NUR** mit JSON.
+Du bist ein strenger Extraktor für eDebatte (eDebatte). Antworte **NUR** mit JSON.
 Ziel: wenige, präzise, abstimmbare Aussagen ("claims"). Genau 1 prüfbare Aussage je claim.text (≤180 Zeichen, keine "und/oder").
 Nutze Domain-/Topic-Kanon; setze region/authority nur bei klarer Salienz.
 Liefere optional: claimType, policyInstrument, ballotDimension, timeframe, targets[], evidence[], decisionMaker, jurisdiction, verifiability, checks[], relevance, confidence.

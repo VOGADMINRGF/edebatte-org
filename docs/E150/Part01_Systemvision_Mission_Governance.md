@@ -2,7 +2,7 @@
 
 ## 1. Zweck dieses Parts
 
-Part 01 beschreibt die **Systemvision**, die **Mission** und die **Governance-Prinzipien** von VoiceOpenGov / eDebatte.
+Part 01 beschreibt die **Systemvision**, die **Mission** und die **Governance-Prinzipien** von eDebatte / eDebatte.
 
 Alles, was in späteren Parts (Orchestrator, Graph, Pricing, Streams, Admin etc.) steht, muss mit diesen Grundentscheidungen kompatibel sein:
 
@@ -20,7 +20,7 @@ Codex soll diese Prinzipien in Kommentaren, Modellen und Admin-Features widerspi
 
 ### 2.1 Langfristige Zielbilder
 
-VoiceOpenGov / eDebatte soll eine **dauerhafte, internationale Demokratie-Infrastruktur** werden, die:
+eDebatte / eDebatte soll eine **dauerhafte, internationale Demokratie-Infrastruktur** werden, die:
 
 - Bürger:innen befähigt, komplexe Themen zu verstehen,
 - Mehrheiten und Minderheiten fair sichtbar macht,
@@ -324,8 +324,8 @@ Vorgabe:
 - `TOPIC_CHOICES` in Code und Profil-Funktionen müssen sich **immer** aus diesen 15 Kategorien ableiten.
 - Zusätzliche Tags/Unterthemen sind erlaubt, hängen aber immer an einer der 15 Hauptkategorien.
 
-### Aktueller B2C-Stand (VoiceOpenGov + eDebatte)
+### Aktueller B2C-Stand (eDebatte + eDebatte)
 
 - B2C-Tiers der App: **eDebatte Basis (0 €), Erweitert, Premium** – Preise und Labels liegen zentral in `apps/web/src/config/pricing.ts`.
-- Mitgliedschaft: VoiceOpenGov mit empfohlenen 5,63 € p. P. pro Monat. 24 Monate Mindestlaufzeit, wenn das eDebatte-Dankeschön genutzt werden soll.
+- Mitgliedschaft: eDebatte mit empfohlenen 5,63 € p. P. pro Monat. 24 Monate Mindestlaufzeit, wenn das eDebatte-Dankeschön genutzt werden soll.
 - Goodie: Bis zu 25 % Nachlass auf eDebatte-Abos in den ersten 6 Monaten, nur bei monatlicher Zahlung, Mindestbeitrag 5,63 € und 24 Monaten Commitment; einmalig pro Mitgliedschaft.

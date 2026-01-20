@@ -49,7 +49,7 @@ const AnalyzeSchema = z.object({
 export type AnalyzeResult = z.infer<typeof AnalyzeSchema>;
 
 const SYS = `
-Du bist ein strenger Extraktor für bürgerliche Eingaben in VoiceOpenGov (VOG).
+Du bist ein strenger Extraktor für bürgerliche Eingaben in eDebatte (eDebatte).
 
 Ziele (hart):
 - MaxClaims: 8 (lieber 5–6 präzise).
@@ -294,7 +294,7 @@ export default function AnalyzePage() {
 
   return (
     <main style={{ maxWidth: 1000, margin: "24px auto", padding: 16 }}>
-      <a href="/" style={{ fontWeight: 700 }}>VoiceOpenGov</a>
+      <a href="/" style={{ fontWeight: 700 }}>eDebatte</a>
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}

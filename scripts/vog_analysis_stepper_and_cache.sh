@@ -59,7 +59,7 @@ import OpenAI from "openai";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const SYSTEM = `Du bist eine analytische KI für VoiceOpenGov.
+const SYSTEM = `Du bist eine analytische KI für eDebatte.
 Antworte *ausschließlich* mit JSON:
 {
  "topics":[{"topic":string,"score":number}],

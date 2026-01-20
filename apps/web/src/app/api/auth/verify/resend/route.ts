@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { getCol } from "@core/db/triMongo";
 import { piiCol } from "@core/db/triMongo";
 import { sendMail } from "@/utils/mailer";
+import { publicOrigin } from "@/utils/publicOrigin";
 
 export async function POST(req: NextRequest) {
   const { email } = await req.json().catch(() => ({}));
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     expiresAt: exp,
   });
 
-  const base = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const base = publicOrigin();
   const verifyUrl = new URL(
     `/verify?email=${encodeURIComponent(user.email)}&token=${token}`,
     base,

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(pwd)"
-echo "▶️  VOG Orchestrator Full – root: $ROOT"
+echo "▶️  eDebatte Orchestrator Full – root: $ROOT"
 
 # --- Guard: im Repo-Root? ---
 test -d "apps/web" || { echo "❌ Bitte im Repo-Root ausführen (Ordner apps/web fehlt)"; exit 1; }

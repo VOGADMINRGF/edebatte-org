@@ -1,7 +1,7 @@
 Part 00 – Foundations, PII & Security Framework
 0.0 Zweck dieses Parts
 
-Part 00 definiert den Sicherheits- und Datenschutz-Unterbau von VoiceOpenGov / eDebatte.
+Part 00 definiert den Sicherheits- und Datenschutz-Unterbau von eDebatte / eDebatte.
 Alles, was später in den anderen Parts (Orchestrator, Graph, Streams, Kampagnen, Reports etc.) beschrieben wird, muss diese Regeln respektieren.
 
 Ziele:
@@ -84,7 +84,7 @@ kein „God-Admin“, der alles ohne Protokoll sieht.
 
 0.2 Datenzonen & Tri-Mongo-Logik
 
-VoiceOpenGov nutzt eine Zonen-Architektur, typischerweise mit einer Tri-Mongo-artigen Aufteilung:
+eDebatte nutzt eine Zonen-Architektur, typischerweise mit einer Tri-Mongo-artigen Aufteilung:
 
 Core-Zone (fachliche Kernobjekte)
 

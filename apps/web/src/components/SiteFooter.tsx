@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
 
 const infoLinks = [
   { href: "/ueber-uns", label: "Über Uns" },
@@ -46,22 +47,21 @@ export default function SiteFooter() {
                 color: "transparent",
               }}
             >
-              VoiceOpenGov
+              {BRAND.name}
             </Link>
             <p className="mt-2 text-sm font-semibold text-slate-900">
-              Offene Infrastruktur für direkte Demokratie.
+              {BRAND.tagline_de}
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              Keine Partei, kein Verein – wir finanzieren uns über
-              Mitgliedsbeiträge und faire Nutzungsentgelte, nicht über
-              Spendenquittungen oder versteckte Werbung.
+              Infrastruktur statt Parteiprogramm: eDebatte bündelt Dossiers, Abstimmungen und
+              Umsetzungs-Tracking für nachvollziehbare Entscheidungen.
             </p>
           </div>
 
-          {/* Über VOG */}
+          {/* Über eDebatte */}
           <FooterNav
-            title="Über VoiceOpenGov"
-            ariaLabel="Footer Navigation: Über VoiceOpenGov"
+            title="Über eDebatte"
+            ariaLabel="Footer Navigation: Über eDebatte"
             links={infoLinks}
           />
 
@@ -81,9 +81,10 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-8 border-t border-slate-200/70 pt-6 text-xs text-slate-500 md:flex md:items-center md:justify-between">
-          <p>© {currentYear} VoiceOpenGov</p>
+          <p>© {currentYear} {BRAND.name}</p>
           <p className="mt-2 text-[11px] text-slate-500 md:mt-0">
-powerd by Ricky G. Fleischer           </p>
+            Kontakt: <a className="font-semibold text-slate-600 hover:text-slate-900" href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>
+          </p>
         </div>
       </div>
     </footer>

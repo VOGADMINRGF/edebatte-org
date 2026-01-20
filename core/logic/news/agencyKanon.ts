@@ -1,5 +1,5 @@
 // core/logic/news/agencyKanon.ts
-// Kanon der globalen Nachrichtenagenturen für VoiceOpenGov / eDebatte.
+// Kanon der globalen Nachrichtenagenturen für eDebatte.
 // DPA, Reuters und AFP sind bewusst enthalten, damit die Gewichtung
 // später transparent gesteuert werden kann.
 

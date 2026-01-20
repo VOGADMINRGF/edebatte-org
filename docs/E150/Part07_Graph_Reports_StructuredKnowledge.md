@@ -2,7 +2,7 @@
 
 ## 1. Zweck dieses Dokuments
 
-Part 07 definiert die **Wissensstruktur**, die VoiceOpenGov/eDebatte langfristig ermöglicht:
+Part 07 definiert die **Wissensstruktur**, die eDebatte/eDebatte langfristig ermöglicht:
 
 1. **Graph-Modell** für Claims, Knoten, Fragen, Folgen, Verantwortlichkeiten.
 2. **Report-System** (lokale Themen, nationale Themen, Streams, Snapshots).
@@ -360,7 +360,7 @@ Keine Recommendations, nur Struktur.
 Mehrsprachigkeit vorbereiten (E300).
 
 12. Summary
-Part07 macht VoiceOpenGov/eDebatte zu einer echten Wissensinfrastruktur,
+Part07 macht eDebatte/eDebatte zu einer echten Wissensinfrastruktur,
 nicht nur einer Voting-App.
 Der Graph bildet Streit, Konsens, Argumentation, Folgen und Zuständigkeiten systematisch ab.
 Reports machen Themen transparent.

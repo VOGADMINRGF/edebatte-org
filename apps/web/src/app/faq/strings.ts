@@ -7,10 +7,10 @@ type LocaleString = Record<"de", string> & Partial<Record<SupportedLocale, strin
 const TABS = [
   {
     label: {
-      de: "Was ist VoiceOpenGov?",
+      de: "Was ist eDebatte?",
     } as LocaleString,
     body: {
-      de: "VoiceOpenGov ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. eDebatte ist unser eigens entwickeltes Werkzeug.",
+      de: "eDebatte ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. eDebatte ist unser eigens entwickeltes Werkzeug.",
     } as LocaleString,
   },
   {

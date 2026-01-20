@@ -1,10 +1,11 @@
-// E200: Zentrale Texte für VoiceOpenGov-Cookie-/Datenschutzbanner & KI-Hinweis
+// E200: Zentrale Texte für eDebatte-Cookie-/Datenschutzbanner & KI-Hinweis
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/config/locales";
+import { BRAND } from "@/lib/brand";
 
 type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
 
 const BANNER_TITLE = {
-  de: "Cookies & Datenschutz bei VoiceOpenGov",
+  de: `Cookies & Datenschutz bei ${BRAND.name}`,
 };
 
 const BANNER_LEAD = {
@@ -16,7 +17,7 @@ const ESSENTIAL_TITLE = {
 };
 
 const ESSENTIAL_BODY = {
-  de: "Diese Cookies und lokalen Speicher-Einträge sind nötig, damit VoiceOpenGov technisch funktioniert – zum Beispiel für Sicherheit, Spracheinstellungen, Login-Sitzungen und deinen Consent-Status. Ohne sie können wir die Plattform nicht zuverlässig bereitstellen.",
+  de: "Diese Cookies und lokalen Speicher-Einträge sind nötig, damit eDebatte technisch funktioniert – zum Beispiel für Sicherheit, Spracheinstellungen, Login-Sitzungen und deinen Consent-Status. Ohne sie können wir die Plattform nicht zuverlässig bereitstellen.",
 };
 
 const ANALYTICS_TITLE = {
@@ -24,7 +25,7 @@ const ANALYTICS_TITLE = {
 };
 
 const ANALYTICS_BODY = {
-  de: "Wir möchten verstehen, wie das VoiceOpenGov-System genutzt wird – datensparsam und ohne Werbenetzwerke. Wenn du zustimmst, helfen uns anonyme Nutzungsstatistiken dabei, Inhalte und Abläufe zu verbessern. Du kannst diese Option jederzeit wieder deaktivieren.",
+  de: "Wir möchten verstehen, wie eDebatte genutzt wird – datensparsam und ohne Werbenetzwerke. Wenn du zustimmst, helfen uns anonyme Nutzungsstatistiken dabei, Inhalte und Abläufe zu verbessern. Du kannst diese Option jederzeit wieder deaktivieren.",
 };
 
 const BUTTON_ACCEPT_ALL = {
@@ -60,7 +61,7 @@ const AI_USAGE_BODY = {
 };
 
 const DIALOG_TITLE = {
-  de: "Datenschutz-Einstellungen für VoiceOpenGov",
+  de: "Datenschutz-Einstellungen für eDebatte",
 };
 
 const DIALOG_INTRO = {

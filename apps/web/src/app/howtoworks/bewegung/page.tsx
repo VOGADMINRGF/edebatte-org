@@ -5,12 +5,12 @@ import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
 
 const heroCopy = {
-  title_de: "So funktioniert VoiceOpenGov – die Bewegung",
-  title_en: "How VoiceOpenGov Works – the Movement",
+  title_de: "So funktioniert eDebatte – die Bewegung",
+  title_en: "How eDebatte Works – the Movement",
   lead_de:
-    "VoiceOpenGov ist die Bewegung hinter der App eDebatte. Sie sorgt dafür, dass Beteiligung nicht nur als Schlagwort existiert, sondern als Alltag: Anliegen einreichen, Fakten prüfen, gemeinsam entscheiden, Umsetzung begleiten.",
+    "eDebatte ist die Bewegung hinter der App eDebatte. Sie sorgt dafür, dass Beteiligung nicht nur als Schlagwort existiert, sondern als Alltag: Anliegen einreichen, Fakten prüfen, gemeinsam entscheiden, Umsetzung begleiten.",
   lead_en:
-    "VoiceOpenGov is the movement behind the eDebatte app. Participation becomes everyday practice: submit a concern, check facts, decide together, accompany the implementation.",
+    "eDebatte is the movement behind the eDebatte app. Participation becomes everyday practice: submit a concern, check facts, decide together, accompany the implementation.",
   secondary_de:
     "Wir sind keine Partei, keine Liste und kein neues Lager. Wir verstehen uns als weltweites Bündnis für aktive Bürgerbeteiligung – offen für alle, die faire Verfahren wichtiger finden als Parteitaktik.",
   secondary_en:
@@ -47,9 +47,9 @@ const independenceSection = {
     {
       id: "ind-1",
       body_de:
-        "Wir sind keine Partei und wollen es auch nicht werden. VoiceOpenGov versteht sich als unabhängige Bürgerbewegung und als weltweites Bündnis für aktive Beteiligung – jenseits von Schubladen wie „links“, „rechts“, „grün“, „liberal“ oder „Mitte“. Im Mittelpunkt steht nur eines: die Gesellschaft als Ganzes.",
+        "Wir sind keine Partei und wollen es auch nicht werden. eDebatte versteht sich als unabhängige Bürgerbewegung und als weltweites Bündnis für aktive Beteiligung – jenseits von Schubladen wie „links“, „rechts“, „grün“, „liberal“ oder „Mitte“. Im Mittelpunkt steht nur eines: die Gesellschaft als Ganzes.",
       body_en:
-        "We are not a party and we do not intend to become one. VoiceOpenGov is an independent civic movement and a worldwide alliance for participation – beyond labels like left, right, green, liberal, or center. The only focus is society as a whole.",
+        "We are not a party and we do not intend to become one. eDebatte is an independent civic movement and a worldwide alliance for participation – beyond labels like left, right, green, liberal, or center. The only focus is society as a whole.",
     },
     {
       id: "ind-2",
@@ -72,9 +72,9 @@ const membershipSection = {
   title_de: "Mitglied werden – damit die Bewegung leben kann",
   title_en: "Become a member – keep the movement alive",
   intro_de:
-    "VoiceOpenGov wird ausschließlich von Mitgliedern und privaten Unterstützer:innen getragen – typischerweise ab 5,63 € monatlich. Es gibt keine versteckte Konzernfinanzierung und keine Parteikasse im Hintergrund. Wenn wir Server, Weiterentwicklung, Moderation und Bildungsformate stemmen, dann nur durch freiwillige Beiträge und Zeitspenden.",
+    "eDebatte wird ausschließlich von Mitgliedern und privaten Unterstützer:innen getragen – typischerweise ab 5,63 € monatlich. Es gibt keine versteckte Konzernfinanzierung und keine Parteikasse im Hintergrund. Wenn wir Server, Weiterentwicklung, Moderation und Bildungsformate stemmen, dann nur durch freiwillige Beiträge und Zeitspenden.",
   intro_en:
-    "VoiceOpenGov is funded solely by members and individual supporters – typically starting at €5.63 per month. There is no hidden corporate money and no party treasury. Servers, development, moderation, and education exist because people contribute money and time.",
+    "eDebatte is funded solely by members and individual supporters – typically starting at €5.63 per month. There is no hidden corporate money and no party treasury. Servers, development, moderation, and education exist because people contribute money and time.",
   outro_de:
     "Mitgliedschaft bedeutet: Du hältst die Infrastruktur mit am Leben, kaufst dir damit aber kein zusätzliches Stimmrecht. Alle Abstimmungen folgen strikt dem Prinzip „eine Person, eine Stimme“ – unabhängig von Einkommen, Parteibuch oder Spendenhöhe.",
   outro_en:
@@ -109,9 +109,9 @@ const cooperationBlocks = [
     title_de: "Kooperationen mit Politik & Institutionen",
     title_en: "Cooperation with politics & institutions",
     body_de:
-      "VoiceOpenGov und die App eDebatte verstehen sich nicht als Konkurrenz zu bestehenden Parteien oder Vertretungen, sondern als zusätzliche, unabhängige Ebene. Wir liefern aktuelle Meinungsbilder, strukturierte Dossiers und aufbereitete Entscheidungsgrundlagen, damit gewählte Vertreter:innen besser entscheiden können – transparent und überprüfbar.",
+      "eDebatte und die App eDebatte verstehen sich nicht als Konkurrenz zu bestehenden Parteien oder Vertretungen, sondern als zusätzliche, unabhängige Ebene. Wir liefern aktuelle Meinungsbilder, strukturierte Dossiers und aufbereitete Entscheidungsgrundlagen, damit gewählte Vertreter:innen besser entscheiden können – transparent und überprüfbar.",
     body_en:
-      "VoiceOpenGov and the eDebatte app are not competitors to existing parties or parliaments. We add an independent layer: current sentiment, structured dossiers, and actionable recommendations so elected officials can decide transparently and accountably.",
+      "eDebatte and the eDebatte app are not competitors to existing parties or parliaments. We add an independent layer: current sentiment, structured dossiers, and actionable recommendations so elected officials can decide transparently and accountably.",
     bullets: [
       {
         id: "coop-politics-1",

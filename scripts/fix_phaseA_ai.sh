@@ -4,7 +4,7 @@ set -euo pipefail
 DEV_ORIGIN="${1:-}"
 ROOT="$(pwd)"
 
-echo "› VoiceOpenGov – Phase A (AI/Telemetry/OpenAI + Ebene-Typ-Fix)"
+echo "› eDebatte – Phase A (AI/Telemetry/OpenAI + Ebene-Typ-Fix)"
 echo "  Repo: $ROOT"
 [ -n "$DEV_ORIGIN" ] && echo "  allowedDevOrigins: http://${DEV_ORIGIN}"
 

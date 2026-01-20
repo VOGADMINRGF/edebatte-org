@@ -21,7 +21,7 @@ const heroImage = {
 const overview = {
   title_de: "Worum es geht",
   body_de:
-    "Nach der Abstimmung dokumentiert eDebatte das Mandat: Wer ist zuständig, was ist das Ziel, welche Schritte folgen? VoiceOpenGov sorgt für klare Regeln, eDebatte macht Umsetzung und Wirkung sichtbar.",
+    "Nach der Abstimmung dokumentiert eDebatte das Mandat: Wer ist zuständig, was ist das Ziel, welche Schritte folgen? eDebatte sorgt für klare Regeln, eDebatte macht Umsetzung und Wirkung sichtbar.",
 };
 
 const features = {

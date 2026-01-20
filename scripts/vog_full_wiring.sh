@@ -71,7 +71,7 @@ fi
 echo "=== STEP 3: Usage-Metering (Datei-basiert, optional DB später) ==="
 mkdir -p "$(dirname "$USAGE_FILE")"; touch "$USAGE_FILE"
 
-write_file "$WEB/src/lib/metrics/usage.ts" '// BEGIN:VOG Usage
+write_file "$WEB/src/lib/metrics/usage.ts" '// BEGIN:eDebatte Usage
 import fs from "node:fs";
 import path from "node:path";
 
@@ -124,7 +124,7 @@ export async function aggregateUsage() {
     return { error: String(e?.message||e) };
   }
 }
-// END:VOG Usage
+// END:eDebatte Usage
 '
 
 write_file "$WEB/src/app/api/admin/usage/summary/route.ts" 'import { NextResponse } from "next/server";
@@ -190,7 +190,7 @@ fi
 
 echo "=== STEP 5: Prozess-Ticker im Fließtext + UI-Gating (sanft) ==="
 # 5a) Store-Events – minimaler Event-Bus
-write_file "$WEB/src/store/pipelineEvents.ts" '/* BEGIN:VOG pipeline events (client) */
+write_file "$WEB/src/store/pipelineEvents.ts" '/* BEGIN:eDebatte pipeline events (client) */
 "use client";
 type Tick = { ts:number; kind:string; msg:string };
 const subs = new Set<(t:Tick)=>void>();
@@ -201,10 +201,10 @@ export function pushTick(kind:string, msg:string){
 export function onTicks(fn:(t:Tick)=>void){
   subs.add(fn); return ()=>subs.delete(fn);
 }
-/* END:VOG pipeline events */'
+/* END:eDebatte pipeline events */'
 
 # 5b) Fließtext-Ticker-Komponente (Chat-Style)
-write_file "$WEB/src/ui/FlowTicker.tsx" '/* BEGIN:VOG FlowTicker */
+write_file "$WEB/src/ui/FlowTicker.tsx" '/* BEGIN:eDebatte FlowTicker */
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { onTicks } from "@/store/pipelineEvents";
@@ -226,7 +226,7 @@ export default function FlowTicker(){
     </div>
   );
 }
-/* END:VOG FlowTicker */'
+/* END:eDebatte FlowTicker */'
 
 # 5c) Gate Panels (Contributions/New) – erst anzeigen, wenn sinnvolle Daten da sind
 CN_PAGE="$WEB/src/app/contributions/new/page.tsx"

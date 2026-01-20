@@ -53,7 +53,7 @@ fi
 
 echo "=== STEP 2: Usage-Metering (file-based) ==="
 mkdir -p "$(dirname "$USAGE_FILE")"; touch "$USAGE_FILE"
-write "$WEB/src/lib/metrics/usage.ts" '// BEGIN:VOG Usage
+write "$WEB/src/lib/metrics/usage.ts" '// BEGIN:eDebatte Usage
 import fs from "node:fs";
 const USAGE_FILE = process.env.VOG_USAGE_FILE || "/tmp/vog-usage.jsonl";
 export type UsageRecord = { ts:number; route:string; userId?:string|null; model?:string|null;
@@ -67,7 +67,7 @@ export async function aggregateUsage(){
     return Object.values(by);
   }catch(e:any){ return { error:String(e?.message||e) }; }
 }
-// END:VOG Usage
+// END:eDebatte Usage
 '
 write "$WEB/src/app/api/admin/usage/summary/route.ts" 'import { NextResponse } from "next/server";
 import { aggregateUsage } from "@/lib/metrics/usage";

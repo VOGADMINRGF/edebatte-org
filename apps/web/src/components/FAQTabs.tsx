@@ -20,7 +20,7 @@ export default function LoginPage() {
     <main className="max-w-4xl mx-auto px-4 py-16 space-y-12">
       <Headline>Login & Registrierung</Headline>
       <p className="text-center text-lg font-semibold text-gray-800 mb-10 mt-2">
-        Wähle, wie du VoiceOpenGov nutzen möchtest:
+        Wähle, wie du eDebatte nutzen möchtest:
       </p>
       {!role ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

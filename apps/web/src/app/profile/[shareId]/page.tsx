@@ -76,8 +76,8 @@ export default async function PublicProfilePage({
   }
 
   const displayName = flags.showRealName
-    ? user.profile?.displayName?.trim() || user.name?.trim() || "Mitglied bei VoiceOpenGov"
-    : "Mitglied bei VoiceOpenGov";
+    ? user.profile?.displayName?.trim() || user.name?.trim() || "Mitglied bei eDebatte"
+    : "Mitglied bei eDebatte";
   const headline = user.profile?.headline?.trim() || null;
   const tagline = user.profile?.tagline?.trim() || null;
   const bio = user.profile?.bio?.trim() || null;

@@ -1,0 +1,18 @@
+export const STATE_CRESTS: Record<string, { name: string; file: string }> = {
+  "DE-BW": { name: "Baden-Württemberg", file: "/wappen/de/bw.svg" },
+  "DE-BY": { name: "Bayern", file: "/wappen/de/by.svg" },
+  "DE-BE": { name: "Berlin", file: "/wappen/de/be.svg" },
+  "DE-BB": { name: "Brandenburg", file: "/wappen/de/bb.svg" },
+  "DE-HB": { name: "Bremen", file: "/wappen/de/hb.svg" },
+  "DE-HH": { name: "Hamburg", file: "/wappen/de/hh.svg" },
+  "DE-HE": { name: "Hessen", file: "/wappen/de/he.svg" },
+  "DE-MV": { name: "Mecklenburg-Vorpommern", file: "/wappen/de/mv.svg" },
+  "DE-NI": { name: "Niedersachsen", file: "/wappen/de/ni.svg" },
+  "DE-NW": { name: "Nordrhein-Westfalen", file: "/wappen/de/nw.svg" },
+  "DE-RP": { name: "Rheinland-Pfalz", file: "/wappen/de/rp.svg" },
+  "DE-SL": { name: "Saarland", file: "/wappen/de/sl.svg" },
+  "DE-SN": { name: "Sachsen", file: "/wappen/de/sn.svg" },
+  "DE-ST": { name: "Sachsen-Anhalt", file: "/wappen/de/st.svg" },
+  "DE-SH": { name: "Schleswig-Holstein", file: "/wappen/de/sh.svg" },
+  "DE-TH": { name: "Thüringen", file: "/wappen/de/th.svg" },
+};

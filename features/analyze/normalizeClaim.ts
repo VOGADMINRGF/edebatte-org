@@ -59,6 +59,7 @@ export function normalizeStatementRecord(
   const title = pickString(raw.title) ?? pickString(meta.title);
   const topic = pickString(raw.topic);
   const { domain, domains } = normalizeDomains(raw.domain, raw.domains ?? meta.domains);
+  const debateFrame = raw.debateFrame ?? meta.debateFrame;
 
   let importance: number | undefined;
   if (
@@ -87,6 +88,7 @@ export function normalizeStatementRecord(
     domain: domain ?? undefined,
     domains: domains ?? undefined,
     stance: stance ?? undefined,
+    debateFrame: debateFrame ?? undefined,
   };
 
   return record;

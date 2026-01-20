@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(pwd)"
-echo "🔧 VOG: fix @features alias + routes"
+echo "🔧 eDebatte: fix @features alias + routes"
 
 TSBASE="$ROOT/tsconfig.base.json"
 ROUTE="$ROOT/apps/web/src/app/api/contributions/analyze/route.ts"

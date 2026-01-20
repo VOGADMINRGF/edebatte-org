@@ -6,7 +6,7 @@
 - **Location**: `country`, `postal`, `city` (bzw. ISO-Ländercode für das Support-Formular).
 - **SupportIntent Payload** (`/api/support/intent`): Kombination aller obigen Felder plus `locale`.
 
-### Berechnungslogik (VoiceOpenGov privat)
+### Berechnungslogik (eDebatte privat)
 1. **Vorschlag pro Person:**  
    `base = max(0, net - rent)`  
    `suggestion = max(5.63, base * 0.01)`  

@@ -291,7 +291,7 @@ export default { ROUNDS, PWD_OK };
   if (fs.existsSync(f)) {
     let s = fs.readFileSync(f, "utf8");
     if (!/DEFAULT_FROM/.test(s)) {
-      s = `export const DEFAULT_FROM = process.env.DEFAULT_FROM || "noreply@voiceopengov.org";\n` + s;
+      s = `export const DEFAULT_FROM = process.env.DEFAULT_FROM || "noreply@edebatte.org";\n` + s;
       fs.writeFileSync(f, s);
       console.log("✓ utils/email.ts: DEFAULT_FROM ergänzt");
     }

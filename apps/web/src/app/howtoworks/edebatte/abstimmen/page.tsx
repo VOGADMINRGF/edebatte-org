@@ -21,7 +21,7 @@ const heroImage = {
 const overview = {
   title_de: "Worum es geht",
   body_de:
-    "Nach dem Dossier folgt die Abstimmung. VoiceOpenGov steht für faire Regeln, eDebatte setzt sie transparent um: Identität und Stimmzettel sind getrennt, Ergebnis, Beteiligung und Quorum bleiben nachvollziehbar. Die Ergebnisse liefern Mandate für Politik, Orientierung für Verbände und belastbares Material für Redaktionen.",
+    "Nach dem Dossier folgt die Abstimmung. eDebatte steht für faire Regeln, eDebatte setzt sie transparent um: Identität und Stimmzettel sind getrennt, Ergebnis, Beteiligung und Quorum bleiben nachvollziehbar. Die Ergebnisse liefern Mandate für Politik, Orientierung für Verbände und belastbares Material für Redaktionen.",
 };
 
 const steps = [

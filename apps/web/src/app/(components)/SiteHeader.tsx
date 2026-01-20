@@ -18,28 +18,34 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    href: "/howtoworks/edebatte/dossier",
+    label: "Dossier & Faktencheck",
+    description: "Quellen, Claims und offene Fragen nachvollziehen.",
+  },
+  {
     href: "/swipes",
     label: "Abstimmen",
-    description:
-      "Themen & Positionen bewerten – Schnell-Abstimmungen zu laufenden eDebatte-Themen.",
+    description: "Positionen bewerten und Mehrheiten sichtbar machen.",
   },
   {
-    href: "/statements",
-    label: "Statements",
-    description:
-      "Statements einreichen – klare Aussagen und Struktur für neue Themen.",
+    href: "/mitglied-werden",
+    label: "Mitmachen",
+    description: "Mitgliedschaft und Beteiligung bei eDebatte starten.",
   },
   {
-    href: "/stream",
-    label: "Präsentieren",
-    description:
-      "Themen präsentieren – Streams starten und gemeinsam vertiefen.",
+    href: "/nutzungsmodell",
+    label: "Preise",
+    description: "Nutzungsmodell und Pakete für Partner:innen.",
   },
   {
-    href: "/archiv",
-    label: "Archiv",
-    description:
-      "Archiv & Nachschlagen – Ergebnisse zu Themen, Abstimmungen und Beteiligung in deiner Region.",
+    href: "/faq",
+    label: "FAQ",
+    description: "Antworten zur Plattform und Methodik.",
+  },
+  {
+    href: "/kontakt",
+    label: "Kontakt",
+    description: "Support, Presse und Anfragen.",
   },
 ];
 
@@ -125,7 +131,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
               color: "transparent",
             }}
           >
-            VoiceOpenGov
+            eDebatte
           </span>
         </Link>
 
@@ -168,7 +174,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
               href="/login"
               className="hidden sm:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
             >
-              Login / Registrierung
+              Login
             </Link>
           )}
           <button
@@ -300,14 +306,14 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
                   </button>
                 </div>
               ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
-                >
-                  Login / Registrierung
-                </Link>
-              )}
+              <Link
+                href="/login"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
+              >
+                Login
+              </Link>
+            )}
             </nav>
           </div>
         </div>

@@ -5,12 +5,12 @@ set -euo pipefail
 #   bash scripts/fix_vpm25.sh --repo-root . \
 #     --repair-zip /path/to/Reparatur.zip \
 #     --incoming-zip /path/to/Incoming.zip \
-#     --brand "e‑Debatte" --old-brand "VoiceOpenGov" \
+#     --brand "e‑Debatte" --old-brand "eDebatte" \
 #     --apply-colors --separate-landing --newsfeed-limit 50 --region "DE:BE:11000000"
 #
 # Notes:
 # - Zero-byte file repair uses files from --repair-zip to overwrite empty counterparts in --incoming-zip or repo.
-# - Brand rename excludes the literal token 'VOG'.
+# - Brand rename excludes the literal token 'eDebatte'.
 # - Colors: applies turquoise→blue gradient + keeps optional purple accent on buttons.
 # - Optional landing extraction into ./_landing_extract.
 
@@ -18,7 +18,7 @@ REPO="."
 REPAIR_ZIP=""
 INCOMING_ZIP=""
 NEW_BRAND="e‑Debatte"
-OLD_BRAND="VoiceOpenGov"
+OLD_BRAND="eDebatte"
 APPLY_COLORS=0
 SEPARATE_LANDING=0
 NEWSFEED_LIMIT=0
@@ -59,7 +59,7 @@ else
   echo "[fix_vpm25] skip zero-byte replacement (no --repair-zip)"
 fi
 
-# 3) Brand rename (excluding 'VOG' tokens)
+# 3) Brand rename (excluding 'eDebatte' tokens)
 node scripts/helpers/bulk_rename_brand.js "${OLD_BRAND}" "${NEW_BRAND}" .
 
 # 4) Apply color tokens (Tailwind/CSS)

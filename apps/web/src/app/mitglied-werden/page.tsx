@@ -3,16 +3,16 @@ import * as pricing from "@/config/pricing";
 import { MembershipPageClient } from "./MembershipPageClient";
 
 export const metadata: Metadata = {
-  title: "Mitglied werden – VoiceOpenGov & eDebatte",
+  title: "Mitglied werden – eDebatte & eDebatte",
   description:
-    "VoiceOpenGov-Bewegung unterstützen, eDebatte-Paket wählen und Beitrag berechnen.",
+    "eDebatte-Bewegung unterstützen, eDebatte-Paket wählen und Beitrag berechnen.",
 };
 
 export default function MitgliedWerdenPage() {
   return (
     <main
       className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16"
-      aria-label="VoiceOpenGov Mitgliedschaft"
+      aria-label="eDebatte Mitgliedschaft"
     >
       <section
         className="mx-auto max-w-5xl px-4 py-16 space-y-10"

@@ -9,20 +9,20 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            VoiceOpenGov ist ein gesellschaftliches Infrastrukturprojekt: ein
+            eDebatte ist ein gesellschaftliches Infrastrukturprojekt: ein
             überparteiliches, unabhängiges digitales Beteiligungssystem.
           </p>
           <p>
-            Ziel von VoiceOpenGov ist es, Menschen, Organisationen und
+            Ziel von eDebatte ist es, Menschen, Organisationen und
             Institutionen weltweit zu ermöglichen, auf faire, transparente und
             nachvollziehbare Weise Entscheidungen vorzubereiten und zu treffen.
-            VoiceOpenGov stellt hierfür insbesondere die Plattform „eDebatte“ sowie
+            eDebatte stellt hierfür insbesondere die Plattform „eDebatte“ sowie
             weitere Module zur Verfügung, mit denen Inhalte strukturiert,
             Positionen abgewogen, Eventualitäten formuliert und Abstimmungen
             vorbereitet werden können.
           </p>
           <p>
-            VoiceOpenGov ist selbst keine Partei und verfolgt keine eigenen
+            eDebatte ist selbst keine Partei und verfolgt keine eigenen
             politischen Programme – außer dem Bekenntnis zum Mehrheitsprinzip.
             Die Organisation stellt ein „Betriebssystem“ für demokratische
             Teilhabe und kollektive Entscheidungsfindung bereit, das von
@@ -37,13 +37,13 @@ export default function SatzungPage() {
       title: "§ 1 Name, Zweck und Charakter",
       content: (
         <>
-          <p>(1) Die Organisation führt den Namen „VoiceOpenGov“.</p>
+          <p>(1) Die Organisation führt den Namen „eDebatte“.</p>
           <p>
-            (2) VoiceOpenGov ist eine überparteiliche, unabhängige Struktur mit dem Ziel,
+            (2) eDebatte ist eine überparteiliche, unabhängige Struktur mit dem Ziel,
             digitale demokratische Teilhabe und transparente
             Entscheidungsfindung zu fördern.
           </p>
-          <p>(3) VoiceOpenGov entwickelt, betreibt und pflegt insbesondere:</p>
+          <p>(3) eDebatte entwickelt, betreibt und pflegt insbesondere:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>die Plattform „eDebatte“,</li>
             <li>
@@ -57,7 +57,7 @@ export default function SatzungPage() {
             <li>Transparenz- und Dokumentationsfunktionen.</li>
           </ul>
           <p>
-            (4) VoiceOpenGov kann in unterschiedlichen rechtlichen Formen (z. B. Verein,
+            (4) eDebatte kann in unterschiedlichen rechtlichen Formen (z. B. Verein,
             gUG, Stiftung oder Kombinationen) organisiert oder weiterentwickelt
             werden. Diese Charta beschreibt die grundlegende Governance-Logik,
             unabhängig von der konkreten Rechtsform.
@@ -72,7 +72,7 @@ export default function SatzungPage() {
         <>
           <p>
             (1) <span className="font-semibold">One Human, One Voice</span> –
-            soweit technisch und rechtlich sinnvoll, orientiert sich VoiceOpenGov an dem
+            soweit technisch und rechtlich sinnvoll, orientiert sich eDebatte an dem
             Prinzip „eine Person, eine Stimme“.
           </p>
           <p>
@@ -86,13 +86,13 @@ export default function SatzungPage() {
             ihrer Steuerung oder Ausnutzung.
           </p>
           <p>
-            (4) <span className="font-semibold">Neutralität</span> – VoiceOpenGov selbst
+            (4) <span className="font-semibold">Neutralität</span> – eDebatte selbst
             ergreift keine parteipolitischen Positionen und betreibt keine
             politische Werbung.
           </p>
           <p>
             (5) <span className="font-semibold">Nichtdiskriminierung</span> –
-            VoiceOpenGov lehnt jede Form von Diskriminierung ab und unterstützt
+            eDebatte lehnt jede Form von Diskriminierung ab und unterstützt
             inklusive, barrierearme Beteiligungsformen.
           </p>
           <p>
@@ -109,14 +109,14 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) Mitglied von VoiceOpenGov kann jede natürliche oder juristische Person
+            (1) Mitglied von eDebatte kann jede natürliche oder juristische Person
             werden, die die Grundprinzipien dieser Charta anerkennt.
           </p>
           <p>
             (2) Die Mitgliedschaft ist freiwillig und kann – unter Einhaltung
             angemessener Fristen – jederzeit beendet werden.
           </p>
-          <p>(3) VoiceOpenGov unterscheidet insbesondere:</p>
+          <p>(3) eDebatte unterscheidet insbesondere:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>
               <span className="font-semibold">aktive Mitglieder</span>:
@@ -125,13 +125,13 @@ export default function SatzungPage() {
             </li>
             <li>
               <span className="font-semibold">fördernde Mitglieder</span>:
-              Personen oder Organisationen, die VoiceOpenGov finanziell oder ideell
+              Personen oder Organisationen, die eDebatte finanziell oder ideell
               unterstützen, ohne weitergehende Mitwirkungsrechte,
             </li>
             <li>
               <span className="font-semibold">institutionelle Partner</span>:
               Organisationen, Kommunen, Initiativen, die eDebatte und andere
-              Tools von VoiceOpenGov nutzen.
+              Tools von eDebatte nutzen.
             </li>
           </ul>
           <p>
@@ -148,7 +148,7 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) Mitglieder von VoiceOpenGov erhalten einen vertieften Einblick
+            (1) Mitglieder von eDebatte erhalten einen vertieften Einblick
             in den Aufbau, die Funktionsweise und die Weiterentwicklung der
             Plattformen und Werkzeuge (insbesondere eDebatte) sowie in die
             veröffentlichten Transparenz- und Wirkungsberichte.
@@ -172,13 +172,13 @@ export default function SatzungPage() {
             Entscheidungen über Finanzierung, Geschäftsmodell, operativen
             Betrieb und technische Roadmap verbleiben beim{" "}
             <span className="font-semibold">Trägerkreis bzw. Core-Team</span> von
-            VoiceOpenGov, das diese Entscheidungen transparent begründet und
+            eDebatte, das diese Entscheidungen transparent begründet und
             dokumentiert.
           </p>
           <p>
             (4) Mitglieder verpflichten sich zu einem respektvollen Umgang, zur
             Einhaltung der Kommunikations- und Nutzungsregeln sowie zur
-            Unterstützung der Grundprinzipien von VoiceOpenGov (Transparenz,
+            Unterstützung der Grundprinzipien von eDebatte (Transparenz,
             Fairness, Nichtdiskriminierung, Datenschutz).
           </p>
           <p>(5) Mitgliedsrechte sind personenbezogen und nicht übertragbar.</p>
@@ -191,25 +191,25 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) Die Nutzung von eDebatte und anderen VoiceOpenGov-Tools ist grundsätzlich
+            (1) Die Nutzung von eDebatte und anderen eDebatte-Tools ist grundsätzlich
             auch ohne Mitgliedschaft möglich – etwa im Rahmen von Abonnements,
             Projektpaketen oder Kooperationen.
           </p>
           <p>
             (2) Ein normales eDebatte-Abo oder die Teilnahme an über eDebatte
             durchgeführten Abstimmungen begründet keine Mitgliedschaft bei
-            VoiceOpenGov und vermittelt keine Governance-Rechte in Bezug auf:
+            eDebatte und vermittelt keine Governance-Rechte in Bezug auf:
           </p>
           <ul className="list-disc pl-6 space-y-1">
-            <li>die Finanzierungsstrategie von VoiceOpenGov,</li>
+            <li>die Finanzierungsstrategie von eDebatte,</li>
             <li>die interne Struktur,</li>
             <li>die langfristige technische Roadmap.</li>
           </ul>
           <p>
-            (3) VoiceOpenGov trennt klar zwischen der{" "}
+            (3) eDebatte trennt klar zwischen der{" "}
             <span className="font-semibold">Nutzung des Werkzeugs (eDebatte)</span>{" "}
             und der <span className="font-semibold">Steuerung der Organisation</span>{" "}
-            VoiceOpenGov (Governance).
+            eDebatte (Governance).
           </p>
         </>
       ),
@@ -222,7 +222,7 @@ export default function SatzungPage() {
           <p>
             (1) Die konkrete juristische Trägerstruktur (z. B. Verein, gUG,
             Stiftung) wird durch den Gründerkreis bzw. den Trägerkreis von
-            VoiceOpenGov definiert und bei Bedarf weiterentwickelt.
+            eDebatte definiert und bei Bedarf weiterentwickelt.
           </p>
           <p>
             (2) Zur operativen Steuerung kann ein{" "}
@@ -256,7 +256,7 @@ export default function SatzungPage() {
       title: "§ 7 Digitale Beteiligung über eDebatte",
       content: (
         <>
-          <p>(1) eDebatte ist das zentrale Werkzeug von VoiceOpenGov zur:</p>
+          <p>(1) eDebatte ist das zentrale Werkzeug von eDebatte zur:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>Strukturierung von Themen,</li>
             <li>Extraktion von Aussagen und Positionen,</li>
@@ -274,11 +274,11 @@ export default function SatzungPage() {
             <li>Medienpartnern,</li>
             <li>
               Parteien und parteiunabhängigen Projekten – unter Beachtung der
-              Neutralität von VoiceOpenGov.
+              Neutralität von eDebatte.
             </li>
           </ul>
           <p>
-            (3) VoiceOpenGov stellt sicher, dass Prozesse auf eDebatte nachvollziehbar,
+            (3) eDebatte stellt sicher, dass Prozesse auf eDebatte nachvollziehbar,
             dokumentiert, möglichst prüfbar, datenschutzkonform und technisch
             gegen Manipulation abgesichert sind.
           </p>
@@ -297,20 +297,20 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) VoiceOpenGov finanziert sich insbesondere durch Nutzungs- und
+            (1) eDebatte finanziert sich insbesondere durch Nutzungs- und
             Lizenzmodelle für eDebatte und weitere Tools, Mitglieds- und
             Förderbeiträge, projektbezogene Unterstützungen, Kooperationen und
             ggf. Fördermittel sowie in begrenztem Rahmen durch
             Dienstleistungsangebote (z. B. Begleitung von Beteiligungsprozessen).
           </p>
           <p>
-            (2) VoiceOpenGov nimmt keine Zuwendungen an, die an die Bedingung der
+            (2) eDebatte nimmt keine Zuwendungen an, die an die Bedingung der
             inhaltlichen Einflussnahme auf Entscheidungen, Gewichtungen oder
             Algorithmen geknüpft sind.
           </p>
           <p>
             (3) Die Verantwortung für Finanzierung, Geschäftsmodell und
-            langfristige Tragfähigkeit von VoiceOpenGov liegt beim Trägerkreis / Core-Team,
+            langfristige Tragfähigkeit von eDebatte liegt beim Trägerkreis / Core-Team,
             der diese Entscheidungen transparent machen und in regelmäßigen
             Berichten offenlegen soll.
           </p>
@@ -328,7 +328,7 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) VoiceOpenGov ist politisch neutral und unterstützt keine Partei,
+            (1) eDebatte ist politisch neutral und unterstützt keine Partei,
             Liste oder Kandidatur bevorzugt.
           </p>
           <p>
@@ -337,13 +337,13 @@ export default function SatzungPage() {
             Fairnessprinzipien akzeptieren.
           </p>
           <p>
-            (3) Das Projekt „Vote4Gov“ kann VoiceOpenGov- und eDebatte-Infrastruktur
+            (3) Das Projekt „Vote4Gov“ kann eDebatte- und eDebatte-Infrastruktur
             einsetzen, bleibt jedoch eine separate, eigenständige politische
-            Initiative/Partei. Die Governance von VoiceOpenGov ist von
+            Initiative/Partei. Die Governance von eDebatte ist von
             Vote4Gov organisatorisch und finanziell getrennt.
           </p>
           <p>
-            (4) VoiceOpenGov verpflichtet sich, die gleichen technischen und
+            (4) eDebatte verpflichtet sich, die gleichen technischen und
             prozessualen Standards allen Nutzenden zur Verfügung zu stellen, die
             die Regeln akzeptieren – unabhängig von politischer Ausrichtung.
           </p>
@@ -356,7 +356,7 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) VoiceOpenGov versteht sich als global anschlussfähige
+            (1) eDebatte versteht sich als global anschlussfähige
             Infrastruktur.
           </p>
           <p>
@@ -368,7 +368,7 @@ export default function SatzungPage() {
             <li>lokale rechtliche Vorgaben berücksichtigen,</li>
             <li>
               in ihrer Governance eigenständig sein können, aber transparent
-              machen, wie sie VoiceOpenGov-Tools einsetzen.
+              machen, wie sie eDebatte-Tools einsetzen.
             </li>
           </ul>
           <p>
@@ -385,7 +385,7 @@ export default function SatzungPage() {
       content: (
         <>
           <p>
-            (1) VoiceOpenGov verarbeitet personenbezogene Daten nur im erforderlichen
+            (1) eDebatte verarbeitet personenbezogene Daten nur im erforderlichen
             Umfang und nach dem Grundsatz der Zweckbindung.
           </p>
           <p>
@@ -416,7 +416,7 @@ export default function SatzungPage() {
             versioniert veröffentlicht werden.
           </p>
           <p>
-            (3) Eine vollständige Auflösung von VoiceOpenGov oder die Aufgabe
+            (3) Eine vollständige Auflösung von eDebatte oder die Aufgabe
             des Projekts kann nur mit qualifizierter Mehrheit innerhalb des
             Trägerkreises beschlossen werden. Die Nutzung bereits veröffentlichter
             und offener Komponenten soll – soweit rechtlich möglich – erhalten
@@ -441,11 +441,11 @@ export default function SatzungPage() {
             Governance
           </p>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-            VoiceOpenGov – Governance-Charta
+            eDebatte – Governance-Charta
           </h1>
           <p className="text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
             Arbeitsfassung der Satzung / Grundordnung für die Dachorganisation
-            von VoiceOpenGov.
+            von eDebatte.
           </p>
         </header>
 
@@ -505,7 +505,7 @@ export default function SatzungPage() {
               href="/unterstuetzen"
               className="inline-block text-sm font-medium underline underline-offset-4 text-sky-700 hover:text-sky-900"
             >
-              → Mitmachen &amp; VoiceOpenGov unterstützen
+              → Mitmachen &amp; eDebatte unterstützen
             </a>
           </div>
         </footer>

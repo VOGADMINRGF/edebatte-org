@@ -19,7 +19,8 @@
       "@core/*": ["../core/*"],
       "@contribution/*": ["../contribution/*"],
       "@packages/*": ["../packages/*"],
-      "@ui/*": ["../ui/*"]
+      "@ui/*": ["../ui/*"],
+      "@/*": ["../apps/web/src/*"]
     }
   },
   "include": ["**/*"],

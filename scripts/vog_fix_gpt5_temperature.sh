@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(pwd)"
-echo "🔧 VOG: GPT-5 temperature-Fix + stabile Analyzer-Implementierung"
+echo "🔧 eDebatte: GPT-5 temperature-Fix + stabile Analyzer-Implementierung"
 
 mkdir -p "$ROOT/features/ai" "$ROOT/features/analyze" "$ROOT/apps/web/src/app/api/contributions/analyze"
 

@@ -1,7 +1,7 @@
 
 // Realer OpenAI-Aufruf (Images). Fallback: Platzhalter-Asset.
 type GenOpts = { prompt: string; fallbackText?: string; aspectRatio?: "16:9"|"1:1"|"9:16" };
-async function generateVOGImage({ prompt, fallbackText="VoiceOpenGov", aspectRatio="16:9" }: GenOpts): Promise<string> {
+async function generateVOGImage({ prompt, fallbackText="eDebatte", aspectRatio="16:9" }: GenOpts): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return "/dummy/vog-default.jpg";
   try {

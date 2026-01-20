@@ -17,10 +17,10 @@
 ├── .v3_stage
 ├── .zap
 │   └── rules.tsv
-├── NR-VOG-Ordnerstructure.txt
+├── NR-eDebatte-Ordnerstructure.txt
 ├── ORPHAN_FEATURES_VPM25.md
 ├── README.md
-├── VOG-Ordnerstructure.txt
+├── eDebatte-Ordnerstructure.txt
 ├── _legacy_src
 │   ├── .DS_Store
 │   └── lib

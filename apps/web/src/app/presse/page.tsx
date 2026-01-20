@@ -11,7 +11,7 @@ const tabItems = [
     color: colors.coral,
     content: (
       <p>
-        Schluss mit passivem Zuschauen! VoiceOpenGov gibt dir echte
+        Schluss mit passivem Zuschauen! eDebatte gibt dir echte
         Mitbestimmung: Such direkt nach deinem Thema, eröffne neue Anliegen und
         erlebe, wie aus einzelnen Meinungen echte Bewegungen und Lösungen
         entstehen – sichtbar, nachvollziehbar, wirksam. Keine Filterblasen,
@@ -26,7 +26,7 @@ const tabItems = [
     content: (
       <p>
         Jeder Mensch kann heute Reporter:in sein – aber Qualität zählt!
-        VoiceOpenGov schafft Raum für faktenbasierte, regionale
+        eDebatte schafft Raum für faktenbasierte, regionale
         Berichterstattung: Was das Volk vor Ort bewegt, ist hier sofort sichtbar
         und recherchierbar. Schluss mit PR-Texten, her mit ehrlichen
         Geschichten, die wirklich zählen.
@@ -39,7 +39,7 @@ const tabItems = [
     color: colors.coral,
     content: (
       <p>
-        Mit VoiceOpenGov erfahren Sie, was Bürger:innen wirklich bewegt – nach
+        Mit eDebatte erfahren Sie, was Bürger:innen wirklich bewegt – nach
         Regionen, Themen und konkretem Bedarf. Nutzen Sie die Plattform, um
         gezielt Politik für die Menschen vor Ort zu machen – faktenbasiert,
         aktuell und dialogorientiert.
@@ -53,7 +53,7 @@ const tabItems = [
     content: (
       <p>
         Eure Themen und euer Protest werden sichtbar – und ihr könnt
-        Mitstreiter:innen, Aktionen und neue Bündnisse direkt über VoiceOpenGov
+        Mitstreiter:innen, Aktionen und neue Bündnisse direkt über eDebatte
         organisieren. Für eine Gesellschaft, in der Beteiligung zählt.
       </p>
     ),
@@ -91,7 +91,7 @@ export default function PressePage() {
         className="text-2xl md:text-3xl font-bold text-center mb-8 mt-16"
         style={{ color: colors.indigo }}
       >
-        Aktuelle Informationen & Materialien zu VoiceOpenGov
+        Aktuelle Informationen & Materialien zu eDebatte
       </h2>
 
       {/* Info-Kacheln */}
@@ -184,7 +184,7 @@ export default function PressePage() {
           className="text-xl font-semibold"
           style={{ color: colors.coral, marginBottom: "1rem" }}
         >
-          Pressemitteilung: Demokratie NeuStart Jetzt – VoiceOpenGov
+          Pressemitteilung: Demokratie NeuStart Jetzt – eDebatte
         </h2>
         <p>
           In einer idealen Welt… ist gesellschaftliche Mitbestimmung kein
@@ -192,7 +192,7 @@ export default function PressePage() {
           Partei, Alter, sozialem Status oder beruflichem Hintergrund.
         </p>
         <p>
-          VoiceOpenGov ist als neue Beteiligungsplattform für wirklich alle
+          eDebatte ist als neue Beteiligungsplattform für wirklich alle
           offen – Menschen aus allen Regionen, mit jeder Meinung, jeder
           Hautfarbe, allen politischen, kulturellen oder religiösen Prägungen.
           Wir wollen Vielfalt und faire Beteiligung ermöglichen, ohne
@@ -200,7 +200,7 @@ export default function PressePage() {
         </p>
         <p>
           <strong>Berlin, 09. Juli 2025</strong> – Die neue Plattform{" "}
-          <strong>VoiceOpenGov</strong> bringt Bürgerinnen und Bürger, Kommunen,
+          <strong>eDebatte</strong> bringt Bürgerinnen und Bürger, Kommunen,
           Organisationen und Politik direkt ins Gespräch – transparent,
           respektvoll und faktenbasiert. Ziel ist es, echte
           Mehrheitsentscheidungen zu ermöglichen, frei von Parteiinteressen,
@@ -218,12 +218,12 @@ export default function PressePage() {
           niemand wird ausgegrenzt.
         </p>
         <p>
-          VoiceOpenGov finanziert sich gemeinschaftlich, verzichtet auf Werbung
+          eDebatte finanziert sich gemeinschaftlich, verzichtet auf Werbung
           und bleibt unabhängig von Parteien, Unternehmen oder anderen
           Interessen – für eine Demokratie, die niemanden ausschließt.
         </p>
         <p className="font-semibold mt-6">
-          Ab sofort ist das Einführungsvideo „Wert der Stimme – VoiceOpenGov“
+          Ab sofort ist das Einführungsvideo „Wert der Stimme – eDebatte“
           öffentlich abrufbar:
         </p>
       </article>
@@ -232,7 +232,7 @@ export default function PressePage() {
       <div className="flex justify-center mt-8 relative">
         <video
           controls
-          aria-label="Video: Wert der Stimme – VoiceOpenGov"
+          aria-label="Video: Wert der Stimme – eDebatte"
           className="w-full max-w-2xl rounded-2xl border-2 shadow-lg aspect-video bg-black"
           style={{
             borderColor: colors.coral,
@@ -255,7 +255,7 @@ export default function PressePage() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <a
-            href="/downloads/VoiceOpenGov-Pressemappe.pdf"
+            href="/downloads/eDebatte-Pressemappe.pdf"
             className="flex flex-col items-center p-4 rounded-lg border shadow hover:bg-indigo-50 transition"
             style={{ borderColor: colors.indigo }}
             download
@@ -300,10 +300,10 @@ export default function PressePage() {
           bei:
           <br />
           <a
-            href="mailto:ricky.fleischer@voiceopengov.org"
+            href="mailto:ricky.fleischer@edebatte.org"
             className="underline text-coral hover:text-indigo-800 transition"
           >
-            ricky.fleischer@voiceopengov.org
+            ricky.fleischer@edebatte.org
           </a>
           <br />
           oder per Signal/WhatsApp:{" "}
@@ -325,10 +325,10 @@ export default function PressePage() {
         </div>
         <div className="text-gray-700 text-base font-medium mb-1">
           <a
-            href="mailto:press@voiceopengov.org"
+            href="mailto:press@edebatte.org"
             className="text-coral underline hover:text-coral-dark"
           >
-            press@voiceopengov.org
+            press@edebatte.org
           </a>
         </div>
         <div className="border-t border-gray-200 pt-4 mt-4">
@@ -339,10 +339,10 @@ export default function PressePage() {
             Ricky Fleischer, Founder & Initiator
           </div>
           <a
-            href="mailto:ricky.fleischer@voiceopengov.org"
+            href="mailto:ricky.fleischer@edebatte.org"
             className="text-coral underline hover:text-coral-dark text-sm"
           >
-            ricky.fleischer@voiceopengov.org
+            ricky.fleischer@edebatte.org
           </a>
         </div>
         {/* Kontaktfeld */}

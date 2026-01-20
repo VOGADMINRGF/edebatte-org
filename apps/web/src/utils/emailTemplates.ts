@@ -21,7 +21,7 @@ export function buildVerificationMail({ verifyUrl, displayName }: VerificationTe
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#0f172a;">
       <tr><td style="padding:12px 0;">${greeting},</td></tr>
       <tr><td style="padding:6px 0 12px 0; font-size:15px; line-height:1.5;">
-        schön, dass du dich registrierst! Bitte bestätige deine E-Mail-Adresse, damit wir dein Konto anlegen können.
+        schön, dass du bei eDebatte dabei sein möchtest. Bitte bestätige deine E-Mail-Adresse, damit wir dein Konto freischalten können.
       </td></tr>
       <tr><td style="padding:12px 0;">
         <a href="${verifyUrl}" style="${buttonStyle}">
@@ -39,21 +39,26 @@ export function buildVerificationMail({ verifyUrl, displayName }: VerificationTe
       <tr><td style="padding:14px 0 0 0; font-size:14px; color:#334155;">
         Falls du kein Konto angelegt hast, kannst du diese Nachricht ignorieren.
       </td></tr>
+      <tr><td style="padding:10px 0 0 0; font-size:14px; color:#334155;">
+        Danke, dass du dich engagierst – jede Registrierung hilft uns, Beteiligung transparenter zu machen.
+      </td></tr>
       <tr><td style="padding:10px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
-        Wir freuen uns, dass du dabei bist.<br/>– Dein VoiceOpenGov Team
+        Wir freuen uns auf dich.<br/>– Dein eDebatte Team
       </td></tr>
     </table>
   `;
 
   const text = `${greeting},
 
-schön, dass du dich registrierst! Bitte bestätige deine E-Mail-Adresse:
+schön, dass du bei eDebatte dabei sein möchtest! Bitte bestätige deine E-Mail-Adresse:
 ${verifyUrl}
 
 Falls du kein Konto angelegt hast, kannst du diese Nachricht ignorieren.
 
-Wir freuen uns, dass du dabei bist.
-– VoiceOpenGov Team`;
+Danke, dass du dich engagierst – jede Registrierung hilft uns, Beteiligung transparenter zu machen.
+
+Wir freuen uns auf dich.
+– eDebatte Team`;
 
   return { subject: "Bitte bestätige deine E-Mail-Adresse", html, text };
 }
@@ -80,7 +85,8 @@ export function buildAccountWelcomeMail({ accountUrl, identityUrl, displayName }
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#0f172a;">
       <tr><td style="padding:12px 0;">${greeting},</td></tr>
       <tr><td style="padding:6px 0 12px 0; font-size:15px; line-height:1.5;">
-        herzlich willkommen bei VoiceOpenGov! Dein Konto ist eingerichtet – ab jetzt kannst du dein Profil vervollständigen und die nächsten Schritte starten.
+        herzlich willkommen bei eDebatte! Danke, dass du dich registriert hast – dein Konto ist eingerichtet.
+        Ab jetzt kannst du dein Profil vervollständigen und die nächsten Schritte starten.
       </td></tr>
       <tr><td style="padding:12px 0;">
         <a href="${accountUrl}" style="${buttonStyle}">
@@ -88,25 +94,32 @@ export function buildAccountWelcomeMail({ accountUrl, identityUrl, displayName }
         </a>
       </td></tr>
       ${identityHtml}
+      <tr><td style="padding:12px 0 0 0; font-size:14px; color:#334155;">
+        Wir freuen uns sehr, dass du dich einbringst.
+      </td></tr>
       <tr><td style="padding:12px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
-        Wir freuen uns, dass du dabei bist.<br/>– Dein VoiceOpenGov Team
+        Schön, dass du dabei bist.<br/>– Dein eDebatte Team
       </td></tr>
     </table>
   `;
 
   const identityText = identityUrl
-    ? `Identitätsprüfung noch offen? Hier fortsetzen: ${identityUrl}\n\n`
+    ? `Identitätsprüfung noch offen? Hier fortsetzen: ${identityUrl}
+
+`
     : "";
 
   const text = `${greeting},
 
-herzlich willkommen bei VoiceOpenGov! Dein Konto ist eingerichtet.
+herzlich willkommen bei eDebatte! Danke, dass du dich registriert hast – dein Konto ist eingerichtet.
 Profil öffnen: ${accountUrl}
 
-${identityText}Wir freuen uns, dass du dabei bist.
-– VoiceOpenGov Team`;
+${identityText}Wir freuen uns sehr, dass du dich einbringst.
 
-  return { subject: "Herzlich willkommen bei VoiceOpenGov", html, text };
+Schön, dass du dabei bist.
+– eDebatte Team`;
+
+  return { subject: "Herzlich willkommen bei eDebatte", html, text };
 }
 
 export function buildSetPasswordMail({
@@ -135,7 +148,7 @@ export function buildSetPasswordMail({
         Falls du den Zugang nicht angefordert hast, kannst du diese Nachricht ignorieren.
       </td></tr>
       <tr><td style="padding:10px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
-        Viele Gruesse<br/>– Dein VoiceOpenGov Team
+        Viele Gruesse<br/>– Dein eDebatte Team
       </td></tr>
     </table>
   `;
@@ -148,7 +161,7 @@ ${resetUrl}
 Falls du den Zugang nicht angefordert hast, kannst du diese Nachricht ignorieren.
 
 Viele Gruesse
-– VoiceOpenGov Team`;
+– eDebatte Team`;
 
   return { subject: "Passwort fuer deinen Account setzen", html, text };
 }
@@ -188,7 +201,7 @@ export function buildOrgInviteMail({
         Falls du keine Einladung erwartet hast, kannst du diese Nachricht ignorieren.
       </td></tr>
       <tr><td style="padding:10px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
-        Viele Gruesse<br/>– Dein VoiceOpenGov Team
+        Viele Gruesse<br/>– Dein eDebatte Team
       </td></tr>
     </table>
   `;
@@ -202,7 +215,7 @@ ${resetUrl}
 ${expiresLine ? `${expiresLine}\n` : ""}Falls du keine Einladung erwartet hast, kannst du diese Nachricht ignorieren.
 
 Viele Gruesse
-– VoiceOpenGov Team`;
+– eDebatte Team`;
 
   return { subject: `Einladung zu ${orgName}`, html, text };
 }
@@ -235,7 +248,7 @@ export function buildOrgAccessMail({
         </a>
       </td></tr>
       <tr><td style="padding:10px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
-        Viele Gruesse<br/>– Dein VoiceOpenGov Team
+        Viele Gruesse<br/>– Dein eDebatte Team
       </td></tr>
     </table>
   `;
@@ -246,7 +259,7 @@ dir wurde Zugriff auf die Organisation ${orgName} gegeben (Rolle: ${role}).
 Login: ${accessUrl}
 
 Viele Gruesse
-– VoiceOpenGov Team`;
+– eDebatte Team`;
 
   return { subject: `Zugriff auf ${orgName}`, html, text };
 }
@@ -265,7 +278,8 @@ export function buildIdentityResumeMail({ resumeUrl, displayName }: IdentityResu
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#0f172a;">
       <tr><td style="padding:12px 0;">${greeting},</td></tr>
       <tr><td style="padding:6px 0 12px 0; font-size:15px; line-height:1.5;">
-        du kannst die Identitätsprüfung jederzeit fortsetzen. Öffne den Link, wenn du den QR-Code bequem scannen möchtest.
+        danke, dass du dir die Zeit für eDebatte nimmst. Du kannst die Identitätsprüfung jederzeit fortsetzen.
+        Öffne den Link, wenn du den QR-Code bequem scannen möchtest.
       </td></tr>
       <tr><td style="padding:12px 0;">
         <a href="${resumeUrl}" style="${buttonStyle}">
@@ -276,41 +290,53 @@ export function buildIdentityResumeMail({ resumeUrl, displayName }: IdentityResu
         Falls du ausgeloggt bist, melde dich zuerst an.
       </td></tr>
       <tr><td style="padding:12px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
-        – Dein VoiceOpenGov Team
+        – Dein eDebatte Team
       </td></tr>
     </table>
   `;
 
   const text = `${greeting},
 
-du kannst die Identitätsprüfung jederzeit fortsetzen:
+danke, dass du dir die Zeit für eDebatte nimmst. Du kannst die Identitätsprüfung jederzeit fortsetzen:
 ${resumeUrl}
 
 Falls du ausgeloggt bist, melde dich zuerst an.
 
-– VoiceOpenGov Team`;
+– eDebatte Team`;
 
   return { subject: "Dein Link zur Identitätsprüfung", html, text };
 }
 
 export function buildTwoFactorCodeMail({ code }: { code: string }) {
-  const subject = "Dein Login-Code für VoiceOpenGov";
+  const subject = "Dein Login-Code für eDebatte";
   const html = `
-    <p>Hallo,</p>
-    <p>dein 2FA-Code für den Login lautet:</p>
-    <p style="font-size:26px;font-weight:700;letter-spacing:4px;">${code}</p>
-    <p>Der Code ist nur wenige Minuten gültig. Falls du den Login nicht gestartet hast, kannst du diese Nachricht ignorieren.</p>
-    <p>– Dein VoiceOpenGov / eDebatte Team</p>
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#0f172a;">
+      <tr><td style="padding:12px 0;">Hallo,</td></tr>
+      <tr><td style="padding:6px 0 12px 0; font-size:15px; line-height:1.5;">
+        dein Login-Code für eDebatte lautet:
+      </td></tr>
+      <tr><td>
+        <div style="font-size:28px;font-weight:700;letter-spacing:4px;background:#f8fafc;border-radius:12px;padding:12px 16px;display:inline-block;border:1px solid #e2e8f0;">
+          ${code}
+        </div>
+      </td></tr>
+      <tr><td style="padding:10px 0 0 0; font-size:13px; color:#334155;">
+        Der Code ist nur wenige Minuten gültig. Falls du den Login nicht gestartet hast, kannst du diese Nachricht ignorieren.
+      </td></tr>
+      <tr><td style="padding:10px 0 0 0; font-size:14px; color:#0f172a; font-weight:600;">
+        – Dein eDebatte Team
+      </td></tr>
+    </table>
   `;
 
   const text = `Hallo,
 
-dein 2FA-Code lautet: ${code}
-Er ist nur wenige Minuten gültig.
+dein Login-Code für eDebatte lautet: ${code}
+Der Code ist nur wenige Minuten gültig.
 
 Falls du den Login nicht gestartet hast, kannst du diese Nachricht ignorieren.
 
-– VoiceOpenGov / eDebatte`;
+– eDebatte Team`;
 
   return { subject, html, text };
 }
@@ -348,17 +374,17 @@ export function buildMembershipConfirmationMail({
 
   const html = `
     <p>${greeting},</p>
-    <p>danke für deinen Antrag auf die VoiceOpenGov-Mitgliedschaft (<strong>${planLabel}</strong>).</p>
+    <p>danke für deinen Antrag auf die eDebatte-Mitgliedschaft (<strong>${planLabel}</strong>).</p>
     <p>Dein monatlicher Beitrag beträgt <strong>${amount}${discountLine}</strong>. Bitte richte eine Überweisung oder einen Dauerauftrag mit folgenden Bankdaten ein:</p>
     ${bankHtml}
     <p>Wichtig: Es handelt sich um eine Gutschrift bzw. einen Mitgliedsbeitrag – keine Spende, keine Spendenquittung.</p>
     <p>Sobald der erste Beitrag eingegangen ist, erhältst du die Bestätigung deiner Mitgliedschaft und (falls gebucht) den Rabatt auf eDebatte Pro/Premium.</p>
-    <p>– Dein VoiceOpenGov Team</p>
+    <p>– Dein eDebatte Team</p>
   `;
 
   const text = `${greeting},
 
-danke für deinen Antrag auf die VoiceOpenGov-Mitgliedschaft (${planLabel}).
+danke für deinen Antrag auf die eDebatte-Mitgliedschaft (${planLabel}).
 Monatlicher Beitrag: ${amount}${discountLine}
 
 Bank:
@@ -372,10 +398,10 @@ Es handelt sich um eine Gutschrift bzw. einen Mitgliedsbeitrag – keine Spende,
 
 Sobald der erste Beitrag eingegangen ist, erhältst du die Bestätigung deiner Mitgliedschaft.
 
-– VoiceOpenGov Team`;
+– eDebatte Team`;
 
   return {
-    subject: "VoiceOpenGov – Mitgliedsantrag eingegangen",
+    subject: "eDebatte – Mitgliedsantrag eingegangen",
     html,
     text,
   };
@@ -438,12 +464,12 @@ export function buildMembershipApplyUserMail(args: {
     paymentReference,
     paymentInfo,
   } = args;
-  const subject = "Dein Mitgliedsantrag bei VoiceOpenGov";
+  const subject = "Dein Mitgliedsantrag bei eDebatte";
   const greeting = `Hallo ${displayName || "Mitglied"}`;
   const rhythmLabel =
     rhythm === "monthly" ? "monatlich" : rhythm === "yearly" ? "jährlich" : "einmalig";
   const amount = formatEuro(amountPerPeriod);
-  const bankRecipient = bankDetails?.recipient ?? paymentInfo?.bankRecipient ?? "VoiceOpenGov";
+  const bankRecipient = bankDetails?.recipient ?? paymentInfo?.bankRecipient ?? "eDebatte";
   const bankIban =
     bankDetails?.iban ??
     paymentInfo?.bankIban ??
@@ -454,7 +480,7 @@ export function buildMembershipApplyUserMail(args: {
   const accountMode = bankDetails?.accountMode ?? paymentInfo?.accountMode ?? "private_preUG";
   const showMicroTransfer = paymentInfo?.mandateStatus === "pending_microtransfer";
   const shareUrl = profileUrl?.trim() || "";
-  const shareText = "Ich bin jetzt Mitglied bei VoiceOpenGov.";
+  const shareText = "Ich bin jetzt Mitglied bei eDebatte.";
   const encodedShareUrl = shareUrl ? encodeURIComponent(shareUrl) : "";
   const encodedShareText = encodeURIComponent(shareText);
   const shareLinks = shareUrl
@@ -487,7 +513,7 @@ export function buildMembershipApplyUserMail(args: {
     : "";
 
   const hasEdebate = Boolean(edebatte?.enabled && edebatte.finalPricePerMonth);
-  const edebatteDiscount = edebatte?.discountPercent ? ` (inkl. ${edebatte.discountPercent}% VOG-Rabatt)` : "";
+  const edebatteDiscount = edebatte?.discountPercent ? ` (inkl. ${edebatte.discountPercent}% eDebatte-Rabatt)` : "";
   const edebatteLine = hasEdebate
     ? `${edebatte?.planKey || "unbekannt"} ${formatEuro(edebatte?.finalPricePerMonth || 0)} ${
         edebatte?.billingMode || "monatlich"
@@ -558,7 +584,7 @@ export function buildMembershipApplyUserMail(args: {
           <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
             <tr>
               <td style="padding:22px 24px;background:#0f172a;">
-                <div style="font-size:11px;letter-spacing:0.36em;text-transform:uppercase;color:#94a3b8;">VoiceOpenGov</div>
+                <div style="font-size:11px;letter-spacing:0.36em;text-transform:uppercase;color:#94a3b8;">eDebatte</div>
                 <div style="margin-top:6px;font-size:24px;font-weight:700;color:#ffffff;">Mitgliedsantrag eingegangen</div>
                 <div style="margin-top:6px;font-size:13px;color:#cbd5f5;">Danke, dass du die Bewegung möglich machst.</div>
               </td>
@@ -632,9 +658,9 @@ export function buildMembershipApplyUserMail(args: {
 
                 <p style="margin:18px 0 8px 0;font-size:14px;font-weight:600;color:#0f172a;">Transparenz</p>
                 <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:#475569;">
-                  <li>VoiceOpenGov befindet sich in der Gründungsphase (${accountMode === "private_preUG" ? "Privatkonto Aufbauphase" : "Org-Konto nach Gründung"}).</li>
+                  <li>eDebatte befindet sich in der Gründungsphase (${accountMode === "private_preUG" ? "Privatkonto Aufbauphase" : "Org-Konto nach Gründung"}).</li>
                   <li>Mitgliedsbeiträge sind Gutschriften für die Bewegung – keine Spendenquittung, üblicherweise nicht absetzbar.</li>
-                  <li>Die Mitgliedschaft bezieht sich auf VoiceOpenGov, nicht nur auf die eDebatte-App.</li>
+                  <li>Die Mitgliedschaft bezieht sich auf eDebatte, nicht nur auf die eDebatte-App.</li>
                   <li>Wir folgen "eine Person, eine Stimme" – daher brauchen wir klare Zuordnung und Double-Opt-In.</li>
                 </ul>
                 ${profileBlock}
@@ -642,7 +668,7 @@ export function buildMembershipApplyUserMail(args: {
                   Du kannst eDebatte direkt im Free-Modus nutzen. Sobald dein Beitrag eingegangen ist, bestätigen wir deine Mitgliedschaft.
                 </p>
                 <p style="margin:14px 0 0 0;font-size:14px;font-weight:600;color:#0f172a;">Danke für deine Unterstützung!</p>
-                <p style="margin:10px 0 0 0;font-size:13px;color:#0f172a;font-weight:600;">– Dein VoiceOpenGov Team</p>
+                <p style="margin:10px 0 0 0;font-size:13px;color:#0f172a;font-weight:600;">– Dein eDebatte Team</p>
               </td>
             </tr>
           </table>
@@ -674,7 +700,7 @@ ${
 
 Transparenz:
 - Aufbauphase (${accountMode === "private_preUG" ? "Privatkonto" : "Org-Konto"}), keine Spendenquittung, i.d.R. nicht absetzbar.
-- Mitgliedschaft bezieht sich auf VoiceOpenGov, nicht nur eDebatte.
+- Mitgliedschaft bezieht sich auf eDebatte, nicht nur eDebatte.
 - Eine Person, eine Stimme – daher Double-Opt-In.
 
 ${shareLinks ? `\nProfil-Link (optional): ${shareUrl}\nLinkedIn: ${shareLinks.linkedin}\nX: ${shareLinks.x}\nReddit: ${shareLinks.reddit}\nInstagram/TikTok: Link kopieren und posten.` : ""}
@@ -682,7 +708,7 @@ ${shareLinks ? `\nProfil-Link (optional): ${shareUrl}\nLinkedIn: ${shareLinks.li
 Du kannst eDebatte im Free-Modus nutzen. Sobald dein Beitrag eingeht, bestätigen wir deine Mitgliedschaft.
 
 Danke für deine Unterstützung!
-– Dein VoiceOpenGov Team`;
+– Dein eDebatte Team`;
 
   return { subject, html, text };
 }
@@ -736,11 +762,11 @@ export function buildHouseholdInviteMail(args: {
   inviteUrl: string;
   inviterName: string;
 }) {
-  const subject = "Einladung zur Teilnahme bei VoiceOpenGov";
+  const subject = "Einladung zur Teilnahme bei eDebatte";
   const greeting = args.targetName ? `Hallo ${args.targetName},` : "Hallo,";
   const html = `
     <p>${greeting}</p>
-    <p>${args.inviterName} hat dich eingeladen, im Rahmen eines Haushalts an VoiceOpenGov teilzunehmen.</p>
+    <p>${args.inviterName} hat dich eingeladen, im Rahmen eines Haushalts an eDebatte teilzunehmen.</p>
     <p>
       <a href="${args.inviteUrl}" style="display:inline-flex;padding:10px 16px;border-radius:999px;background:#0ea5e9;color:#fff;text-decoration:none;font-weight:600;">Einladung annehmen</a>
     </p>
@@ -749,7 +775,7 @@ export function buildHouseholdInviteMail(args: {
   `;
   const text = `${greeting}
 
-${args.inviterName} hat dich eingeladen, im Rahmen eines Haushalts an VoiceOpenGov teilzunehmen.
+${args.inviterName} hat dich eingeladen, im Rahmen eines Haushalts an eDebatte teilzunehmen.
 Einladung annehmen: ${args.inviteUrl}
 
 Die Einladung ermöglicht dir eigenen Zugang (Double-Opt-In, eine Person – eine Stimme).
@@ -779,12 +805,12 @@ export function buildMembershipReminderMail(
 ) {
   const subject =
     level === 3
-      ? "Letzte Erinnerung – VoiceOpenGov-Mitgliedsantrag"
-      : "Erinnerung – VoiceOpenGov-Mitgliedsbeitrag";
+      ? "Letzte Erinnerung – eDebatte-Mitgliedsantrag"
+      : "Erinnerung – eDebatte-Mitgliedsbeitrag";
   const amount = formatEuro(args.amountPerPeriod);
   const rhythmLabel =
     args.rhythm === "once" ? "einmalig" : args.rhythm === "yearly" ? "jährlich" : "monatlich";
-  const bankRecipient = args.paymentInfo?.bankRecipient ?? "VoiceOpenGov";
+  const bankRecipient = args.paymentInfo?.bankRecipient ?? "eDebatte";
   const bankIban =
     args.paymentInfo?.bankIban ??
     args.paymentInfo?.bankIbanMasked ??

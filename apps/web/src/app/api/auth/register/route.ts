@@ -10,6 +10,7 @@ import { hashPassword } from "@/utils/password";
 import { logIdentityEvent } from "@core/telemetry/identityEvents";
 import { sendMail } from "@/utils/mailer";
 import { buildVerificationMail } from "@/utils/emailTemplates";
+import { publicOrigin } from "@/utils/publicOrigin";
 import { ensureBasicPiiProfile } from "@core/pii/userProfileService";
 import { incrementRateLimit } from "@/lib/security/rate-limit";
 import { verifyHumanTokenDetailed } from "@/lib/security/human-token";
@@ -209,8 +210,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const origin =
-    process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const origin = publicOrigin();
   const verifyUrl = `${origin.replace(
     /\/$/,
     "",

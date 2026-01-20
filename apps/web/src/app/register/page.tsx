@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import RegisterPageClient from "./RegisterPageClient";
 
 export const metadata: Metadata = {
-  title: "Neues Konto anlegen – VoiceOpenGov",
+  title: "Neues Konto anlegen – eDebatte",
 };
 
 type Props = {

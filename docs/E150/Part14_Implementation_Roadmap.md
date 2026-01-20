@@ -2,7 +2,7 @@
 
 ## 1. Zweck von Part14
 
-Part00–13 definieren **WAS** VoiceOpenGov / eDebatte können soll.  
+Part00–13 definieren **WAS** eDebatte / eDebatte können soll.  
 Part14 beschreibt **WIE Codex den aktuellen Code Schritt für Schritt dorthin bringt**:
 
 - fasst offene Lücken aus Part00–13 zusammen,
@@ -345,7 +345,7 @@ Update: Admin mark-paid/cancel, Overview-API + Dashboard, Dunning-Script (Remind
 
 Status: Baseline implementiert.
 
-- /api/memberships/apply erzeugt ein MembershipApplication mit Status `waiting_payment`, Payment-Reference `VOG-xxxxxx` und optionalem eDebatte-Block.  
+- /api/memberships/apply erzeugt ein MembershipApplication mit Status `waiting_payment`, Payment-Reference `EDB-xxxxxx` und optionalem eDebatte-Block.  
 - Nutzer-Snapshot (`user.membership`) enthält Status, amountPerMonth, rhythm, householdSize/peopleCount, edebatte, paymentMethod, paymentReference, submittedAt.  
 - Bestätigungs-Mails: an Nutzer inkl. Zahlungsinfo/Verwendungszweck, optionaler eDebatte-Vorbestellung; an Admin (MAIL_ADMIN_TO) mit Betrag/Haushalt/Payment-Reference.  
 - Account-Seite zeigt Status inkl. „Zahlung ausstehend“-Hinweis bei waiting_payment; Thank-you-Banner bei redirect `?membership=thanks`.  

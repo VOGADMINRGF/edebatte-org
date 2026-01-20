@@ -6,7 +6,7 @@ WEB="$ROOT/apps/web"
 
 if command -v gsed >/dev/null 2>&1; then SED="gsed"; else SED="sed"; fi
 
-echo ">>> VOG Phase 5: GPT-5.0 Orchestrierung + SSE + Fixes"
+echo ">>> eDebatte Phase 5: GPT-5.0 Orchestrierung + SSE + Fixes"
 
 # A) Dependencies (nur falls nicht vorhanden)
 echo " - ensure openai dependency (apps/web)…"

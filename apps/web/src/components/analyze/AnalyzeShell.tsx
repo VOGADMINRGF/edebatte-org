@@ -98,7 +98,7 @@ export default function AnalyzeShell() {
         setNote("Hinweis: Analyse lief im Fallback. Falls das Ergebnis komisch wirkt, probiere es bitte erneut.");
       }
     } catch {
-      setNote("Netzwerk/Serverproblem. Bitte erneut versuchen – sonst Support: support@voiceopengov.org");
+      setNote("Netzwerk/Serverproblem. Bitte erneut versuchen – sonst Support: support@edebatte.org");
     } finally {
       setBusy(false);
     }
@@ -132,7 +132,7 @@ export default function AnalyzeShell() {
           <div className="text-sm text-neutral-700">
             {note}{" "}
             <button className="underline font-medium" onClick={analyze}>Erneut versuchen</button>{" "}
-            · <a className="underline" href="mailto:support@voiceopengov.org?subject=Analyse%20Problem">Support</a>
+            · <a className="underline" href="mailto:support@edebatte.org?subject=Analyse%20Problem">Support</a>
           </div>
         )}
       </div>

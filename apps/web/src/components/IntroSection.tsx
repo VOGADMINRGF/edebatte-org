@@ -11,7 +11,7 @@ export default function IntroSection() {
           Demokratie. Offen. Gemeinsam.
         </h1>
         <p className="mt-5 text-lg md:text-xl text-gray-700">
-          VoiceOpenGov ist die Plattform für digitale Beteiligung: Abstimmen,
+          eDebatte ist die Plattform für digitale Beteiligung: Abstimmen,
           eigene Statements einbringen und faktenbasierte Reports mitgestalten –
           unabhängig, transparent, europaweit.
         </p>

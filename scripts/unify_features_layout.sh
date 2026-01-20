@@ -94,7 +94,7 @@ export type AnalyzeResult = {
  * Mini-Prompt (v2)
  * ======================= */
 
-const MINI_PROMPT = String.raw`You are VOG Analyzer. Output STRICT JSON (RFC8259), no prose.
+const MINI_PROMPT = String.raw`You are eDebatte Analyzer. Output STRICT JSON (RFC8259), no prose.
 Use the MANIFEST and RUBRIC to 1) extract claims, 2) map to political organs, 3) compute trust,
 4) emit an optional clarify CTA for generic price statements, 5) propose newsroom queries/angles.
 

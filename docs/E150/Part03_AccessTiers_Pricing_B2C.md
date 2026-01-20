@@ -2,7 +2,7 @@
 
 ## 1. Zweck dieses Parts
 
-Dieser Part beschreibt **alle B2C-Zugangsmodelle (Tiers)** und das vollständige **Pricing-Modell für Endnutzer:innen** der Plattform VoiceOpenGov / eDebatte.
+Dieser Part beschreibt **alle B2C-Zugangsmodelle (Tiers)** und das vollständige **Pricing-Modell für Endnutzer:innen** der Plattform eDebatte / eDebatte.
 
 Ziele:
 
@@ -343,13 +343,13 @@ Part 03 bildet die Grundlage für:
 - Part 12 (Admin & Telemetrie),
 - Part 13 (I18N & Social/Community Features),
 - sowie alle Feature Gates im User-Modell (Part 02).
-## VoiceOpenGov Mitgliedschaft (Basis/Pro/Premium)
+## eDebatte Mitgliedschaft (Basis/Pro/Premium)
 
 - `/mitglied-werden` präsentiert die drei B2C-Produkte:
   - **Basis (0 €)** – CitizenBasic, XP → Contribution Credits.
   - **Pro (14,99 €/Monat)** – mehr Credits, Insights, Stream-Aktivierung.
   - **Premium (34,99 €/Monat)** – unbegrenzte Contributions, priorisierte Betreuung.
-- Mitglieder können den 25-%-VOG-Rabatt auf eDebatte Pro/Premium aktivieren (Checkbox „Ich bin VOG-Mitglied …“).
+- Mitglieder können den 25-%-Mitgliederrabatt auf eDebatte Pro/Premium aktivieren (Checkbox „Ich bin Mitglied …“).
 - `/mitglied-antrag` erzwingt Login und sammelt Pflichtfelder (Vor-/Nachname, Adresse inkl. PLZ, Land, Geburtsdatum, Telefon optional).
 - Nach dem Submit zeigt der Client sofort Bank-Details + Verwendungszweck an und der API-Endpunkt `/api/membership/apply` verschickt dieselben Infos per Mail.
 - Mitgliedsstatus in `users.membership` → `pending` (inkl. `lastApplication`-Snapshot), PII liegt in `pii.user_profiles`.

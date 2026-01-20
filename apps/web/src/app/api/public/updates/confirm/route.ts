@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Collection } from "mongodb";
 import { coreCol } from "@core/db/triMongo";
 import { sendMail } from "@/utils/mailer";
+import { publicOrigin } from "@/utils/publicOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,13 +34,8 @@ function hashConfirmToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function getPublicOrigin(req: NextRequest) {
-  const envOrigin =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.WEB_BASE_URL ||
-    process.env.PUBLIC_BASE_URL;
-  const raw = envOrigin || req.nextUrl.origin;
-  return raw.replace(/\/$/, "");
+function getPublicOrigin() {
+  return publicOrigin().replace(/\/$/, "");
 }
 
 function getMembershipUrl(origin: string) {
@@ -57,26 +53,26 @@ function buildWelcomeMail(opts: {
 
   const html = `
     <p>${greeting},</p>
-    <p>deine Anmeldung für die VoiceOpenGov-Updates wurde erfolgreich bestätigt.</p>
+    <p>deine Anmeldung für die eDebatte-Updates wurde erfolgreich bestätigt.</p>
     <p>Ab jetzt informieren wir dich regelmäßig über neue Abstimmungen, Funktionen und Beteiligungsmöglichkeiten.</p>
     <p>Wenn du unsere Arbeit noch stärker unterstützen möchtest, kannst du jederzeit
       <a href="${membershipUrl}">Mitglied werden</a> – oder uns auch anonym unterstützen.</p>
-    <p>– Dein Team von VoiceOpenGov</p>
+    <p>– Dein Team von eDebatte</p>
   `;
 
   const text = `${greeting},
 
-deine Anmeldung für die VoiceOpenGov-Updates wurde bestätigt.
+deine Anmeldung für die eDebatte-Updates wurde bestätigt.
 
 Ab jetzt informieren wir dich regelmäßig über neue Abstimmungen, Funktionen und Beteiligungsmöglichkeiten.
 
 Wenn du unsere Arbeit noch stärker unterstützen möchtest, kannst du jederzeit Mitglied werden oder uns anonym unterstützen:
 ${membershipUrl}
 
-– Dein Team von VoiceOpenGov`;
+– Dein Team von eDebatte`;
 
   return {
-    subject: "Du erhältst jetzt VoiceOpenGov-Updates",
+    subject: "Du erhältst jetzt eDebatte-Updates",
     html,
     text,
   };
@@ -85,7 +81,7 @@ ${membershipUrl}
 function buildInternalConfirmedMail(opts: { email: string; name?: string | null }) {
   const { email, name } = opts;
   const subject =
-    "VoiceOpenGov-Updates: Anmeldung bestätigt (Double-Opt-in abgeschlossen)";
+    "eDebatte-Updates: Anmeldung bestätigt (Double-Opt-in abgeschlossen)";
   const html = `
     <p>Eine Anmeldung für den Updates-Verteiler wurde soeben bestätigt.</p>
     <ul>
@@ -93,7 +89,7 @@ function buildInternalConfirmedMail(opts: { email: string; name?: string | null 
       <li><strong>Name:</strong> ${name || "—"}</li>
     </ul>
   `;
-  const text = `VoiceOpenGov-Updates: Double-Opt-in bestätigt.
+  const text = `eDebatte-Updates: Double-Opt-in bestätigt.
 
 E-Mail: ${email}
 Name: ${name || "—"}
@@ -146,7 +142,7 @@ export async function GET(req: NextRequest) {
     },
   );
 
-  const origin = getPublicOrigin(req);
+  const origin = getPublicOrigin();
 
   // Willkommensmail an Abonnent:in
   const welcomeMail = buildWelcomeMail({

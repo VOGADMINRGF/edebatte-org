@@ -290,7 +290,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/RF/Arbeitsmappe/LandingeDbtt/packages/db-web/src/generated",
+      "value": "/Users/RF/Arbeitsmappe/edebatte-org/packages/db-web/src/generated",
       "fromEnvVar": null
     },
     "config": {
@@ -304,7 +304,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/RF/Arbeitsmappe/LandingeDbtt/prisma/web/schema.prisma",
+    "sourceFilePath": "/Users/RF/Arbeitsmappe/edebatte-org/prisma/web/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

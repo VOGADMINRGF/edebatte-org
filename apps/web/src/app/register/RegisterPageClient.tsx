@@ -497,7 +497,7 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
           <li className="flex gap-2">
             <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span>
-              VoiceOpenGov ist keine Partei und kein klassischer Verein – die Infrastruktur wird über Mitgliedsbeiträge
+              eDebatte ist keine Partei und kein klassischer Verein – die Infrastruktur wird über Mitgliedsbeiträge
               getragen. Wir finanzieren keine Werbung und arbeiten ohne Spendenquittungen.
             </span>
           </li>

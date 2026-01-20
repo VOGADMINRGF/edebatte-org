@@ -12,6 +12,45 @@ interface HumanCheckProps {
   variant?: "full" | "compact";
 }
 
+
+const STORAGE_PREFIX = "edb_human_check";
+const TOKEN_TTL_MS = 10 * 60 * 1000;
+
+type StoredHumanCheck = {
+  token: string;
+  solvedAt: number;
+  formId: string;
+};
+
+function storageKey(formId: string) {
+  return `${STORAGE_PREFIX}:${formId}`;
+}
+
+function readStoredToken(formId: string): StoredHumanCheck | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem(storageKey(formId));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as StoredHumanCheck;
+    if (!parsed?.token || !parsed?.solvedAt || parsed.formId !== formId) return null;
+    if (Date.now() - parsed.solvedAt > TOKEN_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function storeToken(formId: string, token: string) {
+  if (typeof window === "undefined") return;
+  const payload: StoredHumanCheck = { token, solvedAt: Date.now(), formId };
+  window.sessionStorage.setItem(storageKey(formId), JSON.stringify(payload));
+}
+
+function clearStoredToken(formId: string) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(storageKey(formId));
+}
+
 export function HumanCheck({
   formId = "public-updates",
   onSolved,
@@ -25,6 +64,7 @@ export function HumanCheck({
   const [status, setStatus] = useState<"idle" | "checking" | "solved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const startRef = useRef<number | null>(null);
+  const solvedRef = useRef(false);
   const [puzzleSeed, setPuzzleSeed] = useState<string | null>(null);
   const answerValue = answer.trim();
   const isAnswerValid = /^\d+$/.test(answerValue);
@@ -35,6 +75,16 @@ export function HumanCheck({
     setPuzzleSeed(seed);
     startRef.current = performance.now();
   }, []);
+
+  useEffect(() => {
+    const cached = readStoredToken(formId);
+    if (!cached || solvedRef.current) return;
+    solvedRef.current = true;
+    setStatus("solved");
+    setMessage("Sicherheitscheck bereits erledigt.");
+    if (isCompact) setIsOpen(true);
+    onSolved({ token: cached.token, meta: { restored: true } });
+  }, [formId, isCompact, onSolved]);
 
   const puzzle = useMemo(() => (puzzleSeed ? derivePuzzle(puzzleSeed) : null), [puzzleSeed]);
   const refreshPuzzle = () => {
@@ -75,22 +125,26 @@ export function HumanCheck({
         setStatus("error");
         setMessage("Die Bestätigung hat nicht geklappt. Bitte kurz erneut versuchen.");
         onError?.(reason);
+        clearStoredToken(formId);
         refreshPuzzle();
         return;
       }
 
       setStatus("solved");
       setMessage("Danke – kurz bestätigt.");
+      solvedRef.current = true;
+      storeToken(formId, data.humanToken);
       onSolved({ token: data.humanToken, meta: { timeToSolve, puzzleSeed } });
     } catch (err) {
       setStatus("error");
       setMessage("Es gab ein technisches Problem. Bitte später erneut versuchen.");
       onError?.(err instanceof Error ? err.message : "unknown");
+      clearStoredToken(formId);
       refreshPuzzle();
     }
   };
 
-  if (isCompact && !isOpen) {
+  if (isCompact && !isOpen && status !== "solved") {
     return (
       <div className="space-y-2 rounded-xl border border-slate-200 bg-white/95 p-4 text-xs text-slate-600 shadow-sm">
         <p className="text-sm font-semibold text-slate-900">Kurze Bestätigung</p>

@@ -162,7 +162,7 @@ ADMIN_CFG="$ROOT/apps/web/src/config/admin-config.ts"
 if [ -f "$ADMIN_CFG" ] && ! grep -q "VOG_ANALYZE_MODE" "$ADMIN_CFG"; then
   cat >> "$ADMIN_CFG" <<'TS'
 
-// VOG Analyse-Modus Schalter
+// eDebatte Analyse-Modus Schalter
 export const ANALYZE_MODE_FLAG = process.env.VOG_ANALYZE_MODE || "gpt"; // "gpt" | "multi"
 TS
 fi

@@ -2,7 +2,7 @@
 
 ## 1. Zweck dieses Dokuments
 
-Part11 beschreibt das **Streaming- und Live-Format** von VoiceOpenGov / eDebatte:
+Part11 beschreibt das **Streaming- und Live-Format** von eDebatte / eDebatte:
 
 - wie „Brennende Bürger:innen“ und andere Engagierte Streams hosten,
 - wie Graph/Reports/Eventualitäten als Grundlage dienen,
@@ -58,18 +58,18 @@ Optionale Sonderfälle:
 
 ### 3.1 Streaming-Plattform
 
-VoiceOpenGov selbst ist **kein** Video-CDN.  
+eDebatte selbst ist **kein** Video-CDN.  
 Stattdessen:
 
 - externe Plattformen (Twitch, YouTube, ggf. OBS/RTMP),
-- VoiceOpenGov stellt:
+- eDebatte stellt:
   - Overlays (HTML/CSS),
   - Companion-UI (Web/App),
   - API für interaktive Elemente.
 
 Konzept:
 
-- Host erstellt in VOG eine **Stream-Session**.
+- Host erstellt in eDebatte eine **Stream-Session**.
 - Er/sie hinterlegt:
   - Streaming-URL (Twitch/YouTube),
   - Startzeit, Dauer, Thema, Region.
@@ -299,4 +299,3 @@ B2G/B2B-spezifische Stream-Typen berücksichtigen.
 PII, Fairness, Neutralität beachten (keine Empfehlungen, kein Tracking-Wildwuchs).
 
 Part11 baut damit auf allen vorherigen Parts auf und macht sie „live erlebbar“.
-

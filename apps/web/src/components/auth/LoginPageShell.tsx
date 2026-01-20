@@ -56,7 +56,7 @@ export function LoginPageShell({
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">Sicherer Login</p>
         <h1 className="text-2xl font-bold text-slate-900">
           <span className="bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">
-            Bei VoiceOpenGov anmelden
+            Bei eDebatte anmelden
           </span>
         </h1>
         <p className="text-sm text-slate-600">E-Mail &amp; Passwort, optional mit 2FA.</p>

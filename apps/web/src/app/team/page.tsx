@@ -4,7 +4,7 @@ export default function TeamPage() {
       <h1 className="text-3xl font-bold text-coral text-center">Team</h1>
       <div className="space-y-4 text-gray-700 text-lg text-center">
         <p>
-          VoiceOpenGov wird von einem interdisziplinären Team getragen – mit
+          eDebatte wird von einem interdisziplinären Team getragen – mit
           Fokus auf faire Verfahren, klare Regeln und eine verlässliche
           Infrastruktur.
         </p>

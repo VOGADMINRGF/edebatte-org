@@ -75,7 +75,7 @@ export type AnalyzeResult = z.infer<typeof ContextSchema>;
 
 // ---- System Prompt
 const SYS = `
-Du bist ein präziser, strenger Extraktor für VoiceOpenGov (VOG).
+Du bist ein präziser, strenger Extraktor für eDebatte (eDebatte).
 
 AUFGABEN:
 1) Gesamt-Kontext erfassen: "overallSummary" (2–4 Sätze), "mainTopic", "subTopics", optional "regionHint".
@@ -399,7 +399,7 @@ touch "$CSS"
 file_backup "$CSS"
 cat >> "$CSS" <<'CSS'
 
-/* --- VOG UX base --- */
+/* --- eDebatte UX base --- */
 :root { --maxw: 980px; }
 .container { max-width: var(--maxw); margin: 24px auto; padding: 0 16px; }
 .card { border:1px solid #e5e7eb; border-radius:12px; padding:12px 14px; background:#fff; }

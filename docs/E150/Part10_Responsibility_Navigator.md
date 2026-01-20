@@ -384,7 +384,7 @@ Bürger:innen erfahren nicht nur, was ein Statement bedeutet (Part05–08),
 
 sondern auch wer konkret zuständig ist, wo man ansetzen kann und wie der Weg aussieht.
 
-Damit wird VoiceOpenGov/eDebatte von einer „reinen Debattier-Plattform“
+Damit wird eDebatte/eDebatte von einer „reinen Debattier-Plattform“
 zur echten Navigationshilfe durch die Demokratie-Infrastruktur.
 
 Part11 (Streams & Brennende Bürger) kann nun auf:

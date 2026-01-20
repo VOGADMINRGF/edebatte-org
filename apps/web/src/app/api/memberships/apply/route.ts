@@ -6,6 +6,7 @@ import { upsertMembershipPaymentProfile } from "@core/db/pii/userPaymentProfiles
 import { safeRandomId } from "@core/utils/random";
 import crypto from "crypto";
 import { sendMail } from "@/utils/mailer";
+import { publicOrigin } from "@/utils/publicOrigin";
 import { incrementRateLimit } from "@/lib/security/rate-limit";
 import { verifyHumanTokenDetailed } from "@/lib/security/human-token";
 import { getPaymentEnv } from "@/lib/env/payment";
@@ -426,7 +427,7 @@ export async function POST(req: NextRequest) {
   // Mails
   const payerMail = user.email;
   const payerName = user.name || memberRefs.find((m) => m.role === "primary")?.givenName || "Mitglied";
-  const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const origin = publicOrigin();
   const base = origin.replace(/\/$/, "");
   const accountUrl = `${base}/account/payment`;
   const shareEnabled = Boolean(

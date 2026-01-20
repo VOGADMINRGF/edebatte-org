@@ -245,7 +245,7 @@ async function fetchAndParseFeed(feedUrl: string, timeoutMs: number): Promise<Pa
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(feedUrl, {
-      headers: { "user-agent": "VoiceOpenGov/feeds-pull (+https://edebatte.eu)" },
+      headers: { "user-agent": "eDebatte/feeds-pull (+https://edebatte.eu)" },
       signal: controller.signal,
     });
     if (!res.ok) throw new Error(`feed_fetch_failed ${res.status}`);

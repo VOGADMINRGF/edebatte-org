@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Replace OLD brand with NEW across TS/TSX/MD/JSON/CSS files, excluding the token 'VOG'.
- * Usage: node scripts/helpers/bulk_rename_brand.js "VoiceOpenGov" "e‑Debatte" [rootDir]
+ * Replace OLD brand with NEW across TS/TSX/MD/JSON/CSS files.
+ * Usage: node scripts/helpers/bulk_rename_brand.js "eDebatte" "e‑Debatte" [rootDir]
  */
 const fs = require('fs');
 const path = require('path');
@@ -33,7 +33,7 @@ for (const file of listFiles(ROOT)) {
   scanned++;
   const s = fs.readFileSync(file, "utf8");
   if (!s.includes(OLD)) continue;
-  // Do not touch 'VOG' literal; we only replace the full OLD string occurrences.
+  // Replace only the full OLD string occurrences.
   const ns = s.split(OLD).join(NEW);
   if (ns !== s) {
     fs.writeFileSync(file, ns, "utf8");

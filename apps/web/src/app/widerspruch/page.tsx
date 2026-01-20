@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 
-const CONTACT_MAIL = "kontakt@voiceopengov.org";
+const CONTACT_MAIL = "kontakt@edebatte.org";
 type SelfServiceAction = "cancel_membership" | "delete_account";
 
 const encodeMailParam = (value: string) => encodeURIComponent(value);
@@ -17,11 +17,11 @@ export default function WiderspruchPage() {
   const [ack, setAck] = useState(false);
 
   const subjectCancel = encodeMailParam(
-    "Kündigung / Widerspruch – VoiceOpenGov"
+    "Kündigung / Widerspruch – eDebatte"
   );
   const bodyCancel = encodeMailParam(
     [
-      "Hallo VoiceOpenGov-Team,",
+      "Hallo eDebatte-Team,",
       "",
       "hiermit kündige ich meine Mitgliedschaft / mein Paket bzw. widerspreche der weiteren Nutzung meiner Daten.",
       "",
@@ -35,11 +35,11 @@ export default function WiderspruchPage() {
   );
 
   const subjectData = encodeMailParam(
-    "Widerspruch gegen Datenverarbeitung – VoiceOpenGov"
+    "Widerspruch gegen Datenverarbeitung – eDebatte"
   );
   const bodyData = encodeMailParam(
     [
-      "Hallo VoiceOpenGov-Team,",
+      "Hallo eDebatte-Team,",
       "",
       "hiermit widerspreche ich der weiteren Verarbeitung meiner personenbezogenen Daten, soweit rechtlich möglich.",
       "",
@@ -358,7 +358,7 @@ export default function WiderspruchPage() {
             </a>
           </p>
           <p className="text-xs text-slate-500">
-            Bitte gib immer die E-Mail-Adresse an, mit der du bei VoiceOpenGov
+            Bitte gib immer die E-Mail-Adresse an, mit der du bei eDebatte
             registriert bist. So können wir dein Konto eindeutig zuordnen.
           </p>
         </section>

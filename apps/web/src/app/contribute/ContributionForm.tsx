@@ -82,6 +82,9 @@ export default function ContributionForm() {
       className="bg-white p-8 rounded-2xl shadow-xl max-w-2xl mx-auto mt-10 space-y-4"
     >
       <h2 className="text-2xl font-bold">Neuen Beitrag verfassen</h2>
+      <p className="text-sm text-slate-600">
+        Wir prüfen Behauptung, sammeln Quellen und zeigen offene Fragen sowie fehlende Perspektiven.
+      </p>
       <input
         className="w-full p-2 border rounded"
         value={title}
@@ -118,7 +121,7 @@ export default function ContributionForm() {
           onClick={handleAnalyze}
           disabled={!content || loading}
         >
-          GPT/ARI Analyse
+          Analyse starten
         </button>
         <button
           type="submit"

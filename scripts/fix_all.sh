@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="${1:-.}"
 
-echo "🏁 Starte VOG Reparaturläufe im Repo: $ROOT"
+echo "🏁 Starte eDebatte Reparaturläufe im Repo: $ROOT"
 
 # 1) Responses API: input_text + text.format=json
 patch_openai() {

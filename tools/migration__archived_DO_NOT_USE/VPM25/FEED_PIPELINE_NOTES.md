@@ -22,7 +22,7 @@ Feed → statement_candidates → analyze_results → vote_drafts → feed_state
 ### Beispiel (Curl)
 
 ```bash
-curl -X POST https://voiceopengov.example/api/feeds/analyze-pending \
+curl -X POST https://edebatte.example/api/feeds/analyze-pending \
   -H 'content-type: application/json' \
   -d '{ "limit": 10 }'
 ```
@@ -60,7 +60,7 @@ Unter `tools/feeds/import_rss.ts` liegt ein kleiner Fetcher, der ausgewählte RS
 
 ```bash
 # .env.local (Beispiel)
-export FEEDS_API_URL="https://app.voiceopengov.de/api/feeds/batch"
+export FEEDS_API_URL="https://app.edebatte.org/api/feeds/batch"
 export FEEDS_API_TOKEN="<optional bearer token>"
 
 # ad-hoc Lauf lokal

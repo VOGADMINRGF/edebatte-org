@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: VoiceOpenGov API
+  title: eDebatte API
   version: "1.0"
 paths:
   /api/vote/cast:

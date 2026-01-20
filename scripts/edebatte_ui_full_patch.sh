@@ -65,7 +65,7 @@ cat > "$SRC/app/globals.css" <<'CSS'
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/aspect-ratio";
 
-/* --- VoiceOpenGov / eDebatte CI helpers --- */
+/* --- eDebatte / eDebatte CI helpers --- */
 :root { --page-max: 1100px; }
 .container-vog { max-width: var(--page-max); margin: 0 auto; padding: 1rem; }
 

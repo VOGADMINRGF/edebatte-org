@@ -6,17 +6,34 @@ import { ObjectId, getCol } from "@core/db/triMongo";
 import type { AuthUser } from "@/hooks/auth";
 import { readSession } from "@/utils/session";
 import "./globals.css";
+import { BRAND } from "@/lib/brand";
 import { LocaleProvider } from "@/context/LocaleContext";
 import { DEFAULT_LOCALE, type SupportedLocale, isSupportedLocale } from "@/config/locales";
 import { SiteHeader } from "./(components)/SiteHeader";
 import { getPrivacyStrings } from "./privacyStrings";
-import { VogCookieBanner } from "@/components/privacy/VogCookieBanner";
-import { CONSENT_COOKIE_NAME, parseConsentCookie } from "@/lib/privacy/consent";
+import { CookieBanner } from "@/components/privacy/CookieBanner";
+import { AnalyticsTracker } from "@/components/privacy/AnalyticsTracker";
+import { CONSENT_COOKIE_NAME, LEGACY_CONSENT_COOKIE_NAME, parseConsentCookie } from "@/lib/privacy/consent";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "VoiceOpenGov",
-  description: "eDebatte – Anliegen analysieren, sauber & transparent.",
+  metadataBase: new URL(BRAND.baseUrl),
+  title: {
+    default: BRAND.name,
+    template: `%s | ${BRAND.name}`,
+  },
+  description: BRAND.tagline_de,
+  openGraph: {
+    title: BRAND.name,
+    description: BRAND.tagline_de,
+    url: BRAND.baseUrl,
+    siteName: BRAND.name,
+  },
+  twitter: {
+    title: BRAND.name,
+    description: BRAND.tagline_de,
+    site: BRAND.domain,
+  },
 };
 export const viewport = {
   themeColor: "#06b6d4",
@@ -25,7 +42,9 @@ export const viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const initialLocale = await detectInitialLocale(cookieStore);
-  const initialConsent = parseConsentCookie(cookieStore.get(CONSENT_COOKIE_NAME)?.value);
+  const initialConsent = parseConsentCookie(
+    cookieStore.get(CONSENT_COOKIE_NAME)?.value ?? cookieStore.get(LEGACY_CONSENT_COOKIE_NAME)?.value,
+  );
   const privacyStrings = getPrivacyStrings(initialLocale);
   const initialUser = await loadServerUser(cookieStore);
 
@@ -38,7 +57,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main className="flex-1">{children}</main>
             <SiteFooter />
             <div className="h-[env(safe-area-inset-bottom)]" />
-            <VogCookieBanner strings={privacyStrings} initialConsent={initialConsent} />
+            <AnalyticsTracker />
+            <CookieBanner strings={privacyStrings} initialConsent={initialConsent} />
           </div>
         </LocaleProvider>
       </body>

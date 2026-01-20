@@ -353,6 +353,109 @@ export type RunReceipt = z.infer<typeof RunReceiptSchema>;
 
 /* ---------- Statements / Claims ---------- */
 
+export const DebateLevelSchema = z.enum(["global", "eu", "neighbour", "national", "local"]);
+export type DebateLevel = z.infer<typeof DebateLevelSchema>;
+
+export const PolicyDomainSchema = z.enum([
+  "human_rights",
+  "labor",
+  "social",
+  "health",
+  "education",
+  "justice",
+  "religion_freedom",
+  "trade",
+  "tariffs",
+  "security",
+  "migration",
+  "integration",
+  "housing",
+  "infrastructure",
+  "economy",
+  "governance",
+]);
+export type PolicyDomain = z.infer<typeof PolicyDomainSchema>;
+
+const MetricSchema = z.object({
+  name: z.string().min(2),
+  direction: z.enum(["up", "down", "neutral"]),
+  horizonMonths: z.number().int().min(1).max(240),
+});
+
+const EnforcementStageSchema = z.object({
+  stage: z.number().int().min(1).max(10),
+  type: z.enum(["monitoring", "incentives", "restrictions", "targeted_sanctions", "sectoral_sanctions"]),
+  description: z.string().min(4),
+  exitCriteria: z.string().min(4),
+});
+
+const AntiPopulismGateSchema = z.object({
+  id: z.enum([
+    "no_scapegoat",
+    "policy_decision",
+    ">=2_options",
+    "has_metrics",
+    "shows_tradeoffs",
+    "rights_duties_symmetry",
+    "sanctions_are_staged",
+    "defines_terms",
+    "no_person_targeting",
+    "dossier_required",
+  ]),
+  pass: z.boolean(),
+});
+
+export const DebateFrameSchema = z.object({
+  version: z.literal("v1").default("v1"),
+  level: DebateLevelSchema.optional(),
+  policyDomain: PolicyDomainSchema.optional(),
+  jurisdiction: z
+    .object({
+      actors: z.array(z.string()).default([]),
+      region: z.string().optional(),
+    })
+    .default({ actors: [] }),
+  objective: z.string().optional(),
+  rights: z.array(z.string()).default([]),
+  duties: z.array(z.string()).default([]),
+  minimumStandards: z
+    .array(
+      z.object({
+        label: z.string(),
+        threshold: z.string(),
+      }),
+    )
+    .default([]),
+  enforcement: z
+    .object({
+      stages: z.array(EnforcementStageSchema).default([]),
+      humanitarianExceptions: z.boolean().default(true),
+      legalSafeguards: z.array(z.string()).default([]),
+    })
+    .default({ stages: [] }),
+  metrics: z.array(MetricSchema).default([]),
+  options: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        type: z
+          .enum(["status_quo", "reform_moderate", "reform_strong", "pilot", "sovereignty", "custom"])
+          .default("custom"),
+      }),
+    )
+    .default([]),
+  antiPopulism: z
+    .object({
+      score: z.number().min(0).max(1).default(0),
+      gates: z.array(AntiPopulismGateSchema).default([]),
+      status: z.enum(["pass", "fail", "needs_review"]).default("needs_review"),
+      notes: z.string().optional(),
+    })
+    .default({ score: 0, gates: [] }),
+});
+export type DebateFrame = z.infer<typeof DebateFrameSchema>;
+
 export const StatementRecordSchema = z.object({
   id: z.string(),
   text: z.string(),
@@ -369,6 +472,7 @@ export const StatementRecordSchema = z.object({
   // NEU: mehrere redaktionelle Domains möglich (Multi-Tag); domain bleibt kompatibel als "primäre" Domain
   domains: z.array(z.string()).nullable().optional(),
   stance: z.enum(["pro", "neutral", "contra"]).nullable().optional(),
+  debateFrame: DebateFrameSchema.optional(),
 });
 
 export type StatementRecord = z.infer<typeof StatementRecordSchema>;
@@ -388,6 +492,26 @@ export const QuestionRecordSchema = z.object({
   dimension: z.string().nullable().optional(),
 });
 export type QuestionRecord = z.infer<typeof QuestionRecordSchema>;
+
+export const MissingPerspectiveSchema = z
+  .object({
+    id: z.string().optional(),
+    text: z.string(),
+    dimension: z.string().optional(),
+  })
+  .strict();
+export type MissingPerspective = z.infer<typeof MissingPerspectiveSchema>;
+
+export const ParticipationCandidateSchema = z
+  .object({
+    id: z.string().optional(),
+    text: z.string(),
+    rationale: z.string().optional(),
+    stance: z.enum(["pro", "neutral", "contra"]).optional(),
+    dimension: z.string().optional(),
+  })
+  .strict();
+export type ParticipationCandidate = z.infer<typeof ParticipationCandidateSchema>;
 
 export const KnotRecordSchema = z.object({
   id: z.string(),
@@ -543,12 +667,14 @@ export const AnalyzeResultSchema = z.object({
   claims: z.array(StatementRecordSchema),
   notes: z.array(NoteRecordSchema),
   questions: z.array(QuestionRecordSchema),
+  missingPerspectives: z.array(MissingPerspectiveSchema).default([]),
   knots: z.array(KnotRecordSchema),
   consequences: ConsequenceBundleSchema,
   responsibilityPaths: z.array(ResponsibilityPathSchema),
   eventualities: z.array(EventualityNodeSchema),
   decisionTrees: z.array(DecisionTreeSchema),
   impactAndResponsibility: ImpactAndResponsibilitySchema,
+  participationCandidates: z.array(ParticipationCandidateSchema).default([]),
   report: ReportSchema,
   editorialAudit: EditorialAuditSchema.optional(),
   evidenceGraph: EvidenceGraphSchema.optional(),
@@ -600,6 +726,7 @@ export const ANALYZE_JSON_SCHEMA = {
       claims: { type: "array" },
       notes: { type: "array" },
       questions: { type: "array" },
+      missingPerspectives: { type: "array" },
       knots: { type: "array" },
       consequences: {
         type: "object",
@@ -622,6 +749,7 @@ export const ANALYZE_JSON_SCHEMA = {
         },
         required: ["impacts", "responsibleActors"],
       },
+      participationCandidates: { type: "array" },
       report: {
         type: "object",
         additionalProperties: false,

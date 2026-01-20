@@ -9,7 +9,7 @@ ts() { date +%s; }
 bak() { [ -f "$1" ] && cp "$1" "$1.bak.$(ts)" || true; }
 ensure_dir() { mkdir -p "$1"; }
 
-echo "▶ VOG Patch: Analyzer + API + UI + Diag"
+echo "▶ eDebatte Patch: Analyzer + API + UI + Diag"
 
 # 0) Aliases sicherstellen (nur wenn tsconfig existiert)
 if [ -f "$WEB/tsconfig.json" ]; then

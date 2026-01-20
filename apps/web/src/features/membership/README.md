@@ -1,6 +1,6 @@
-# VoiceOpenGov Membership (Bewegung)
+# eDebatte Membership (Bewegung)
 
-Dieses Modul gehört ausschließlich zur VoiceOpenGov-Bewegung – also zur ideellen Mitgliedschaft (1 %‑Rechner, Mindestbeitrag 5,63 €, lokale Einbindung). Es hat keinen direkten Einfluss auf das eDbtt-App-Pricing; dieses liegt separat unter `features/pricing`.
+Dieses Modul gehört ausschließlich zur eDebatte-Bewegung – also zur ideellen Mitgliedschaft (1 %‑Rechner, Mindestbeitrag 5,63 €, lokale Einbindung). Es hat keinen direkten Einfluss auf das eDbtt-App-Pricing; dieses liegt separat unter `features/pricing`.
 
 ## Struktur
 

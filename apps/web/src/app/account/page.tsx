@@ -5,7 +5,7 @@ import { getAccountOverview } from "@features/account/service";
 import { readSession } from "@/utils/session";
 
 export const metadata = {
-  title: "Mein Konto & eDebatte · VoiceOpenGov",
+  title: "Mein Konto & eDebatte · eDebatte",
 };
 
 type Props = {
@@ -57,7 +57,7 @@ export default async function AccountPage({ searchParams }: Props) {
           </h1>
 
           <p className="max-w-2xl text-xs md:text-sm text-slate-600">
-            Verwalte deinen Zugang zu VoiceOpenGov und dein gewähltes eDebatte-Paket <strong>(Basis, Start oder Pro)</strong>. Hier kannst du
+            Verwalte deinen Zugang zu eDebatte und dein gewähltes eDebatte-Paket <strong>(Basis, Start oder Pro)</strong>. Hier kannst du
             Profilangaben, Sprache und Benachrichtigungen anpassen.
           </p>
           {!hasPackage && (

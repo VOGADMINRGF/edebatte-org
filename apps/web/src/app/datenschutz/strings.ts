@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/config/locales";
+import { BRAND } from "@/lib/brand";
 
 type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
 
@@ -14,8 +15,8 @@ const STRINGS = {
   } as LocaleValue<string>,
 
   intro: {
-    de: "VoiceOpenGov ist eine Initiative – keine Partei, kein Verein und keine Stiftung. Wir verarbeiten personenbezogene Daten so sparsam wie möglich und passen diese Hinweise an, sobald sich Funktionen oder rechtliche Rahmenbedingungen ändern. Diese Hinweise sollen einen Überblick nach Art. 12 ff. DSGVO geben und ersetzen keine individuelle Rechtsberatung.",
-    en: "VoiceOpenGov is an initiative – not a party, association or foundation. We process personal data as sparingly as possible and update this notice whenever features or legal requirements change. This notice is intended to provide an overview under Arts. 12 et seq. GDPR and does not constitute individual legal advice.",
+    de: "eDebatte ist eine neutrale Infrastruktur – keine Partei, kein Verein. Wir verarbeiten personenbezogene Daten so sparsam wie möglich und passen diese Hinweise an, sobald sich Funktionen oder rechtliche Rahmenbedingungen ändern. Diese Hinweise geben einen Überblick nach Art. 12 ff. DSGVO und ersetzen keine individuelle Rechtsberatung.",
+    en: "eDebatte is a neutral participation infrastructure – neither party nor association. We process personal data as sparingly as possible and update this notice whenever features or legal requirements change. This notice provides an overview under Arts. 12 et seq. GDPR and is not individual legal advice.",
   } as LocaleValue<string>,
 
   controllerTitle: {
@@ -25,26 +26,14 @@ const STRINGS = {
 
   controllerBody: {
     de: [
-      "Verantwortlich für die Verarbeitung personenbezogener Daten im Rahmen dieser Website und der angebundenen Dienste ist:",
-      "",
-      "VoiceOpenGov UG (haftungsbeschränkt) i.G.",
-      "Ricky G. Fleischer",
-      "Kolonnenstraße 8",
-      "10827 Berlin",
-      "Deutschland",
-      "",
-      "E-Mail: privacy@voiceopengov.org",
+      "Verantwortlich für diese Website und die angebundenen Dienste ist eDebatte.",
+      "Rechtliche Angaben und die ladungsfähige Anschrift findest du im Impressum.",
+      `E-Mail: ${BRAND.supportEmail}`,
     ].join("\n"),
     en: [
-      "The controller responsible for processing personal data in connection with this website and related services is:",
-      "",
-     "VoiceOpenGov UG (haftungsbeschränkt) i.G.",
-      "Ricky G. Fleischer",
-      "Kolonnenstraße 8",
-      "10827 Berlin",
-      "Germany",
-      "",
-      "E-mail: privacy@voiceopengov.org",
+      "The controller for this website and related services is eDebatte.",
+      "Legal details and the service address are listed in the imprint.",
+      `E-mail: ${BRAND.supportEmail}`,
     ].join("\n"),
   } as LocaleValue<string>,
 
@@ -141,12 +130,12 @@ const STRINGS = {
     de: [
       "Wir setzen ausgewählte KI- und API-Dienste ein, um Inhalte zu analysieren, zu strukturieren oder zu übersetzen (z. B. für Textanalyse, Moderation, Strukturierung von Beiträgen). Die Verarbeitung erfolgt dabei möglichst datensparsam; wo möglich, werden Inhalte pseudonymisiert oder gekürzt übertragen.",
       "",
-      "Näheres zu den jeweils eingesetzten Anbietern, Datenkategorien, Rechtsgrundlagen und Schutzmechanismen findest du unter /ki-nutzung. KI trifft bei VoiceOpenGov keine Entscheidungen allein: Ergebnisse werden durch Regeln, Logs und – wo nötig – menschliche Prüfungen abgesichert.",
+      "Näheres zu den jeweils eingesetzten Anbietern, Datenkategorien, Rechtsgrundlagen und Schutzmechanismen findest du unter /ki-nutzung. KI trifft bei eDebatte keine Entscheidungen allein: Ergebnisse werden durch Regeln, Logs und – wo nötig – menschliche Prüfungen abgesichert.",
     ].join("\n"),
     en: [
       "We use selected AI and API services to analyse, structure or translate content (e.g. text analysis, moderation, structuring of contributions). We aim to minimise data and, where possible, use pseudonymisation or truncation before sending data to providers.",
       "",
-      "Further details on the providers used, categories of data, legal bases and safeguards can be found at /ki-nutzung. AI does not make decisions on its own at VoiceOpenGov: results are constrained by rules, logs and – where necessary – human review.",
+      "Further details on the providers used, categories of data, legal bases and safeguards can be found at /ki-nutzung. AI does not make decisions on its own at eDebatte: results are constrained by rules, logs and – where necessary – human review.",
     ].join("\n"),
   } as LocaleValue<string>,
 
@@ -197,28 +186,16 @@ const STRINGS = {
 
   contactBody: {
     de: [
-      "Wenn du eines deiner Rechte wahrnehmen oder allgemein Fragen zur Datenverarbeitung bei VoiceOpenGov stellen möchtest, wende dich bitte an:",
-      "",
-      "VoiceOpenGov UG (haftungsbeschränkt) i.G.",
-      "Ricky G. Fleischer",
-      "Kolonnenstraße 8",
-      "10827 Berlin",
-      "Deutschland",
+      "Wenn du eines deiner Rechte wahrnehmen oder Fragen zur Datenverarbeitung bei eDebatte stellen möchtest, wende dich bitte an uns. Die ladungsfähige Anschrift findest du im Impressum.",
     ].join("\n"),
     en: [
-      "If you wish to exercise any of your rights or have general questions about data processing at VoiceOpenGov, please contact:",
-      "",
-      "VoiceOpenGov UG (haftungsbeschränkt) i.G.",
-      "Ricky G. Fleischer",
-      "Kolonnenstraße 8",
-      "10827 Berlin",
-      "Deutschland",
+      "If you wish to exercise any of your rights or have questions about data processing at eDebatte, please reach out to us. The service address is listed in the imprint.",
     ].join("\n"),
   } as LocaleValue<string>,
 
   contactEmail: {
-    de: "privacy@voiceopengov.org",
-    en: "privacy@voiceopengov.org",
+    de: BRAND.supportEmail,
+    en: BRAND.supportEmail,
   } as LocaleValue<string>,
 } as const;
 

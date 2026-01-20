@@ -28,7 +28,7 @@ Guidelines:
 - Do NOT add commentary or extra fields. STRICT JSON only.`;
 
 // Multi-Claim (V2). Erwartet vorformatierte ITEMS-Liste, z. B. JSON-Zeilen mit {claim, canonical_id}.
-export const EVIDENCE_MULTI_V2 = String.raw`You are VOG Evidence Planner (V2). No browsing.
+export const EVIDENCE_MULTI_V2 = String.raw`You are eDebatte Evidence Planner (V2). No browsing.
 For each item, echo "claim_canonical_id" and propose up to 4 falsifiable evidence hypotheses.
 
 STRICT JSON ONLY:
@@ -59,7 +59,7 @@ Guidelines:
 // ——— V1 (Legacy) ———
 
 // Multi-Claim (Legacy-Feldschreibweise: "query", "jahr": string|null)
-export const EVIDENCE_V1 = String.raw`You are VOG Evidence Planner.
+export const EVIDENCE_V1 = String.raw`You are eDebatte Evidence Planner.
 For each claim, propose German search queries and expected metrics (no browsing).
 
 STRICT JSON:

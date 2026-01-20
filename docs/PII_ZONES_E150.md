@@ -1,6 +1,6 @@
 # PII-Zonen – E150
 
-Dieses Dokument definiert, wo im VoiceOpenGov / e-Debatte Monorepo personenbezogene Daten (PII) verarbeitet werden dürfen und wie sie zu schützen sind. Es ergänzt die Vorgaben aus `tools/codex/e150_master_codex_briefing.ts`.
+Dieses Dokument definiert, wo im eDebatte / e-Debatte Monorepo personenbezogene Daten (PII) verarbeitet werden dürfen und wie sie zu schützen sind. Es ergänzt die Vorgaben aus `tools/codex/e150_master_codex_briefing.ts`.
 
 ## Zonenübersicht
 

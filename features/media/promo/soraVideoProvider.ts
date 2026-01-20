@@ -70,7 +70,7 @@ function buildSoraPrompt(req: SoraVideoRequest): string {
   const summary = truncate(req.script, 260);
 
   return [
-    "Create a vertical social-media teaser video (9:16) for a civic-tech project called VoiceOpenGov / eDebatte.",
+    "Create a vertical social-media teaser video (9:16) for a civic-tech project called eDebatte / eDebatte.",
     "Visual style: clean, modern, trustworthy. Soft turquoise and blue gradients, simple motion graphics, high legibility.",
     "The video should feel like a short, serious but motivating explainer, not like an ad for a political party.",
     "",

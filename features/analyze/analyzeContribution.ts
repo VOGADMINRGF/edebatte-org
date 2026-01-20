@@ -1,6 +1,7 @@
 import { AnalyzeResultSchema, normalizeDomains } from "./schemas";
 import type { AnalyzeResult, StatementRecord } from "./schemas";
 import { normalizeStatementRecord } from "./normalizeClaim";
+import { ensureDebateFrame } from "./debateFrame";
 import { parseJsonLoose } from "./llmJson";
 import { computeEditorialAudit } from "./editorialAudit";
 import { computeRunReceipt } from "./runReceipt";
@@ -80,6 +81,8 @@ function pickString(...vals: any[]): string | null {
 type NoteT = AnalyzeResult["notes"][number];
 type QuestionT = AnalyzeResult["questions"][number];
 type KnotT = AnalyzeResult["knots"][number];
+type MissingPerspectiveT = AnalyzeResult["missingPerspectives"][number];
+type ParticipationCandidateT = AnalyzeResult["participationCandidates"][number];
 type RespPathT = NonNullable<AnalyzeResult["responsibilityPaths"]>[number];
 type EventualityT = NonNullable<AnalyzeResult["eventualities"]>[number];
 type DecisionTreeT = NonNullable<AnalyzeResult["decisionTrees"]>[number];
@@ -166,6 +169,70 @@ function sanitizeQuestions(input: unknown, max = 5): AnalyzeResult["questions"] 
     .filter((x): x is QuestionT => Boolean(x));
 }
 
+function sanitizeMissingPerspectives(input: unknown, fallbackFromQuestions: QuestionT[]): AnalyzeResult["missingPerspectives"] {
+  if (Array.isArray(input)) {
+    return input
+      .slice(0, 8)
+      .map((p: any, idx): MissingPerspectiveT | null => {
+        if (!p || typeof p !== "object") return null;
+        const text = pickString(p.text, p.body, p.description);
+        if (!text) return null;
+        const id = pickString(p.id) ?? `mp-${idx + 1}`;
+        const dimension = pickString(p.dimension, p.topic, p.domain, p.kind) ?? undefined;
+        return { id, text, ...(dimension ? { dimension } : {}) };
+      })
+      .filter((x): x is MissingPerspectiveT => Boolean(x));
+  }
+  // fall back to open questions flagged as potential perspective gaps
+  return fallbackFromQuestions
+    .filter((q) => /perspektive|bias|luecke|lücke|gap/i.test(q.text))
+    .slice(0, 5)
+    .map((q, idx) => ({
+      id: q.id || `mp-q-${idx + 1}`,
+      text: q.text,
+      ...(q.dimension ? { dimension: q.dimension } : {}),
+    }));
+}
+
+function sanitizeParticipationCandidates(
+  input: unknown,
+  claims: AnalyzeResult["claims"],
+): AnalyzeResult["participationCandidates"] {
+  if (Array.isArray(input)) {
+    const out = input
+      .slice(0, 8)
+      .map((p: any, idx): ParticipationCandidateT | null => {
+        if (!p || typeof p !== "object") return null;
+        const text = pickString(p.text, p.statement, p.title, p.label);
+        if (!text) return null;
+        const id = pickString(p.id) ?? `pc-${idx + 1}`;
+        const rationale = pickString(p.rationale, p.reason, p.body) ?? undefined;
+        const stanceRaw = pickString(p.stance);
+        const stance =
+          stanceRaw === "pro" || stanceRaw === "neutral" || stanceRaw === "contra"
+            ? stanceRaw
+            : undefined;
+        const dimension = pickString(p.dimension, p.domain, p.topic) ?? undefined;
+        return {
+          id,
+          text,
+          ...(rationale ? { rationale } : {}),
+          ...(stance ? { stance } : {}),
+          ...(dimension ? { dimension } : {}),
+        };
+      })
+      .filter((x): x is ParticipationCandidateT => Boolean(x));
+    if (out.length) return out;
+  }
+  // derive neutral participation candidates from claims when none provided
+  return claims.slice(0, 6).map((claim, idx) => ({
+    id: `pc-auto-${idx + 1}`,
+    text: claim.text,
+    stance: claim.stance ?? "neutral",
+    dimension: claim.domain ?? claim.topic ?? undefined,
+  }));
+}
+
 function sanitizeKnots(input: unknown, max = 5): AnalyzeResult["knots"] {
   if (!Array.isArray(input)) return [];
   return input
@@ -228,13 +295,15 @@ function buildSystemPrompt(locale: string = "de"): string {
   const isDe = locale.toLowerCase().startsWith("de");
 
   if (isDe) {
-    return [
+  return [
       "Antworte NUR mit dem JSON-Objekt. KEIN Markdown. KEIN zusätzlicher Text.",
       "Wiederhole NICHT den Eingabetext. Gib kein 'sourceText', keine Originalpassagen, keine Zitate zurück.",
-      "Du bist eine unparteiische redaktionelle KI für eDebatte / VoiceOpenGov.",
+      "Du bist eine unparteiische redaktionelle KI für eDebatte.",
+      "Du arbeitest entlang der eDebatte-Logik: 1) Check (Behauptung prüfen), 2) Dossier (Quellen, Claims, offene Fragen), 3) Beteiligung (Abstimmung, Umsetzung).",
       "Du erfüllst einen demokratischen Bildungsauftrag:",
       "- Du hilfst Bürger:innen, komplexe Themen zu verstehen, abzuwägen und fundiert zu entscheiden.",
       "- Du gibst KEINE Empfehlung, wie man abstimmen soll.",
+      "- Du machst fehlende Perspektiven, Wertkonflikte, Bias oder methodische Defizite sichtbar (in notes/questions).",
       "",
       "WICHTIG:",
       "- Du arbeitest streng textbasiert.",
@@ -246,10 +315,12 @@ function buildSystemPrompt(locale: string = "de"): string {
   }
 
   return [
-    "You are an impartial editorial AI for a digital public debate platform.",
+    "You are an impartial editorial AI for eDebatte.",
+    "Follow the eDebatte funnel: 1) Check (claim/theme check), 2) Dossier (sources, claims, open questions), 3) Participation (vote, mandate, follow-up).",
     "Your role is educational:",
     "- Help citizens understand complex issues, weigh pros and cons, and decide in an informed way.",
     "- Do NOT recommend how to vote.",
+    "- Surface missing perspectives, value trade-offs, biases or methodological gaps (use notes/questions).",
     "",
     "IMPORTANT:",
     "- Work strictly text-based.",
@@ -303,15 +374,23 @@ function buildUserPrompt(
       "",
       "4) Fragen zum Weiterdenken (2–5 Einträge, hartes Limit 5):",
       "   - Zeige Lücken oder Prüf-Aufgaben auf (z.B. „Welche Kosten entstehen dadurch?“).",
+      "   - Markiere fehlende Perspektiven, Wertkonflikte oder Bias explizit als Fragen, falls im Text offen.",
       "   - Jede Frage: { id, text, dimension } – dimension benennt das Themenfeld („Finanzen“, „Recht“, „Betroffene“).",
       "",
-      "5) Thematische Knoten / Schwerpunkte (mindestens 1, maximal 5):",
+      "5) Fehlende Perspektiven (1–8, hartes Limit 8):",
+      "   - Liste Perspektiven/Bias/Gaps als { id, text, dimension? } – klar, knapp, neutral.",
+      "",
+      "6) Thematische Knoten / Schwerpunkte (mindestens 1, maximal 5):",
       "   - Zeige Spannungsfelder oder harte Zielkonflikte.",
       "   - Jeder Knoten: { id, label, description } – label kurz (z.B. „Tierwohl vs. Kosten“), description mit 1–2 Sätzen.",
       "",
       "   Wichtig: Erfinde keine Inhalte – nur was im Beitrag angelegt ist.",
       "",
-      "6) Eventualitäten & Entscheidungsbäume (Part08, falls im Text Hinweise enthalten sind):",
+      "7) Beteiligungs-Vorlagen (2–8):",
+      "   - Neutrale Statements, die abstimmbar wären: { id, text, rationale?, stance?, dimension? }.",
+      "   - Keine Wahlempfehlung, keine Abstimmungsaufforderung; nur Optionen sichtbar machen.",
+      "",
+      "8) Eventualitäten & Entscheidungsbäume (Part08, falls im Text Hinweise enthalten sind):",
       "   - Baue für jede relevante Aussage einen DecisionTree mit den drei Optionen pro/neutral/contra.",
       "   - DecisionTree: { rootStatementId, createdAt (ISO), options: { pro, neutral?, contra } }.",
       "   - Jede Option ist ein EventualityNode: { id, statementId, label, narrative, stance, consequences[], responsibilities[], children[] }.",
@@ -323,15 +402,15 @@ function buildUserPrompt(
       "   - Zusätzliche What-if-Hinweise, die nicht direkt in die drei Optionen passen, gehen in `eventualities` (freistehende EventualityNodes).",
       "   - Wenn es keine Hinweise auf Eventualitäten gibt, liefere leere Arrays für decisionTrees/eventualities.",
       "",
-      "7) Begrenze alle Listen strikt: claims ≤ 10, notes ≤ 6, questions ≤ 5, knots ≤ 5, consequences/responsibilities ≤ 8 Einträge.",
+      "9) Begrenze alle Listen strikt: claims ≤ 10, notes ≤ 6, questions ≤ 5, missingPerspectives ≤ 8, knots ≤ 5, participationCandidates ≤ 8, consequences/responsibilities ≤ 8 Einträge.",
       "",
-      "8) Gib das Ergebnis ausschließlich als JSON (keine ```-Blöcke), alle Keys vorhanden, fehlende Inhalte = null oder [].",
+      "10) Gib das Ergebnis ausschließlich als JSON (keine ```-Blöcke), alle Keys vorhanden, fehlende Inhalte = null oder [].",
       "",
       '   }',
       "",
-      "9) Do NOT echo the input text. Keep sourceText null unless we explicitly ask you to quote the contribution.",
+      "11) Do NOT echo the input text. Keep sourceText null unless we explicitly ask you to quote the contribution.",
       "",
-      "10) Antworte NUR mit JSON – keine Erklärungen, keine Kommentare, keine Markdown-Formatierung. Beende alle Objekte und Arrays vollständig.",
+      "12) Antworte NUR mit JSON – keine Erklärungen, keine Kommentare, keine Markdown-Formatierung. Beende alle Objekte und Arrays vollständig.",
       "",
       "BEITRAG:",
       text,
@@ -344,6 +423,8 @@ function buildUserPrompt(
       "Do NOT echo the input. Return EXACT JSON matching the schema below.",
       "Include every key; use null for missing values and [] for empty arrays.",
       "sourceText is allowed but keep it null unless we specifically ask you to repeat the contribution.",
+      "Work along the eDebatte funnel: 1) Check (validate claim), 2) Dossier (sources, claims, open questions), 3) Participation (vote, mandate, follow-up).",
+      "Surface missing perspectives, value trade-offs, biases or methodological gaps explicitly via notes/questions.",
       "Normal-length contributions require at least 3 claims; very short texts (≤160 characters or ≤22 words) may provide 1–3 claims.",
     `1) Split the contribution into at most ${maxClaims} atomic statements (claims, hard cap 10). Each claim:`,
     "   - is a single, verifiable sentence;",
@@ -381,12 +462,20 @@ function buildUserPrompt(
     "",
     "4) Critical questions (2–5 items, hard cap 5):",
     "   - highlight gaps or checks citizens should raise; payload { id, dimension, text }.",
+    "   - call out missing perspectives, value conflicts or bias as questions when relevant.",
     "",
-    "5) Knots / topic hotspots (≥1, ≤5):",
+    "5) Missing perspectives (1–8):",
+    "   - neutral list of gaps/bias: { id, text, dimension? }.",
+    "",
+    "6) Knots / topic hotspots (≥1, ≤5):",
     "   - describe tensions/trade-offs in 1–2 sentences.",
     "   - stay strictly grounded in the provided text (never invent facts).",
     "",
-    "6) Eventualities & Decision Trees (Part08, optional but preferred when hints exist):",
+    "7) Participation candidates (2–8):",
+    "   - neutral, vote-ready statements: { id, text, rationale?, stance?, dimension? }.",
+    "   - never recommend how to vote.",
+    "",
+    "8) Eventualities & Decision Trees (Part08, optional but preferred when hints exist):",
     "   - Build `decisionTrees` for each vote-relevant claim with options pro/neutral/contra.",
     "   - Each tree: { rootStatementId, createdAt (ISO string), options: { pro, neutral?, contra } }.",
     "   - Each option is an EventualityNode describing the narrative, consequences[], responsibilities[], and child branches.",
@@ -397,15 +486,15 @@ function buildUserPrompt(
     "   - Additional what-if branches outside the triad go into `eventualities` (array of EventualityNodes).",
     "   - Use empty arrays when the source text contains no scenario information.",
     "",
-    "7) Strict limits for all lists: claims ≤ 10, notes ≤ 6, questions ≤ 5, knots ≤ 5, consequences/responsibilities ≤ 8 items each.",
+    "9) Strict limits for all lists: claims ≤ 10, notes ≤ 6, questions ≤ 5, missingPerspectives ≤ 8, knots ≤ 5, participationCandidates ≤ 8, consequences/responsibilities ≤ 8 items each.",
     "",
-    "8) Return ONLY raw JSON (no markdown fences), all keys present; missing data = null or [].",
+    "10) Return ONLY raw JSON (no markdown fences), all keys present; missing data = null or [].",
     "",
-    '   }',
+      '   }',
+      "",
+      "11) Do NOT echo the input text. Keep sourceText null unless we explicitly ask you to quote the contribution.",
     "",
-      "9) Do NOT echo the input text. Keep sourceText null unless we explicitly ask you to quote the contribution.",
-    "",
-    "10) Output must be JSON only – no commentary, no Markdown, no trailing text. Close all objects and arrays.",
+    "12) Output must be JSON only – no commentary, no Markdown, no trailing text. Close all objects and arrays.",
     "",
     "CONTRIBUTION:",
     text,
@@ -461,7 +550,7 @@ export async function analyzeContribution(
   } catch (err) {
     if (err instanceof OrchestratorNoProviderError || (err as any)?.code === "NO_ANALYZE_PROVIDER") {
       const e: any = new Error(
-        "AnalyzeContribution: Kein KI-Provider konfiguriert. Bitte wende dich an das VoiceOpenGov-Team.",
+        "AnalyzeContribution: Kein KI-Provider konfiguriert. Bitte wende dich an das eDebatte-Team.",
       );
       e.code = "NO_ANALYZE_PROVIDER";
 e.meta = (err as any)?.meta ?? null;
@@ -528,9 +617,11 @@ throw e;
     : [];
   const rawNotes: unknown = raw?.notes;
   const rawQuestions: unknown = raw?.questions;
+  const rawMissingPerspectives: unknown = (raw as any)?.missingPerspectives ?? (raw as any)?.missingVoices;
   const rawKnots: unknown = raw?.knots;
   const rawEventualities: unknown = raw?.eventualities;
   const rawDecisionTrees: unknown = raw?.decisionTrees;
+  const rawParticipationCandidates: unknown = (raw as any)?.participationCandidates;
   const rawConsequenceBundle = raw?.consequences;
   const rawResponsibilityPaths: unknown = raw?.responsibilityPaths;
   const rawImpactAndResponsibility = raw?.impactAndResponsibility;
@@ -546,19 +637,25 @@ throw e;
 
   const normalizedClaimsWithDomains: StatementRecord[] = normalizedRawClaims.map((c) => {
     const { domain, domains } = normalizeDomains((c as any)?.domain, (c as any)?.domains);
-    return {
+    const withDomains = {
       ...c,
       domain,
       domains,
     } as StatementRecord;
+    return {
+      ...withDomains,
+      debateFrame: ensureDebateFrame(withDomains),
+    };
   });
 
   const notes = sanitizeNotes(rawNotes, 6);
   const questions = sanitizeQuestions(rawQuestions, 5);
+  const missingPerspectives = sanitizeMissingPerspectives(rawMissingPerspectives, questions);
   const knots = sanitizeKnots(rawKnots, 5);
   const responsibilityPaths = sanitizeResponsibilityPaths(rawResponsibilityPaths, 8);
   const eventualities = sanitizeEventualities(rawEventualities);
   const decisionTrees = sanitizeDecisionTrees(rawDecisionTrees);
+  const participationCandidates = sanitizeParticipationCandidates(rawParticipationCandidates, normalizedClaimsWithDomains);
 
   let parsed = AnalyzeResultSchema.safeParse({
     mode: "E150",
@@ -567,12 +664,14 @@ throw e;
     claims: normalizedClaimsWithDomains,
     notes,
     questions,
+    missingPerspectives,
     knots,
     consequences: ensureConsequenceBundle(rawConsequenceBundle),
     responsibilityPaths,
     eventualities,
     decisionTrees,
     impactAndResponsibility: ensureImpactAndResponsibility(rawImpactAndResponsibility),
+    participationCandidates,
     report: ensureReport(rawReport),
   } satisfies AnalyzeResult);
 
@@ -587,12 +686,14 @@ throw e;
         claims: normalizedClaimsWithDomains,
         notes,
         questions,
+        missingPerspectives,
         knots,
         consequences: ensureConsequenceBundle(rawConsequenceBundle),
         responsibilityPaths,
         eventualities,
         decisionTrees,
         impactAndResponsibility: ensureImpactAndResponsibility(rawImpactAndResponsibility),
+        participationCandidates,
         report: ensureReport(rawReport),
       } satisfies AnalyzeResult);
       if (!parsedRetry.success) {

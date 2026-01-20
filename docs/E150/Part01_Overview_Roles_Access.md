@@ -1,6 +1,6 @@
 # E150 – Part 1: Overview, Roles, Access & Usage
 
-Dieses Dokument ist die **zentrale Übersicht** über Rollen, Zugänge, Levels und Nutzung der Plattform VoiceOpenGov / eDebatte.  
+Dieses Dokument ist die **zentrale Übersicht** über Rollen, Zugänge, Levels und Nutzung der Plattform eDebatte / eDebatte.  
 Es dient als **Single Source of Truth** für Implementierung (Codex), UX, Pricing und spätere Governance.
 
 Grundprinzipien:
@@ -8,13 +8,13 @@ Grundprinzipien:
 - **Deterministisch**: Alle Regeln sind explizit. Keine Magie, keine Heuristik.
 - **Konfigurierbar**: Zahlen (Preise, Limits, XP) liegen in Config/DB, nicht hart im Code.
 - **PII-sicher**: Personendaten bleiben strikt in der PII-Zone (siehe Part00).
-- **Gesellschaft zuerst**: Produkte (eDebatte) sind Werkzeuge. VoiceOpenGov ist die Bewegung dahinter.
+- **Gesellschaft zuerst**: Produkte (eDebatte) sind Werkzeuge. eDebatte ist die Bewegung dahinter.
 
 ---
 
 ## 1. Mission & Rahmen
 
-VoiceOpenGov / eDebatte sind als langfristige, internationale Demokratie-Infrastruktur gedacht.
+eDebatte / eDebatte sind als langfristige, internationale Demokratie-Infrastruktur gedacht.
 
 Ziele:
 
@@ -129,12 +129,12 @@ Gates (High-Level, Details in 4.2):
 
 ---
 
-## 3. B2C-Pläne eDebatte & VOG-Mitgliedschaft
+## 3. B2C-Pläne eDebatte & Mitgliedschaft
 
 Die Plattform trennt bewusst:
 
 - **eDebatte-Pläne (B2C)** – technische Nutzung der App.
-- **VoiceOpenGov-Mitgliedschaft (VOG)** – gesellschaftliche Bewegung & Finanzierung.
+- **eDebatte-Mitgliedschaft** – gesellschaftliche Bewegung & Finanzierung.
 
 ### 3.1 eDebatte B2C-Pläne (basis / erweitert / premium)
 
@@ -172,9 +172,9 @@ Pläne (Inhaltlich):
 
 Alle konkreten Preise liegen in `config/pricing.ts` und können geändert werden, ohne Code zu ändern.
 
-### 3.2 VoiceOpenGov-Mitgliedschaft & 25%-Goodie
+### 3.2 eDebatte-Mitgliedschaft & 25%-Goodie
 
-VoiceOpenGov-Mitgliedschaft ist kein Produkt-Abo, sondern Unterstützung der Bewegung:
+eDebatte-Mitgliedschaft ist kein Produkt-Abo, sondern Unterstützung der Bewegung:
 
 - Mindestbeitrag: 5,63 € / Monat (weltweit, unabhängig von Einkommen).
 - Keine Spendenquittungen, keine Konstrukte zur Steueroptimierung. Einnahmen werden regulär versteuert.
@@ -201,7 +201,7 @@ type VogMembership = {
 Als „Sahnehäubchen“ gibt es kein permanentes Discount-Gimmick, sondern ein klares Goodie:
 
 **Goodie-Regel:**
-Wenn jemand VoiceOpenGov als Mitglied mit mindestens 5,63 € / Monat und einer Mindestlaufzeit von 24 Monaten unterstützt, erhält diese Person **25 % Rabatt** auf das eDebatte-Abo (erweitert/premium) **für die ersten 6 Monate** – bei monatlicher Zahlung.
+Wenn jemand eDebatte als Mitglied mit mindestens 5,63 € / Monat und einer Mindestlaufzeit von 24 Monaten unterstützt, erhält diese Person **25 % Rabatt** auf das eDebatte-Abo (erweitert/premium) **für die ersten 6 Monate** – bei monatlicher Zahlung.
 
 Technische Bedingungen (`function canApplyVogDiscount`):
 
@@ -348,7 +348,7 @@ Ein kompakter Login (`HeaderLoginInline`) befindet sich zusätzlich im Header (D
 Wichtig:
 
 - **Login = Zugang zu eDebatte**
-- **Mitglied werden = VoiceOpenGov unterstützen (+ optionales Goodie)**
+- **Mitglied werden = eDebatte unterstützen (+ optionales Goodie)**
 
 ### 6.2 Technische Identität
 

@@ -33,9 +33,9 @@ fi
 ############################################
 GL="$APP/globals.css"
 touch "$GL"
-if ! grep -q "/* VOG flow styles */" "$GL"; then
+if ! grep -q "/* eDebatte flow styles */" "$GL"; then
 cat >> "$GL" <<'CSS'
-/* VOG flow styles */
+/* eDebatte flow styles */
 :root{ --page-max: 920px; }
 .vog-container{ max-width:var(--page-max); margin:0 auto; padding:12px; }
 .vog-card{ border:1px solid #ddd; border-radius:8px; padding:12px; background:#fff; }

@@ -544,7 +544,7 @@ if [ -f "$WEB/src/server/drafts.ts" ]; then
   $SED -i 's/\bObjectId\b/ObjectId/g' "$WEB/src/server/drafts.ts" || true
 fi
 
-echo '>>> VOG ARI+GPT Setup fertig.
+echo '>>> eDebatte ARI+GPT Setup fertig.
 Next:
   pnpm --filter @vog/web install
   pnpm --filter @vog/web run typecheck

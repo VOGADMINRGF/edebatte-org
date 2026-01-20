@@ -16,7 +16,7 @@ mkdir -p "$FEAT/search" "$CORE/feeds" \
 echo "→ Schreibe Feed-Config (DE)…"
 cat > "$CORE/feeds/civic_feeds.de.json" <<'JSON'
 {
-  "$schema": "https://voiceopengov.dev/schemas/civic_feeds_v1.json",
+  "$schema": "https://edebatte.org/schemas/civic_feeds_v1.json",
   "version": 1,
   "regions": {
     "DE": {
@@ -97,7 +97,7 @@ async function fetchText(url: string, timeoutMs=8000): Promise<string> {
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { "user-agent":"VOG-CivicSearch/1.0" } });
+    const res = await fetch(url, { signal: ctrl.signal, headers: { "user-agent":"eDebatte-CivicSearch/1.0" } });
     if (!res.ok) throw new Error("HTTP "+res.status);
     return await res.text();
   } finally { clearTimeout(t); }

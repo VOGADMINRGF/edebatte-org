@@ -13,7 +13,7 @@ mkdir -p "$PROV" "$ORCH" "$WEB/src/app/pipeline/steps" "$WEB/src/app/api/contrib
 if ! grep -q 'export async function runOpenAI' "$PROV/openai.ts" 2>/dev/null; then
   cat >> "$PROV/openai.ts" <<'TSAPPEND'
 
-// --- [VOG append] Unified runner for orchestrator ---
+// --- [eDebatte append] Unified runner for orchestrator ---
 export async function runOpenAI(
   prompt: string,
   opts: { json?: boolean; maxOutputTokens?: number; system?: string; timeoutMs?: number } = {}

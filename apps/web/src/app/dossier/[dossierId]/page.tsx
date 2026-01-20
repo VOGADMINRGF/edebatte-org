@@ -159,7 +159,7 @@ export default async function DossierViewerPage({ params }: PageProps) {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">Claims</h2>
             <Link href={`/api/dossiers/${encodeURIComponent(dossierKey)}`} className="text-xs text-sky-700 underline">
-              JSON ansehen
+              Daten anzeigen
             </Link>
           </div>
           {claims.length === 0 ? (

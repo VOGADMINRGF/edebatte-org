@@ -5,14 +5,14 @@ type LocaleValue<T> = Record<"de", T> & Partial<Record<SupportedLocale, T>>;
 const STRINGS = {
   heroTitle: { de: "Nutzungsmodell eDbtt" } as LocaleValue<string>,
   heroIntro: {
-    de: "Lesen und Swipen bleiben kostenlos. Beiträge sind unsere begrenzte Ressource – deshalb steuern wir sie über Kontingente, Bundles und Earned Credits. eDebatte-Pakete (Start, Pro) sind klar bepreist, VoiceOpenGov-Mitglieder erhalten einen Mitgliederrabatt darauf.",
+    de: "Lesen und Swipen bleiben kostenlos. Beiträge sind unsere begrenzte Ressource – deshalb steuern wir sie über Kontingente, Bundles und Earned Credits. eDebatte-Pakete (Start, Pro) sind klar bepreist, eDebatte-Mitglieder erhalten einen Mitgliederrabatt darauf.",
   } as LocaleValue<string>,
   infoList: {
     de: [
       "Swipe: unbegrenzt und kostenlos – egal welches Tier.",
       "Pro Monat gibt es inkludierte Beiträge (Level 1 & 2) je nach Tier.",
       "Zusätzliche Beiträge kannst du durch Swipes freischalten oder via Bundles/Abo buchen.",
-      "VoiceOpenGov-Mitglieder sparen auf eDebatte-Pakete – Details unter /mitglied-werden.",
+      "eDebatte-Mitglieder sparen auf eDebatte-Pakete – Details unter /mitglied-werden.",
     ],
   } as LocaleValue<string[]>,
   earnedTitle: { de: "Earned Credits" } as LocaleValue<string>,

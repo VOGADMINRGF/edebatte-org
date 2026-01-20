@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const CONTACT_EMAIL = "kontakt@voiceopengov.org";
+const CONTACT_EMAIL = "kontakt@edebatte.org";
 
 export default function WiderrufPage() {
   return (

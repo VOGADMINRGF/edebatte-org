@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/server/auth/sessionUser";
 import { sendMail } from "@/utils/mailer";
 import { buildIdentityResumeMail } from "@/utils/emailTemplates";
+import { publicOrigin } from "@/utils/publicOrigin";
 import { incrementRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const next = sanitizeNext(body?.next) ?? "/account?welcome=1";
-  const origin = (process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin).replace(/\/$/, "");
+  const origin = publicOrigin().replace(/\/$/, "");
   const resumeUrl = `${origin}/register/identity?next=${encodeURIComponent(next)}`;
 
   const mail = buildIdentityResumeMail({

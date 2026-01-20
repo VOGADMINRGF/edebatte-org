@@ -46,7 +46,7 @@ export default function NutzungsmodellPage() {
                   </span>
                 </p>
                 <p className="mt-2 text-xs text-slate-600">
-                  Als VoiceOpenGov-Mitglied erhältst du auf dieses Paket {MEMBER_DISCOUNT.percent}% Nachlass (siehe
+                  Als eDebatte-Mitglied erhältst du auf dieses Paket {MEMBER_DISCOUNT.percent}% Nachlass (siehe
                   Mitgliedschaft unter <a href="/mitglied-werden" className="underline">/mitglied-werden</a>).
                 </p>
               </article>
@@ -65,7 +65,7 @@ export default function NutzungsmodellPage() {
         </section>
 
         <p className="mt-4 text-xs text-slate-600 text-center">
-          VoiceOpenGov-Mitglied werden? Das ist der einfachste Weg, die Bewegung zu unterstützen und gleichzeitig von
+          eDebatte-Mitglied werden? Das ist der einfachste Weg, die Bewegung zu unterstützen und gleichzeitig von
           Vergünstigungen bei eDebatte und unserem zukünftigen Merchandise-Shop zu profitieren – mehr unter{" "}
           <Link href="/mitglied-werden" className="underline">
             /mitglied-werden

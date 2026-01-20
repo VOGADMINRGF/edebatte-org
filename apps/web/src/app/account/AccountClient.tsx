@@ -5,9 +5,10 @@ import type { ChangeEvent, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { EDEBATTE_PACKAGES_WITH_NONE, EDEBATTE_PACKAGES } from "@/config/edebatte";
+import { BRAND } from "@/lib/brand";
 import type { UserRole } from "@/types/user";
 
-// Konsistente Button-Styles im VoiceOpenGov-Gradient-CI
+// Konsistente Button-Styles im eDebatte-Gradient-CI
 const primaryButtonClass =
   "inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_rgba(14,116,144,0.35)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -118,6 +119,8 @@ export type AccountOverview = {
   edebatte: EDebattePackageInfo;
   usage: UsageInfo;
   membership: MembershipInfo;
+  vogMembershipStatus?: string | null;
+  hasVogMembership: boolean;
   membershipSnapshot?: {
     status?: string | null;
     paymentReference?: string | null;
@@ -170,7 +173,13 @@ export function AccountClient({ initialData, membershipNotice, welcomeNotice }: 
         <MicroTransferBanner paymentReference={data.membershipSnapshot?.paymentReference} />
       )}
 
-      <ProfileAndPackageSection profile={data.profile} edebatte={data.edebatte} usage={data.usage} onRefresh={refreshOverview} />
+      <ProfileAndPackageSection
+        profile={data.profile}
+        edebatte={data.edebatte}
+        usage={data.usage}
+        hasVogMembership={data.hasVogMembership}
+        onRefresh={refreshOverview}
+      />
 
       <PublicProfileSection publicProfile={data.publicProfile} onRefresh={refreshOverview} />
 
@@ -250,6 +259,9 @@ function normalizeOverview(src: any): AccountOverview {
     contributionLabel: src?.membership?.contributionLabel,
   };
 
+  const vogMembershipStatus = src?.vogMembershipStatus ?? src?.membershipSnapshot?.status ?? null;
+  const hasVogMembership = Boolean(src?.hasVogMembership ?? vogMembershipStatus === "active");
+
   const roles: RoleInfo[] = Array.isArray(src?.roles)
     ? src.roles.map((r: any, idx: number) =>
         typeof r === "string"
@@ -305,6 +317,8 @@ function normalizeOverview(src: any): AccountOverview {
     edebatte,
     usage,
     membership,
+    vogMembershipStatus,
+    hasVogMembership,
     membershipSnapshot: src?.membershipSnapshot ?? null,
     roles,
     security,
@@ -403,10 +417,11 @@ type ProfileAndPackageSectionProps = {
   profile: ProfileData;
   edebatte: EDebattePackageInfo;
   usage: UsageInfo;
+  hasVogMembership: boolean;
   onRefresh: () => void;
 };
 
-function ProfileAndPackageSection({ profile, edebatte, usage, onRefresh }: ProfileAndPackageSectionProps) {
+function ProfileAndPackageSection({ profile, edebatte, usage, hasVogMembership, onRefresh }: ProfileAndPackageSectionProps) {
   return (
     <section aria-labelledby="account-core-heading" className="space-y-4">
       <div className="flex flex-col gap-1">
@@ -418,7 +433,7 @@ function ProfileAndPackageSection({ profile, edebatte, usage, onRefresh }: Profi
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2.1fr)_minmax(0,1.6fr)]">
         <ProfileCard profile={profile} onRefresh={onRefresh} />
-        <EDebattePackageCard edebatte={edebatte} usage={usage} onRefresh={onRefresh} />
+        <EDebattePackageCard edebatte={edebatte} usage={usage} hasVogMembership={hasVogMembership} onRefresh={onRefresh} />
       </div>
     </section>
   );
@@ -621,6 +636,7 @@ function ProfileCard({ profile, onRefresh }: ProfileCardProps) {
 type EDebattePackageCardProps = {
   edebatte: EDebattePackageInfo;
   usage: UsageInfo;
+  hasVogMembership: boolean;
   onRefresh: () => void;
 };
 
@@ -648,7 +664,7 @@ function getEDebatteStatusLabel(info: EDebattePackageInfo): string {
   }
 }
 
-function EDebattePackageCard({ edebatte, usage, onRefresh }: EDebattePackageCardProps) {
+function EDebattePackageCard({ edebatte, usage, hasVogMembership, onRefresh }: EDebattePackageCardProps) {
   const [showModal, setShowModal] = useState(false);
 
   const isNone = edebatte.status === "none";
@@ -687,6 +703,23 @@ function EDebattePackageCard({ edebatte, usage, onRefresh }: EDebattePackageCard
           <p className="text-xs text-slate-300">
             {isNone ? "Du kannst jederzeit ein eDebatte-Paket wählen – vom kostenlosen Einstieg (Basis) bis zum Pro-Paket." : statusLabel}
           </p>
+
+          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-300">
+            {hasVogMembership ? (
+              <p>VOG-Mitglied erkannt – dein Rabatt wird im eDebatte-Paket berücksichtigt.</p>
+            ) : (
+              <p>
+                VOG-Mitglied? Du bekommst Rabatt.{" "}
+                <a
+                  href={`mailto:${BRAND.membershipEmail}`}
+                  className="font-semibold text-sky-200 underline underline-offset-2"
+                >
+                  Schreib uns kurz
+                </a>
+                .
+              </p>
+            )}
+          </div>
 
           <div className="mt-3 rounded-2xl bg-slate-800/70 p-3 text-xs">
             {isNone ? (
@@ -729,16 +762,12 @@ function EDebattePackageCard({ edebatte, usage, onRefresh }: EDebattePackageCard
             <button type="button" onClick={() => setShowModal(true)} className={primaryButtonSmallClass}>
               {primaryCtaLabel}
             </button>
-          <Link href="/faq#edebatte" className={secondaryLightButtonClass}>
-            Mehr zu eDebatte
-          </Link>
+            <Link href="/faq#edebatte" className={secondaryLightButtonClass}>
+              Details zu eDebatte
+            </Link>
+          </div>
         </div>
-
-        <Link href="/faq#edebatte" className={secondaryLightButtonClass}>
-          Details zu eDebatte
-        </Link>
-      </div>
-    </section>
+      </section>
 
       {showModal && <EDebattePackageModal currentPackage={edebatte} onClose={() => setShowModal(false)} onRefresh={onRefresh} />}
     </>
@@ -1009,7 +1038,7 @@ function PublicProfileCard({ initial, onRefresh }: PublicProfileCardProps) {
               <ToggleRow label="Realnamen in öffentlichen Profilen anzeigen" checked={draft.showRealName} onChange={(value) => handleFieldChange({ showRealName: value })} />
               <ToggleRow label="Stadt / Region anzeigen" checked={draft.showCity} onChange={(value) => handleFieldChange({ showCity: value })} />
               <ToggleRow label="Anonymisierte Statistiken anzeigen" checked={draft.showStats} onChange={(value) => handleFieldChange({ showStats: value })} />
-              <ToggleRow label="Mitgliedschaft bei VoiceOpenGov anzeigen" checked={draft.showMembership} onChange={(value) => handleFieldChange({ showMembership: value })} />
+              <ToggleRow label="Mitgliedschaft bei eDebatte anzeigen" checked={draft.showMembership} onChange={(value) => handleFieldChange({ showMembership: value })} />
             </div>
           </div>
         </div>
@@ -1086,7 +1115,7 @@ function MembershipAndRolesSection({ membership, roles }: MembershipAndRolesSect
         <h2 id="account-membership-heading" className="text-sm font-semibold tracking-tight text-slate-900">
           Mitgliedschaft &amp; Rollen
         </h2>
-        <p className="text-xs text-slate-500">Überblick über deine Rolle bei VoiceOpenGov und deine Mitgliedschaft.</p>
+        <p className="text-xs text-slate-500">Überblick über deine Rolle bei eDebatte und deine Mitgliedschaft.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -1102,7 +1131,7 @@ type VOGMembershipCardProps = {
 };
 
 function VOGMembershipCard({ membership }: VOGMembershipCardProps) {
-  const title = membership.label || "Mitgliedschaft VoiceOpenGov";
+  const title = membership.label || "Mitgliedschaft eDebatte";
   const status = membership.statusLabel || (membership.isMember ? "Aktiv" : "Noch nicht Mitglied");
   const badgeClass = membership.isMember
     ? "inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700 ring-1 ring-emerald-200"
@@ -1119,7 +1148,7 @@ function VOGMembershipCard({ membership }: VOGMembershipCardProps) {
       {membership.contributionLabel && <p className="mt-1 text-xs text-slate-700">Beitrag: {membership.contributionLabel}</p>}
 
       <p className="mt-3 text-[11px] text-slate-400">
-        VoiceOpenGov finanziert sich unabhängig durch viele kleine Beiträge. Details findest du im Transparenzbericht.
+        eDebatte finanziert sich unabhängig durch viele kleine Beiträge. Details findest du im Transparenzbericht.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">

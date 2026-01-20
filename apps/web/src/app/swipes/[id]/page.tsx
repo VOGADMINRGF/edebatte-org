@@ -6,7 +6,7 @@ import { readSession } from "@/utils/session";
 import type { EDebattePackage } from "@/features/swipes/types";
 
 export const metadata = {
-  title: "Swipe-Karte · VoiceOpenGov",
+  title: "Swipe-Karte · eDebatte",
 };
 
 type Props = {

@@ -34,7 +34,7 @@ export type DiscountRule = {
 
 export const VOG_MEMBERSHIP_PLAN: VOGMembershipPlan = {
   id: "vog-membership",
-  label: "VoiceOpenGov-Mitgliedschaft",
+  label: "eDebatte-Mitgliedschaft",
   description:
     "Trägt den Aufbau und Betrieb der weltweiten Entscheidungsstruktur – unabhängig von Stiftungen, Großvermögen oder staatlichen Förderprogrammen.",
   suggestedPerPersonPerMonth: 5.63,
@@ -72,7 +72,7 @@ export const MEMBER_DISCOUNT: DiscountRule = {
   id: "member-25",
   label: "25 % Mitgliederrabatt",
   description:
-    "VoiceOpenGov-Mitglieder erhalten 25 % Nachlass auf kostenpflichtige eDebatte-Pakete und den zukünftigen Merchandise-Shop.",
+    "eDebatte-Mitglieder erhalten 25 % Nachlass auf kostenpflichtige eDebatte-Pakete und den zukünftigen Merchandise-Shop.",
   percent: 25,
   appliesTo: ["edebatte", "merch"],
 };

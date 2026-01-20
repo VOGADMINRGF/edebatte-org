@@ -2,7 +2,7 @@
 
 ## 1. Zweck dieses Dokuments
 
-Eventualitäten (What-if-Fragen) sind einer der stärksten Bausteine von VoiceOpenGov/eDebatte.
+Eventualitäten (What-if-Fragen) sind einer der stärksten Bausteine von eDebatte/eDebatte.
 
 Sie ermöglichen Bürger:innen:
 
@@ -326,7 +326,7 @@ PII-Redaktion streng einhalten
 Multilingualität vorbereiten (E300)
 
 13. Summary
-Eventualitäten verwandeln VoiceOpenGov in:
+Eventualitäten verwandeln eDebatte in:
 
 ein seriöses Analysewerkzeug,
 

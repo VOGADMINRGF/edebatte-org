@@ -44,7 +44,7 @@ export async function POST(_req: NextRequest) {
 
     // Statt otplib: eigenes, sauberes Base32-Secret
     const secret = generateTotpSecret(); // ~160 Bit
-    const issuer = encodeURIComponent("VoiceOpenGov");
+    const issuer = encodeURIComponent("eDebatte");
     const label = encodeURIComponent(`${publicHost()}:${user.email}`);
     const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&digits=6&period=30`;
 
@@ -81,7 +81,7 @@ export async function POST(_req: NextRequest) {
       ok: true,
       otpauth, // für QR
       secret, // optional falls Client QR generiert
-      issuer: "VoiceOpenGov",
+      issuer: "eDebatte",
       label: `${publicHost()}:${user.email}`,
     });
   } catch (e: any) {

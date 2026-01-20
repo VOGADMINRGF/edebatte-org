@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useLocale } from "@/context/LocaleContext";
 import { getPrivacyStrings } from "./strings";
 
@@ -25,6 +26,13 @@ export default function DatenschutzPage() {
 
           <div className="mt-8 grid gap-4">
             <InfoCard title={strings.controllerTitle} body={strings.controllerBody} />
+            <p className="text-xs text-slate-600">
+              Rechtliche Angaben findest du im{" "}
+              <Link href="/impressum" className="font-semibold text-sky-700 underline underline-offset-4">
+                Impressum
+              </Link>
+              .
+            </p>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-800">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">

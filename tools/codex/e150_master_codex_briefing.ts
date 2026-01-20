@@ -25,7 +25,7 @@
 
 /**
 
-* VoiceOpenGov / eDebatte
+* eDebatte / eDebatte
  * E150 – Master-Briefing für Codex (VS Code)
  *
  * Zweck dieser Datei

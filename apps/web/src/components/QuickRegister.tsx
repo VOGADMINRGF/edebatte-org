@@ -145,7 +145,7 @@ export default function QuickRegister(
       {/* Grenzüberquerender Hinweis (neutral + leicht polemisch) */}
       <div className="rounded-xl border bg-gray-50/50 p-3">
         <p className="text-xs text-gray-700 leading-snug">
-          <strong>Hinweis:</strong> VoiceOpenGov ist <em>grenzüberquerend</em> – unsere Plattform ist
+          <strong>Hinweis:</strong> eDebatte ist <em>grenzüberquerend</em> – unsere Plattform ist
           für Menschen, nicht für Völker. Die rechtliche Auslegung des <em>Wahlgeheimnisses</em> kann je
           nach Rechtsraum variieren. Wir speichern personenbezogene Daten in <strong>getrennten
           Datendomänen</strong> (Inhalte, Stimmen, Personenbezug) und setzen mehrschichtige

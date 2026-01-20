@@ -1,5 +1,6 @@
 // features/analyze/fallback.ts
 import type { StatementRecord } from "./schemas";
+import { ensureDebateFrame } from "./debateFrame";
 
 /**
  * Fallback-Claim, falls das Modell gar nichts liefert
@@ -9,7 +10,7 @@ export function buildFallbackClaim(
   sourceText: string,
   language: string
 ): StatementRecord {
-  return {
+  const record: StatementRecord = {
     id: "fallback-claim-1",
     text:
       sourceText.length > 2000
@@ -27,5 +28,9 @@ export function buildFallbackClaim(
       kind: "fallback",
       reason: "no_claims_from_model",
     },
+  };
+  return {
+    ...record,
+    debateFrame: ensureDebateFrame(record),
   };
 }

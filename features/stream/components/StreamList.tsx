@@ -6,7 +6,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -714,9 +713,9 @@ function DefaultStreamCard({
   const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (item.href) {
       return (
-        <Link href={item.href} className="block focus:outline-none focus:ring-2 focus:ring-ring rounded-xl">
+        <a href={item.href} className="block focus:outline-none focus:ring-2 focus:ring-ring rounded-xl">
           {children}
-        </Link>
+        </a>
       );
     }
     return <div onClick={() => onClick?.(item)} role={onClick ? "button" : undefined}>{children}</div>;

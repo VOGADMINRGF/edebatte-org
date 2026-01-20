@@ -180,5 +180,5 @@ function roundCurrency(value: number) {
 function buildReferenceCode(userId: ObjectId) {
   const suffix = userId.toHexString().slice(-6).toUpperCase();
   const timeCode = Date.now().toString(36).toUpperCase();
-  return `VOG-${timeCode}-${suffix}`;
+  return `EDB-${timeCode}-${suffix}`;
 }

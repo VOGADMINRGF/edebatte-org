@@ -284,7 +284,7 @@ export default function IdentityStepPage() {
           <li>Familien- oder Teamkonten: Du kannst später in deinem Profil zusätzliche Personen einladen oder Gönner-E-Mails hinterlegen.</li>
         </ul>
         <p className="text-xs text-slate-500">
-          Alle Schritte laufen in der VoiceOpenGov-Infrastruktur – keine Datenweitergabe an Dritte, kein Vendor-Lock-in auf eine bestimmte App.
+          Alle Schritte laufen in der eDebatte-Infrastruktur – keine Datenweitergabe an Dritte, kein Vendor-Lock-in auf eine bestimmte App.
         </p>
       </section>
     </div>

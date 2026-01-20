@@ -36,7 +36,7 @@ function buildLogger() {
         paths: [...PII_REDACT_PATHS],
         censor: "***",
       },
-      base: { service: "VOG" },
+      base: { service: "eDebatte" },
     };
 
     if (enablePretty) {

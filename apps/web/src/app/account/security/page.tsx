@@ -123,7 +123,7 @@ export default function SecurityPage() {
               <strong>Issuer</strong> ein.
             </p>
             <div className="rounded-xl bg-slate-50 p-3 text-xs font-mono text-slate-700">
-              <div>Issuer: {("issuer" in totp ? totp.issuer : "VoiceOpenGov")}</div>
+              <div>Issuer: {("issuer" in totp ? totp.issuer : "eDebatte")}</div>
               {totp.status === "ready" && "secret" in totp && (
                 <div className="mt-1 break-all">Secret: {totp.secret}</div>
               )}

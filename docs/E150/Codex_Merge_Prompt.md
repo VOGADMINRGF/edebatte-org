@@ -1,6 +1,6 @@
 # Codex Merge Prompt – Access, Pricing & Admin Controls
 
-Du bist Codex und arbeitest im Monorepo „eDbtt / VoiceOpenGov“ in VS Code.
+Du bist Codex und arbeitest im Monorepo „eDbtt / eDebatte“ in VS Code.
 
 Kontext / Stand:
 
@@ -34,7 +34,7 @@ Ziel dieses Runs (kurz):
 3. Feature-Matrix & Limits (Voting, Swipes, Streams, Kampagnen, Reports) in Config gießen.
 4. Contribution-Credits aus Swipes implementieren.
 5. Staff-Admin-Dashboard für Feature/Limit-Tuning bauen.
-6. Cookie-/Consent-Banner im VOG-Stil hinzufügen.
+6. Cookie-/Consent-Banner im eDebatte-Stil hinzufügen.
 7. Docs (docs/E150/part00–16) aktualisieren, damit alles konsistent ist.
 
 ---
@@ -236,7 +236,7 @@ Lege in der geeigneten DB ein Modell FeatureOverride an mit:
 
 ---
 
-## Block 6 – Cookie-/Consent-Banner im VOG-Stil
+## Block 6 – Cookie-/Consent-Banner im eDebatte-Stil
 
 6.1 Komponente:
 
@@ -267,7 +267,7 @@ Lege in der geeigneten DB ein Modell FeatureOverride an mit:
 
 7.2 `docs/E150/membership_pricing.md`:
 
-- Abgleich mit der bereits umgesetzten VOG-Mitgliedschaft + 25 %-Goodie-Logik.
+- Abgleich mit der bereits umgesetzten Mitgliedschaft + 25 %-Goodie-Logik.
 - Klarstellung der Bedingungen:
   - mind. 5,63 €/Monat,
   - minTermMonths >= 24,

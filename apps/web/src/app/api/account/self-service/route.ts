@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     },
   );
 
-  const to = process.env.CONTACT_INBOX || "members@voiceopengov.org";
+  const to = process.env.CONTACT_INBOX || "members@edebatte.org";
   const safeName = (user as any)?.profile?.displayName || (user as any)?.name || "Unbekannt";
   const safeEmail = (user as any)?.email || "unbekannt";
   const html = `

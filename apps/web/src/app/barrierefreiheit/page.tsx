@@ -6,7 +6,7 @@ export default function BarrierefreiheitPage() {
       </h1>
       <div className="space-y-4 text-gray-700 text-lg text-center">
         <p>
-          Wir möchten, dass VoiceOpenGov für alle Menschen gut nutzbar ist – auf
+          Wir möchten, dass eDebatte für alle Menschen gut nutzbar ist – auf
           dem Handy ebenso wie am Desktop.
         </p>
         <p>

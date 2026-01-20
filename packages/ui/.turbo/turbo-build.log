@@ -1,91 +1,91 @@
 
 
-> @vog/ui@0.1.0 build /Users/RF/Arbeitsmappe/LandingeDbtt/packages/ui
+> @vog/ui@0.1.0 build /Users/RF/Arbeitsmappe/edebatte-org/packages/ui
 > pnpm run clean && tsup && tsc -p tsconfig.build.json
 
 
-> @vog/ui@0.1.0 clean /Users/RF/Arbeitsmappe/LandingeDbtt/packages/ui
+> @vog/ui@0.1.0 clean /Users/RF/Arbeitsmappe/edebatte-org/packages/ui
 > rimraf dist || rm -rf dist
 
 [34mCLI[39m Building entry: {"index":"src/index.ts","theme":"src/theme.ts","design/badgeColor":"src/design/badgeColor.ts","design/Button":"src/design/Button.tsx","design/Badge":"src/design/Badge.tsx","design/Modal":"src/design/Modal.tsx","design/ModalConfirm":"src/design/ModalConfirm.tsx","design/Spinner":"src/design/Spinner.tsx","design/Toast":"src/design/Toast.tsx","design/LoadingOverlay":"src/design/LoadingOverlay.tsx","design/Card":"src/design/Card.tsx","design/Input":"src/design/Input.tsx","design/Separator":"src/design/Separator.tsx","design/Avatar":"src/design/Avatar.tsx","design/AvatarImage":"src/design/AvatarImage.tsx","design/AvatarFallback":"src/design/AvatarFallback.tsx","layout/Header":"src/layout/Header.tsx","layout/Footer":"src/layout/Footer.tsx"}
 [34mCLI[39m Using tsconfig: tsconfig.json
 [34mCLI[39m tsup v8.5.0
-[34mCLI[39m Using tsup config: /Users/RF/Arbeitsmappe/LandingeDbtt/packages/ui/tsup.config.ts
+[34mCLI[39m Using tsup config: /Users/RF/Arbeitsmappe/edebatte-org/packages/ui/tsup.config.ts
 [34mCLI[39m Target: es2020
 [34mCLI[39m Cleaning output folder
 [34mESM[39m Build start
 [34mCJS[39m Build start
 [32mESM[39m [1mdist/theme.mjs                     [22m[32m988.00 B[39m
 [32mESM[39m [1mdist/design/badgeColor.mjs         [22m[32m534.00 B[39m
-[32mESM[39m [1mdist/layout/Header.mjs             [22m[32m582.00 B[39m
-[32mESM[39m [1mdist/index.mjs                     [22m[32m10.59 KB[39m
-[32mESM[39m [1mdist/design/Toast.mjs              [22m[32m536.00 B[39m
-[32mESM[39m [1mdist/design/Spinner.mjs            [22m[32m646.00 B[39m
-[32mESM[39m [1mdist/design/Card.mjs               [22m[32m467.00 B[39m
-[32mESM[39m [1mdist/design/LoadingOverlay.mjs     [22m[32m882.00 B[39m
-[32mESM[39m [1mdist/design/Input.mjs              [22m[32m618.00 B[39m
-[32mESM[39m [1mdist/design/Separator.mjs          [22m[32m317.00 B[39m
-[32mESM[39m [1mdist/design/Badge.mjs              [22m[32m651.00 B[39m
-[32mESM[39m [1mdist/design/Avatar.mjs             [22m[32m282.00 B[39m
-[32mESM[39m [1mdist/design/AvatarFallback.mjs     [22m[32m266.00 B[39m
 [32mESM[39m [1mdist/design/Button.mjs             [22m[32m1.73 KB[39m
+[32mESM[39m [1mdist/design/Badge.mjs              [22m[32m651.00 B[39m
 [32mESM[39m [1mdist/design/Modal.mjs              [22m[32m707.00 B[39m
+[32mESM[39m [1mdist/design/Spinner.mjs            [22m[32m646.00 B[39m
 [32mESM[39m [1mdist/design/ModalConfirm.mjs       [22m[32m1.22 KB[39m
-[32mESM[39m [1mdist/layout/Footer.mjs             [22m[32m2.50 KB[39m
+[32mESM[39m [1mdist/design/LoadingOverlay.mjs     [22m[32m882.00 B[39m
+[32mESM[39m [1mdist/design/Separator.mjs          [22m[32m317.00 B[39m
+[32mESM[39m [1mdist/design/Avatar.mjs             [22m[32m282.00 B[39m
 [32mESM[39m [1mdist/design/AvatarImage.mjs        [22m[32m258.00 B[39m
-[32mESM[39m [1mdist/design/badgeColor.mjs.map     [22m[32m1.77 KB[39m
-[32mESM[39m [1mdist/layout/Header.mjs.map         [22m[32m1.05 KB[39m
-[32mESM[39m [1mdist/design/Toast.mjs.map          [22m[32m1.43 KB[39m
-[32mESM[39m [1mdist/design/Spinner.mjs.map        [22m[32m1.45 KB[39m
-[32mESM[39m [1mdist/design/Card.mjs.map           [22m[32m1.19 KB[39m
-[32mESM[39m [1mdist/design/LoadingOverlay.mjs.map [22m[32m2.09 KB[39m
-[32mESM[39m [1mdist/design/Input.mjs.map          [22m[32m2.10 KB[39m
-[32mESM[39m [1mdist/design/Separator.mjs.map      [22m[32m868.00 B[39m
-[32mESM[39m [1mdist/design/Badge.mjs.map          [22m[32m2.78 KB[39m
-[32mESM[39m [1mdist/design/Avatar.mjs.map         [22m[32m641.00 B[39m
-[32mESM[39m [1mdist/design/AvatarFallback.mjs.map [22m[32m508.00 B[39m
-[32mESM[39m [1mdist/design/Button.mjs.map         [22m[32m4.69 KB[39m
-[32mESM[39m [1mdist/layout/Footer.mjs.map         [22m[32m5.35 KB[39m
-[32mESM[39m [1mdist/design/Modal.mjs.map          [22m[32m1.67 KB[39m
-[32mESM[39m [1mdist/design/ModalConfirm.mjs.map   [22m[32m3.04 KB[39m
-[32mESM[39m [1mdist/design/AvatarImage.mjs.map    [22m[32m554.00 B[39m
+[32mESM[39m [1mdist/design/AvatarFallback.mjs     [22m[32m266.00 B[39m
+[32mESM[39m [1mdist/layout/Header.mjs             [22m[32m578.00 B[39m
+[32mESM[39m [1mdist/design/Card.mjs               [22m[32m467.00 B[39m
+[32mESM[39m [1mdist/layout/Footer.mjs             [22m[32m2.48 KB[39m
+[32mESM[39m [1mdist/index.mjs                     [22m[32m10.57 KB[39m
+[32mESM[39m [1mdist/design/Toast.mjs              [22m[32m536.00 B[39m
+[32mESM[39m [1mdist/design/Input.mjs              [22m[32m618.00 B[39m
 [32mESM[39m [1mdist/theme.mjs.map                 [22m[32m2.25 KB[39m
-[32mESM[39m [1mdist/index.mjs.map                 [22m[32m27.68 KB[39m
-[32mESM[39m ⚡️ Build success in 104ms
-[32mCJS[39m [1mdist/index.js                     [22m[32m11.86 KB[39m
-[32mCJS[39m [1mdist/theme.js                     [22m[32m1.52 KB[39m
-[32mCJS[39m [1mdist/design/Badge.js              [22m[32m1.08 KB[39m
+[32mESM[39m [1mdist/design/Button.mjs.map         [22m[32m4.69 KB[39m
+[32mESM[39m [1mdist/design/Badge.mjs.map          [22m[32m2.78 KB[39m
+[32mESM[39m [1mdist/design/Modal.mjs.map          [22m[32m1.67 KB[39m
+[32mESM[39m [1mdist/design/LoadingOverlay.mjs.map [22m[32m2.09 KB[39m
+[32mESM[39m [1mdist/design/badgeColor.mjs.map     [22m[32m1.77 KB[39m
+[32mESM[39m [1mdist/design/ModalConfirm.mjs.map   [22m[32m3.04 KB[39m
+[32mESM[39m [1mdist/design/Spinner.mjs.map        [22m[32m1.45 KB[39m
+[32mESM[39m [1mdist/design/AvatarImage.mjs.map    [22m[32m554.00 B[39m
+[32mESM[39m [1mdist/design/Avatar.mjs.map         [22m[32m641.00 B[39m
+[32mESM[39m [1mdist/design/Card.mjs.map           [22m[32m1.19 KB[39m
+[32mESM[39m [1mdist/layout/Footer.mjs.map         [22m[32m5.33 KB[39m
+[32mESM[39m [1mdist/layout/Header.mjs.map         [22m[32m1.05 KB[39m
+[32mESM[39m [1mdist/design/Separator.mjs.map      [22m[32m868.00 B[39m
+[32mESM[39m [1mdist/index.mjs.map                 [22m[32m27.66 KB[39m
+[32mESM[39m [1mdist/design/Toast.mjs.map          [22m[32m1.43 KB[39m
+[32mESM[39m [1mdist/design/Input.mjs.map          [22m[32m2.10 KB[39m
+[32mESM[39m [1mdist/design/AvatarFallback.mjs.map [22m[32m508.00 B[39m
+[32mESM[39m ⚡️ Build success in 60ms
+[32mCJS[39m [1mdist/design/badgeColor.js         [22m[32m1.01 KB[39m
+[32mCJS[39m [1mdist/layout/Header.js             [22m[32m1.22 KB[39m
+[32mCJS[39m [1mdist/index.js                     [22m[32m11.84 KB[39m
+[32mCJS[39m [1mdist/design/Modal.js              [22m[32m1.17 KB[39m
+[32mCJS[39m [1mdist/design/ModalConfirm.js       [22m[32m1.72 KB[39m
 [32mCJS[39m [1mdist/design/Toast.js              [22m[32m989.00 B[39m
-[32mCJS[39m [1mdist/design/Card.js               [22m[32m1002.00 B[39m
-[32mCJS[39m [1mdist/design/Input.js              [22m[32m1.18 KB[39m
-[32mCJS[39m [1mdist/design/Spinner.js            [22m[32m1.10 KB[39m
 [32mCJS[39m [1mdist/design/LoadingOverlay.js     [22m[32m1.34 KB[39m
 [32mCJS[39m [1mdist/design/Separator.js          [22m[32m772.00 B[39m
-[32mCJS[39m [1mdist/design/badgeColor.js         [22m[32m1.01 KB[39m
-[32mCJS[39m [1mdist/design/ModalConfirm.js       [22m[32m1.72 KB[39m
-[32mCJS[39m [1mdist/design/Modal.js              [22m[32m1.17 KB[39m
+[32mCJS[39m [1mdist/design/Card.js               [22m[32m1002.00 B[39m
+[32mCJS[39m [1mdist/design/Avatar.js             [22m[32m737.00 B[39m
 [32mCJS[39m [1mdist/design/AvatarImage.js        [22m[32m713.00 B[39m
-[32mCJS[39m [1mdist/layout/Header.js             [22m[32m1.23 KB[39m
-[32mCJS[39m [1mdist/layout/Footer.js             [22m[32m3.22 KB[39m
+[32mCJS[39m [1mdist/design/Input.js              [22m[32m1.18 KB[39m
+[32mCJS[39m [1mdist/layout/Footer.js             [22m[32m3.21 KB[39m
 [32mCJS[39m [1mdist/design/AvatarFallback.js     [22m[32m721.00 B[39m
 [32mCJS[39m [1mdist/design/Button.js             [22m[32m2.38 KB[39m
-[32mCJS[39m [1mdist/design/Avatar.js             [22m[32m737.00 B[39m
+[32mCJS[39m [1mdist/design/Badge.js              [22m[32m1.08 KB[39m
+[32mCJS[39m [1mdist/theme.js                     [22m[32m1.52 KB[39m
+[32mCJS[39m [1mdist/design/Spinner.js            [22m[32m1.10 KB[39m
+[32mCJS[39m [1mdist/design/badgeColor.js.map     [22m[32m1.95 KB[39m
+[32mCJS[39m [1mdist/layout/Header.js.map         [22m[32m1.16 KB[39m
+[32mCJS[39m [1mdist/index.js.map                 [22m[32m29.53 KB[39m
+[32mCJS[39m [1mdist/design/ModalConfirm.js.map   [22m[32m3.10 KB[39m
+[32mCJS[39m [1mdist/design/Toast.js.map          [22m[32m1.51 KB[39m
+[32mCJS[39m [1mdist/design/Separator.js.map      [22m[32m985.00 B[39m
+[32mCJS[39m [1mdist/design/Modal.js.map          [22m[32m1.73 KB[39m
+[32mCJS[39m [1mdist/design/Card.js.map           [22m[32m1.33 KB[39m
+[32mCJS[39m [1mdist/design/LoadingOverlay.js.map [22m[32m2.20 KB[39m
+[32mCJS[39m [1mdist/design/Avatar.js.map         [22m[32m755.00 B[39m
+[32mCJS[39m [1mdist/layout/Footer.js.map         [22m[32m5.40 KB[39m
+[32mCJS[39m [1mdist/design/Input.js.map          [22m[32m2.20 KB[39m
+[32mCJS[39m [1mdist/design/AvatarFallback.js.map [22m[32m630.00 B[39m
+[32mCJS[39m [1mdist/design/AvatarImage.js.map    [22m[32m673.00 B[39m
+[32mCJS[39m [1mdist/design/Button.js.map         [22m[32m4.78 KB[39m
+[32mCJS[39m [1mdist/design/Spinner.js.map        [22m[32m1.53 KB[39m
 [32mCJS[39m [1mdist/theme.js.map                 [22m[32m2.46 KB[39m
 [32mCJS[39m [1mdist/design/Badge.js.map          [22m[32m2.89 KB[39m
-[32mCJS[39m [1mdist/design/Toast.js.map          [22m[32m1.51 KB[39m
-[32mCJS[39m [1mdist/design/Card.js.map           [22m[32m1.33 KB[39m
-[32mCJS[39m [1mdist/design/Input.js.map          [22m[32m2.20 KB[39m
-[32mCJS[39m [1mdist/design/Spinner.js.map        [22m[32m1.53 KB[39m
-[32mCJS[39m [1mdist/design/LoadingOverlay.js.map [22m[32m2.20 KB[39m
-[32mCJS[39m [1mdist/design/Separator.js.map      [22m[32m985.00 B[39m
-[32mCJS[39m [1mdist/design/ModalConfirm.js.map   [22m[32m3.10 KB[39m
-[32mCJS[39m [1mdist/design/Modal.js.map          [22m[32m1.73 KB[39m
-[32mCJS[39m [1mdist/design/AvatarImage.js.map    [22m[32m673.00 B[39m
-[32mCJS[39m [1mdist/layout/Header.js.map         [22m[32m1.16 KB[39m
-[32mCJS[39m [1mdist/design/Button.js.map         [22m[32m4.78 KB[39m
-[32mCJS[39m [1mdist/layout/Footer.js.map         [22m[32m5.41 KB[39m
-[32mCJS[39m [1mdist/index.js.map                 [22m[32m29.54 KB[39m
-[32mCJS[39m [1mdist/design/badgeColor.js.map     [22m[32m1.95 KB[39m
-[32mCJS[39m [1mdist/design/Avatar.js.map         [22m[32m755.00 B[39m
-[32mCJS[39m [1mdist/design/AvatarFallback.js.map [22m[32m630.00 B[39m
-[32mCJS[39m ⚡️ Build success in 107ms
+[32mCJS[39m ⚡️ Build success in 63ms

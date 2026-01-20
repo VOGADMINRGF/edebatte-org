@@ -43,7 +43,7 @@ export default function AdminSidebar({ userEmail }: { userEmail?: string | null 
     <div className="flex h-full flex-col gap-4">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">Admin</p>
-        <p className="text-sm font-semibold text-slate-900">VoiceOpenGov</p>
+        <p className="text-sm font-semibold text-slate-900">eDebatte</p>
         <p className="text-xs text-slate-500 truncate">{userEmail ?? "admin"}</p>
       </div>
 

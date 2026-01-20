@@ -371,7 +371,7 @@ export default function HowToWorksEDebattePage() {
               und Auswertung zuständig sind.
             </p>
             <p className="mt-2 text-[13px] text-slate-600">
-              Wo es vor Ort noch keine eigene Struktur gibt, kann VoiceOpenGov den Betrieb vorübergehend übernehmen:
+              Wo es vor Ort noch keine eigene Struktur gibt, kann eDebatte den Betrieb vorübergehend übernehmen:
               mit klaren Regeln, Schulungen und Moderation, bis eine Region ihre eigenen Vertreter:innen bestimmt hat.
               eDebatte lässt sich auch als neutrale Plattform mit identischem Sicherheits- und Regelset betreiben – unabhängig
               von einzelnen Personen.

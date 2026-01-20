@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { RegisterStepper } from "../RegisterStepper";
 
 const TOKEN_VALIDITY_HOURS = 24;
-const CHANNEL_NAME = "vog-email-verify";
+const CHANNEL_NAME = "edb-email-verify";
 
 type State = "idle" | "pending" | "success" | "error";
 
@@ -45,7 +45,7 @@ export default function VerifyEmailPage() {
     if (!channel) return;
     const onMessage = (event: MessageEvent) => {
       const payload = event.data;
-      if (!payload || payload.type !== "vog-email-verify-success") return;
+      if (!payload || payload.type !== "edb-email-verify-success") return;
       if (payload.email && emailParam && payload.email !== emailParam) return;
       setState("success");
       setMessage("E-Mail bestätigt. Weiter geht's mit Schritt 3 …");
@@ -93,7 +93,7 @@ export default function VerifyEmailPage() {
       setMessage("E-Mail bestätigt. Weiter geht's mit Schritt 3 …");
       if (channel) {
         channel.postMessage({
-          type: "vog-email-verify-success",
+          type: "edb-email-verify-success",
           email: emailParam || undefined,
           next: nextAfterVerify,
         });
@@ -193,7 +193,7 @@ export default function VerifyEmailPage() {
         <ul className="mt-2 list-disc pl-5">
           <li>Prüfe auch Spam-Ordner.</li>
           <li>Klicke auf „E-Mail erneut senden“ oder ändere die Adresse im ersten Schritt.</li>
-          <li>Bei Problemen melde dich unter support@voiceopengov.org.</li>
+          <li>Bei Problemen melde dich unter support@edebatte.org.</li>
         </ul>
       </section>
     </div>

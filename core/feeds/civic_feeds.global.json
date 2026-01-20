@@ -1,5 +1,5 @@
 {
-    "$schema": "https://voiceopengov.dev/schemas/civic_feeds_v1.json",
+    "$schema": "https://edebatte.org/schemas/civic_feeds_v1.json",
     "version": 1,
     "regions": {
       "GLOBAL": {
