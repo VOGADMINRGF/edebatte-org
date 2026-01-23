@@ -1,0 +1,55 @@
+{
+  "feeds": [
+    { "url": "https://www.tagesschau.de/xml/rss2", "region": "DE", "source_type": "public_broadcaster", "trust": 0.90 },
+
+    { "url": "https://www.deutschlandfunk.de/nachrichten-108.xml", "region": "DE", "source_type": "public_broadcaster", "trust": 0.90 },
+
+    { "url": "https://www.zeit.de/index", "region": "DE", "source_type": "newsroom", "trust": 0.85 },
+    { "url": "https://rss.sueddeutsche.de/rss/Alles", "region": "DE", "source_type": "newsroom", "trust": 0.85 },
+    { "url": "https://www.faz.net/rss/aktuell/", "region": "DE", "source_type": "newsroom", "trust": 0.85 },
+    { "url": "https://www.spiegel.de/schlagzeilen/index.rss", "region": "DE", "source_type": "newsroom", "trust": 0.85 },
+    { "url": "https://www.welt.de/?service=Rss", "region": "DE", "source_type": "newsroom", "trust": 0.80 },
+    { "url": "https://www.bild.de/feed/alles.xml", "region": "DE", "source_type": "newsroom", "trust": 0.75 },
+
+    { "url": "https://taz.de/!p4608;rss/", "region": "DE", "source_type": "newsroom", "trust": 0.80 },
+    { "url": "https://netzpolitik.org/feed/", "region": "DE", "source_type": "digital_rights", "trust": 0.80 },
+
+    { "url": "https://correctiv.org/feed/", "region": "DE", "source_type": "investigative", "trust": 0.88 },
+
+    { "url": "https://www.nius.de/rss", "region": "DE", "source_type": "newsroom", "trust": 0.65 },
+    { "url": "https://www.tichyseinblick.de/feed/", "region": "DE", "source_type": "magazine", "trust": 0.60 },
+    { "url": "https://www.achgut.com/rss2", "region": "DE", "source_type": "magazine", "trust": 0.60 },
+    { "url": "https://www.nachdenkseiten.de/?feed=rss2", "region": "DE", "source_type": "magazine", "trust": 0.60 },
+    { "url": "https://jungefreiheit.de/feed/", "region": "DE", "source_type": "newsroom", "trust": 0.60 },
+    { "url": "https://uebermedien.de/feed/", "region": "DE", "source_type": "media_watch", "trust": 0.75 },
+
+    { "url": "https://www.heise.de/rss/heise.rdf", "region": "DE", "source_type": "tech", "trust": 0.85 },
+    { "url": "https://rss.golem.de/rss.php?feed=RSS2.0", "region": "DE", "source_type": "tech", "trust": 0.80 },
+
+    { "url": "https://www.bundestag.de/static/appdata/includes/rss/pressemitteilungen.rss", "region": "DE", "source_type": "gov_press", "trust": 0.85 },
+    { "url": "https://www.berlin.de/presse/mitteilungen/index/feed", "region": "DE:BE", "source_type": "region_press", "trust": 0.85 },
+
+    { "url": "https://www.europarl.europa.eu/at-your-service/en/stay-informed/rss-feeds", "region": "EU", "source_type": "gov_press", "trust": 0.85 },
+
+    { "url": "https://www.politico.eu/feed/", "region": "EU", "source_type": "newsroom", "trust": 0.80 },
+    { "url": "https://www.euronews.com/rss?level=theme&name=Top%20stories", "region": "EU", "source_type": "newsroom", "trust": 0.80 },
+
+    { "url": "https://rss.dw.com/rdf/rss-en-all", "region": "GLOBAL", "source_type": "international_broadcaster", "trust": 0.85 },
+    { "url": "http://feeds.bbci.co.uk/news/world/rss.xml", "region": "GLOBAL", "source_type": "international_broadcaster", "trust": 0.85 },
+    { "url": "https://www.france24.com/en/rss-feeds", "region": "FR", "source_type": "international_broadcaster", "trust": 0.85 },
+    { "url": "https://www.aljazeera.com/xml/rss/all.xml", "region": "GLOBAL", "source_type": "international_broadcaster", "trust": 0.82 },
+
+    { "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "region": "SG", "source_type": "newsroom", "trust": 0.82 },
+    { "url": "https://www.thehindu.com/news/feeder/default.rss", "region": "IN", "source_type": "newsroom", "trust": 0.82 },
+    { "url": "https://www.bellingcat.com/feed/", "region": "GLOBAL", "source_type": "investigative", "trust": 0.88 },
+    { "url": "https://www.investigate-europe.eu/feed/", "region": "EU", "source_type": "investigative", "trust": 0.85 },
+
+    { "url": "https://factcheck.afp.com/rss.xml", "region": "GLOBAL", "source_type": "fact_check", "trust": 0.85 },
+    { "url": "https://www.mimikama.at/feed/", "region": "AT", "source_type": "fact_check", "trust": 0.78 },
+
+    { "url": "https://allafrica.com/tools/headlines/rdf/all.rdf", "region": "AF", "source_type": "aggregator", "trust": 0.80 },
+    { "url": "https://www.dailymaverick.co.za/feed/", "region": "ZA", "source_type": "newsroom", "trust": 0.80 },
+
+    { "url": "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml", "region": "BR", "source_type": "newsroom", "trust": 0.80 }
+  ]
+}

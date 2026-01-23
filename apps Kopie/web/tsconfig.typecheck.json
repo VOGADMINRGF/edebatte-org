@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+      "noEmit": true,
+      "skipLibCheck": true,
+      "jsx": "react-jsx",
+      "target": "ES2022",
+      "module": "ESNext",
+      "moduleResolution": "Bundler",
+      "lib": ["ES2022", "DOM"],
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["src/*"],
+        "@ui/*": ["../../packages/ui/src/*"]
+      },
+      "types": ["react", "react-dom", "node"]
+    },
+    "files": [
+      "src/components/QuickRegister.tsx",
+      "src/app/(public)/join/page.tsx",
+      "types/shims.d.ts"
+    ]
+  }
+  

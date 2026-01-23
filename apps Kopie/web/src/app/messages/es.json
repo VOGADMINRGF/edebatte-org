@@ -1,0 +1,12 @@
+{
+  "navigation": {
+    "streams": "Streams",
+    "support": "Support",
+    "privacy": "Privacy",
+    "imprint": "Imprint"
+  },
+  "cta": {
+    "join": "Join now",
+    "contribute": "Contribute"
+  }
+}

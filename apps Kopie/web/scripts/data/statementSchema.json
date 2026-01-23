@@ -1,0 +1,232 @@
+{
+  "oneOf": [
+    {
+     "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SwipeStatement",
+      "type": "object",
+  "required": [
+    "id", "title", "statement", "category", "impactLogic", "alternatives", "votes", "regionScope"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "statement": { "type": "string", "maxLength": 280 },
+    "plainStatement": { "type": "string" },      
+    "shortText": { "type": "string" },
+    "category": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "context": { "type": "string" },
+    "cluster": { "type": "string" },
+  "sources": { "type": "array", "items": { "type": "string" } },
+  "votingRule": { "type": "object" },
+  "reviewLog": { "type": "array", "items": { "type": "object" } },
+  "trustScore": { "type": "number" },
+  "badge": { "type": "string" },
+  "graphEdges": { "type": "array", "items": { "type": "object" } },
+  "impactScore": { "type": "number" },
+  "ethicScore": { "type": "number" },
+  "policyFit": { "type": "boolean" },
+  "solidarityScore": { "type": "number" },
+  "communityIndex": { "type": "number" },
+  "laymanExplanation": { "type": "string" },
+  "provenance": { "type": "array", "items": { "type": "object" } },
+    "language": { "type": "string" },
+    "originalLanguage": { "type": "string" },
+    "translations": {
+      "type": "object",
+      "patternProperties": { "^[a-z]{2}$": { "type": "object" } },
+      "additionalProperties": false
+    },
+    "regionScope": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ags": { "type": "string" },             
+          "nuts1": { "type": "string" },           
+          "nuts2": { "type": "string" },           
+          "nuts3": { "type": "string" },           
+          "iso": { "type": "string" },             
+          "name": { "type": "string" },            
+          "type": { "type": "string" },            
+          "population": { "type": "integer" },     
+          "areaKm2": { "type": "number" }          
+        },
+        "required": ["name"]
+      }
+    },
+    "imageUrl": { "type": "string" },
+    "media": { "type": "array", "items": { "type": "string" } },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "createdBy": { "type": "string" },
+     "votes": {
+      "type": "object",
+      "properties": {
+        "agree": { "type": "integer" },
+        "neutral": { "type": "integer" },
+        "disagree": { "type": "integer" },
+        "requiredMajority": { "type": "number" }
+      },
+      "required": ["agree", "neutral", "disagree"]
+    },
+    "userVote": { "type": "string", "enum": ["agree", "neutral", "disagree"] },
+
+     "impactLogic": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "description": {
+            "type": "object",
+            "properties": {
+              "einfach": { "type": "string" },
+              "eloquent": { "type": "string" }
+            },
+            "required": ["einfach", "eloquent"]
+          }
+        },
+        "required": ["type", "description"]
+      }
+    },
+    "myImpact": { "type": "string" },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "type": { "type": "string" },
+          "impact": { "type": "string" },
+          "votes": {
+            "type": "object",
+            "properties": {
+              "agree": { "type": "integer" },
+              "neutral": { "type": "integer" },
+              "disagree": { "type": "integer" }
+            }
+          }
+        },
+        "required": ["text", "type", "impact"]
+      }
+    },
+    "eventualities": { "type": "array", "items": { "type": "string" } },
+    "arguments": {
+      "type": "object",
+      "properties": {
+        "pro": { "type": "array", "items": { "type": "string" } },
+        "contra": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "einfach": { "type": "string" },
+        "eloquent": { "type": "string" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "properties": {
+        "einfach": { "type": "string" },
+        "eloquent": { "type": "string" }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "source": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "trustScore": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "voices": { "type": "array", "items": { "type": "string" } },
+    "regionalVoices": { "type": "array", "items": { "type": "string" } },
+    "localJournalism": { "type": "object" },
+    "editorialSummary": { "type": "object" },
+    "reviewStatus": { "type": "string" },
+    "reviewedBy": { "type": "array", "items": { "type": "string" } },
+    "redaktionFreigabe": { "type": "boolean" },
+    "topComments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user": { "type": "string" },
+          "text": { "type": "string" },
+          "agree": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "relatedStatements": { "type": "array", "items": { "type": "string" } },
+    "relatedReports": { "type": "array", "items": { "type": "string" } },
+    "reportAvailable": { "type": "boolean" },
+    "visibility": { "type": "string" },
+    "status": { "type": "string" },
+    "importance": { "type": "string" },
+    "accessibilityStatus": { "type": "string" },
+    "barrierescore": { "type": "integer" },
+    "moderationStatus": { "type": "string" },
+    "aiAnnotations": {
+      "type": "object",
+      "properties": {
+        "toxicity": { "type": "number" },
+        "sentiment": { "type": "string" },
+        "subjectAreas": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "semanticLinks": {
+      "type": "object",
+      "properties": {
+        "wikidata": { "type": "string" },
+        "dbpedia": { "type": "string" }
+      }
+    },
+    "customFields": { "type": "object" },
+    "historyLog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string" },
+          "by": { "type": "string" },
+          "at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "userActions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "action": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+},
+{
+  "type": "object",
+  "properties": {
+    "error": { "type": "string", "enum": ["NoValidContent"] }
+  },
+  "required": ["error"],
+  "additionalProperties": true
+}
+]
+}

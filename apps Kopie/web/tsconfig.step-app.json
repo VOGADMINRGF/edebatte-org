@@ -1,0 +1,16 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      "noEmit": true,
+      "baseUrl": "./src",
+      "paths": {
+        "@/*": ["./*"]
+      },
+      "jsx": "react-jsx"
+    },
+    "include": [
+      "src/components/QuickRegister.tsx",
+      "src/app/(public)/join/page.tsx"
+    ]
+  }
+  

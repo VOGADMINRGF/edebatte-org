@@ -1,0 +1,23 @@
+{
+    "extends": "./tsconfig.json",
+    "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx"],
+    "exclude": [
+      "node_modules",
+      "public/**",
+      "../../features/**",
+      "**/__tests__/**",
+      "**/*.test.*",
+      "src/__features_local_DISABLED__/**",
+      "src/_disabled/**",
+      "src/shims/**",
+      "src/app/pipeline/**",
+      "src/ui/PipelineHUD.tsx",
+      "src/utils/aiProviders.ts",
+      "src/lib/contribution/llm/**",
+      "src/app/api/_diag/**",
+      "src/app/api/diag/**",
+      "src/app/api/translate/**",
+      "src/app/api/map/points/**"
+    ]
+  }
+  

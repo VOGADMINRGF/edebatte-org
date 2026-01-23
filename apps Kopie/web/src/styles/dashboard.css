@@ -1,0 +1,112 @@
+/* dashboard.css – Professionelles, klares Dashboard-Layout */
+
+/* Basis-Layout und Hintergrund */
+.dashboard-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #f7f9fc;
+    color: #333;
+  }
+  
+  /* Hauptbereich der Dashboard-Inhalte */
+  .dashboard-main {
+    flex: 1;
+    padding: 20px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  
+  /* Header- und Footer-Bereich einheitlich gestalten */
+  .dashboard-header,
+  .dashboard-footer {
+    background-color: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 20px;
+  }
+  
+  /* Footer speziell anpassen (schmaler) */
+  .dashboard-footer {
+    border-top: 1px solid #e0e0e0;
+    border-bottom: none;
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 8px 20px;
+  }
+  
+  /* Kartenlayout für Dashboard-Kacheln (Reports, Streams etc.) */
+  .dashboard-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  
+  .dashboard-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+  }
+  
+  /* Überschrift für Dashboard-Segmente */
+  .dashboard-section-title {
+    margin-bottom: 16px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    border-bottom: 2px solid #ececec;
+    padding-bottom: 8px;
+  }
+  
+  /* Buttons klar und einheitlich gestalten */
+  .dashboard-button {
+    display: inline-block;
+    background-color: #0070f3;
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-decoration: none;
+  }
+  
+  .dashboard-button:hover {
+    background-color: #005ecb;
+  }
+  
+  /* Tabellenlayout */
+  .dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+  }
+  
+  .dashboard-table th,
+  .dashboard-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+  }
+  
+  .dashboard-table th {
+    background-color: #fafafa;
+    font-weight: 600;
+  }
+  
+  .dashboard-table tbody tr:hover {
+    background-color: #f0f4ff;
+  }
+  
+  /* Responsives Layout */
+  @media (max-width: 768px) {
+    .dashboard-main {
+      padding: 10px;
+    }
+  
+    .dashboard-card {
+      padding: 10px;
+    }
+  }
+  

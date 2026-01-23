@@ -1,0 +1,6 @@
+.vog-chip{ @apply px-2 py-1 rounded-full border text-xs bg-white hover:bg-slate-50; }
+.vog-btn{ @apply px-3 py-2 rounded-xl border bg-white hover:bg-slate-50; }
+.vog-btn-pri{ @apply px-3 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700; }
+.vog-card{ @apply rounded-2xl border bg-white; }
+.vog-head{ @apply text-2xl font-semibold; }
+.vog-skeleton{ @apply animate-pulse bg-slate-200 rounded; }

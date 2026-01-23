@@ -1,0 +1,284 @@
+{
+  "/": {
+    "access": "public"
+  },
+  "/account": {
+    "access": "public"
+  },
+  "/account/security": {
+    "access": "public"
+  },
+  "/admin": {
+    "access": "public"
+  },
+  "/admin/access": {
+    "access": "public"
+  },
+  "/admin/access/users": {
+    "access": "public"
+  },
+  "/admin/access/users/:id": {
+    "access": "public"
+  },
+  "/admin/eventualities": {
+    "access": "public"
+  },
+  "/admin/eventualities/:id": {
+    "access": "public"
+  },
+  "/admin/evidence/claims": {
+    "access": "public"
+  },
+  "/admin/evidence/claims/:id": {
+    "access": "public"
+  },
+  "/admin/evidence/items": {
+    "access": "public"
+  },
+  "/admin/evidence/items/:id": {
+    "access": "public"
+  },
+  "/admin/feeds/drafts": {
+    "access": "public"
+  },
+  "/admin/feeds/drafts/:id": {
+    "access": "public"
+  },
+  "/admin/graph/impact": {
+    "access": "public"
+  },
+  "/admin/identity": {
+    "access": "public"
+  },
+  "/admin/impact/:id": {
+    "access": "public"
+  },
+  "/admin/reports/region/:id": {
+    "access": "public"
+  },
+  "/admin/reports/topic/:slug": {
+    "access": "public"
+  },
+  "/admin/research/tasks": {
+    "access": "public"
+  },
+  "/admin/responsibility": {
+    "access": "public"
+  },
+  "/admin/responsibility/directory": {
+    "access": "public"
+  },
+  "/admin/settings": {
+    "access": "public"
+  },
+  "/admin/telemetry/ai/dashboard": {
+    "access": "public"
+  },
+  "/admin/telemetry/ai/orchestrator": {
+    "access": "public"
+  },
+  "/admin/telemetry/ai/usage": {
+    "access": "public"
+  },
+  "/admin/telemetry/identity": {
+    "access": "public"
+  },
+  "/api/ari": {
+    "access": "system"
+  },
+  "/api/factcheck": {
+    "access": "system"
+  },
+  "/auth/2fa-setup": {
+    "access": "public"
+  },
+  "/auth/onboarding/location": {
+    "access": "public"
+  },
+  "/barrierefreiheit": {
+    "access": "public"
+  },
+  "/beitraege": {
+    "access": "public"
+  },
+  "/beitraege/neu": {
+    "access": "public"
+  },
+  "/beitritt": {
+    "access": "public"
+  },
+  "/contact": {
+    "access": "public"
+  },
+  "/context": {
+    "access": "public"
+  },
+  "/contribute": {
+    "access": "public"
+  },
+  "/contributions/analyze": {
+    "access": "auth"
+  },
+  "/contributions/new": {
+    "access": "auth"
+  },
+  "/dashboard/admin/routes": {
+    "access": "admin"
+  },
+  "/dashboard/projects/new": {
+    "access": "auth"
+  },
+  "/dashboard/streams": {
+    "access": "auth"
+  },
+  "/dashboard/streams/:id": {
+    "access": "auth"
+  },
+  "/dashboard/usage": {
+    "access": "auth"
+  },
+  "/daten": {
+    "access": "public"
+  },
+  "/datenschutz": {
+    "access": "public"
+  },
+  "/demo": {
+    "access": "public"
+  },
+  "/evidence/:regionCode": {
+    "access": "public"
+  },
+  "/evidence/:regionCode/:topicKey": {
+    "access": "public"
+  },
+  "/faq": {
+    "access": "public"
+  },
+  "/howtoworks": {
+    "access": "public"
+  },
+  "/howtoworks/bewegung": {
+    "access": "public"
+  },
+  "/howtoworks/edebatte": {
+    "access": "public"
+  },
+  "/impressum": {
+    "access": "public"
+  },
+  "/ki-nutzung": {
+    "access": "public"
+  },
+  "/kontakt": {
+    "access": "public"
+  },
+  "/login": {
+    "access": "public"
+  },
+  "/map": {
+    "access": "public"
+  },
+  "/mitglied-antrag": {
+    "access": "public"
+  },
+  "/mitglied-werden": {
+    "access": "public"
+  },
+  "/not-found": {
+    "access": "public"
+  },
+  "/nutzungsmodell": {
+    "access": "public"
+  },
+  "/overlay/stream/:id": {
+    "access": "public"
+  },
+  "/presse": {
+    "access": "public"
+  },
+  "/profile": {
+    "access": "public"
+  },
+  "/qr/:qrId": {
+    "access": "public"
+  },
+  "/qrcodegenerator": {
+    "access": "public"
+  },
+  "/qrcodewizard": {
+    "access": "public"
+  },
+  "/register": {
+    "access": "public"
+  },
+  "/register/identity": {
+    "access": "public"
+  },
+  "/register/verify-email": {
+    "access": "public"
+  },
+  "/report": {
+    "access": "public"
+  },
+  "/report/:id": {
+    "access": "public"
+  },
+  "/reports": {
+    "access": "public"
+  },
+  "/reports/topic": {
+    "access": "public"
+  },
+  "/research/tasks": {
+    "access": "public"
+  },
+  "/reset": {
+    "access": "public"
+  },
+  "/satzung": {
+    "access": "public"
+  },
+  "/settings": {
+    "access": "public"
+  },
+  "/statements/:id": {
+    "access": "public"
+  },
+  "/statements/new": {
+    "access": "public"
+  },
+  "/stream": {
+    "access": "public"
+  },
+  "/stream/:slug": {
+    "access": "public"
+  },
+  "/swipe": {
+    "access": "public"
+  },
+  "/swipes": {
+    "access": "public"
+  },
+  "/team": {
+    "access": "public"
+  },
+  "/unterstuetzen": {
+    "access": "public"
+  },
+  "/verhaltenskodex": {
+    "access": "public"
+  },
+  "/verify": {
+    "access": "public"
+  },
+  "/vote": {
+    "access": "public"
+  },
+  "/votes": {
+    "access": "public"
+  },
+  "/votes/:id": {
+    "access": "public"
+  }
+}

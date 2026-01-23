@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Report",
+  "type": "object",
+  "required": ["title", "summary"],
+  "properties": {
+    "statementId": { "type": "string" },
+    "statementIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "title": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "summary": { "type": "string" },
+    "details": { "type": "string" },
+    "recommendation": { "type": "string" },
+
+    "topArguments": { "type": ["object", "null"] },
+    "trends": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "internationalComparison": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "methodology": { "type": "string" },
+    "optAnalysis": { "type": ["object", "null"] },
+
+    "regionalVoices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "region": { "type": "string" },
+          "author": { "type": "string" },
+          "role": { "type": "string" },
+          "medium": { "type": "string" },
+          "verified": { "type": "boolean" },
+          "statement": { "type": "string" },
+          "impactAssessment": { "type": ["object", "null"] },
+          "submittedAt": { "type": "string", "format": "date-time" },
+          "redaktionFreigabe": { "type": "boolean" }
+        },
+        "required": ["region", "statement"]
+      }
+    },
+    "voices": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+
+    "likes": { "type": "integer" },
+    "bookmarks": { "type": "integer" },
+    "statements": {
+      "type": "object",
+      "properties": {
+        "agreed": { "type": "integer" },
+        "rejected": { "type": "integer" },
+        "unanswered": { "type": "integer" }
+      }
+    },
+    "swipes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "decision": { "type": "string", "enum": ["Ja", "Nein", "Neutral"] },
+          "date": { "type": "string" }
+        }
+      }
+    },
+
+    "charts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "data"],
+        "properties": {
+          "type": { "type": "string" },
+          "data": { "type": ["object", "array"] },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "source": { "type": "string" },
+          "colorscheme": { "type": "string" }
+        }
+      }
+    },
+    "chartUrls": {
+      "type": "array",
+      "items": { "type": ["string", "object"] }
+    },
+    "images": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "trailerUrl": { "type": "string" },
+
+    "region": { "type": "string" },
+    "regions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "regionScope": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "languages": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "author": { "type": "string" },
+
+    "status": {
+      "type": "string",
+      "enum": ["draft", "published", "archived"]
+    },
+    "reportAvailable": { "type": "boolean" },
+    "reviewStatus": { "type": "string" },
+    "reviewedBy": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "redaktionFreigabe": { "type": "boolean" },
+
+    "version": { "type": "number" },
+    "deleted": { "type": "boolean" },
+    "archived": { "type": "boolean" },
+    "analytics": { "type": ["object", "null"] },
+    "modLog": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

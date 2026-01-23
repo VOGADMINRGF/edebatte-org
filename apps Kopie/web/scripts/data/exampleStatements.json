@@ -1,0 +1,33 @@
+[
+    {
+      "id": "1001",
+      "statement": "Sollte das Wahlalter auf 16 Jahre gesenkt werden?",
+      "category": "Innenpolitik",
+      "cluster": "Wahlrecht",
+      "regionScope": ["national"],
+      "societalFields": ["Jugend", "Demokratie"],
+      "focusTags": ["Wahlalter", "Beteiligung"],
+      "languageOrigin": "de",
+      "translations": ["en"],
+      "emotionalTone": ["offen"],
+      "expectedActionType": "Gesetzesänderung",
+      "impactLevel": "mittel",
+      "relevancePeriod": { "start": "2025-01-01", "end": "2026-01-01" },
+      "impactSocietyYes": "Stärkere Einbindung junger Menschen.",
+      "impactEconomyYes": "Langfristig stabilere Sozialpolitik.",
+      "impactSocietyNo": "Jugend bleibt außen vor.",
+      "impactEconomyNo": "Kein kurzfristiger Effekt.",
+      "altUserQuestion": "Welche Alternativen gibt es zur Wahlaltersenkung?",
+      "alternatives": [
+        { "text": "Mehr politische Bildung", "impact": "Kompetenzaufbau, aber keine sofortige Wahlbeteiligung" }
+      ],
+      "legalBasis": ["Grundgesetz Art. 38"],
+      "responsibleBodies": ["Bundestag"],
+      "relatedStatements": [],
+      "visibility": "public",
+      "createdBy": "system",
+      "createdAt": "2025-07-18T13:00:00Z",
+      "updatedAt": "2025-07-18T13:00:00Z"
+    }
+  ]
+  

@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: eDebatte API
+  version: "1.0"
+paths:
+  /api/vote/cast:
+    post:
+      summary: Cast or update a vote (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statementId, choice]
+              properties:
+                statementId: { type: string }
+                choice: { type: string, enum: [agree, neutral, disagree] }
+                region:
+                  type: object
+                  properties:
+                    country: { type: string, minLength: 2, maxLength: 2 }
+                    state: { type: string }
+                    city: { type: string }
+      responses:
+        "200": { description: ok }
+        "401": { description: unauthorized }
+  /api/vote/stats/{statementId}:
+    get:
+      summary: Vote stats + timeseries
+      parameters:
+        - name: statementId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: ok }
+  /api/vote/stream:
+    get:
+      summary: Server-sent events for votes
+      parameters:
+        - name: statementId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: event-stream }

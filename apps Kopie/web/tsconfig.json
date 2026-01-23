@@ -1,0 +1,78 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "es2022"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@lib/*": [
+        "src/lib/*"
+      ],
+      "@config/*": [
+        "src/config/*"
+      ],
+      "@features/*": [
+        "../../features/*"
+      ],
+      "@core/*": [
+        "../../core/*"
+      ],
+      "@db-core": [
+        "../../packages/db-core/src/client.ts"
+      ],
+      "@db-core/*": [
+        "../../packages/db-core/src/*"
+      ],
+      "@db/web": [
+        "../../packages/db-web/src/index.ts"
+      ],
+      "@db/web/*": [
+        "../../packages/db-web/src/*"
+      ],
+      "@packages/*": [
+        "../../packages/*"
+      ]
+    },
+    "types": [
+      "node",
+      "react",
+      "react-dom"
+    ],
+    "target": "ES2017",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts",
+    "../../MainEditor.tsx",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "tools/migration/**",
+    "tools/migration/VPM25/_legacy/**",
+    "src/_disabled/**"
+  ]
+}

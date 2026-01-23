@@ -1,0 +1,31 @@
+[
+    {
+      "id": "report001",
+      "title": "Beteiligung an Klimathemen in Deutschland und EU",
+      "summary": "Analyse aller abgegebenen Votes zu Klimazielen, Beteiligungsquote, regionale Unterschiede.",
+      "category": "Umwelt & Klima",
+      "clusters": ["Klimaziele", "Demokratie"],
+      "tags": ["Klimaschutz", "Partizipation"],
+      "statementIds": ["001", "002"],
+      "impactSummary": {
+        "society": "Hohe Zustimmung zu ehrgeizigen Zielen, besonders bei Jüngeren.",
+        "economy": "Breite Unterstützung für Investitionen, aber Sorgen um Wettbewerbsfähigkeit.",
+        "international": "Deutschland und Skandinavien besonders engagiert."
+      },
+      "regionScope": ["national", "eu"],
+      "language": "de",
+      "imageUrl": "/dummy/report-klima.jpg",
+      "reviewStatus": "reviewed",
+      "importance": "featured",
+      "archivedAt": null,
+      "comments": [
+        { "userId": "adminUser1", "text": "Report basiert auf aktuellen Zahlen.", "createdAt": "2025-07-18T14:20:00Z" }
+      ],
+      "visibility": "public",
+      "status": "published",
+      "createdBy": "adminUser1",
+      "createdAt": "2025-07-18T13:15:00Z",
+      "updatedAt": "2025-07-18T13:15:00Z"
+    }
+  ]
+  

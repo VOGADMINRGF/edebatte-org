@@ -1,0 +1,16 @@
+{
+    "gpt_analysis": "/prompts/gpt_analysis.md",
+    "gemini_analysis": "/prompts/gemini_analysis.md",
+    "claude_analysis": "/prompts/claude_analysis.md",
+    "mistral_analysis": "/prompts/mistral_analysis.md",
+    "llama_analysis": "/prompts/llama_analysis.md",
+    "consensus_ranking": "/prompts/consensus_ranking.md",
+    "impact_only": "/prompts/impact_only.md",
+    "alternatives_only": "/prompts/alternatives_only.md",
+    "alternative_only": "/prompts/alternatives_only.md",
+    "factcheck_only": "/prompts/factcheck_only.md",
+    "factcheck_only_de": "/prompts/factcheck_only.de.md",
+    "ari_audit": "/prompts/ari_audit.md",
+    "_shared_constraints": "/prompts/_shared_constraints.md"
+  }
+  

@@ -1,0 +1,56 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@config/*": ["src/config/*"],
+      "@db/web": ["src/shims/db-web.ts"],
+      "@db/core": ["src/shims/db-core.ts"],
+      "@core/db/triMongo": ["src/shims/core/db/db/triMongo.ts"],
+      "@features/*": ["src/shims/features/*"],
+      "@packages/*": ["src/shims/packages/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/app/page.tsx",
+    "src/app/layout.tsx",
+    "src/app/homeStrings.ts",
+    "src/app/privacyStrings.ts",
+    "src/app/api/public/**/*",
+    "src/app/api/security/**/*",
+    "src/app/(components)/SiteHeader.tsx",
+    "src/components/privacy/**/*",
+    "src/components/security/**/*",
+    "src/context/**/*",
+    "src/lib/privacy/**/*",
+    "src/lib/security/**/*",
+    "src/config/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist",
+    "build",
+    "src/app/_disabled/**",
+    "src/app/admin/**",
+    "src/app/api/admin/**",
+    "src/app/api/**/admin/**",
+    "src/app/dashboard/**",
+    "src/app/contributions/**",
+    "src/app/stream/**",
+    "src/app/votes/**"
+  ]
+}

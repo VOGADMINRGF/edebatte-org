@@ -1,0 +1,15 @@
+import React from "react";
+export const Header = (p: any) => <header {...p} />;
+export const Footer = (p: any) => <footer {...p} />;
+export const Card = (p: any) => <div {...p} />;
+export const CardHeader = (p: any) => <div {...p} />;
+export const CardContent = (p: any) => <div {...p} />;
+export const CardFooter = (p: any) => <div {...p} />;
+export const Badge = (p: any) => <span {...p} />;
+export const Button = (p: any) => <button {...p} />;
+export const Input = (p: any) => <input {...p} />;
+export const Separator = (p: any) => <hr {...p} />;
+export const Avatar = (p: any) => <div {...p} />;
+export const AvatarFallback = (p: any) => <div {...p} />;
+export const AvatarImage = (p: any) => <img alt="" {...p} />;
+export default {};

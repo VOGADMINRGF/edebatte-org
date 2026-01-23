@@ -1,0 +1,158 @@
+//Finale Version 04.August 2025 
+
+{
+  "id": "report-001",
+  "statementIds": ["statement-0001"],
+  "title": "Meta-Report: Wahlalter 16 in Deutschland",
+  "subtitle": "Junge Stimmen, neue Wege?",
+  "summary": "Analyse der Beteiligung und der Pro/Contra-Debatte zur Senkung des Wahlalters.",
+  "details": "Dieser Report analysiert die Zustimmung zur Absenkung des Wahlalters in verschiedenen Regionen Deutschlands und Europas.",
+  "recommendation": "Empfohlen wird ein Modellversuch mit wissenschaftlicher Begleitung.",
+  "topArguments": {
+    "pro": [
+      "Jugendliche bringen frische Perspektiven in die Politik.",
+      "Wahlalter 16 fördert frühe Beteiligung."
+    ],
+    "contra": [
+      "Viele 16-Jährige sind noch zu unreif.",
+      "Manipulationsgefahr durch Eltern/Peers."
+    ]
+  },
+  "trends": [
+    {"label": "Zustimmung urban", "desc": "Höher in urbanen Regionen", "type": "region"},
+    {"label": "Altersabhängig", "desc": "Zustimmung sinkt mit Alter", "type": "age"}
+  ],
+  "internationalComparison": [
+    { "country": "Österreich", "votingAge": 16, "effects": "Stabile Wahlbeteiligung." }
+  ],
+  "facts": [
+    {
+      "text": "Deutschland hat im internationalen Vergleich ein hohes Wahlbeteiligungsalter.",
+      "source": {
+        "name": "Bertelsmann-Studie 2024",
+        "url": "https://...",
+        "trustScore": 85
+      }
+    },
+    {
+      "text": "Österreich gilt als Vorreiter bei Wahlalter 16.",
+      "source": {
+        "name": "Bertelsmann-Studie 2024",
+        "url": "https://...",
+        "trustScore": 85
+      }
+    }
+  ],
+  "charts": [
+    {
+      "type": "bar",
+      "data": { "16-18": 350, "19-25": 280 },
+      "title": "Zustimmung nach Altersgruppen",
+      "description": "Höchste Zustimmung bei 16–18-Jährigen",
+      "source": "System",
+      "colorscheme": "blue-green"
+    }
+  ],
+  "regionScope": [
+    { "ags": "00000000", "iso": "DE", "name": "Deutschland", "type": "Land", "population": 83200000 },
+    { "nuts1": "EU", "iso": "EU", "name": "Europäische Union", "type": "EU", "population": 448000000 }
+  ],
+  "languages": ["de", "en"],
+  "translations": {
+    "en": {
+      "title": "Meta-Report: Voting age 16 in Germany",
+      "summary": "Analysis of participation and the pro/con debate on lowering the voting age."
+    }
+  },
+  "tags": ["Wahlalter", "Jugend", "Demokratie"],
+  "focusGroups": ["Jugendliche", "Lehrkräfte", "Politikinteressierte"],
+  "sources": [
+    {
+      "name": "Bertelsmann-Studie 2024",
+      "url": "https://...",
+      "type": "study",
+      "country": "Deutschland",
+      "trustScore": 85,
+      "tags": ["Jugend", "Demokratie"]
+    }
+  ],
+  "methodology": "Automatisierte Auswertung via GPT und Community-Mods.",
+  "analytics": {
+    "votes": { "agree": 1550, "neutral": 420, "disagree": 1200 },
+    "trendData": [
+      { "date": "2025-07-21", "agree": 1000, "neutral": 250, "disagree": 700 },
+      { "date": "2025-08-01", "agree": 1550, "neutral": 420, "disagree": 1200 }
+    ],
+    "geoDistribution": {
+      "DE": { "agree": 800, "disagree": 600 },
+      "BY": { "agree": 300, "disagree": 200 }
+    },
+    "engagement": {
+      "totalViews": 7000,
+      "uniqueUsers": 3200,
+      "clicks": 0,
+      "shares": 0,
+      "readTimeAvg": 0,
+      "likes": 0,
+      "bookmarks": 0
+    },
+    "demographics": {
+      "ageGroups": {
+        "16-18": { "agree": 350, "disagree": 60 },
+        "19-25": { "agree": 280, "disagree": 100 }
+      }
+    }
+  },
+  "aiAnalysis": {
+    "gptSummary": {
+      "de": "Jugendliche stimmen mehrheitlich zu.",
+      "en": "Youth shows majority support.",
+      "score": 87
+    },
+    "moderation": {
+      "toxicity": "low",
+      "biasRisk": "none"
+    },
+    "translationCache": {
+      "de": true,
+      "en": true
+    }
+  },
+  "semanticLinks": {
+    "wikidata": "Q47209"
+  },
+  "relatedStatements": ["statement-003", "statement-005"],
+  "relatedReports": ["report-2025"],
+  "graphEdges": [
+    { "target": "statement-003", "label": "thematisch verwandt", "evidence": ["chart1"] }
+  ],
+  "status": "published",
+  "reviewedBy": ["policy-editor"],
+  "reviewStatus": "reviewed",
+  "reportAvailable": true,
+  "accessibilityStatus": "checked",
+  "barrierescore": 95,
+  "redaktionFreigabe": true,
+  "author": { "id": "system", "name": "System", "type": "Automated" },
+  "modLog": [
+    {
+      "action": "initial creation",
+      "by": "admin",
+      "date": "2025-07-21T14:05:00Z"
+    },
+    {
+      "action": "reviewed",
+      "by": "editor",
+      "date": "2025-07-22T10:00:00Z"
+    }
+  ],
+  "auditLog": [
+    {
+      "action": "published",
+      "by": "system",
+      "timestamp": "2025-07-22T10:00:00Z"
+    }
+  ],
+  "createdAt": "2025-07-21T14:00:00Z",
+  "updatedAt": "2025-07-22T10:00:00Z"
+}

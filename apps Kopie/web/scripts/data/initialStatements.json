@@ -1,0 +1,187 @@
+[
+  {
+    "id": "statement-001",
+    "title": "Wahlalter 16 – Jugendliche an die Urne?",
+    "statement": "Soll das aktive Wahlalter bundesweit auf 16 Jahre gesenkt werden, damit mehr junge Menschen an demokratischen Entscheidungen teilhaben können?",
+    
+    "confidence": 1.0,
+  "context": "",
+  "shortText": "Wählen ab 16: Mehr Mitbestimmung oder zu jung für Politik?",
+    "plainStatement": "Sollen Jugendliche ab 16 wählen dürfen?",
+    "category": "Demokratie & Bildung",
+    "tags": ["Wahlrecht", "Jugend", "Mitbestimmung"],
+    "cluster": "Jugend & Wahlen",
+    "sources": [],
+    "facts": [
+      {
+        "text": "Österreich erlaubt seit 2007 das Wählen ab 16 Jahren.",
+        "source": {
+          "name": "Bundeszentrale für politische Bildung",
+          "url": "https://www.bpb.de/",
+          "trustScore": 95
+        }
+      }
+    ],
+    "votingRule": {
+      "type": "two-thirds",
+      "description": "2/3-Mehrheit nötig, NGO-Stimmen zählen doppelt.",
+      "weightMap": { "NGO": 2, "Wissenschaft": 1.5, "Bürger": 1 },
+      "minQuorum": 100
+    },
+    "status": "active",
+    "language": "de",
+    "originalLanguage": "de",
+    "translations": {
+      "en": {
+        "title": "Voting Age 16 – Should teens be allowed to vote?",
+        "statement": "Should the voting age be lowered nationwide to 16 so more young people can participate in democratic decisions?",
+        "shortText": "Voting at 16: More participation or too young for politics?",
+        "plainStatement": "Should 16-year-olds be allowed to vote?"
+      }
+    },
+    "imageUrl": "/dummy/dummy1.jpg",
+    "media": ["/dummy/dummy1.jpg"],
+    "publishedAt": "2025-07-21T10:00:00Z",
+    "regionScope": [
+      {
+        "ags": "00000000",
+        "nuts1": "DE",
+        "nuts2": "EU",
+        "iso": "DE",
+        "name": "Deutschland",
+        "type": "Land",
+        "population": 83200000
+      },
+      {
+        "nuts1": "EU",
+        "name": "Europäische Union",
+        "type": "EU",
+        "population": 448000000
+      },
+      {
+        "iso": "GLOBAL",
+        "name": "Global",
+        "type": "global"
+      }
+    ],
+    "visibility": "public",
+    "importance": "featured",
+    "reviewStatus": "reviewed",
+    "archivedAt": null,
+    "createdBy": "system",
+    "createdAt": "2025-07-21T10:00:00Z",
+    "updatedAt": "2025-07-21T10:00:00Z",
+    "impactLogic": [
+      {
+        "type": "sozial",
+        "description": {
+          "einfach": "Mehr Jugendliche dürfen wählen. Das gibt ihnen eine stärkere Stimme.",
+          "eloquent": "Die Senkung des Wahlalters fördert die frühzeitige demokratische Beteiligung und gesellschaftliche Integration junger Menschen."
+        }
+      },
+      {
+        "type": "gesellschaftlich",
+        "description": {
+          "einfach": "Die Politik muss mehr auf junge Themen achten.",
+          "eloquent": "Die Politiklandschaft wird durch neue, jüngere Perspektiven bereichert und erhält einen Innovationsschub."
+        }
+      }
+    ],
+    "arguments": {
+      "pro": [
+        "Junge Menschen sind von politischen Entscheidungen direkt betroffen.",
+        "Frühzeitige Mitbestimmung steigert das politische Interesse.",
+        "Länder wie Österreich und Schottland zeigen: Wahlalter 16 ist machbar."
+      ],
+      "contra": [
+        "Mit 16 fehlt oft die nötige Reife für politische Verantwortung.",
+        "Erhöhte Beeinflussbarkeit durch Familie und Medien.",
+        "Wahlbeteiligung könnte insgesamt nicht steigen."
+      ]
+    },
+    "summary": {
+      "einfach": "Wahlalter 16 bringt mehr Mitsprache für die Jugend.",
+      "eloquent": "Die Absenkung des Wahlalters ermöglicht es einer neuen Generation, die Gesellschaft aktiv mitzugestalten."
+    },
+    "recommendation": {
+      "einfach": "Testweise einführen und begleiten.",
+      "eloquent": "Eine schrittweise Einführung mit begleitender Demokratieförderung wird empfohlen."
+    },
+    "votes": {
+      "agree": 0,
+      "neutral": 0,
+      "disagree": 0,
+      "requiredMajority": 66.7
+    },
+    "topComments": [],
+    "alternatives": [
+      {
+        "text": "Wahlalter bleibt bei 18",
+        "type": "statusQuo",
+        "impact": "Tradition, geringeres Risiko von Fehlentscheidungen.",
+        "votes": { "agree": 0, "neutral": 0, "disagree": 0 }
+      },
+      {
+        "text": "Wahlalter 17 als Kompromiss",
+        "type": "kompromiss",
+        "impact": "Behutsame Annäherung, weniger Bruch.",
+        "votes": { "agree": 0, "neutral": 0, "disagree": 0 }
+      },
+      {
+        "text": "Wahlalter 16 mit verpflichtender Demokratiebildung",
+        "type": "community",
+        "impact": "Bessere Vorbereitung der Jugend auf Verantwortung.",
+        "votes": { "agree": 0, "neutral": 0, "disagree": 0 }
+      }
+    ],
+    "eventualities": [],
+    "regionalVoices": [],
+    "localJournalism": {},
+    "reviewedBy": [],
+    "reviewLog": [],
+    "trustScore": 98,
+    "badge": "featured",
+    "relatedStatements": ["statement-003", "statement-005"],
+    "relatedReports": ["report-0002", "report-2025"],
+    "reportAvailable": true,
+    "accessibilityStatus": "checked",
+    "barrierescore": 95,
+    "moderationStatus": "active",
+    "aiAnnotations": {
+      "toxicity": 0.01,
+      "sentiment": "neutral",
+      "subjectAreas": ["Jugend", "Demokratie", "Repräsentation"]
+    },
+    "semanticLinks": {
+      "wikidata": "Q47209"
+    },
+    "customFields": {},
+    "historyLog": [
+      {
+        "action": "created",
+        "by": "system",
+        "at": "2025-07-21T10:00:00Z"
+      }
+    ],
+    "userActions": [],
+    "graphEdges": [
+      {
+        "target": "cluster-001",
+        "label": "Cluster: Jugend & Wahlen",
+        "evidence": ["report-0002"],
+        "auditTrail": [
+          { "action": "verified", "by": "editor1", "at": "2025-07-22T10:00:00Z" }
+        ]
+      }
+    ],
+    "impactScore": 88,
+    "ethicScore": 91,
+    "policyFit": true,
+    "solidarityScore": 77,
+    "communityIndex": 34,
+    "laymanExplanation": "Die Wahlalterdebatte ist ein Schlüsselthema für Jugendpartizipation.",
+    "provenance": [
+      { "source": "bpb", "reason": "Fachartikel"  }
+  }
+}
+]
