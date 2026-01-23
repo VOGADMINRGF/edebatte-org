@@ -110,6 +110,14 @@ function sanitizeMaxClaims(maxClaims?: number): number {
  * - SSE: progress/result/error-events mit identischem Result-Shape
  */
 export async function POST(req: NextRequest): Promise<Response> {
+  if (process.env.ANALYZE_ENABLED !== "true") {
+    return NextResponse.json({
+      ok: false,
+      disabled: true,
+      message: "Analyse derzeit deaktiviert.",
+    });
+  }
+
   const runId = crypto.randomUUID();
   let rawBody: unknown;
   try {

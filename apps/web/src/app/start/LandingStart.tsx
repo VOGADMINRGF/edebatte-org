@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import LandingAssistant from "@features/landing/LandingAssistant";
 import type { LandingScope, LandingTile } from "@features/landing/landingSeeds";
 import type { GeoInfo } from "@/lib/geo/getGeoFromHeaders";
 import type { ExampleItem, ExampleKind } from "@/lib/examples/types";
 import type { BucketBlock } from "@/components/landing/ExamplesBackdrop";
 import { ExamplesMarqueeRows } from "@/components/landing/ExamplesMarqueeRows";
-import { buildPrefillUrl, createDraftAndNavigate } from "@features/common/utils/draftNavigation";
 import { PrelaunchGateModal } from "@/components/landing/PrelaunchGateModal";
 import { useLocale } from "@/context/LocaleContext";
 import { normalizeLang, type Lang } from "@features/landing/landingCopy";
@@ -33,10 +33,15 @@ function tileToExample(
 ): ExampleItem | null {
   const title = tile.text?.trim();
   if (!title) return null;
+
   const kind: ExampleKind =
     tile.kind === "option" || tile.kind === "vote" ? "Abstimmung" : "Debattenpunkt";
-  const scopeLabel = scope === "world" ? "WORLD" : scope === "eu" ? "EU" : scope === "region" ? "REGION" : "COUNTRY";
-  const topics = tile.tag ? [tile.tag] : ["Neu"];
+
+  const scopeLabel =
+    scope === "world" ? "WORLD" : scope === "eu" ? "EU" : scope === "region" ? "REGION" : "COUNTRY";
+
+  const topics = tile.tag ? [tile.tag] : [lang === "en" ? "New" : "Neu"];
+
   return {
     id: `live-${Date.now()}-${index}`,
     kind,
@@ -53,10 +58,14 @@ function tileToExample(
 export default function LandingStart({ blocks, geo }: LandingStartProps) {
   const { locale } = useLocale();
   const lang = useMemo(() => normalizeLang(locale), [locale]);
+  const router = useRouter();
+
   const [liveBlocks, setLiveBlocks] = useState<BucketBlock[]>(() => blocks);
   const [prefillText, setPrefillText] = useState("");
+
   const [showGate, setShowGate] = useState(false);
   const [gateAcknowledged, setGateAcknowledged] = useState(false);
+
   const pendingSubmitRef = useRef<null | (() => void)>(null);
   const pendingRefineRef = useRef<null | (() => void)>(null);
 
@@ -74,9 +83,11 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
     (scope: LandingScope, tiles: LandingTile[]) => {
       const label = SCOPE_TO_LABEL[scope];
       if (!label) return;
+
       setLiveBlocks((prev) =>
         prev.map((block) => {
           if (block.label !== label) return block;
+
           const seen = new Set(block.items.map((item) => item.title_de));
           const incoming = tiles
             .map((tile, idx) => tileToExample(tile, scope, geo, idx, lang))
@@ -86,6 +97,7 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
               seen.add(item.title_de);
               return true;
             });
+
           return {
             ...block,
             items: [...incoming, ...block.items].slice(0, 32),
@@ -170,16 +182,13 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
         lang={lang}
         onPick={(item) => setPrefillText(titleForLang(item))}
         onOpen={(item) => {
+          // Kein /statements/new, keine Drafts – nur “How it works”
           const isVote = item.kind === "Abstimmung";
-          const targetPath = isVote ? "/statements/new" : "/contribute";
-          const title = titleForLang(item);
+          const targetPath = isVote
+            ? "/howtoworks/edebatte/abstimmen"
+            : "/howtoworks/edebatte/dossier";
           ingestExample(item);
-          void createDraftAndNavigate({
-            kind: isVote ? "statement" : "topic",
-            text: title,
-            targetPath,
-            fallbackPath: buildPrefillUrl(targetPath, title),
-          });
+          router.push(targetPath);
         }}
       />
 
@@ -198,8 +207,8 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
         open={showGate}
         onClose={() => setShowGate(false)}
         lang={lang}
-        onRefine={handleGateRefine}
         onSubmit={handleGateSubmit}
+        onRefine={handleGateRefine}
       />
     </section>
   );

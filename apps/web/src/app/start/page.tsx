@@ -20,6 +20,7 @@ export default async function StartPage() {
 
   const world = selectExamples({ bucket: "WORLD", limit: 10, seedKey });
   const eu = selectExamples({ bucket: "EU", limit: 10, seedKey });
+
   const neighborItems = selectExamples({
     bucket: "NEIGHBORS",
     country: geo.country,
@@ -27,12 +28,14 @@ export default async function StartPage() {
     limit: 10,
     seedKey,
   });
+
   const homeCountry = selectExamples({
     bucket: "HOME_COUNTRY",
     country: geo.country,
     limit: 10,
     seedKey,
   });
+
   const homeRegion = selectExamples({
     bucket: "HOME_REGION",
     country: geo.country,
@@ -40,21 +43,14 @@ export default async function StartPage() {
     limit: 10,
     seedKey,
   });
-  const homeLocal = selectExamples({
-    bucket: "HOME_LOCAL",
-    country: geo.country,
-    region: geo.region,
-    limit: 10,
-    seedKey,
-  });
 
+  // Reduced rows (as discussed)
   const blocks: BucketBlock[] = [
     { label: "WORLD", items: world },
     { label: "EU", items: eu },
     { label: "NACHBARLÄNDER", items: neighborItems },
     { label: "HEIMATLAND", items: homeCountry },
-    { label: "BUNDESLAND / BUNDESSTAAT", items: homeRegion },
-    { label: "WAHLKREIS / KOMMUNE", items: homeLocal },
+    { label: "HEIMATREGION", items: homeRegion },
   ];
 
   return <LandingStart blocks={blocks} geo={geo} />;

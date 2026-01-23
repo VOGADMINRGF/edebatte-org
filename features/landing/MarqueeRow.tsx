@@ -1,37 +1,15 @@
 "use client";
 
 import type { LandingTile } from "./landingSeeds";
-import { buildPrefillUrl, createDraftAndNavigate } from "../common/utils/draftNavigation";
 
 function resolveTileTarget(tile: LandingTile) {
-  if (tile.statementId) {
-    return { href: `/statements/${tile.statementId}` };
+  if (tile.statementId) return { href: `/statements/${tile.statementId}` };
+  if (tile.dossierId) return { href: `/dossier/${tile.dossierId}` };
+
+  if (tile.kind === "vote" || tile.kind === "option") {
+    return { href: "/howtoworks/edebatte/abstimmen" };
   }
-  if (tile.dossierId) {
-    return { href: `/dossier/${tile.dossierId}` };
-  }
-  if (tile.kind === "option" || tile.kind === "vote") {
-    return {
-      href: "/statements/new",
-      targetPath: "/statements/new",
-      draftKind: "statement",
-      fallbackPath: buildPrefillUrl("/statements/new", tile.text),
-    };
-  }
-  if (tile.kind === "question") {
-    return {
-      href: "/contribute",
-      targetPath: "/contribute",
-      draftKind: "question",
-      fallbackPath: buildPrefillUrl("/contribute", tile.text),
-    };
-  }
-  return {
-    href: "/contribute",
-    targetPath: "/contribute",
-    draftKind: "topic",
-    fallbackPath: buildPrefillUrl("/contribute", tile.text),
-  };
+  return { href: "/howtoworks/edebatte/dossier" };
 }
 
 export default function MarqueeRow({
@@ -51,6 +29,7 @@ export default function MarqueeRow({
   const pinned = items
     .filter((tile) => typeof tile.freshUntil === "number" && tile.freshUntil > clock)
     .slice(0, 6);
+
   const pinnedIds = new Set(pinned.map((tile) => tile.id));
   const scrollItems = items.filter((tile) => !pinnedIds.has(tile.id));
   const doubled = scrollItems.length ? [...scrollItems, ...scrollItems] : scrollItems;
@@ -58,7 +37,9 @@ export default function MarqueeRow({
   return (
     <div className="relative">
       <div className="mb-2 flex items-center justify-between px-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+          {label}
+        </p>
         <span className="text-[11px] text-slate-400">{items.length} Beiträge</span>
       </div>
 
@@ -75,16 +56,6 @@ export default function MarqueeRow({
                 <a
                   key={t.id}
                   href={target.href}
-                  onClick={(event) => {
-                    if (!target.draftKind || !target.targetPath) return;
-                    event.preventDefault();
-                    void createDraftAndNavigate({
-                      kind: target.draftKind,
-                      text: t.text,
-                      targetPath: target.targetPath,
-                      fallbackPath: target.fallbackPath ?? target.href,
-                    });
-                  }}
                   className="group min-w-[220px] rounded-2xl border border-sky-200/80 bg-white/90 px-4 py-3 shadow-sm backdrop-blur hover:bg-white"
                 >
                   <div className="flex items-center gap-2">
@@ -95,7 +66,9 @@ export default function MarqueeRow({
                       {kindLabel}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-slate-900 group-hover:underline">{t.text}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900 group-hover:underline">
+                    {t.text}
+                  </p>
                 </a>
               );
             })}
@@ -114,16 +87,6 @@ export default function MarqueeRow({
                 <a
                   key={`${t.id}-${idx}`}
                   href={target.href}
-                  onClick={(event) => {
-                    if (!target.draftKind || !target.targetPath) return;
-                    event.preventDefault();
-                    void createDraftAndNavigate({
-                      kind: target.draftKind,
-                      text: t.text,
-                      targetPath: target.targetPath,
-                      fallbackPath: target.fallbackPath ?? target.href,
-                    });
-                  }}
                   className="group rounded-2xl border border-slate-200/60 bg-white/70 px-4 py-3 shadow-sm backdrop-blur hover:bg-white"
                 >
                   <div className="flex items-center gap-2">
@@ -136,8 +99,9 @@ export default function MarqueeRow({
                       </span>
                     )}
                     <span className="text-[11px] text-slate-400">•</span>
-                    <span className="text-[11px] text-slate-500">Öffentlich</span>
+                    <span className="text-[11px] text-slate-500">Demo</span>
                   </div>
+
                   <p className="mt-2 max-w-[320px] text-sm font-semibold text-slate-900 group-hover:underline">
                     {t.text}
                   </p>
@@ -167,12 +131,6 @@ export default function MarqueeRow({
             animation-timing-function: linear;
             animation-iteration-count: infinite;
             animation-duration: var(--marquee-duration);
-          }
-          @media (max-width: 768px) {
-            .edb-marquee,
-            .edb-marquee-rev {
-              animation-duration: calc(var(--marquee-duration) * 1.35);
-            }
           }
           @media (prefers-reduced-motion: reduce) {
             .edb-marquee,

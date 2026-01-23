@@ -34,6 +34,33 @@ function tileToCount<T>(arr: T[], count: number): T[] {
   return out.slice(0, count);
 }
 
+function routingHintForBucket(bucket: string, lang: Lang) {
+  const de = {
+    WORLD: "Routing: global (z. B. UN / internationale Standards)",
+    EU: "Routing: EU (Kommission/Parlament/Rat)",
+    NACHBARLÄNDER: "Routing: Nachbarländer / grenznahe Themen",
+    HEIMATLAND: "Routing: Bund/Land (Gesetze, Ministerien, Behörden)",
+    HEIMATREGION: "Routing: Kommune/Region (lokale Umsetzung)",
+    HOME_COUNTRY: "Routing: Bund/Land (Gesetze, Ministerien, Behörden)",
+    HOME_REGION: "Routing: Kommune/Region (lokale Umsetzung)",
+    NEIGHBORS: "Routing: Nachbarländer / grenznahe Themen",
+  } as const;
+
+  const en = {
+    WORLD: "Routing: global (e.g., UN / international standards)",
+    EU: "Routing: EU level (Commission/Parliament/Council)",
+    NACHBARLÄNDER: "Routing: neighboring countries / cross-border topics",
+    HEIMATLAND: "Routing: national/state (laws, ministries, agencies)",
+    HEIMATREGION: "Routing: local/region (implementation)",
+    HOME_COUNTRY: "Routing: national/state (laws, ministries, agencies)",
+    HOME_REGION: "Routing: local/region (implementation)",
+    NEIGHBORS: "Routing: neighboring countries / cross-border topics",
+  } as const;
+
+  const map = lang === "en" ? en : de;
+  return map[bucket as keyof typeof map] ?? (lang === "en" ? "Routing: —" : "Routing: —");
+}
+
 export function ExamplesMarqueeRows(props: {
   blocks: Block[];
   lang: Lang;
@@ -41,6 +68,8 @@ export function ExamplesMarqueeRows(props: {
   onOpen?: (item: ExampleItem) => void;
 }) {
   const { ref, size } = useElementSize<HTMLDivElement>();
+
+  // keep sizes stable; just reduce “header heaviness”
   const cardWidth = 260;
   const gap = 12;
   const minCount = Math.max(10, Math.ceil((size.width + gap) / (cardWidth + gap)) + 6);
@@ -48,32 +77,49 @@ export function ExamplesMarqueeRows(props: {
 
   return (
     <div ref={ref} className="absolute inset-0 z-0 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 edb-backdrop-glow bg-[radial-gradient(900px_520px_at_30%_0%,rgba(26,140,255,0.2),transparent_55%),radial-gradient(900px_520px_at_72%_0%,rgba(24,207,200,0.18),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-0 edb-backdrop-waves bg-[linear-gradient(120deg,rgba(26,140,255,0.08),transparent_45%),linear-gradient(300deg,rgba(24,207,200,0.08),transparent_45%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-white/35" />
+      {/* calmer backdrop (less “heavy white overlay”) */}
+      <div className="pointer-events-none absolute inset-0 edb-backdrop-glow bg-[radial-gradient(900px_520px_at_30%_0%,rgba(26,140,255,0.18),transparent_58%),radial-gradient(900px_520px_at_72%_0%,rgba(24,207,200,0.16),transparent_58%)]" />
+      <div className="pointer-events-none absolute inset-0 edb-backdrop-waves bg-[linear-gradient(120deg,rgba(26,140,255,0.06),transparent_48%),linear-gradient(300deg,rgba(24,207,200,0.06),transparent_48%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-white/25" />
 
-      <div className="relative mx-auto w-full space-y-4 px-5 py-8">
+      {/* tighter vertical rhythm */}
+      <div className="relative mx-auto w-full space-y-3 px-5 py-6">
         {props.blocks.map((block, idx) => {
           const baseItems = tileToCount(block.items, minCount);
           const doubled = baseItems.length ? [...baseItems, ...baseItems] : baseItems;
           const duration = speeds[idx % speeds.length];
+
+          const label = labelForBucket(block.label, props.lang);
           const hint = hintForBucket(block.label, props.lang);
+          const route = routingHintForBucket(block.label, props.lang);
+
           return (
             <section key={block.label} className="relative">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-[11px] font-semibold tracking-[0.22em] text-black/50">
-                  {labelForBucket(block.label, props.lang)}
+              {/* Slim header (no “bar” look) */}
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                    {label}
+                  </span>
+                  <span className="text-[10px] text-slate-400">•</span>
+                  <span className="text-[10px] text-slate-400">{route}</span>
                 </div>
-                {hint && <div className="text-[11px] text-black/40">{hint}</div>}
+
+                {hint && (
+                  <div className="text-[10px] text-slate-400">
+                    {hint}
+                  </div>
+                )}
               </div>
 
               <div className="relative overflow-hidden">
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-50/80 to-transparent" />
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-50/80 to-transparent" />
+                {/* softer edge masks */}
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-slate-50/70 to-transparent" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-slate-50/70 to-transparent" />
 
                 {doubled.length > 0 && (
                   <div
-                    className="flex w-max gap-4 edb-marquee"
+                    className="flex w-max gap-3 edb-marquee"
                     style={{ ["--marquee-duration" as string]: `${duration}s` }}
                   >
                     {doubled.map((item, itemIdx) => (
@@ -95,7 +141,7 @@ export function ExamplesMarqueeRows(props: {
         })}
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_30%,transparent_35%,rgba(0,0,0,0.06)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_30%,transparent_40%,rgba(0,0,0,0.05)_100%)]" />
 
       <style jsx>{`
         .edb-backdrop-glow {
