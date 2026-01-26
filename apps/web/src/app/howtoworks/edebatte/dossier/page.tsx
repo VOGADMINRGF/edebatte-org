@@ -145,7 +145,7 @@ export default function DossierPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
             {text(hero, "kicker")}
           </p>
-          <h1 className="text-4xl font-extrabold leading-tight text-slate-900">
+          <h1 className="headline-grad text-4xl font-extrabold leading-tight">
             {text(hero, "title")}
           </h1>
           <p className="text-lg text-slate-700">{text(hero, "lead")}</p>
@@ -163,10 +163,10 @@ export default function DossierPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link href="/howtoworks/edebatte#rolle-vereine" className="btn bg-brand-grad text-white shadow-soft">
+            <Link href="/howtoworks/edebatte#rolle-vereine" className="btn btn-primary">
               Zur Rolle Vereine & Journalist:innen
             </Link>
-            <Link href="/howtoworks/edebatte/abstimmen" className="btn border border-slate-300 bg-white">
+            <Link href="/howtoworks/edebatte/abstimmen" className="btn btn-ghost">
               Weiter zu Abstimmen & Ergebnis
             </Link>
           </div>

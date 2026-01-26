@@ -69,10 +69,10 @@ export default function StatementsPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/statements/new"
+              href="/start"
               className="btn btn-primary bg-brand-grad text-white"
             >
-              Statement erstellen
+              Beitrag einreichen
             </Link>
             <Link
               href="/thema-einreichen"
@@ -151,12 +151,12 @@ export default function StatementsPage() {
                 Bereit, dein Anliegen einzureichen?
               </h2>
               <p className="text-sm text-slate-700">
-                Starte im Statement-Editor und forme dein Thema in wenigen
-                Minuten zu einer prüfbaren Aussage.
+                Reiche dein Anliegen ein und forme es in wenigen Minuten zu
+                einer prüfbaren Aussage.
               </p>
             </div>
             <Link
-              href="/statements/new"
+              href="/start"
               className="btn btn-primary bg-brand-grad text-white"
             >
               Jetzt starten

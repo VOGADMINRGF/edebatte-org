@@ -21,8 +21,24 @@ const SCOPE_TO_LABEL: Record<LandingScope, string> = {
   world: "WORLD",
   eu: "EU",
   country: "HEIMATLAND",
-  region: "BUNDESLAND / BUNDESSTAAT",
+  region: "HEIMATREGION",
 };
+
+const SCOPE_TO_EXAMPLE: Record<LandingScope, "WORLD" | "EU" | "REGION" | "COUNTRY"> = {
+  world: "WORLD",
+  eu: "EU",
+  country: "COUNTRY",
+  region: "REGION",
+};
+
+function stableHash(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
 
 function tileToExample(
   tile: LandingTile,
@@ -37,16 +53,16 @@ function tileToExample(
   const kind: ExampleKind =
     tile.kind === "option" || tile.kind === "vote" ? "Abstimmung" : "Debattenpunkt";
 
-  const scopeLabel =
-    scope === "world" ? "WORLD" : scope === "eu" ? "EU" : scope === "region" ? "REGION" : "COUNTRY";
-
+  const scopeLabel = SCOPE_TO_EXAMPLE[scope];
   const topics = tile.tag ? [tile.tag] : [lang === "en" ? "New" : "Neu"];
+  const topicsEn = tile.tag ? [tile.tag] : ["New"];
+  const idSeed = tile.id || `${scopeLabel}|${kind}|${title}|${tile.tag ?? ""}|${index}`;
 
   return {
-    id: `live-${Date.now()}-${index}`,
+    id: `live-${stableHash(idSeed)}`,
     kind,
     topics,
-    topics_en: lang === "en" ? topics : undefined,
+    topics_en: topicsEn,
     title_de: title,
     title_en: lang === "en" ? title : undefined,
     scope: scopeLabel,
@@ -180,13 +196,12 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
       <ExamplesMarqueeRows
         blocks={liveBlocks}
         lang={lang}
-        onPick={(item) => setPrefillText(titleForLang(item))}
+        onPick={(item) => {
+          setPrefillText(titleForLang(item));
+        }}
         onOpen={(item) => {
-          // Kein /statements/new, keine Drafts – nur “How it works”
           const isVote = item.kind === "Abstimmung";
-          const targetPath = isVote
-            ? "/howtoworks/edebatte/abstimmen"
-            : "/howtoworks/edebatte/dossier";
+          const targetPath = isVote ? "/howtoworks/edebatte/abstimmen" : "/howtoworks/edebatte/dossier";
           ingestExample(item);
           router.push(targetPath);
         }}

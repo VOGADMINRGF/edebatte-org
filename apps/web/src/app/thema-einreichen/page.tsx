@@ -32,10 +32,10 @@ export default function ThemaEinreichenPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/statements/new"
+              href="/start"
               className="btn btn-primary bg-brand-grad text-white"
             >
-              Zum Statement-Editor
+              Beitrag einreichen
             </Link>
             <Link
               href="/faq"
@@ -127,12 +127,12 @@ export default function ThemaEinreichenPage() {
                 Bereit, dein Thema einzureichen?
               </h2>
               <p className="text-sm text-slate-700">
-                Starte im Statement-Editor und strukturiere dein Anliegen in
-                wenigen Minuten.
+                Reiche dein Anliegen ein und strukturiere es in wenigen
+                Minuten.
               </p>
             </div>
             <Link
-              href="/statements/new"
+              href="/start"
               className="btn btn-primary bg-brand-grad text-white"
             >
               Jetzt starten

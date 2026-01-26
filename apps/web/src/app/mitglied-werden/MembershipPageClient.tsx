@@ -260,15 +260,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
       <section className="rounded-[40px] border border-transparent bg-gradient-to-br from-sky-50 via-white to-emerald-50/50 p-1 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
         <div className="space-y-6 rounded-[36px] bg-white/95 p-6 md:p-8">
           <header className="space-y-3">
-            <h1
-              className="text-3xl font-extrabold leading-tight md:text-4xl"
-              style={{
-                backgroundImage:
-                  "linear-gradient(90deg,var(--brand-cyan),var(--brand-blue))",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-              }}
-            >
+            <h1 className="headline-grad text-3xl font-extrabold leading-tight md:text-4xl">
               {strings.heroTitle}
             </h1>
             <p className="text-sm leading-relaxed text-slate-700 md:text-base">

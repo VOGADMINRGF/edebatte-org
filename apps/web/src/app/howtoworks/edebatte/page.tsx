@@ -30,7 +30,7 @@ const heroChips = [
 const heroButtons = [
   {
     id: "cta-statements",
-    href: "/statements/new",
+    href: "/start",
     label_de: "Anliegen einreichen",
     label_en: "Submit a concern",
     primary: true,
@@ -299,14 +299,7 @@ export default function HowToWorksEDebattePage() {
     <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
       <section className="mx-auto max-w-5xl px-4 py-16 space-y-10">
         <header className="space-y-4">
-          <h1
-            className="text-4xl font-extrabold leading-tight"
-            style={{
-              backgroundImage: "linear-gradient(90deg,var(--brand-cyan),var(--brand-blue))",
-              WebkitBackgroundClip: "text",
-              color: "transparent",
-            }}
-          >
+          <h1 className="headline-grad text-4xl font-extrabold leading-tight">
             {text(heroCopy, "title")}
           </h1>
           <div className="rounded-[40px] border border-transparent bg-gradient-to-br from-sky-50 via-white to-emerald-50/60 p-1 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
@@ -329,11 +322,7 @@ export default function HowToWorksEDebattePage() {
                   <a
                     key={btn.id}
                     href={btn.href}
-                    className={
-                      btn.primary
-                        ? "btn bg-brand-grad text-white shadow-soft"
-                        : "btn border border-slate-300 bg-white"
-                    }
+                    className={btn.primary ? "btn btn-primary" : "btn btn-ghost"}
                   >
                     {text(btn, "label")}
                   </a>
@@ -564,13 +553,13 @@ export default function HowToWorksEDebattePage() {
             Du möchtest ein Anliegen einreichen oder eDebatte für deine Organisation testen? So kannst du loslegen:
           </p>
           <div className="flex flex-wrap gap-3">
-            <a href="/statements/new" className="btn bg-brand-grad text-white shadow-soft">
+            <a href="/start" className="btn btn-primary">
               Anliegen einreichen
             </a>
-            <a href="/howtoworks/bewegung" className="btn border border-slate-300 bg-white">
+            <a href="/howtoworks/bewegung" className="btn btn-ghost">
               Mehr über die Bewegung
             </a>
-            <a href="/team" className="btn border border-slate-300 bg-white">
+            <a href="/team" className="btn btn-ghost">
               Kooperation & Team
             </a>
           </div>

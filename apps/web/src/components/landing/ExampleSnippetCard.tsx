@@ -9,7 +9,7 @@ import { STATE_CRESTS } from "./stateCrests";
 
 const WORLD_FLAG = String.fromCodePoint(0x1f30d);
 const EU_FLAG = String.fromCodePoint(0x1f1ea, 0x1f1fa);
-const REGION_SHIELD = "🛡️";
+const REGION_PLACE = "🏘️";
 
 const TOPIC_TONES = [
   "border-sky-200/80 bg-sky-100/70 text-sky-700",
@@ -49,12 +49,54 @@ function countryToFlagEmoji(countryCode: string) {
 
 function resolveRegionCode(item: ExampleItem) {
   if (!item.region) return null;
-  const region = item.region.toUpperCase();
-  if (region.includes("-")) return region;
-  if (item.country && item.country.length === 2) {
-    return `${item.country.toUpperCase()}-${region}`;
+  const region = item.region.trim();
+  const country = item.country?.toUpperCase();
+
+  if (country === "DE") {
+    const code = toDeStateCode(region);
+    if (code) return code;
   }
-  return region;
+
+  const upper = region.toUpperCase();
+  if (upper.includes("-")) return upper;
+  if (country && country.length === 2) {
+    return `${country}-${upper}`;
+  }
+  return upper;
+}
+
+const DE_STATE_MAP: Record<string, string> = {
+  "baden-württemberg": "DE-BW",
+  "baden-wuerttemberg": "DE-BW",
+  badenwurttemberg: "DE-BW",
+  bayern: "DE-BY",
+  bavaria: "DE-BY",
+  berlin: "DE-BE",
+  brandenburg: "DE-BB",
+  bremen: "DE-HB",
+  hamburg: "DE-HH",
+  hessen: "DE-HE",
+  "mecklenburg-vorpommern": "DE-MV",
+  mecklenburgvorpommern: "DE-MV",
+  niedersachsen: "DE-NI",
+  "nordrhein-westfalen": "DE-NW",
+  nordrheinwestfalen: "DE-NW",
+  "rheinland-pfalz": "DE-RP",
+  rheinlandpfalz: "DE-RP",
+  saarland: "DE-SL",
+  sachsen: "DE-SN",
+  "sachsen-anhalt": "DE-ST",
+  sachsenanhalt: "DE-ST",
+  "schleswig-holstein": "DE-SH",
+  schleswigholstein: "DE-SH",
+  thüringen: "DE-TH",
+  thueringen: "DE-TH",
+  thuringia: "DE-TH",
+};
+
+function toDeStateCode(region?: string | null) {
+  const key = (region ?? "").trim().toLowerCase();
+  return DE_STATE_MAP[key];
 }
 
 function locationBadge(item: ExampleItem): LocationBadge {
@@ -72,13 +114,8 @@ function locationBadge(item: ExampleItem): LocationBadge {
       return { kind: "crest", label: crest.name, regionCode };
     }
 
-    const label = item.region
-      ? item.country
-        ? `${item.country}-${item.region}`
-        : item.region
-      : item.country ?? "REGION";
-
-    return { kind: "emoji", emoji: REGION_SHIELD, label };
+    const label = item.region ?? "Region";
+    return { kind: "emoji", emoji: REGION_PLACE, label };
   }
 
   if (item.country) {

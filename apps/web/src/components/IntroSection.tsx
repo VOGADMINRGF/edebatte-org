@@ -23,8 +23,8 @@ export default function IntroSection() {
           <Link href="/statements">
             <Button variant="ghost">Beiträge lesen</Button>
           </Link>
-          <Link href="/statements/new">
-            <Button variant="primary">Eigenes Statement erstellen</Button>
+          <Link href="/start">
+            <Button variant="primary">Beitrag einreichen</Button>
           </Link>
         </div>
 

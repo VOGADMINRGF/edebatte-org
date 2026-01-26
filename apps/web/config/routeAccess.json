@@ -245,9 +245,6 @@
   "/statements/:id": {
     "access": "public"
   },
-  "/statements/new": {
-    "access": "public"
-  },
   "/stream": {
     "access": "public"
   },

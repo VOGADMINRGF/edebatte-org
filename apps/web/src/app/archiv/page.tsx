@@ -120,10 +120,10 @@ export default function ArchivPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/statements/new"
+                href="/start"
                 className="btn btn-primary bg-brand-grad text-white"
               >
-                Statement erstellen
+                Beitrag einreichen
               </Link>
               <Link
                 href="/abstimmungen"

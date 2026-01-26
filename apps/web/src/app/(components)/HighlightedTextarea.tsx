@@ -19,7 +19,7 @@ const baseOverlayClass =
   "pointer-events-none absolute inset-0 overflow-hidden rounded-lg px-3 py-2 text-sm leading-relaxed font-sans text-transparent marker-mask";
 
 /**
- * Gemeinsamer Textmarker-Editor für /contributions/new & /statements/new
+ * Gemeinsamer Textmarker-Editor für Beitragseinreichungen
  * – gleiche Animation (Marker läuft blau von links nach rechts).
  */
 export function HighlightedTextarea({

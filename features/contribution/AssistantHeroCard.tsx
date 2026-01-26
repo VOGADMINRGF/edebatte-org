@@ -130,14 +130,14 @@ export default function AssistantHeroCard() {
                 {preview.claims.map((c, idx) => (
                   <li key={idx}>
                     <a
-                      href="/statements/new"
+                      href="/contributions/new"
                       onClick={(event) => {
                         event.preventDefault();
                         void createDraftAndNavigate({
-                          kind: "statement",
+                          kind: "contribution",
                           text: c,
-                          targetPath: "/statements/new",
-                          fallbackPath: buildPrefillUrl("/statements/new", c),
+                          targetPath: "/contributions/new",
+                          fallbackPath: buildPrefillUrl("/contributions/new", c),
                         });
                       }}
                       className="block rounded-lg bg-white/80 px-2 py-1 hover:bg-white hover:underline"
@@ -164,14 +164,14 @@ export default function AssistantHeroCard() {
                 {preview.options.map((o, idx) => (
                   <li key={idx}>
                     <a
-                      href="/statements/new"
+                      href="/contributions/new"
                       onClick={(event) => {
                         event.preventDefault();
                         void createDraftAndNavigate({
-                          kind: "statement",
+                          kind: "contribution",
                           text: o,
-                          targetPath: "/statements/new",
-                          fallbackPath: buildPrefillUrl("/statements/new", o),
+                          targetPath: "/contributions/new",
+                          fallbackPath: buildPrefillUrl("/contributions/new", o),
                         });
                       }}
                       className="block rounded-lg bg-white/80 px-2 py-1 hover:bg-white hover:underline"

@@ -9,7 +9,7 @@ const infoLinks = [
 
 const platformLinks = [
   { href: "/swipe", label: "Swipe" },
-  { href: "/statements/new", label: "Statement verfassen" },
+  { href: "/start", label: "Beitrag einreichen" },
   { href: "/reports", label: "Reports" },
   { href: "/streams", label: "Streams & Events" },
 ];

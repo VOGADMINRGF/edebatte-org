@@ -115,14 +115,6 @@ export const DEFAULT_ROUTE_POLICIES: RoutePolicy[] = [
     loginOnly: true,
   },
   {
-    routeId: "statements_new",
-    pathPattern: "/statements/new",
-    label: "Statement Wizard",
-    defaultGroups: ["citizenBasic", "citizenPremium", "institutionBasic", "institutionPremium", "staff"],
-    allowAnonymous: true,
-    locked: false,
-  },
-  {
     routeId: "reports",
     pathPattern: "/reports",
     label: "Reports Overview",

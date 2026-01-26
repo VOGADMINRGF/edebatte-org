@@ -282,14 +282,14 @@ export default function SmartContribution({ initialText }: { initialText?: strin
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <a
-                    href="/statements/new"
+                    href="/contributions/new"
                     onClick={(event) => {
                       event.preventDefault();
                       void createDraftAndNavigate({
-                        kind: "statement",
+                        kind: "contribution",
                         text,
-                        targetPath: "/statements/new",
-                        fallbackPath: buildPrefillUrl("/statements/new", text),
+                        targetPath: "/contributions/new",
+                        fallbackPath: buildPrefillUrl("/contributions/new", text),
                       });
                     }}
                     className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:brightness-110"
@@ -500,17 +500,17 @@ function AssistantSummary({ result }: { result: AnalyzeResult }) {
                 {item.rationale && <Pill label="Kontext" />}
               </div>
               <div className="mt-2">
-                <a
-                  href="/statements/new"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    void createDraftAndNavigate({
-                      kind: "statement",
-                      text: item.text,
-                      targetPath: "/statements/new",
-                      fallbackPath: buildPrefillUrl("/statements/new", item.text),
-                    });
-                  }}
+                  <a
+                    href="/contributions/new"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void createDraftAndNavigate({
+                        kind: "contribution",
+                        text: item.text,
+                        targetPath: "/contributions/new",
+                        fallbackPath: buildPrefillUrl("/contributions/new", item.text),
+                      });
+                    }}
                   className="inline-flex items-center rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:brightness-110"
                 >
                   Abstimmung vorbereiten

@@ -3,11 +3,17 @@
 import type { LandingTile } from "./landingSeeds";
 
 function resolveTileTarget(tile: LandingTile) {
-  if (tile.statementId) return { href: `/statements/${tile.statementId}` };
-  if (tile.dossierId) return { href: `/dossier/${tile.dossierId}` };
-
-  if (tile.kind === "vote" || tile.kind === "option") {
+  if (tile.statementId) {
+    return { href: `/statements/${tile.statementId}` };
+  }
+  if (tile.dossierId) {
+    return { href: `/dossier/${tile.dossierId}` };
+  }
+  if (tile.kind === "option" || tile.kind === "vote") {
     return { href: "/howtoworks/edebatte/abstimmen" };
+  }
+  if (tile.kind === "question") {
+    return { href: "/howtoworks/edebatte/dossier" };
   }
   return { href: "/howtoworks/edebatte/dossier" };
 }
@@ -37,9 +43,7 @@ export default function MarqueeRow({
   return (
     <div className="relative">
       <div className="mb-2 flex items-center justify-between px-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-          {label}
-        </p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
         <span className="text-[11px] text-slate-400">{items.length} Beiträge</span>
       </div>
 
@@ -66,9 +70,7 @@ export default function MarqueeRow({
                       {kindLabel}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-slate-900 group-hover:underline">
-                    {t.text}
-                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900 group-hover:underline">{t.text}</p>
                 </a>
               );
             })}
@@ -99,9 +101,8 @@ export default function MarqueeRow({
                       </span>
                     )}
                     <span className="text-[11px] text-slate-400">•</span>
-                    <span className="text-[11px] text-slate-500">Demo</span>
+                    <span className="text-[11px] text-slate-500">Öffentlich</span>
                   </div>
-
                   <p className="mt-2 max-w-[320px] text-sm font-semibold text-slate-900 group-hover:underline">
                     {t.text}
                   </p>
@@ -131,6 +132,12 @@ export default function MarqueeRow({
             animation-timing-function: linear;
             animation-iteration-count: infinite;
             animation-duration: var(--marquee-duration);
+          }
+          @media (max-width: 768px) {
+            .edb-marquee,
+            .edb-marquee-rev {
+              animation-duration: calc(var(--marquee-duration) * 1.35);
+            }
           }
           @media (prefers-reduced-motion: reduce) {
             .edb-marquee,

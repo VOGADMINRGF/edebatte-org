@@ -7,7 +7,7 @@ export default function PricingPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
       <div className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">eDebatte</div>
-      <h1 className="mt-2 text-4xl font-extrabold text-slate-900">Preise & Mitgliedschaft</h1>
+      <h1 className="headline-grad mt-2 text-4xl font-extrabold">Preise & Mitgliedschaft</h1>
       <p className="mt-3 max-w-3xl text-sm text-slate-600">
         Wir sind in Gründung. Aktuell sind Beispiele und Preview-Daten sichtbar. Mit Vorbestellung oder Mitgliedschaft
         hilfst du, eDebatte als Werkzeug zügig in den Live-Betrieb zu bringen.
@@ -25,22 +25,13 @@ export default function PricingPage() {
           Einstieg ab {MEMBER_PLAN.minPerPerson} € / Monat pro Person.
         </p>
         <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold">
-          <a
-            className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-slate-700 hover:bg-slate-100"
-            href="/mitglied-werden"
-          >
+          <a className="btn btn-primary" href="/mitglied-werden">
             Mitglied werden
           </a>
-          <a
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-slate-600 hover:bg-slate-100"
-            href="/kontakt"
-          >
+          <a className="btn btn-ghost" href="/kontakt">
             Kontakt / Demo-Liste
           </a>
-          <a
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-slate-600 hover:bg-slate-100"
-            href="/howtoworks/edebatte"
-          >
+          <a className="btn btn-ghost" href="/howtoworks/edebatte">
             Aktuelle Homepage
           </a>
         </div>

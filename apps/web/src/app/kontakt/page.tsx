@@ -15,14 +15,14 @@ export default function KontaktPage({
   const challenge = pickHumanChallenge();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50 pb-16">
+    <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
       <section className="mx-auto max-w-5xl px-4 pt-14">
         <div className="rounded-3xl bg-white/90 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 md:p-10">
           <header className="space-y-3 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
               Kontakt & Support
             </p>
-            <h1 className="text-3xl font-extrabold leading-tight md:text-4xl bg-gradient-to-r from-sky-600 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">
+            <h1 className="headline-grad text-3xl font-extrabold leading-tight md:text-4xl">
               Der schnellste Weg zu uns.
             </h1>
             <p className="text-sm leading-relaxed text-slate-600 md:text-base">

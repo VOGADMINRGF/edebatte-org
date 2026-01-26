@@ -65,7 +65,7 @@ export default function MandatPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
             {text(hero, "kicker")}
           </p>
-          <h1 className="text-4xl font-extrabold leading-tight text-slate-900">
+          <h1 className="headline-grad text-4xl font-extrabold leading-tight">
             {text(hero, "title")}
           </h1>
           <p className="text-lg text-slate-700">{text(hero, "lead")}</p>
@@ -81,10 +81,10 @@ export default function MandatPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/howtoworks/edebatte#rolle-verwaltung" className="btn bg-brand-grad text-white shadow-soft">
+            <Link href="/howtoworks/edebatte#rolle-verwaltung" className="btn btn-primary">
               Zur Rolle Verwaltung & Repräsentant:innen
             </Link>
-            <Link href="/howtoworks/edebatte" className="btn border border-slate-300 bg-white">
+            <Link href="/howtoworks/edebatte" className="btn btn-ghost">
               Zurück zur Übersicht
             </Link>
           </div>

@@ -5,16 +5,16 @@ import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
 
 const heroCopy = {
-  title_de: "So funktioniert eDebatte – die Bewegung",
-  title_en: "How eDebatte Works – the Movement",
+  title_de: "VoiceOpenGov – die Initiative. eDebatte – das Werkzeug.",
+  title_en: "VoiceOpenGov — the initiative. eDebatte — the tool.",
   lead_de:
-    "eDebatte ist die Bewegung hinter der App eDebatte. Sie sorgt dafür, dass Beteiligung nicht nur als Schlagwort existiert, sondern als Alltag: Anliegen einreichen, Fakten prüfen, gemeinsam entscheiden, Umsetzung begleiten.",
+    "VoiceOpenGov ist eine überparteiliche Initiative für moderne Bürgerbeteiligung. eDebatte ist die Plattform, die Beteiligung alltagstauglich macht: Anliegen einreichen, Fakten prüfen, Optionen vergleichen, entscheiden – und Wirkung nachvollziehbar begleiten.",
   lead_en:
-    "eDebatte is the movement behind the eDebatte app. Participation becomes everyday practice: submit a concern, check facts, decide together, accompany the implementation.",
+    "VoiceOpenGov is a non-partisan initiative for modern civic participation. eDebatte is the platform that makes participation everyday practice: submit concerns, verify facts, compare options, decide — and track impact.",
   secondary_de:
-    "Wir sind keine Partei, keine Liste und kein neues Lager. Wir verstehen uns als weltweites Bündnis für aktive Bürgerbeteiligung – offen für alle, die faire Verfahren wichtiger finden als Parteitaktik.",
+    "Wir sind keine Partei, keine Liste und kein neues Lager. VoiceOpenGov versteht sich als weltweites Bündnis für faire Verfahren: transparent, nachvollziehbar, evidenzbasiert – wichtiger als Parteitaktik oder Lagerlogik.",
   secondary_en:
-    "We are not a party, not a list, and not a new faction. We are a global alliance for active civic participation – open to everyone who values fair procedures more than party tactics.",
+    "We are not a party, not a list, and not a new faction. VoiceOpenGov is a global alliance for fair procedures — transparent, traceable, evidence-based — more important than party tactics or camp logic.",
 };
 
 const heroChips = [
@@ -236,23 +236,25 @@ export default function HowToWorksBewegungPage() {
   );
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
-      <section className="mx-auto max-w-5xl px-4 py-16 space-y-10">
+    <main className="relative min-h-screen overflow-x-hidden bg-slate-50 pb-16">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_50%_at_50%_0%,rgba(56,189,248,0.18),transparent_60%),radial-gradient(55%_45%_at_80%_15%,rgba(168,85,247,0.16),transparent_55%),radial-gradient(55%_45%_at_20%_15%,rgba(34,197,94,0.10),transparent_55%)]" />
+      <section className="relative mx-auto max-w-5xl px-4 py-14 space-y-10 sm:py-16">
         <header className="space-y-4">
-          <h1
-            className="text-4xl font-extrabold leading-tight"
-            style={{
-              backgroundImage: "linear-gradient(90deg,var(--brand-cyan),var(--brand-blue))",
-              WebkitBackgroundClip: "text",
-              color: "transparent",
-            }}
-          >
+          <h1 className="headline-grad text-4xl font-extrabold leading-tight">
             {text(heroCopy, "title")}
           </h1>
           <div className="rounded-[40px] border border-transparent bg-gradient-to-br from-sky-50 via-white to-emerald-50/60 p-1 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
             <div className="rounded-[36px] bg-white/90 p-6 space-y-4">
               <p className="text-lg text-slate-700">{text(heroCopy, "lead")}</p>
               <p className="text-sm text-slate-600">{text(heroCopy, "secondary")}</p>
+              <a
+                href="https://voiceopengov.org"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white"
+              >
+                Mehr zur Initiative auf voiceopengov.org →
+              </a>
               <div className="mt-4 flex flex-wrap gap-3 text-xs font-medium text-slate-700">
                 {heroChips.map((chip) => (
                   <span
@@ -270,9 +272,7 @@ export default function HowToWorksBewegungPage() {
                     key={btn.id}
                     href={btn.href}
                     className={
-                      btn.variant === "primary"
-                        ? "btn bg-brand-grad text-white shadow-soft"
-                        : "btn border border-slate-300 bg-white"
+                      btn.variant === "primary" ? "btn btn-primary" : "btn btn-ghost"
                     }
                   >
                     {text(btn, "label")}
@@ -302,7 +302,7 @@ export default function HowToWorksBewegungPage() {
           </ul>
           <p className="text-sm text-slate-700 leading-relaxed">{text(membershipSection, "outro")}</p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <a href="/mitglied-werden" className="btn bg-brand-grad text-white shadow-soft">
+            <a href="/mitglied-werden" className="btn btn-primary">
               {text(heroButtons[0], "label")}
             </a>
           </div>
@@ -344,8 +344,8 @@ export default function HowToWorksBewegungPage() {
                       href={btn.href}
                       className={
                         btn.primary
-                          ? "btn bg-brand-grad text-white shadow-soft"
-                          : "btn border border-slate-300 bg-white text-sm"
+                          ? "btn btn-primary"
+                          : "btn btn-ghost text-sm"
                       }
                     >
                       {text(btn, "label")}

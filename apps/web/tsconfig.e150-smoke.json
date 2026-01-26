@@ -4,8 +4,6 @@
     "next-env.d.ts",
     "src/app/contributions/new/**/*.ts",
     "src/app/contributions/new/**/*.tsx",
-    "src/app/statements/new/**/*.ts",
-    "src/app/statements/new/**/*.tsx",
     "src/app/api/contributions/analyze/**/*.ts",
     "src/app/api/contributions/analyze/**/*.tsx",
     "src/features/analyze/**/*.ts",

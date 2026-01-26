@@ -432,7 +432,11 @@ export const DebateFrameSchema = z.object({
       humanitarianExceptions: z.boolean().default(true),
       legalSafeguards: z.array(z.string()).default([]),
     })
-    .default({ stages: [] }),
+    .default(() => ({
+      stages: [],
+      humanitarianExceptions: true,
+      legalSafeguards: [],
+    })),
   metrics: z.array(MetricSchema).default([]),
   options: z
     .array(
@@ -452,7 +456,11 @@ export const DebateFrameSchema = z.object({
       status: z.enum(["pass", "fail", "needs_review"]).default("needs_review"),
       notes: z.string().optional(),
     })
-    .default({ score: 0, gates: [] }),
+    .default(() => ({
+      score: 0,
+      gates: [],
+      status: "needs_review",
+    })),
 });
 export type DebateFrame = z.infer<typeof DebateFrameSchema>;
 

@@ -397,14 +397,14 @@ export default function KontaktForm({ sent, error, challenge }: Props) {
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <button
             type="submit"
-            className="w-full rounded-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500 px-8 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(14,116,144,0.35)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-200 md:w-auto md:px-10"
+            className="btn btn-primary w-full px-8 py-3 text-sm font-semibold shadow-soft md:w-auto md:px-10"
           >
             Anfrage absenden
           </button>
 
           <Link
             href="mailto:kontakt@edebatte.org"
-            className="w-full rounded-full border border-sky-200 bg-sky-50/60 px-4 py-3 text-center text-sm font-semibold text-sky-700 shadow-[0_6px_18px_rgba(14,165,233,0.15)] transition hover:border-sky-400 hover:bg-white hover:text-sky-900 md:w-auto"
+            className="btn btn-ghost w-full px-4 py-3 text-center text-sm font-semibold md:w-auto"
           >
             Oder direkt per E-Mail schreiben
           </Link>
