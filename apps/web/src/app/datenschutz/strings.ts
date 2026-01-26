@@ -201,7 +201,7 @@ const STRINGS = {
 
 function pick<T>(entry: LocaleValue<T>, locale: SupportedLocale | string): T {
   const normalized = (locale || DEFAULT_LOCALE) as SupportedLocale;
-  return entry[normalized] ?? entry.de;
+  return entry[normalized] ?? (normalized !== "de" ? entry.en : undefined) ?? entry.de;
 }
 
 export function getPrivacyStrings(locale: SupportedLocale | string) {

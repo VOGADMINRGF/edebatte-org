@@ -1,10 +1,7 @@
 "use client";
 
-import { MEMBER_DISCOUNT } from "@/config/pricing";
 import { ACCESS_TIER_CONFIG } from "../config";
-import { applyVogMembershipDiscount } from "../discount";
 import type { AccessTier } from "../types";
-import type { PricingContext } from "../discount";
 import { B2C_PLAN_ORDER } from "@/config/plans";
 
 const CURRENCY = new Intl.NumberFormat("de-DE", {
@@ -15,9 +12,7 @@ const CURRENCY = new Intl.NumberFormat("de-DE", {
 
 const ORDER: AccessTier[] = B2C_PLAN_ORDER;
 
-type PricingWidgetProps = Partial<PricingContext>;
-
-export function PricingWidget_eDbtt({ hasVogMembership = false }: PricingWidgetProps) {
+export function PricingWidget_eDbtt() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
@@ -47,27 +42,12 @@ export function PricingWidget_eDbtt({ hasVogMembership = false }: PricingWidgetP
 
               {cfg.monthlyFeeCents ? (
                 <div className="space-y-1">
-                  <div className="flex items-baseline gap-2">
-                    {hasVogMembership && (
-                      <span className="text-sm text-slate-400 line-through">
-                        {CURRENCY.format(cfg.monthlyFeeCents / 100)}
-                      </span>
-                    )}
-                    <div className="text-xl font-bold text-indigo-600">
-                      {CURRENCY.format(
-                        applyVogMembershipDiscount(cfg.monthlyFeeCents, hasVogMembership) /
-                          100,
-                      )}{" "}
-                      <span className="text-sm font-normal text-slate-500">
-                        / Monat
-                      </span>
-                    </div>
+                  <div className="text-xl font-bold text-indigo-600">
+                    {CURRENCY.format(cfg.monthlyFeeCents / 100)}{" "}
+                    <span className="text-sm font-normal text-slate-500">
+                      / Monat
+                    </span>
                   </div>
-                  {hasVogMembership && (
-                    <p className="text-xs font-semibold text-emerald-700">
-                      Mitgliedsrabatt −{MEMBER_DISCOUNT.percent} %
-                    </p>
-                  )}
                 </div>
               ) : (
                 <div className="text-xl font-bold text-emerald-600">

@@ -345,7 +345,6 @@ type MembershipMailInput = {
   firstName?: string | null;
   planLabel: string;
   monthlyAmount: number;
-  discountApplied: boolean;
   reference: string;
   bank: BankDetails;
 };
@@ -354,13 +353,11 @@ export function buildMembershipConfirmationMail({
   firstName,
   planLabel,
   monthlyAmount,
-  discountApplied,
   reference,
   bank,
 }: MembershipMailInput) {
   const greeting = firstName ? `Hallo ${firstName}` : "Hallo";
   const amount = formatEuro(monthlyAmount);
-  const discountLine = discountApplied ? " (inkl. 25 % Mitgliederrabatt)" : "";
 
   const bankHtml = `
     <ul>
@@ -375,17 +372,17 @@ export function buildMembershipConfirmationMail({
   const html = `
     <p>${greeting},</p>
     <p>danke für deinen Antrag auf die eDebatte-Mitgliedschaft (<strong>${planLabel}</strong>).</p>
-    <p>Dein monatlicher Beitrag beträgt <strong>${amount}${discountLine}</strong>. Bitte richte eine Überweisung oder einen Dauerauftrag mit folgenden Bankdaten ein:</p>
+    <p>Dein monatlicher Beitrag beträgt <strong>${amount}</strong>. Bitte richte eine Überweisung oder einen Dauerauftrag mit folgenden Bankdaten ein:</p>
     ${bankHtml}
     <p>Wichtig: Es handelt sich um eine Gutschrift bzw. einen Mitgliedsbeitrag – keine Spende, keine Spendenquittung.</p>
-    <p>Sobald der erste Beitrag eingegangen ist, erhältst du die Bestätigung deiner Mitgliedschaft und (falls gebucht) den Rabatt auf eDebatte Pro/Premium.</p>
+    <p>Sobald der erste Beitrag eingegangen ist, erhältst du die Bestätigung deiner Mitgliedschaft.</p>
     <p>– Dein eDebatte Team</p>
   `;
 
   const text = `${greeting},
 
 danke für deinen Antrag auf die eDebatte-Mitgliedschaft (${planLabel}).
-Monatlicher Beitrag: ${amount}${discountLine}
+Monatlicher Beitrag: ${amount}
 
 Bank:
 Empfänger: ${bank.recipient}

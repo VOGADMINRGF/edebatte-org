@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
+import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 const heroCopy = {
   title_de: "VoiceOpenGov – die Initiative. eDebatte – das Werkzeug.",
@@ -230,9 +231,14 @@ const joinPanel = {
 
 export default function HowToWorksBewegungPage() {
   const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "howtoworks-bewegung" });
   const text = React.useCallback(
-    (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
-    [locale],
+    (entry: Record<string, any>, key: string) => {
+      const base = resolveLocalizedField(entry, key, locale);
+      const hint = entry?.id ? `${entry.id}.${key}` : key;
+      return t(base, hint);
+    },
+    [locale, t],
   );
 
   return (
@@ -253,7 +259,7 @@ export default function HowToWorksBewegungPage() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white"
               >
-                Mehr zur Initiative auf voiceopengov.org →
+                {t("Mehr zur Initiative auf voiceopengov.org →", "cta.voiceopengov")}
               </a>
               <div className="mt-4 flex flex-wrap gap-3 text-xs font-medium text-slate-700">
                 {heroChips.map((chip) => (

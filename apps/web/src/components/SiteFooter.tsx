@@ -1,5 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 import { BRAND } from "@/lib/brand";
+import { useLocale } from "@/context/LocaleContext";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 const infoLinks = [
   { href: "/ueber-uns", label: "Über Uns" },
@@ -28,6 +33,27 @@ const legalLinks = [
 const currentYear = new Date().getFullYear();
 
 export default function SiteFooter() {
+  const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "site-footer" });
+  const info = useMemo(() => {
+    if (locale === "de" || locale === "en") return infoLinks;
+    return mapTranslatableStrings(infoLinks, t, { namespace: "infoLinks" });
+  }, [locale, t]);
+  const platform = useMemo(() => {
+    if (locale === "de" || locale === "en") return platformLinks;
+    return mapTranslatableStrings(platformLinks, t, { namespace: "platformLinks" });
+  }, [locale, t]);
+  const legal = useMemo(() => {
+    if (locale === "de" || locale === "en") return legalLinks;
+    return mapTranslatableStrings(legalLinks, t, { namespace: "legalLinks" });
+  }, [locale, t]);
+  const taglineBase = locale === "en" ? BRAND.tagline_en : BRAND.tagline_de;
+  const tagline = t(taglineBase, "tagline");
+  const brandCopy = t(
+    "Infrastruktur statt Parteiprogramm: eDebatte bündelt Dossiers, Abstimmungen und Umsetzungs-Tracking für nachvollziehbare Entscheidungen.",
+    "brand.copy",
+  );
+
   return (
     <footer
       className="mt-16 border-t border-slate-200 bg-slate-50/80"
@@ -50,40 +76,42 @@ export default function SiteFooter() {
               {BRAND.name}
             </Link>
             <p className="mt-2 text-sm font-semibold text-slate-900">
-              {BRAND.tagline_de}
+              {tagline}
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              Infrastruktur statt Parteiprogramm: eDebatte bündelt Dossiers, Abstimmungen und
-              Umsetzungs-Tracking für nachvollziehbare Entscheidungen.
+              {brandCopy}
             </p>
           </div>
 
           {/* Über eDebatte */}
           <FooterNav
-            title="Über eDebatte"
-            ariaLabel="Footer Navigation: Über eDebatte"
-            links={infoLinks}
+            title={t("Über eDebatte", "nav.about")}
+            ariaLabel={t("Footer Navigation: Über eDebatte", "aria.about")}
+            links={info}
           />
 
           {/* Plattform nutzen */}
           <FooterNav
-            title="Plattform nutzen"
-            ariaLabel="Footer Navigation: Plattform nutzen"
-            links={platformLinks}
+            title={t("Plattform nutzen", "nav.platform")}
+            ariaLabel={t("Footer Navigation: Plattform nutzen", "aria.platform")}
+            links={platform}
           />
 
           {/* Kontakt & Rechtliches */}
           <FooterNav
-            title="Kontakt & Rechtliches"
-            ariaLabel="Footer Navigation: Kontakt und Rechtliches"
-            links={legalLinks}
+            title={t("Kontakt & Rechtliches", "nav.legal")}
+            ariaLabel={t("Footer Navigation: Kontakt und Rechtliches", "aria.legal")}
+            links={legal}
           />
         </div>
 
         <div className="mt-8 border-t border-slate-200/70 pt-6 text-xs text-slate-500 md:flex md:items-center md:justify-between">
           <p>© {currentYear} {BRAND.name}</p>
           <p className="mt-2 text-[11px] text-slate-500 md:mt-0">
-            Kontakt: <a className="font-semibold text-slate-600 hover:text-slate-900" href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>
+            {t("Kontakt:", "contact.label")}{" "}
+            <a className="font-semibold text-slate-600 hover:text-slate-900" href={`mailto:${BRAND.contactEmail}`}>
+              {BRAND.contactEmail}
+            </a>
           </p>
         </div>
       </div>

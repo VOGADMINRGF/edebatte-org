@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
+import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 const hero = {
   kicker_de: "eDebatte Modul",
@@ -59,9 +60,14 @@ const example = {
 
 export default function AbstimmenPage() {
   const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "howtoworks-abstimmen" });
   const text = React.useCallback(
-    (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
-    [locale],
+    (entry: Record<string, any>, key: string) => {
+      const base = resolveLocalizedField(entry, key, locale);
+      const hint = entry?.id ? `${entry.id}.${key}` : key;
+      return t(base, hint);
+    },
+    [locale, t],
   );
 
   return (
@@ -76,22 +82,22 @@ export default function AbstimmenPage() {
           </h1>
           <p className="text-lg text-slate-700">{text(hero, "lead")}</p>
           <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-700">
-            {heroChips.map((chip) => (
+            {heroChips.map((chip, idx) => (
               <span
                 key={chip}
                 className="rounded-full border px-3 py-1 shadow-sm"
                 style={{ borderColor: "var(--chip-border)", background: "rgba(14,165,233,0.08)" }}
               >
-                {chip}
+                {t(chip, `heroChip.${idx}`)}
               </span>
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/howtoworks/edebatte#rolle-buerger" className="btn btn-primary">
-              Zur Rolle Bürger:innen
+              {t("Zur Rolle Bürger:innen", "cta.role")}
             </Link>
             <Link href="/howtoworks/edebatte/mandat" className="btn btn-ghost">
-              Weiter zu Mandat & Umsetzung
+              {t("Weiter zu Mandat & Umsetzung", "cta.mandate")}
             </Link>
           </div>
         </header>
@@ -100,7 +106,7 @@ export default function AbstimmenPage() {
           <div className="aspect-[16/9]">
             <img
               src={heroImage.src}
-              alt={heroImage.alt}
+              alt={t(heroImage.alt, "hero.imageAlt")}
               className="h-full w-full object-cover"
               loading="lazy"
             />
@@ -114,18 +120,20 @@ export default function AbstimmenPage() {
 
         <section className="grid gap-4 md:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">So läuft es ab</h2>
+            <h2 className="text-base font-semibold text-slate-900">
+              {t("So läuft es ab", "steps.title")}
+            </h2>
             <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-slate-700">
-              {steps.map((step) => (
-                <li key={step}>{step}</li>
+              {steps.map((step, idx) => (
+                <li key={step}>{t(step, `steps.${idx}`)}</li>
               ))}
             </ol>
           </article>
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className="text-base font-semibold text-slate-900">{text(outputs, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {outputs.items_de.map((item) => (
-                <li key={item}>{item}</li>
+              {outputs.items_de.map((item, idx) => (
+                <li key={item}>{t(item, `outputs.${idx}`)}</li>
               ))}
             </ul>
           </article>
@@ -135,8 +143,8 @@ export default function AbstimmenPage() {
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className="text-base font-semibold text-slate-900">{text(safeguards, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {safeguards.items_de.map((item) => (
-                <li key={item}>{item}</li>
+              {safeguards.items_de.map((item, idx) => (
+                <li key={item}>{t(item, `safeguards.${idx}`)}</li>
               ))}
             </ul>
           </article>

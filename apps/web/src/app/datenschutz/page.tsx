@@ -3,10 +3,17 @@
 import Link from "next/link";
 import { useLocale } from "@/context/LocaleContext";
 import { getPrivacyStrings } from "./strings";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 export default function DatenschutzPage() {
   const { locale } = useLocale();
-  const strings = getPrivacyStrings(locale);
+  const baseStrings = getPrivacyStrings(locale);
+  const sourceStrings = getPrivacyStrings("de");
+  const t = useAutoTranslateText({ locale, namespace: "datenschutz" });
+  const strings =
+    locale === "de" || locale === "en"
+      ? baseStrings
+      : mapTranslatableStrings(sourceStrings, t, { namespace: "datenschutz" });
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
@@ -14,7 +21,7 @@ export default function DatenschutzPage() {
         <div className="rounded-3xl bg-white/90 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 md:p-10">
           <header className="space-y-3 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
-              Datenschutz
+              {t("Datenschutz", "static.overline")}
             </p>
             <h1 className="text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">
               {strings.title}
@@ -27,11 +34,11 @@ export default function DatenschutzPage() {
           <div className="mt-8 grid gap-4">
             <InfoCard title={strings.controllerTitle} body={strings.controllerBody} />
             <p className="text-xs text-slate-600">
-              Rechtliche Angaben findest du im{" "}
+              {t("Rechtliche Angaben findest du im", "static.legalHint")}{" "}
               <Link href="/impressum" className="font-semibold text-sky-700 underline underline-offset-4">
-                Impressum
+                {t("Impressum", "static.impressum")}
               </Link>
-              .
+              {t(".", "static.dot")}
             </p>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-800">
@@ -71,7 +78,7 @@ export default function DatenschutzPage() {
               </p>
               <p className="whitespace-pre-line">{strings.contactBody}</p>
               <p className="pt-2">
-                Kontakt-E-Mail:{" "}
+                {t("Kontakt-E-Mail:", "static.contactEmailLabel")}{" "}
                 <a
                   className="font-semibold text-sky-700 underline underline-offset-4"
                   href={`mailto:${strings.contactEmail}`}
@@ -80,8 +87,10 @@ export default function DatenschutzPage() {
                 </a>
               </p>
               <p className="mt-1 text-slate-700">
-                Diese Hinweise werden laufend aktualisiert und rechtlich überprüft, sobald sich unser
-                Angebot oder die Rechtslage ändert.
+                {t(
+                  "Diese Hinweise werden laufend aktualisiert und rechtlich überprüft, sobald sich unser Angebot oder die Rechtslage ändert.",
+                  "static.updateNote",
+                )}
               </p>
             </div>
           </div>

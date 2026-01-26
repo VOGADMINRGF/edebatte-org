@@ -29,7 +29,7 @@ const STRINGS = {
   } as LocaleString,
   
   tiersIntro: {
-    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Wichtig: Jede Mitgliedschaft zählt gleich viel – die Stufen sind nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; der einzige finanzielle Vorteil ist der allgemeine 25 % Mitgliederrabatt.",
+    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Wichtig: Jede Mitgliedschaft zählt gleich viel – die Stufen sind nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; es gibt keine finanziellen Vorteile, sondern gleiche Rechte und eine gemeinsame Stimme.",
   } as LocaleString,
   
   tiersList: {
@@ -85,6 +85,7 @@ const STRINGS = {
     de: "Du hast einen einmaligen Betrag eingetragen, ohne eine laufende Mitgliedschaft zu wählen. Danke für deine Unterstützung – wir würden uns freuen, dich später als Mitglied zu begrüßen.",
   } as LocaleString,
   summaryButton: { de: "Weiter zum Antrag" } as LocaleString,
+  summaryButtonPreorder: { de: "Vorbestellen" } as LocaleString,
 
   finalTitle: { de: "Mehr als ein Beitrag – wie du noch mitmachen kannst" } as LocaleString,
   finalIntro: {
@@ -144,10 +145,10 @@ const STRINGS = {
     de: "Mitgliedschaft & eDebatte-App",
   } as LocaleString,
   membershipAppBody: {
-    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu Pro‑Paketen für Redaktionen oder Kommunen. Mitglieder erhalten einen festen Nachlass auf kostenpflichtige eDebatte‑Pakete. Die Mitgliedschaft bleibt ideell – App‑Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
+    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu Pro‑Paketen für Redaktionen oder Kommunen. Die Mitgliedschaft bleibt ideell – App‑Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
   } as LocaleString,
   merchNote: {
-    de: "Sobald unser Merchandise-Shop startet, gilt derselbe Nachlass automatisch auch dort für Mitglieder.",
+    de: "Sobald unser Merchandise-Shop startet, informieren wir Mitglieder zuerst.",
   } as LocaleString,
 } as const;
 
@@ -156,7 +157,7 @@ function pick<T>(
   locale: SupportedLocale | string,
 ): T {
   const normalized = (locale || DEFAULT_LOCALE) as SupportedLocale;
-  return entry[normalized] ?? entry.de;
+  return entry[normalized] ?? (normalized !== "de" ? entry.en : undefined) ?? entry.de;
 }
 
 export function getMembershipStrings(locale: SupportedLocale | string) {
@@ -203,6 +204,7 @@ export function getMembershipStrings(locale: SupportedLocale | string) {
       locale,
     ),
     summaryButton: pick(STRINGS.summaryButton, locale),
+    summaryButtonPreorder: pick(STRINGS.summaryButtonPreorder, locale),
     finalTitle: pick(STRINGS.finalTitle, locale),
     finalIntro: pick(STRINGS.finalIntro, locale),
     finalList: pick(STRINGS.finalList, locale),

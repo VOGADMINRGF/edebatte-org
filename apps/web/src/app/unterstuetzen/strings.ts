@@ -58,7 +58,8 @@ const STRINGS = {
 } as const satisfies Record<string, Entry<string | string[]>>;
 
 export function tSupport<T>(entry: Entry<T>, locale: SupportedLocale | string): T {
-  return entry[locale as SupportedLocale] ?? entry.de;
+  const normalized = locale as SupportedLocale;
+  return entry[normalized] ?? (normalized !== "de" ? entry.en : undefined) ?? entry.de;
 }
 
 export const SUPPORT_STRINGS = STRINGS;

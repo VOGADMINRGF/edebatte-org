@@ -2,10 +2,17 @@
 
 import { useLocale } from "@/context/LocaleContext";
 import { getImpressumStrings } from "./strings";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 export default function ImpressumPage() {
   const { locale } = useLocale();
-  const strings = getImpressumStrings(locale);
+  const baseStrings = getImpressumStrings(locale);
+  const sourceStrings = getImpressumStrings("de");
+  const t = useAutoTranslateText({ locale, namespace: "impressum" });
+  const strings =
+    locale === "de" || locale === "en"
+      ? baseStrings
+      : mapTranslatableStrings(sourceStrings, t, { namespace: "impressum" });
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">

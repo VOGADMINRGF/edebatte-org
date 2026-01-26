@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
+import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 const heroCopy = {
   title_de: "So funktioniert eDebatte",
@@ -281,18 +282,29 @@ const evidenceHeading = {
 
 export default function HowToWorksEDebattePage() {
   const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "howtoworks-edebatte" });
   const text = React.useCallback(
-    (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
-    [locale],
+    (entry: Record<string, any>, key: string) => {
+      const base = resolveLocalizedField(entry, key, locale);
+      const hint = entry?.id ? `${entry.id}.${key}` : key;
+      return t(base, hint);
+    },
+    [locale, t],
   );
   const list = React.useCallback(
     (entry: Record<string, unknown>, key: string) => {
       const normalized = String(locale ?? "de").slice(0, 2);
       const localizedKey = `${key}_${normalized}`;
       const value = entry[localizedKey] ?? entry[`${key}_de`];
-      return Array.isArray(value) ? value : [];
+      if (!Array.isArray(value)) return [];
+      if (locale === "de" || locale === "en") return value;
+      return value.map((item, idx) =>
+        typeof item === "string"
+          ? t(item, `${(entry as { id?: string })?.id ?? key}.${key}.${idx}`)
+          : item,
+      );
     },
-    [locale],
+    [locale, t],
   );
 
   return (
@@ -429,7 +441,7 @@ export default function HowToWorksEDebattePage() {
                       <div className="aspect-[16/9]">
                         <img
                           src={role.image}
-                          alt={role.imageAlt}
+                          alt={t(role.imageAlt, `${role.id}.imageAlt`)}
                           className="h-full w-full object-cover"
                           loading="lazy"
                         />

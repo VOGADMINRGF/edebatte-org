@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLocale } from "@/context/LocaleContext";
-import { EDEBATTE_PLANS, MEMBER_DISCOUNT, calcDiscountedPrice } from "@/config/pricing";
+import { EDEBATTE_PLANS } from "@/config/pricing";
 import { getNutzungsStrings } from "./strings";
 
 export default function NutzungsmodellPage() {
@@ -27,7 +27,6 @@ export default function NutzungsmodellPage() {
 
         <section className="grid gap-4 md:grid-cols-2">
           {EDEBATTE_PLANS.map((plan) => {
-            const memberPrice = calcDiscountedPrice(plan.listPrice.amount);
             return (
               <article
                 key={plan.id}
@@ -38,16 +37,6 @@ export default function NutzungsmodellPage() {
                 <p className="mt-3 text-sm text-slate-700">
                   Listenpreis: {plan.listPrice.amount.toFixed(2)} € /{" "}
                   {plan.listPrice.interval === "month" ? "Monat" : "Jahr"}
-                  <br />
-                  <span className="font-medium text-emerald-700">
-                    Mitgliedspreis: {memberPrice.toFixed(2)} € /{" "}
-                    {plan.listPrice.interval === "month" ? "Monat" : "Jahr"} (−
-                    {MEMBER_DISCOUNT.percent}%)
-                  </span>
-                </p>
-                <p className="mt-2 text-xs text-slate-600">
-                  Als eDebatte-Mitglied erhältst du auf dieses Paket {MEMBER_DISCOUNT.percent}% Nachlass (siehe
-                  Mitgliedschaft unter <a href="/mitglied-werden" className="underline">/mitglied-werden</a>).
                 </p>
               </article>
             );
@@ -65,8 +54,7 @@ export default function NutzungsmodellPage() {
         </section>
 
         <p className="mt-4 text-xs text-slate-600 text-center">
-          eDebatte-Mitglied werden? Das ist der einfachste Weg, die Bewegung zu unterstützen und gleichzeitig von
-          Vergünstigungen bei eDebatte und unserem zukünftigen Merchandise-Shop zu profitieren – mehr unter{" "}
+          eDebatte-Mitglied werden? Das ist der einfachste Weg, die Bewegung zu unterstützen – mehr unter{" "}
           <Link href="/mitglied-werden" className="underline">
             /mitglied-werden
           </Link>

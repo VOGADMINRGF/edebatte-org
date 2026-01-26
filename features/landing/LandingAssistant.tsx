@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/context/LocaleContext";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 import type { LandingScope, LandingTile } from "./landingSeeds";
 import { LANDING_COPY, type Lang } from "./landingCopy";
 
@@ -133,6 +135,12 @@ function focusableElements(container: HTMLElement | null) {
   ).filter((el) => !el.hasAttribute("disabled") && el.getAttribute("aria-hidden") !== "true");
 }
 
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+}
+
 export default function LandingAssistant({
   onIngest,
   prefillText,
@@ -144,7 +152,37 @@ export default function LandingAssistant({
   onAnalyzeRequest?: (actions: { submit: () => void; refine: () => void }) => void;
   lang: Lang;
 }) {
-  const t = LANDING_COPY[lang];
+  const { locale } = useLocale();
+  const translate = useAutoTranslateText({ locale, namespace: "landing" });
+  const baseCopy = LANDING_COPY[lang];
+  const t = React.useMemo(() => {
+    if (locale === "de" || locale === "en") return baseCopy;
+    const mapped = mapTranslatableStrings(baseCopy, translate, { namespace: "copy" });
+    return {
+      ...mapped,
+      form: {
+        ...mapped.form,
+        attachmentsTotal: (size: string) =>
+          translate(baseCopy.form.attachmentsTotal(size), "form.attachmentsTotal"),
+        humanQuestion: (a: number, b: number) =>
+          translate(baseCopy.form.humanQuestion(a, b), "form.humanQuestion"),
+        minCharsHint: (remaining: number) =>
+          translate(baseCopy.form.minCharsHint(remaining), "form.minCharsHint"),
+      },
+      errors: {
+        ...mapped.errors,
+        attachmentsTooMany: (maxFiles: number) =>
+          translate(baseCopy.errors.attachmentsTooMany(maxFiles), "errors.attachmentsTooMany"),
+        attachmentsFileTooLarge: (name: string) =>
+          translate(baseCopy.errors.attachmentsFileTooLarge(name), "errors.attachmentsFileTooLarge"),
+      },
+      cards: {
+        ...mapped.cards,
+        activeAgo: (hours: number) =>
+          translate(baseCopy.cards.activeAgo(hours), "cards.activeAgo"),
+      },
+    };
+  }, [baseCopy, locale, translate]);
 
   const [text, setText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -164,6 +202,7 @@ export default function LandingAssistant({
 
   const [human, setHuman] = React.useState(() => createHumanChallenge());
   const [humanAnswer, setHumanAnswer] = React.useState("");
+  const [humanError, setHumanError] = React.useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = React.useState(false);
 
@@ -174,6 +213,7 @@ export default function LandingAssistant({
   const attachmentsErrorId = React.useId();
   const humanInputId = React.useId();
   const humanHintId = React.useId();
+  const humanErrorId = React.useId();
   const minCharsId = React.useId();
   const errorId = React.useId();
   const statusId = React.useId();
@@ -231,6 +271,10 @@ export default function LandingAssistant({
 
   const canSubmit =
     !loading && trimmed.length >= MIN_TEXT_LENGTH && humanAnswer.trim().length > 0 && !botBlocked;
+
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  const totalLabel = formatBytes(totalBytes);
+  const nearLimit = totalBytes > MAX_TOTAL_BYTES * 0.8;
 
   const remainingChars = Math.max(0, MIN_TEXT_LENGTH - trimmed.length);
   const describedBy = [error ? errorId : null, minCharsId, statusId]
@@ -344,12 +388,15 @@ export default function LandingAssistant({
   };
 
   const submitTile = (payload: string) => {
+    const defaultTag = lang === "en" ? "New" : "Neu";
+    const tagLabel =
+      locale === "de" || locale === "en" ? defaultTag : translate(defaultTag, "tag.new");
     const scope = scopeFromLevel(level || null, lang);
     const tile: LandingTile = {
       id: `u-${Date.now()}`,
       scope,
       text: payload,
-      tag: lang === "en" ? "New" : "Neu",
+      tag: tagLabel,
       kind: "topic",
       freshUntil: Date.now() + 5 * 60 * 1000,
     };
@@ -359,6 +406,7 @@ export default function LandingAssistant({
   const handleSubmit = async () => {
     if (loading) return;
     setError(null);
+    setHumanError(null);
 
     if (botBlocked) {
       setError(t.errors.botBlocked);
@@ -373,13 +421,13 @@ export default function LandingAssistant({
       return;
     }
     if (!humanAnswer.trim()) {
-      setError(t.errors.humanMissing);
+      setHumanError(t.errors.humanMissing);
       return;
     }
 
     const answerValue = Number(humanAnswer.trim());
     if (!Number.isFinite(answerValue) || answerValue !== human.a + human.b) {
-      setError(t.errors.humanInvalid);
+      setHumanError(t.errors.humanInvalid);
       return;
     }
 
@@ -393,7 +441,7 @@ export default function LandingAssistant({
       formData.append("source", "landing_demo");
       formData.append("honey", botTrap);
       formData.append("text", trimmed);
-      if (lang) formData.append("locale", lang);
+      if (locale) formData.append("locale", locale);
       if (roleValue) formData.append("role", roleValue);
       if (levelValue) formData.append("level", levelValue);
 
@@ -587,7 +635,11 @@ export default function LandingAssistant({
                 } ${loading ? "opacity-60" : ""}`}
                 aria-label={loading ? t.buttons.starting : t.buttons.start}
               >
-                <IconPlay />
+                {loading ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/80 border-r-transparent" />
+                ) : (
+                  <IconPlay />
+                )}
                 <span>{loading ? t.buttons.starting : t.buttons.start}</span>
               </button>
 
@@ -633,6 +685,10 @@ export default function LandingAssistant({
             <p id={attachmentsRulesId} className="mt-1 text-[11px] text-slate-500">
               {t.form.attachmentsRules}
             </p>
+            <p className={`mt-1 text-[11px] ${nearLimit ? "text-amber-600" : "text-slate-500"}`}>
+              {t.form.attachmentsTotal(totalLabel)}
+              {nearLimit ? ` · ${t.form.attachmentsWarn}` : ""}
+            </p>
             {attachmentsError ? (
               <p id={attachmentsErrorId} className="mt-2 text-[11px] text-rose-600" role="alert">
                 {attachmentsError}
@@ -659,20 +715,29 @@ export default function LandingAssistant({
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              aria-describedby={humanHintId}
+              aria-describedby={[humanHintId, humanError ? humanErrorId : null].filter(Boolean).join(" ") || undefined}
               placeholder={t.form.humanPlaceholder}
               value={humanAnswer}
               onChange={(event) => {
                 if (error) setError(null);
+                if (humanError) setHumanError(null);
                 setHumanAnswer(event.target.value);
               }}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              className={`mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 ${
+                humanError ? "border-rose-300 focus-visible:ring-2 focus-visible:ring-rose-200" : "border-slate-200"
+              }`}
             />
+            {humanError ? (
+              <p id={humanErrorId} className="mt-2 text-[11px] text-rose-600" role="alert">
+                {humanError}
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => {
                 setHuman(createHumanChallenge());
                 setHumanAnswer("");
+                setHumanError(null);
               }}
               className="mt-2 inline-flex items-center text-[11px] font-semibold text-slate-600 hover:text-slate-800"
             >

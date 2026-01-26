@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import type { ExampleItem, ExampleStats } from "@/lib/examples/types";
+import { useLocale } from "@/context/LocaleContext";
+import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 import { LANDING_COPY, type Lang } from "@features/landing/landingCopy";
 import { LandingKindIcon } from "./LandingKindIcon";
 import { StateCrestBadge } from "./StateCrestBadge";
@@ -150,10 +152,15 @@ export function ExampleSnippetCard(props: {
   compact?: boolean;
 }) {
   const { item, compact, lang } = props;
+  const { locale } = useLocale();
+  const translate = useAutoTranslateText({ locale, namespace: "landing-card" });
   const t = LANDING_COPY[lang];
   const title = lang === "en" ? item.title_en || item.title_de : item.title_de;
   const topics = lang === "en" ? item.topics_en || item.topics : item.topics;
-  const kindLabel = item.kind === "Abstimmung" ? t.cards.kindVote : t.cards.kindTopic;
+  const kindLabel = translate(
+    item.kind === "Abstimmung" ? t.cards.kindVote : t.cards.kindTopic,
+    "kindLabel",
+  );
   const isVote = item.kind === "Abstimmung";
   const stats = deriveStats(item);
   const votes = formatCompact(stats.votes);
@@ -232,16 +239,18 @@ export function ExampleSnippetCard(props: {
         <div className="flex items-center gap-3">
           {participants && (
             <span>
-              {t.cards.participants} {participants}
+              {translate(t.cards.participants, "participants")} {participants}
             </span>
           )}
           {votes && (
             <span>
-              {t.cards.votes} {votes}
+              {translate(t.cards.votes, "votes")} {votes}
             </span>
           )}
         </div>
-        {typeof hours === "number" && <span>{t.cards.activeAgo(hours)}</span>}
+        {typeof hours === "number" && (
+          <span>{translate(t.cards.activeAgo(hours), "activeAgo")}</span>
+        )}
       </div>
 
     </div>

@@ -29,7 +29,7 @@ const STRINGS = {
   } as LocaleString,
   
   tiersIntro: {
-    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Uns ist wichtig, dass du dich damit wohlfühlst – jede Mitgliedschaft zählt gleich viel. Diese Stufen zeigen dir nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; der einzige finanzielle Vorteil ist der allgemeine 25 % Mitgliederrabatt.",
+    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Uns ist wichtig, dass du dich damit wohlfühlst – jede Mitgliedschaft zählt gleich viel. Diese Stufen zeigen dir nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; es gibt keine finanziellen Vorteile, sondern gleiche Rechte und eine gemeinsame Stimme.",
   } as LocaleString,
   
   tiersList: {
@@ -144,10 +144,10 @@ const STRINGS = {
     de: "Mitgliedschaft & eDebatte-App",
   } as LocaleString,
   membershipAppBody: {
-    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu intensiven Pro-Paketen für Redaktionen oder Kommunen. Mitglieder erhalten einen festen Nachlass auf kostenpflichtige eDebatte-Pakete. Die Mitgliedschaft bleibt dabei ideell – App-Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
+    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu intensiven Pro-Paketen für Redaktionen oder Kommunen. Die Mitgliedschaft bleibt dabei ideell – App-Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
   } as LocaleString,
   merchNote: {
-    de: "Sobald unser Merchandise-Shop startet, gilt derselbe Nachlass automatisch auch dort für Mitglieder.",
+    de: "Sobald unser Merchandise-Shop startet, informieren wir Mitglieder zuerst.",
   } as LocaleString,
 } as const;
 

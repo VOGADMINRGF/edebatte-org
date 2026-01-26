@@ -6,9 +6,7 @@ type MembershipApplicationDoc = {
   _id?: ObjectId;
   userId: ObjectId;
   plan: MembershipPackage;
-  vogMember: boolean;
   monthlyAmountEUR: number;
-  discountApplied: boolean;
   reference: string;
   notes?: string | null;
   contact: {

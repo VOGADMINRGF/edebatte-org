@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { MEMBER_DISCOUNT } from "@/config/pricing";
 import type { EDebattePlan, VOGMembershipPlan } from "@/config/pricing";
 import { useLocale } from "@/context/LocaleContext";
 import { getMembershipStrings } from "./strings";
@@ -149,31 +148,20 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
   // Beitrag zählt nur, wenn überhaupt ein Betrag eingetragen ist.
   const effectivePerPerson = hasAmount ? rawPerPerson : 0;
   const membershipBaseTotal = effectivePerPerson * size; // Basisbetrag aus dem Rechner
-
-  // Rabatt-Regel: laufende Mitgliedschaft ab Basisbetrag (monatlich oder jährlich)
-  const minDiscountAmount = membershipPlan.suggestedPerPersonPerMonth;
-  const eligibleForMemberDiscount =
-    membershipActive &&
-    effectivePerPerson >= minDiscountAmount;
-  const memberDiscountPercent = eligibleForMemberDiscount ? MEMBER_DISCOUNT.percent : 0;
-
   const hasApp = withEdebate && !!selectedPlan;
 
-  // App-Preise: Basis-Listenpreis pro Monat, abgeleitet Jahrespreis (8 % Skonto), Member-Preis (25 %)
-  const appListMonthly =
-    hasApp && selectedPlan ? Number(selectedPlan.listPrice.amount) : 0;
+  // App-Preise: Listenpreis pro Monat, abgeleitet Jahrespreis (8 % Skonto)
+  const appListMonthly = hasApp && selectedPlan ? Number(selectedPlan.listPrice.amount) : 0;
   const appListYearly = hasApp ? Math.round(appListMonthly * 12 * 0.92 * 100) / 100 : 0;
-  const appVogMonthly = Math.round(appListMonthly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
-  const appVogYearly = Math.round(appListYearly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
 
   const edebatteMonthly =
     hasApp && billingInterval === "monthly"
-      ? appVogMonthly
+      ? appListMonthly
       : hasApp
-        ? Math.round((appVogYearly / 12) * 100) / 100
+        ? Math.round((appListYearly / 12) * 100) / 100
         : 0;
   const edebatteYearly =
-    hasApp && billingInterval === "monthly" ? appVogMonthly * 12 : hasApp ? appVogYearly : 0;
+    hasApp && billingInterval === "monthly" ? appListMonthly * 12 : hasApp ? appListYearly : 0;
 
   // Mitgliedschaft: laufend (monatlich/jährlich) vs. einmalig
   const membershipMonthly = membershipActive ? membershipBaseTotal : 0;
@@ -214,7 +202,6 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
       params.set("edbPlan", selectedPlan.id);
       params.set("edbFinalPerMonth", edbAmount.toFixed(2));
       params.set("edbListPricePerMonth", appListMonthly.toFixed(2));
-      params.set("edbDiscountPercent", String(memberDiscountPercent || 0));
       params.set("edbBilling", billingInterval);
     }
 
@@ -325,8 +312,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   <strong>
                     {formatEuro(membershipPlan.suggestedPerPersonPerMonth)}
                   </strong>{" "}
-                  pro Monat und Person – ab diesem Betrag gilt für alle der
-                  gleiche Mitgliedsvorteile.
+                  pro Monat und Person – ab diesem Betrag zählt deine laufende
+                  Mitgliedschaft.
                 </>
               }
               onClick={() =>
@@ -347,10 +334,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                 <>
                   eDebatte ist unser eigens entwickeltes Werkzeug für digitale
                   Teilhabe. Zugang zur App mit Swipe-Interface, Beitragsanalyse
-                  und Live-Formaten. Auch ohne Mitgliedschaft möglich – als
-                  Mitglied mit laufendem Beitrag ab Basisbetrag erhältst du{" "}
-                  <strong>{MEMBER_DISCOUNT.percent}% Rabatt</strong> auf dein
-                  eDebatte-Paket.
+                  und Live-Formaten. Auch ohne Mitgliedschaft möglich – App‑Paket
+                  und Mitgliedschaft werden separat ausgewählt und abgerechnet.
                   <br />
                   <span className="text-[11px] text-slate-600">
                     Empfehlung: pro Haushalt mindestens eDebatte Start oder Pro; jedes
@@ -380,11 +365,6 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   const listMonthly = Number(plan.listPrice.amount);
                   const listYearly =
                     Math.round(listMonthly * 12 * 0.92 * 100) / 100;
-                  const memberPriceMonthly =
-                    Math.round(listMonthly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
-                  const memberPriceYearly =
-                    Math.round(listYearly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
-                  const showMemberLine = plan.listPrice.amount > 0;
 
                   return (
                     <button
@@ -439,19 +419,6 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                                 </>
                               )}
                             </p>
-                            {showMemberLine && (
-                              <p className="text-emerald-700">
-                                <span className="font-semibold">
-                                  Mitgliedsrabatt −{memberDiscountPercent}%:{" "}
-                                  {billingInterval === "monthly"
-                                    ? `${memberPriceMonthly.toFixed(2)} € / Monat`
-                                    : `${memberPriceYearly.toFixed(2)} € / Jahr (~${(memberPriceYearly / 12).toFixed(2)} € / Monat)`}
-                                  {billingInterval === "monthly"
-                                    ? ""
-                                    : ""}
-                                </span>
-                              </p>
-                            )}
                           </div>
                         </article>
                       </div>
@@ -764,9 +731,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                         {billingInterval === "monthly"
                           ? "Abrechnung monatlich."
                           : "Abrechnung jährlich (inkl. 8 % Skonto auf den App-Preis)."}{" "}
-                        {memberDiscountPercent > 0
-                          ? `Mitgliedsrabatt (−${memberDiscountPercent} %) ist im Betrag berücksichtigt.`
-                          : `Mitgliedsrabatt (−${MEMBER_DISCOUNT.percent} % auf den App-Preis) greift, wenn du eine laufende Mitgliedschaft ab Basisbetrag wählst.`}
+                        App-Paket und Mitgliedschaft werden getrennt abgerechnet.
                       </span>
                     </dd>
                   </div>
@@ -832,8 +797,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                           <p className="font-semibold">
                             {`eDebatte ${planLabel}`}:{" "}
                             {billingInterval === "monthly"
-                              ? `${formatEuro(appVogMonthly)} / Monat`
-                              : `${formatEuro(appVogYearly)} / Jahr`}
+                              ? `${formatEuro(appListMonthly)} / Monat`
+                              : `${formatEuro(appListYearly)} / Jahr`}
                           </p>
                           <button
                             type="button"
@@ -849,11 +814,6 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     {billingInterval === "yearly" && (
                       <p className="text-[11px] text-sky-800">
                         entspricht ca. {formatEuro(edebatteMonthly)} / Monat
-                      </p>
-                    )}
-                    {memberDiscountPercent > 0 && selectedPlan.listPrice.amount > 0 && (
-                      <p className="text-[11px] text-emerald-700">
-                        Mitgliedsrabatt −{memberDiscountPercent}% auf den App-Preis
                       </p>
                     )}
                     {billingInterval === "yearly" && (

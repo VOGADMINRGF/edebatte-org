@@ -146,12 +146,6 @@ export function MembershipApplicationPageClient() {
     const num = Number.parseFloat(raw.replace(",", "."));
     return Number.isFinite(num) ? Math.max(0, Math.round(num * 100) / 100) : undefined;
   }, [searchParams]);
-  const edbDiscountPercent = React.useMemo(() => {
-    const raw = searchParams.get("edbDiscountPercent");
-    if (!raw) return undefined;
-    const num = Number(raw);
-    return Number.isFinite(num) ? num : undefined;
-  }, [searchParams]);
   const edbBillingMode = (searchParams.get("edbBilling") as "monthly" | "yearly" | null) ?? undefined;
 
   // --- Helper für Initial-Member -------------------------------------------
@@ -672,7 +666,6 @@ export function MembershipApplicationPageClient() {
               enabled: true,
               planKey: edbPlanKey ? (edbPlanKey.startsWith("edb-") ? edbPlanKey : `edb-${edbPlanKey}`) : undefined,
               listPricePerMonth: edbListPricePerMonth,
-              discountPercent: edbDiscountPercent,
               finalPricePerMonth: edbFinalPerMonth,
               billingMode: edbBillingMode,
             }
@@ -989,9 +982,6 @@ export function MembershipApplicationPageClient() {
                       {edbEnabled ? (
                         <div>
                           eDebatte {resolveEdebateLabel(edbPlanKey)}
-                          {edbDiscountPercent
-                            ? ` (inkl. ${edbDiscountPercent} % Mitgliedsrabatt)`
-                            : null}
                           : {formatEuro(edbFinalPerMonth)} / Monat
                         </div>
                       ) : (
@@ -1015,7 +1005,6 @@ export function MembershipApplicationPageClient() {
                 edbEnabled={edbEnabled}
                 edbFinalPerMonth={edbFinalPerMonth}
                 edbPlanKey={edbPlanKey}
-                edbDiscountPercent={edbDiscountPercent}
                 householdSize={householdSize}
                 rhythmLabel={rhythmLabel}
                 contributionPerPerson={validatedContributionPerPerson}
@@ -1197,7 +1186,6 @@ export function MembershipApplicationPageClient() {
                 edbEnabled={edbEnabled}
                 edbFinalPerMonth={edbFinalPerMonth}
                 edbPlanKey={edbPlanKey}
-                edbDiscountPercent={edbDiscountPercent}
                 householdSize={householdSize}
                 rhythmLabel={rhythmLabel}
                 contributionPerPerson={validatedContributionPerPerson}
@@ -1525,7 +1513,6 @@ export function MembershipApplicationPageClient() {
                 edbEnabled={edbEnabled}
                 edbFinalPerMonth={edbFinalPerMonth}
                 edbPlanKey={edbPlanKey}
-                edbDiscountPercent={edbDiscountPercent}
                 householdSize={householdSize}
                 rhythmLabel={rhythmLabel}
                 contributionPerPerson={validatedContributionPerPerson}
@@ -1548,7 +1535,6 @@ function ContributionSummary({
   edbEnabled,
   edbFinalPerMonth,
   edbPlanKey,
-  edbDiscountPercent,
   householdSize,
   rhythmLabel,
   contributionPerPerson,
@@ -1559,19 +1545,14 @@ function ContributionSummary({
   edbEnabled: boolean;
   edbFinalPerMonth: number;
   edbPlanKey?: string;
-  edbDiscountPercent?: number;
   householdSize: number;
   rhythmLabel: string;
   contributionPerPerson: number;
 }) {
   const edbLabel = resolveEdebateLabel(edbPlanKey);
-  const discountSuffix =
-    typeof edbDiscountPercent === "number" && edbDiscountPercent > 0
-      ? ` (inkl. ${edbDiscountPercent} % Rabatt)`
-      : "";
   const edbLine = edbEnabled
     ? edbFinalPerMonth > 0
-      ? `eDebatte ${edbLabel}${discountSuffix}: ${formatEuro(edbFinalPerMonth)} / Monat`
+      ? `eDebatte ${edbLabel}: ${formatEuro(edbFinalPerMonth)} / Monat`
       : `eDebatte ${edbLabel}: kostenfrei`
     : "eDebatte: nicht gewählt";
   const basisSuffix =

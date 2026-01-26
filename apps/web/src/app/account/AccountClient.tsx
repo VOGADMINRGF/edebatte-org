@@ -6,7 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { EDEBATTE_PACKAGES_WITH_NONE, EDEBATTE_PACKAGES } from "@/config/edebatte";
-import { BRAND } from "@/lib/brand";
 import type { UserRole } from "@/types/user";
 
 // Konsistente Button-Styles im eDebatte-Gradient-CI
@@ -154,6 +153,7 @@ export function AccountClient({ initialData, membershipNotice, welcomeNotice }: 
   const identityPending = data.security.verificationLevel
     ? !["soft", "strong"].includes(data.security.verificationLevel)
     : !data.security.twoFactorEnabled;
+  const preorderNotice = data.edebatte.status === "preorder";
 
   async function refreshOverview() {
     try {
@@ -221,12 +221,17 @@ export function AccountClient({ initialData, membershipNotice, welcomeNotice }: 
       {pendingMicroTransfer && (
         <MicroTransferBanner paymentReference={data.membershipSnapshot?.paymentReference} />
       )}
+      {preorderNotice && (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-slate-700 shadow-sm">
+          <span className="font-semibold text-sky-700">Vorbestellt:</span> Wir haben dein eDebatte‑Paket reserviert.
+          Bei Vorkasse/2‑Jahres‑Option erhältst du eine E‑Mail mit Zahlungsdetails.
+        </div>
+      )}
 
       <ProfileAndPackageSection
         profile={data.profile}
         edebatte={data.edebatte}
         usage={data.usage}
-        hasVogMembership={data.hasVogMembership}
         onRefresh={refreshOverview}
       />
 
@@ -466,11 +471,10 @@ type ProfileAndPackageSectionProps = {
   profile: ProfileData;
   edebatte: EDebattePackageInfo;
   usage: UsageInfo;
-  hasVogMembership: boolean;
   onRefresh: () => void;
 };
 
-function ProfileAndPackageSection({ profile, edebatte, usage, hasVogMembership, onRefresh }: ProfileAndPackageSectionProps) {
+function ProfileAndPackageSection({ profile, edebatte, usage, onRefresh }: ProfileAndPackageSectionProps) {
   return (
     <section aria-labelledby="account-core-heading" className="space-y-4">
       <div className="flex flex-col gap-1">
@@ -482,7 +486,7 @@ function ProfileAndPackageSection({ profile, edebatte, usage, hasVogMembership, 
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2.1fr)_minmax(0,1.6fr)]">
         <ProfileCard profile={profile} onRefresh={onRefresh} />
-        <EDebattePackageCard edebatte={edebatte} usage={usage} hasVogMembership={hasVogMembership} onRefresh={onRefresh} />
+        <EDebattePackageCard edebatte={edebatte} usage={usage} onRefresh={onRefresh} />
       </div>
     </section>
   );
@@ -685,7 +689,6 @@ function ProfileCard({ profile, onRefresh }: ProfileCardProps) {
 type EDebattePackageCardProps = {
   edebatte: EDebattePackageInfo;
   usage: UsageInfo;
-  hasVogMembership: boolean;
   onRefresh: () => void;
 };
 
@@ -713,7 +716,7 @@ function getEDebatteStatusLabel(info: EDebattePackageInfo): string {
   }
 }
 
-function EDebattePackageCard({ edebatte, usage, hasVogMembership, onRefresh }: EDebattePackageCardProps) {
+function EDebattePackageCard({ edebatte, usage, onRefresh }: EDebattePackageCardProps) {
   const [showModal, setShowModal] = useState(false);
 
   const isNone = edebatte.status === "none";
@@ -752,23 +755,6 @@ function EDebattePackageCard({ edebatte, usage, hasVogMembership, onRefresh }: E
           <p className="text-xs text-slate-300">
             {isNone ? "Du kannst jederzeit ein eDebatte-Paket wählen – vom kostenlosen Einstieg (Basis) bis zum Pro-Paket." : statusLabel}
           </p>
-
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-300">
-            {hasVogMembership ? (
-              <p>VOG-Mitglied erkannt – dein Rabatt wird im eDebatte-Paket berücksichtigt.</p>
-            ) : (
-              <p>
-                VOG-Mitglied? Du bekommst Rabatt.{" "}
-                <a
-                  href={`mailto:${BRAND.membershipEmail}`}
-                  className="font-semibold text-sky-200 underline underline-offset-2"
-                >
-                  Schreib uns kurz
-                </a>
-                .
-              </p>
-            )}
-          </div>
 
           <div className="mt-3 rounded-2xl bg-slate-800/70 p-3 text-xs">
             {isNone ? (

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useLocale } from "@/context/LocaleContext";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 type FaqItem = {
   id: string;
@@ -169,9 +171,20 @@ const faqCategories: FaqCategory[] = [
 ];
 
 export default function FaqPage() {
+  const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "faq" });
+  const steps = useMemo(() => {
+    if (locale === "de" || locale === "en") return howItWorksSteps;
+    return mapTranslatableStrings(howItWorksSteps, t, { namespace: "faq.steps" });
+  }, [locale, t]);
+  const categories = useMemo(() => {
+    if (locale === "de" || locale === "en") return faqCategories;
+    return mapTranslatableStrings(faqCategories, t, { namespace: "faq.categories" });
+  }, [locale, t]);
+
   const [activeCategoryId, setActiveCategoryId] = useState<string>("grundlagen");
   const activeCategory =
-    faqCategories.find((cat) => cat.id === activeCategoryId) ?? faqCategories[0];
+    categories.find((cat) => cat.id === activeCategoryId) ?? categories[0];
 
   const [openQuestionId, setOpenQuestionId] = useState<string>(
     activeCategory.faqs[0]?.id,
@@ -179,7 +192,7 @@ export default function FaqPage() {
 
   function handleCategoryChange(id: string) {
     setActiveCategoryId(id);
-    const cat = faqCategories.find((c) => c.id === id);
+    const cat = categories.find((c) => c.id === id);
     if (cat && cat.faqs.length > 0) {
       setOpenQuestionId(cat.faqs[0].id);
     }
@@ -192,14 +205,16 @@ export default function FaqPage() {
           {/* Hero */}
           <header className="space-y-3 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
-              FAQ & How it works
+              {t("FAQ & How it works", "hero.overline")}
             </p>
             <h1 className="text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">
-              eDebatte – kurz erklärt
+              {t("eDebatte – kurz erklärt", "hero.title")}
             </h1>
             <p className="text-sm leading-relaxed text-slate-700 md:text-base">
-              Hier erfährst du, was eDebatte als Bewegung ist, wie eDebatte als Werkzeug
-              funktioniert, wer mitmachen kann und wie wir mit Daten und Finanzierung umgehen.
+              {t(
+                "Hier erfährst du, was eDebatte als Bewegung ist, wie eDebatte als Werkzeug funktioniert, wer mitmachen kann und wie wir mit Daten und Finanzierung umgehen.",
+                "hero.lead",
+              )}
             </p>
           </header>
 
@@ -207,16 +222,17 @@ export default function FaqPage() {
           <section className="mt-8 space-y-4">
             <div className="rounded-2xl bg-sky-50/70 p-4 text-sm text-slate-800 md:p-6">
               <h2 className="text-base font-semibold text-slate-900 md:text-lg">
-                In drei Schritten von der Idee zur Entscheidung
+                {t("In drei Schritten von der Idee zur Entscheidung", "steps.title")}
               </h2>
               <p className="mt-1 text-xs text-slate-700 md:text-sm">
-                Die Idee hinter eDebatte und eDebatte: Themen werden strukturiert vorbereitet,
-                inhaltlich geprüft und anschließend fair, nachvollziehbar und datenschutzfreundlich
-                entschieden.
+                {t(
+                  "Die Idee hinter eDebatte und eDebatte: Themen werden strukturiert vorbereitet, inhaltlich geprüft und anschließend fair, nachvollziehbar und datenschutzfreundlich entschieden.",
+                  "steps.lead",
+                )}
               </p>
 
               <div className="mt-4 grid gap-4 md:grid-cols-3">
-                {howItWorksSteps.map((step) => (
+                {steps.map((step) => (
                   <div
                     key={step.title}
                     className="flex flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
@@ -243,28 +259,30 @@ export default function FaqPage() {
             {/* Mini-Evidenz-Graph-Erklärung im Stil von /vote */}
             <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-800 shadow-[0_16px_40px_rgba(15,23,42,0.06)] md:p-6">
               <h2 className="text-base font-semibold text-slate-900 md:text-lg">
-                Evidenz-Graph – so liest du ihn
+                {t("Evidenz-Graph – so liest du ihn", "graph.title")}
               </h2>
               <p className="mt-1 text-xs text-slate-700 md:text-sm">
-                Aussagen werden mit Belegen gestützt, Gegenbelege zeigen Grenzen. Daraus entsteht
-                eine begründete Entscheidung – nicht nur eine Zahl am Ende der Abstimmung.
+                {t(
+                  "Aussagen werden mit Belegen gestützt, Gegenbelege zeigen Grenzen. Daraus entsteht eine begründete Entscheidung – nicht nur eine Zahl am Ende der Abstimmung.",
+                  "graph.lead",
+                )}
               </p>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full bg-sky-50 px-3 py-1 font-semibold text-sky-700">
-                  Aussage
+                  {t("Aussage", "graph.legend.statement")}
                 </span>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
-                  Beleg / Gegenbeleg
+                  {t("Beleg / Gegenbeleg", "graph.legend.evidence")}
                 </span>
                 <span className="rounded-full bg-violet-50 px-3 py-1 font-semibold text-violet-700">
-                  Entscheidung
+                  {t("Entscheidung", "graph.legend.decision")}
                 </span>
               </div>
               <p className="mt-3 text-xs leading-relaxed text-slate-700 md:text-sm">
-                Jede Aussage verweist auf Quellen. Belege sammeln heißt: Studien, Daten,
-                Erfahrungsberichte – alles mit nachvollziehbarer Herkunft. Gegenpositionen markieren
-                Widersprüche, offene Fragen oder Unsicherheiten. Die Entscheidung am Ende verweist
-                sichtbar auf diese Grundlage – und kann später erneut überprüft werden.
+                {t(
+                  "Jede Aussage verweist auf Quellen. Belege sammeln heißt: Studien, Daten, Erfahrungsberichte – alles mit nachvollziehbarer Herkunft. Gegenpositionen markieren Widersprüche, offene Fragen oder Unsicherheiten. Die Entscheidung am Ende verweist sichtbar auf diese Grundlage – und kann später erneut überprüft werden.",
+                  "graph.body",
+                )}
               </p>
             </div>
           </section>
@@ -272,7 +290,7 @@ export default function FaqPage() {
           {/* FAQ-Bereich */}
           <section className="mt-10">
             <div className="flex flex-wrap justify-center gap-3">
-              {faqCategories.map((cat) => {
+              {categories.map((cat) => {
                 const isActive = cat.id === activeCategoryId;
                 return (
                   <button
@@ -341,14 +359,14 @@ export default function FaqPage() {
           {/* Footer-CTA */}
           <section className="mt-10 flex flex-col gap-3 text-center text-xs text-slate-600 md:text-sm">
             <p>
-              Noch eine Frage offen? Melde dich jederzeit über das{" "}
+              {t("Noch eine Frage offen? Melde dich jederzeit über das", "footer.lead")}{" "}
               <Link
                 href="/kontakt"
                 className="font-semibold text-sky-700 underline underline-offset-4"
               >
-                Kontaktformular
+                {t("Kontaktformular", "footer.contact")}
               </Link>{" "}
-              oder trag dich in den Newsletter dort ein. 
+              {t("oder trag dich in den Newsletter dort ein.", "footer.tail")}
             </p>
           </section>
         </div>

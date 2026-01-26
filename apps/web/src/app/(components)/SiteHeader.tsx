@@ -2,9 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "@/context/LocaleContext";
 import { useContentLang } from "@/lib/i18n/contentLanguage";
+import {
+  AUTO_TRANSLATE_LOCALES,
+  isPublicPathname,
+  mapTranslatableStrings,
+  useAutoTranslateText,
+} from "@/lib/i18n/autoTranslate";
 import { UI_LANGS, type LanguageCode } from "@features/i18n/languages";
 import { getLocaleConfig, type SupportedLocale } from "@/config/locales";
 import { useCurrentUser, clearCachedUser, primeCachedUser } from "@/hooks/auth";
@@ -64,6 +70,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
   const avatarLabel = deriveInitials(user?.name || user?.email || "Du");
   const avatarUrl = user?.avatarUrl ?? null;
@@ -77,6 +84,17 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
     () => activeLang.toUpperCase(),
     [activeLang],
   );
+  const translationPending =
+    isPublicPathname(pathname) && AUTO_TRANSLATE_LOCALES.includes(activeLang as SupportedLocale);
+  const t = useAutoTranslateText({
+    locale: activeLang as SupportedLocale,
+    namespace: "site-header",
+  });
+  const navItems = useMemo(() => {
+    if (activeLang === "de" || activeLang === "en") return NAV_ITEMS;
+    return mapTranslatableStrings(NAV_ITEMS, t, { namespace: "nav" });
+  }, [activeLang, t]);
+  const statusLabel = t("Auto-Übersetzung", "status.auto");
   const localeOptions = UI_LANGS.map((lang) => {
     const cfg = getLocaleConfig(lang.code as SupportedLocale);
     return {
@@ -138,18 +156,25 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
         {/* Rechts: Avatar/Account + Hamburger */}
         <div className="flex items-center gap-3">
           <div className="relative hidden sm:block">
-            <button
-              type="button"
-              aria-label={`Sprache waehlen (aktuell ${activeLocaleConfig.label})`}
-              aria-expanded={localeOpen}
-              onClick={() => setLocaleOpen((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-sky-300 hover:text-sky-600"
-            >
-              <span aria-hidden="true" className="text-base">
-                {activeLocaleConfig.flagEmoji || "🏳️"}
-              </span>
-              <span>{localeLabel}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label={t(`Sprache wählen (aktuell ${activeLocaleConfig.label})`, "aria.locale")}
+                aria-expanded={localeOpen}
+                onClick={() => setLocaleOpen((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-sky-300 hover:text-sky-600"
+              >
+                <span aria-hidden="true" className="text-base">
+                  {activeLocaleConfig.flagEmoji || "🏳️"}
+                </span>
+                <span>{localeLabel}</span>
+              </button>
+              {translationPending && (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+                  {statusLabel}
+                </span>
+              )}
+            </div>
             {localeOpen && (
               <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
                 {localeOptions.map((lang) => (
@@ -174,12 +199,16 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
               href="/login"
               className="hidden sm:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
             >
-              Login
+              {t("Login", "login")}
             </Link>
           )}
           <button
             type="button"
-            aria-label={user ? "Account-Menü öffnen" : "Navigation öffnen"}
+            aria-label={
+              user
+                ? t("Account-Menü öffnen", "aria.account")
+                : t("Navigation öffnen", "aria.navigation")
+            }
             onClick={() => setMobileOpen((v) => !v)}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300/80 bg-white/90 text-sm font-semibold text-slate-700 shadow-sm hover:border-sky-300"
           >
@@ -199,7 +228,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
               )
             ) : (
               <>
-                <span className="sr-only">Menü</span>
+                <span className="sr-only">{t("Menü", "menu")}</span>
                 <svg
                   aria-hidden="true"
                   className="h-5 w-5"
@@ -225,11 +254,11 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
           <div className="mx-auto max-w-6xl px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase tracking-wide text-slate-500">
-                Navigations
+                {t("Navigation", "mobile.nav")}
               </span>
               <button
                 type="button"
-                aria-label={`Sprache waehlen (aktuell ${activeLocaleConfig.label})`}
+                aria-label={t(`Sprache wählen (aktuell ${activeLocaleConfig.label})`, "aria.locale.mobile")}
                 aria-expanded={localeOpen}
                 onClick={() => setLocaleOpen((v) => !v)}
                 className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 hover:border-sky-300 hover:text-sky-600"
@@ -260,10 +289,10 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
             )}
 
             <nav
-              aria-label="Mobile Navigation"
+              aria-label={t("Mobile Navigation", "aria.mobile-nav")}
               className="flex flex-col gap-2 text-sm font-semibold text-slate-800"
             >
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
@@ -284,7 +313,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
                 onClick={() => setMobileOpen(false)}
                 className="mt-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-center text-sm font-semibold text-white shadow-[0_10px_25px_rgba(56,189,248,0.4)]"
               >
-                Mitmachen
+                {t("Mitmachen", "cta.join")}
               </Link>
 
               {user ? (
@@ -294,7 +323,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
                     onClick={() => setMobileOpen(false)}
                     className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
                   >
-                    Mein Konto
+                    {t("Mein Konto", "account")}
                   </Link>
                   <button
                     type="button"
@@ -302,7 +331,9 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
                     disabled={loggingOut}
                     className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-rose-300 hover:text-rose-600 disabled:opacity-60"
                   >
-                    {loggingOut ? "Abmelden …" : "Abmelden"}
+                    {loggingOut
+                      ? t("Abmelden …", "logout.pending")
+                      : t("Abmelden", "logout")}
                   </button>
                 </div>
               ) : (
@@ -311,7 +342,7 @@ export function SiteHeader({ initialUser }: { initialUser?: AuthUser | null }) {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-full border border-slate-200 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-600"
               >
-                Login
+                {t("Login", "login.mobile")}
               </Link>
             )}
             </nav>

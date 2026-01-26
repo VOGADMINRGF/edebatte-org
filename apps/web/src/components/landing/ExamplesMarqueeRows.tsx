@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/context/LocaleContext";
+import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 import type { ExampleItem } from "@/lib/examples/types";
 import { hintForBucket, labelForBucket, type Lang } from "@features/landing/landingCopy";
 import { ExampleSnippetCard } from "./ExampleSnippetCard";
@@ -67,6 +69,8 @@ export function ExamplesMarqueeRows(props: {
   onPick?: (item: ExampleItem) => void;
   onOpen?: (item: ExampleItem) => void;
 }) {
+  const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "landing-marquee" });
   const { ref, size } = useElementSize<HTMLDivElement>();
 
   // keep sizes stable; just reduce “header heaviness”
@@ -89,9 +93,12 @@ export function ExamplesMarqueeRows(props: {
           const doubled = baseItems.length ? [...baseItems, ...baseItems] : baseItems;
           const duration = speeds[idx % speeds.length];
 
-          const label = labelForBucket(block.label, props.lang);
-          const hint = hintForBucket(block.label, props.lang);
-          const route = routingHintForBucket(block.label, props.lang);
+          const baseLabel = labelForBucket(block.label, props.lang);
+          const baseHint = hintForBucket(block.label, props.lang);
+          const baseRoute = routingHintForBucket(block.label, props.lang);
+          const label = t(baseLabel, `label.${block.label}`);
+          const hint = baseHint ? t(baseHint, `hint.${block.label}`) : "";
+          const route = t(baseRoute, `route.${block.label}`);
 
           return (
             <section key={block.label} className="relative min-h-0 flex flex-col">

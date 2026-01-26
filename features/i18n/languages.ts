@@ -1,4 +1,25 @@
-export const LANGUAGE_CODES = ["de", "en", "es", "it", "pl", "fr", "tr", "ru", "zh", "ar"] as const;
+export const LANGUAGE_CODES = [
+  "de",
+  "en",
+  "es",
+  "it",
+  "pl",
+  "fr",
+  "tr",
+  "ru",
+  "zh",
+  "ar",
+  "nl",
+  "pt",
+  "fi",
+  "sv",
+  "no",
+  "cs",
+  "hi",
+  "ro",
+  "el",
+  "uk",
+] as const;
 export type LanguageCode = (typeof LANGUAGE_CODES)[number];
 
 export const FALLBACK_LANG: LanguageCode = "en";
@@ -15,4 +36,14 @@ export const UI_LANGS: Array<{ code: LanguageCode; label: string }> = [
   { code: "ru", label: "Русский" },
   { code: "zh", label: "中文" },
   { code: "ar", label: "العربية" },
+  { code: "nl", label: "Nederlands" },
+  { code: "pt", label: "Portugues" },
+  { code: "fi", label: "Suomi" },
+  { code: "sv", label: "Svenska" },
+  { code: "no", label: "Norsk" },
+  { code: "cs", label: "Cesky" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "ro", label: "Romana" },
+  { code: "el", label: "Ελληνικα" },
+  { code: "uk", label: "Українська" },
 ];

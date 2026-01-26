@@ -24,14 +24,6 @@ export type EDebattePlan = {
   isFree?: boolean;
 };
 
-export type DiscountRule = {
-  id: "member-25";
-  label: string;
-  description: string;
-  percent: number;
-  appliesTo: Array<"edebatte" | "merch">;
-};
-
 export const VOG_MEMBERSHIP_PLAN: VOGMembershipPlan = {
   id: "vog-membership",
   label: "eDebatte-Mitgliedschaft",
@@ -67,20 +59,3 @@ export const EDEBATTE_PLANS: EDebattePlan[] = [
     listPrice: { amount: 29, interval: "month" },
   },
 ];
-
-export const MEMBER_DISCOUNT: DiscountRule = {
-  id: "member-25",
-  label: "25 % Mitgliederrabatt",
-  description:
-    "eDebatte-Mitglieder erhalten 25 % Nachlass auf kostenpflichtige eDebatte-Pakete und den zukünftigen Merchandise-Shop.",
-  percent: 25,
-  appliesTo: ["edebatte", "merch"],
-};
-
-export function calcDiscountedPrice(
-  listPrice: number,
-  discountPercent: number = MEMBER_DISCOUNT.percent,
-): number {
-  if (listPrice <= 0) return 0;
-  return Math.round(listPrice * (1 - discountPercent / 100) * 100) / 100;
-}

@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MEMBER_DISCOUNT } from "@/config/pricing";
 import type { EDebattePlan, VOGMembershipPlan } from "@/config/pricing";
 import { useLocale } from "@/context/LocaleContext";
 import { getMembershipStrings } from "./strings";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 import {
   loadMembershipDraft,
   saveMembershipDraft,
@@ -20,6 +20,14 @@ type Props = {
   membershipPlan: VOGMembershipPlan;
   edebattePlans: EDebattePlan[];
 };
+
+const PREORDER_DISCOUNT = 15;
+
+function preorderHref(planId: string) {
+  const normalized = planId.replace(/^edb-/, "");
+  const next = `/account?preorder=1&edbPlan=${encodeURIComponent(normalized)}&source=mitglied-werden`;
+  return `/register?next=${encodeURIComponent(next)}`;
+}
 
 function parseEuro(value: string): number | null {
   if (!value) return null;
@@ -43,7 +51,13 @@ function StatusBadge({ children }: { children: React.ReactNode }) {
 
 export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
   const { locale } = useLocale();
-  const strings = getMembershipStrings(locale);
+  const baseStrings = React.useMemo(() => getMembershipStrings(locale), [locale]);
+  const sourceStrings = React.useMemo(() => getMembershipStrings("de"), []);
+  const t = useAutoTranslateText({ locale, namespace: "mitglied-werden" });
+  const strings = React.useMemo(() => {
+    if (locale === "de" || locale === "en") return baseStrings;
+    return mapTranslatableStrings(sourceStrings, t, { namespace: "mitglied-werden" });
+  }, [baseStrings, locale, sourceStrings, t]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillDone = React.useRef(false);
@@ -172,31 +186,26 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
   // Beitrag zählt nur, wenn überhaupt ein Betrag eingetragen ist.
   const effectivePerPerson = hasAmount ? rawPerPerson : 0;
   const membershipBaseTotal = effectivePerPerson * size; // Basisbetrag aus dem Rechner
-
-  // Rabatt-Regel: laufende Mitgliedschaft ab Basisbetrag (monatlich oder jährlich)
-  const minDiscountAmount = membershipPlan.suggestedPerPersonPerMonth;
-  const eligibleForMemberDiscount =
-    membershipActive &&
-    effectivePerPerson >= minDiscountAmount;
-  const memberDiscountPercent = eligibleForMemberDiscount ? MEMBER_DISCOUNT.percent : 0;
-
   const hasApp = withEdebate && !!selectedPlan;
 
-  // App-Preise: Basis-Listenpreis pro Monat, abgeleitet Jahrespreis (8 % Skonto), Member-Preis (25 %)
-  const appListMonthly =
-    hasApp && selectedPlan ? Number(selectedPlan.listPrice.amount) : 0;
+  // App-Preise: Listenpreis pro Monat, Vorbestellung (−15 %), Jahrespreis (8 % Skonto)
+  const appListMonthly = hasApp && selectedPlan ? Number(selectedPlan.listPrice.amount) : 0;
   const appListYearly = hasApp ? Math.round(appListMonthly * 12 * 0.92 * 100) / 100 : 0;
-  const appVogMonthly = Math.round(appListMonthly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
-  const appVogYearly = Math.round(appListYearly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
+  const appPreorderMonthly = hasApp
+    ? Math.round(appListMonthly * (1 - PREORDER_DISCOUNT / 100) * 100) / 100
+    : 0;
+  const appPreorderYearly = hasApp
+    ? Math.round(appPreorderMonthly * 12 * 0.92 * 100) / 100
+    : 0;
 
   const edebatteMonthly =
     hasApp && billingInterval === "monthly"
-      ? appVogMonthly
+      ? appPreorderMonthly
       : hasApp
-        ? Math.round((appVogYearly / 12) * 100) / 100
+        ? Math.round((appPreorderYearly / 12) * 100) / 100
         : 0;
   const edebatteYearly =
-    hasApp && billingInterval === "monthly" ? appVogMonthly * 12 : hasApp ? appVogYearly : 0;
+    hasApp && billingInterval === "monthly" ? appPreorderMonthly * 12 : hasApp ? appPreorderYearly : 0;
 
   // Mitgliedschaft: laufend (monatlich/jährlich) vs. einmalig
   const membershipMonthly = membershipActive ? membershipBaseTotal : 0;
@@ -211,6 +220,11 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
 
   function handleGotoAntrag() {
     const params = new URLSearchParams();
+
+    if (!membershipActive && !oneTimeActive && withEdebate && selectedPlan) {
+      router.push(preorderHref(selectedPlan.id));
+      return;
+    }
 
     const membershipAmountForAntrag = membershipActive ? membershipMonthly : 0;
     const edbAmount = edebatteMonthly;
@@ -237,7 +251,6 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
       params.set("edbPlan", selectedPlan.id);
       params.set("edbFinalPerMonth", edbAmount.toFixed(2));
       params.set("edbListPricePerMonth", appListMonthly.toFixed(2));
-      params.set("edbDiscountPercent", String(memberDiscountPercent || 0));
       params.set("edbBilling", billingInterval);
     }
 
@@ -276,6 +289,10 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
     yearlyComponents > 0 && monthlyComponents === 0 && oneOffComponent === 0;
   const showSplitSchedule = !hasOnlyMonthly && !hasOnlyYearly;
   const firstPayment = monthlyComponents + yearlyComponents + oneOffComponent;
+  const preorderOnly = withEdebate && !membershipActive && !oneTimeActive;
+  const summaryButtonLabel = preorderOnly
+    ? strings.summaryButtonPreorder
+    : strings.summaryButton;
 
   return (
     <>
@@ -348,8 +365,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   <strong>
                     {formatEuro(membershipPlan.suggestedPerPersonPerMonth)}
                   </strong>{" "}
-                  pro Monat und Person – ab diesem Betrag gilt für alle der
-                  gleiche Mitgliedsvorteile.
+                  pro Monat und Person – ab diesem Betrag zählt deine laufende
+                  Mitgliedschaft.
                 </>
               }
               onClick={() =>
@@ -370,10 +387,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                 <>
                   eDebatte ist unser eigens entwickeltes Werkzeug für digitale
                   Teilhabe. Zugang zur App mit Swipe-Interface, Beitragsanalyse
-                  und Live-Formaten. Auch ohne Mitgliedschaft möglich – als
-                  Mitglied mit laufendem Beitrag ab Basisbetrag erhältst du{" "}
-                  <strong>{MEMBER_DISCOUNT.percent}% Rabatt</strong> auf dein
-                  eDebatte-Paket.
+                  und Live-Formaten. Auch ohne Mitgliedschaft möglich – App‑Paket
+                  und Mitgliedschaft werden separat ausgewählt und abgerechnet.
                   <br />
                   <span className="text-[11px] text-slate-600">
                     Empfehlung: pro Haushalt mindestens eDebatte Start oder Pro; jedes
@@ -406,11 +421,14 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   const listMonthly = Number(plan.listPrice.amount);
                   const listYearly =
                     Math.round(listMonthly * 12 * 0.92 * 100) / 100;
-                  const memberPriceMonthly =
-                    Math.round(listMonthly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
-                  const memberPriceYearly =
-                    Math.round(listYearly * (eligibleForMemberDiscount ? 0.75 : 1) * 100) / 100;
-                  const showMemberLine = plan.listPrice.amount > 0;
+                  const preorderMonthly =
+                    listMonthly > 0
+                      ? Math.round(listMonthly * (1 - PREORDER_DISCOUNT / 100) * 100) / 100
+                      : 0;
+                  const preorderYearly =
+                    listMonthly > 0
+                      ? Math.round(preorderMonthly * 12 * 0.92 * 100) / 100
+                      : 0;
 
                   return (
                     <button
@@ -442,41 +460,40 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                             {plan.description}
                           </p>
                           <div className="mt-3 space-y-1 text-xs">
-                            <p className="text-slate-700">
-                              {billingInterval === "monthly" ? (
-                                <>
+                            {listMonthly > 0 ? (
+                              <>
+                                <p className="text-slate-700">
                                   Listenpreis:{" "}
-                                  <span className="font-medium">
-                                    {listMonthly.toFixed(2)} € / Monat
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  Listenpreis:{" "}
-                                  <span className="font-medium">
-                                    {listYearly.toFixed(2)} € / Jahr
+                                  <span className="font-medium text-slate-400 line-through">
+                                    {billingInterval === "monthly"
+                                      ? `${listMonthly.toFixed(2)} € / Monat`
+                                      : `${listYearly.toFixed(2)} € / Jahr`}
                                   </span>{" "}
-                                  <span className="text-[11px] text-slate-500">
-                                    (inkl. 8 % Skonto)
+                                  <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-sky-200">
+                                    −{PREORDER_DISCOUNT}% Vorbestellung
                                   </span>
-                                  <span className="block text-[11px] text-slate-500">
-                                    Basis: {listMonthly.toFixed(2)} € / Monat
+                                </p>
+                                {billingInterval === "yearly" && (
+                                  <>
+                                    <span className="block text-[11px] text-slate-500">
+                                      (inkl. 8 % Skonto)
+                                    </span>
+                                    <span className="block text-[11px] text-slate-500">
+                                      Basis: {listMonthly.toFixed(2)} € / Monat
+                                    </span>
+                                  </>
+                                )}
+                                <p className="text-[11px] text-slate-600">
+                                  Vorbestellung ab:{" "}
+                                  <span className="font-semibold text-slate-800">
+                                    {billingInterval === "monthly"
+                                      ? `${preorderMonthly.toFixed(2)} € / Monat`
+                                      : `${preorderYearly.toFixed(2)} € / Jahr (~${(preorderYearly / 12).toFixed(2)} € / Monat)`}
                                   </span>
-                                </>
-                              )}
-                            </p>
-                            {showMemberLine && (
-                              <p className="text-emerald-700">
-                                <span className="font-semibold">
-                                  Mitgliedsrabatt −{memberDiscountPercent}%:{" "}
-                                  {billingInterval === "monthly"
-                                    ? `${memberPriceMonthly.toFixed(2)} € / Monat`
-                                    : `${memberPriceYearly.toFixed(2)} € / Jahr (~${(memberPriceYearly / 12).toFixed(2)} € / Monat)`}
-                                  {billingInterval === "monthly"
-                                    ? ""
-                                    : ""}
-                                </span>
-                              </p>
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-slate-700">Kostenfrei</p>
                             )}
                           </div>
                         </article>
@@ -790,9 +807,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                         {billingInterval === "monthly"
                           ? "Abrechnung monatlich."
                           : "Abrechnung jährlich (inkl. 8 % Skonto auf den App-Preis)."}{" "}
-                        {memberDiscountPercent > 0
-                          ? `Mitgliedsrabatt (−${memberDiscountPercent} %) ist im Betrag berücksichtigt.`
-                          : `Mitgliedsrabatt (−${MEMBER_DISCOUNT.percent} % auf den App-Preis) greift, wenn du eine laufende Mitgliedschaft ab Basisbetrag wählst.`}
+                        App-Paket und Mitgliedschaft werden getrennt abgerechnet.
                       </span>
                     </dd>
                   </div>
@@ -858,8 +873,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                           <p className="font-semibold">
                             {`eDebatte ${planLabel}`}:{" "}
                             {billingInterval === "monthly"
-                              ? `${formatEuro(appVogMonthly)} / Monat`
-                              : `${formatEuro(appVogYearly)} / Jahr`}
+                              ? `${formatEuro(appPreorderMonthly)} / Monat`
+                              : `${formatEuro(appPreorderYearly)} / Jahr`}
                           </p>
                           <button
                             type="button"
@@ -875,11 +890,6 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                     {billingInterval === "yearly" && (
                       <p className="text-[11px] text-sky-800">
                         entspricht ca. {formatEuro(edebatteMonthly)} / Monat
-                      </p>
-                    )}
-                    {memberDiscountPercent > 0 && selectedPlan.listPrice.amount > 0 && (
-                      <p className="text-[11px] text-emerald-700">
-                        Mitgliedsrabatt −{memberDiscountPercent}% auf den App-Preis
                       </p>
                     )}
                     {billingInterval === "yearly" && (
@@ -954,7 +964,7 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                 disabled={!canContinue}
                 className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {strings.summaryButton}
+                {summaryButtonLabel}
               </button>
             </div>
           </div>

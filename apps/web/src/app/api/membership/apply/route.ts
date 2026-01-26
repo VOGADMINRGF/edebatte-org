@@ -13,7 +13,6 @@ export const dynamic = "force-dynamic";
 
 const MEMBERSHIP_SCHEMA = z.object({
   plan: z.enum(["basis", "pro", "premium"]),
-  vogMember: z.boolean().optional(),
   firstName: z.string().min(1).max(120),
   lastName: z.string().min(1).max(160),
   email: z.string().email(),
@@ -69,10 +68,8 @@ export async function POST(req: NextRequest) {
 
   const body = parsed.data;
   const plan = body.plan;
-  const vogMember = !!body.vogMember;
   const basePrice = PLAN_PRICE[plan];
-  const discountApplied = plan !== "basis" && vogMember;
-  const monthlyAmount = roundCurrency(discountApplied ? basePrice * 0.75 : basePrice);
+  const monthlyAmount = roundCurrency(basePrice);
 
   const oid = new ObjectId(userId);
   const Users = await getCol("users");
@@ -105,9 +102,7 @@ export async function POST(req: NextRequest) {
   const applicationId = await insertMembershipApplication({
     userId: oid,
     plan,
-    vogMember,
     monthlyAmountEUR: monthlyAmount,
-    discountApplied,
     reference: `${BANK_DETAILS.referenceHint} · ${reference}`,
     notes: body.notes ?? null,
     contact: {
@@ -129,9 +124,7 @@ export async function POST(req: NextRequest) {
   const membershipUpdate: Record<string, any> = {
     "membership.lastApplication": {
       plan,
-      vogMember,
       monthlyAmountEUR: monthlyAmount,
-      discountApplied,
       submittedAt: now,
       notes: body.notes ?? null,
     },
@@ -142,7 +135,6 @@ export async function POST(req: NextRequest) {
     membershipUpdate["membership.status"] = "pending";
     membershipUpdate["membership.plan"] = plan;
     membershipUpdate["membership.monthlyAmountEUR"] = monthlyAmount;
-    membershipUpdate["membership.discountApplied"] = discountApplied;
   }
 
   await Users.updateOne({ _id: oid }, { $set: membershipUpdate });
@@ -151,7 +143,6 @@ export async function POST(req: NextRequest) {
     firstName: body.firstName,
     planLabel: PLAN_LABEL[plan],
     monthlyAmount,
-    discountApplied,
     reference: `${BANK_DETAILS.referenceHint} · ${reference}`,
     bank: BANK_DETAILS,
   });
@@ -168,7 +159,6 @@ export async function POST(req: NextRequest) {
     applicationId: String(applicationId),
     reference: `${BANK_DETAILS.referenceHint} · ${reference}`,
     monthlyAmount,
-    discountApplied,
     bank: BANK_DETAILS,
   });
 }

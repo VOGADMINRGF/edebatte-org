@@ -39,6 +39,8 @@ type LandingCopy = {
     attachmentsLabel: string;
     attachmentsHint?: string;
     attachmentsRules: string;
+    attachmentsTotal: (size: string) => string;
+    attachmentsWarn: string;
     humanLabel: string;
     humanQuestion: (a: number, b: number) => string;
     humanPlaceholder: string;
@@ -124,6 +126,8 @@ export const LANDING_COPY: Record<Lang, LandingCopy> = {
       attachmentsLabel: "Anhänge",
       attachmentsHint: "Mehrere Dateien möglich.",
       attachmentsRules: "Max. 5 Dateien, je 8 MB (gesamt 20 MB).",
+      attachmentsTotal: (size) => `Gesamt: ${size}`,
+      attachmentsWarn: "Achtung: fast am Limit.",
       humanLabel: "Human-Check",
       humanQuestion: (a, b) => `Wie viel ist ${a} + ${b}?`,
       humanPlaceholder: "Antwort",
@@ -208,6 +212,8 @@ export const LANDING_COPY: Record<Lang, LandingCopy> = {
       attachmentsLabel: "Attachments",
       attachmentsHint: "Multiple files allowed.",
       attachmentsRules: "Max 5 files, 8 MB each (20 MB total).",
+      attachmentsTotal: (size) => `Total: ${size}`,
+      attachmentsWarn: "Warning: close to limit.",
       humanLabel: "Human check",
       humanQuestion: (a, b) => `What is ${a} + ${b}?`,
       humanPlaceholder: "Answer",

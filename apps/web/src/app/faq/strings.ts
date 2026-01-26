@@ -33,7 +33,7 @@ const TABS = [
 
 function pick(entry: LocaleString, locale: SupportedLocale | string): string {
   const normalized = (locale || DEFAULT_LOCALE) as SupportedLocale;
-  return entry[normalized] ?? entry.de;
+  return entry[normalized] ?? (normalized !== "de" ? entry.en : undefined) ?? entry.de;
 }
 
 export function getFaqTabs(locale: SupportedLocale | string) {

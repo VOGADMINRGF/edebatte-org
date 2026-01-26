@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
+import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
 const hero = {
   kicker_de: "eDebatte Modul",
@@ -155,9 +156,14 @@ const roadmap = {
 
 export default function DossierPage() {
   const { locale } = useLocale();
+  const t = useAutoTranslateText({ locale, namespace: "howtoworks-dossier" });
   const text = React.useCallback(
-    (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
-    [locale],
+    (entry: Record<string, any>, key: string) => {
+      const base = resolveLocalizedField(entry, key, locale);
+      const hint = entry?.id ? `${entry.id}.${key}` : key;
+      return t(base, hint);
+    },
+    [locale, t],
   );
   const sectionTitleClass =
     "text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-sky-800 via-cyan-700 to-teal-700";
@@ -175,23 +181,23 @@ export default function DossierPage() {
           <p className="text-lg text-slate-700">{text(hero, "lead")}</p>
 
           <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-700">
-            {heroChips.map((chip) => (
+            {heroChips.map((chip, idx) => (
               <span
                 key={chip}
                 className="rounded-full border px-3 py-1 shadow-sm"
                 style={{ borderColor: "var(--chip-border)", background: "rgba(14,165,233,0.08)" }}
               >
-                {chip}
+                {t(chip, `heroChip.${idx}`)}
               </span>
             ))}
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Link href="/howtoworks/edebatte#rolle-vereine" className="btn btn-primary">
-              Zur Rolle Vereine & Journalist:innen
+              {t("Zur Rolle Vereine & Journalist:innen", "cta.role")}
             </Link>
             <Link href="/howtoworks/edebatte/abstimmen" className="btn btn-ghost">
-              Weiter zu Abstimmen & Ergebnis
+              {t("Weiter zu Abstimmen & Ergebnis", "cta.vote")}
             </Link>
           </div>
         </header>
@@ -200,7 +206,7 @@ export default function DossierPage() {
           <div className="aspect-[16/9]">
             <img
               src={heroImage.src}
-              alt={heroImage.alt}
+              alt={t(heroImage.alt, "hero.imageAlt")}
               className="h-full w-full object-cover"
               loading="lazy"
             />
@@ -219,13 +225,22 @@ export default function DossierPage() {
         <section className="space-y-3">
           <h2 className={sectionTitleClass}>{text(visuals, "title")}</h2>
           <div className="grid gap-4 md:grid-cols-2">
-            {visuals.items_de.map((v) => (
+            {visuals.items_de.map((v, idx) => (
               <article key={v.title} className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  <img src={v.imgSrc} alt={v.imgAlt} className="h-auto w-full" loading="lazy" />
+                  <img
+                    src={v.imgSrc}
+                    alt={t(v.imgAlt, `visuals.${idx}.alt`)}
+                    className="h-auto w-full"
+                    loading="lazy"
+                  />
                 </div>
-                <h3 className="mt-3 text-sm font-semibold text-slate-900">{v.title}</h3>
-                <p className="mt-1 text-sm text-slate-700">{v.body}</p>
+                <h3 className="mt-3 text-sm font-semibold text-slate-900">
+                  {t(v.title, `visuals.${idx}.title`)}
+                </h3>
+                <p className="mt-1 text-sm text-slate-700">
+                  {t(v.body, `visuals.${idx}.body`)}
+                </p>
               </article>
             ))}
           </div>
@@ -235,16 +250,16 @@ export default function DossierPage() {
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className={sectionTitleClass}>{text(features, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {features.items_de.map((item) => (
-                <li key={item}>{item}</li>
+              {features.items_de.map((item, idx) => (
+                <li key={item}>{t(item, `features.${idx}`)}</li>
               ))}
             </ul>
           </article>
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className={sectionTitleClass}>{text(outputs, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {outputs.items_de.map((item) => (
-                <li key={item}>{item}</li>
+              {outputs.items_de.map((item, idx) => (
+                <li key={item}>{t(item, `outputs.${idx}`)}</li>
               ))}
             </ul>
           </article>
@@ -254,8 +269,8 @@ export default function DossierPage() {
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className={sectionTitleClass}>{text(safeguards, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {safeguards.items_de.map((item) => (
-                <li key={item}>{item}</li>
+              {safeguards.items_de.map((item, idx) => (
+                <li key={item}>{t(item, `safeguards.${idx}`)}</li>
               ))}
             </ul>
           </article>
@@ -264,7 +279,10 @@ export default function DossierPage() {
             <p className="mt-2 text-sm text-slate-700">{text(example, "body")}</p>
 
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-              Hinweis: Ein Dossier ist kein Wahrheitsurteil. Es zeigt transparent, was belegt ist – und was noch offen bleibt.
+              {t(
+                "Hinweis: Ein Dossier ist kein Wahrheitsurteil. Es zeigt transparent, was belegt ist – und was noch offen bleibt.",
+                "note.dossier",
+              )}
             </div>
           </article>
         </section>

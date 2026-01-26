@@ -2,12 +2,19 @@
 
 "use client";
 
+import { useMemo } from "react";
 import { useLocale } from "@/context/LocaleContext";
+import { mapTranslatableStrings, useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 import { getTransparenzberichtStrings } from "./strings";
 
 export default function TransparenzberichtPage() {
   const { locale } = useLocale();
-  const strings = getTransparenzberichtStrings(locale);
+  const t = useAutoTranslateText({ locale, namespace: "transparenzbericht" });
+  const baseStrings = getTransparenzberichtStrings(locale);
+  const strings = useMemo(() => {
+    if (locale === "de" || locale === "en") return baseStrings;
+    return mapTranslatableStrings(baseStrings, t, { namespace: "strings" });
+  }, [baseStrings, locale, t]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
@@ -16,7 +23,7 @@ export default function TransparenzberichtPage() {
           {/* Header */}
           <header className="space-y-3 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
-              Transparenzbericht
+              {t("Transparenzbericht", "kicker")}
             </p>
             <h1 className="text-3xl font-extrabold leading-tight text-slate-900 md:text-4xl">
               {strings.title}
@@ -35,12 +42,13 @@ export default function TransparenzberichtPage() {
               <p>{strings.meta.rechtsform}</p>
             </div>
             <div className="space-y-2 md:border-l md:border-slate-200 md:pl-6">
-              <p className="font-medium">Verantwortung</p>
+              <p className="font-medium">{t("Verantwortung", "meta.title")}</p>
               <p>{strings.meta.verantwortung}</p>
               <p className="text-xs text-slate-500">
-                Hinweis: Dies ist ein Transparenzbericht zur aktuellen
-                Aufbauphase und eine Vorschau darauf, wie künftige Jahresberichte
-                (z. B. ab 2026) gestaltet sein werden.
+                {t(
+                  "Hinweis: Dies ist ein Transparenzbericht zur aktuellen Aufbauphase und eine Vorschau darauf, wie künftige Jahresberichte (z. B. ab 2026) gestaltet sein werden.",
+                  "meta.note",
+                )}
               </p>
             </div>
           </section>
