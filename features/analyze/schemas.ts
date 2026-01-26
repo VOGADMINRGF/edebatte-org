@@ -459,7 +459,7 @@ export const DebateFrameSchema = z.object({
     .default(() => ({
       score: 0,
       gates: [],
-      status: "needs_review",
+      status: "needs_review" as const,
     })),
 });
 export type DebateFrame = z.infer<typeof DebateFrameSchema>;

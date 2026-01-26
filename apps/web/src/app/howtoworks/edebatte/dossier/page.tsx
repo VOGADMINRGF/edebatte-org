@@ -107,7 +107,7 @@ const outputs = {
 };
 
 const safeguards = {
-  title_de: "Qualität & Fairness",
+  title_de: "Qualität & Fairness-Regeln",
   items_de: [
     "Quellenpflicht und transparente Verweise statt Behauptungen ohne Beleg.",
     "Gegenpositionen werden sichtbar gemacht; Gewichtung orientiert sich an Nachprüfbarkeit und Evidenz.",
@@ -118,16 +118,38 @@ const safeguards = {
 };
 
 const example = {
-  title_de: "Beispiel",
+  title_de: "Mini-Beispiel: So sieht ein Dossier aus",
   body_de:
     "Sichere Radwege: Ein Verein sammelt Quellen zu Unfallzahlen, Alternativen und Kosten. Journalist:innen prüfen Belege, markieren Datenlücken und unterschiedliche Messmethoden. Das Dossier zeigt Pro/Contra, Minderheitenargumente und offene Fragen – als saubere Basis für die Abstimmung.",
 };
 
 const roadmap = {
+  id: "roadmap",
   title_de: "Was als Nächstes kommt (Level 2/3)",
-  items_de: [
-    "Level 2: Quellen-Snapshots, Zitat-Locator, Editorial Inbox, Watchlists/Updates, semantische Suche.",
-    "Level 3: signierte Exporte, Provenienz-Nachweise, Methoden-Checklisten für Studien, Mehrsprachigkeit, CMS-Embeds & Journalist:innen-API.",
+  title_en: "What’s next (Level 2/3)",
+  body_de:
+    "Ziel ist Level 3 und darüber hinaus: Dossiers sollen als belastbare Arbeitsgrundlage dienen – für Öffentlichkeit, Redaktionen und Entscheidungsträger. Transparent, nachvollziehbar und zitierfähig.",
+  body_en:
+    "Goal: Level 3 and beyond — dossiers should serve as a robust working base for the public, newsrooms, and decision makers. Transparent, traceable, and citable.",
+  items: [
+    {
+      id: "level-2",
+      label_de:
+        "Level 2: Quellen-Snapshots, Zitat-Locator, Editorial-Inbox, Watchlists & Updates, semantische Suche.",
+      label_en:
+        "Level 2: source snapshots, quote locator, editorial inbox, watchlists & updates, semantic search.",
+      status_de: "geplant",
+      status_en: "planned",
+    },
+    {
+      id: "level-3",
+      label_de:
+        "Level 3: Signierte Exporte, Provenienz-Nachweise, Methoden-Checklisten für Studien, Mehrsprachigkeit, CMS-Embeds, Journalist:innen-API.",
+      label_en:
+        "Level 3: signed exports, provenance proofs, methods checklists for studies, multilingual, CMS embeds, journalist API.",
+      status_de: "geplant",
+      status_en: "planned",
+    },
   ],
 };
 
@@ -137,6 +159,8 @@ export default function DossierPage() {
     (entry: Record<string, any>, key: string) => resolveLocalizedField(entry, key, locale),
     [locale],
   );
+  const sectionTitleClass =
+    "text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-sky-800 via-cyan-700 to-teal-700";
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[var(--brand-from)] via-white to-white pb-16">
@@ -186,14 +210,14 @@ export default function DossierPage() {
         <section className="grid gap-4 md:grid-cols-2">
           {introBlocks.map((block) => (
             <article key={block.id} className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-900">{text(block, "title")}</h2>
+              <h2 className={sectionTitleClass}>{text(block, "title")}</h2>
               <p className="mt-2 text-sm text-slate-700">{text(block, "body")}</p>
             </article>
           ))}
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-slate-900">{text(visuals, "title")}</h2>
+          <h2 className={sectionTitleClass}>{text(visuals, "title")}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {visuals.items_de.map((v) => (
               <article key={v.title} className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
@@ -209,7 +233,7 @@ export default function DossierPage() {
 
         <section className="grid gap-4 md:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">{text(features, "title")}</h2>
+            <h2 className={sectionTitleClass}>{text(features, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
               {features.items_de.map((item) => (
                 <li key={item}>{item}</li>
@@ -217,7 +241,7 @@ export default function DossierPage() {
             </ul>
           </article>
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">{text(outputs, "title")}</h2>
+            <h2 className={sectionTitleClass}>{text(outputs, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
               {outputs.items_de.map((item) => (
                 <li key={item}>{item}</li>
@@ -228,7 +252,7 @@ export default function DossierPage() {
 
         <section className="grid gap-4 md:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">{text(safeguards, "title")}</h2>
+            <h2 className={sectionTitleClass}>{text(safeguards, "title")}</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
               {safeguards.items_de.map((item) => (
                 <li key={item}>{item}</li>
@@ -236,7 +260,7 @@ export default function DossierPage() {
             </ul>
           </article>
           <article className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">{text(example, "title")}</h2>
+            <h2 className={sectionTitleClass}>{text(example, "title")}</h2>
             <p className="mt-2 text-sm text-slate-700">{text(example, "body")}</p>
 
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
@@ -246,10 +270,16 @@ export default function DossierPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">{text(roadmap, "title")}</h2>
+          <h2 className={sectionTitleClass}>{text(roadmap, "title")}</h2>
+          <p className="mt-2 text-sm text-slate-700">{text(roadmap, "body")}</p>
           <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-            {roadmap.items_de.map((item) => (
-              <li key={item}>{item}</li>
+            {roadmap.items.map((item) => (
+              <li key={item.id}>
+                <span>{text(item, "label")}</span>
+                <span className="ml-2 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                  {text(item, "status")}
+                </span>
+              </li>
             ))}
           </ul>
         </section>

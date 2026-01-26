@@ -192,7 +192,7 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
   );
 
   return (
-    <section className="relative min-h-screen overflow-x-hidden bg-slate-50 pb-16">
+    <section className="relative h-[100svh] min-h-screen overflow-hidden bg-slate-50">
       <ExamplesMarqueeRows
         blocks={liveBlocks}
         lang={lang}
@@ -200,21 +200,22 @@ export default function LandingStart({ blocks, geo }: LandingStartProps) {
           setPrefillText(titleForLang(item));
         }}
         onOpen={(item) => {
-          const isVote = item.kind === "Abstimmung";
-          const targetPath = isVote ? "/howtoworks/edebatte/abstimmen" : "/howtoworks/edebatte/dossier";
           ingestExample(item);
-          router.push(targetPath);
+          const target = `/pricing?from=landing&kind=${encodeURIComponent(item.kind)}&scope=${encodeURIComponent(item.scope)}`;
+          router.push(target as any);
         }}
       />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-start px-4 py-10 sm:px-6 lg:justify-center lg:py-0">
-        <div className="w-full max-w-4xl self-center">
-          <LandingAssistant
-            onIngest={handleIngest}
-            prefillText={prefillText}
-            onAnalyzeRequest={handleAnalyzeRequest}
-            lang={lang}
-          />
+      <div className="relative z-10 mx-auto grid h-full w-full max-w-5xl place-items-center px-4 py-6 sm:px-6 [@media(max-height:740px)]:py-3">
+        <div className="w-full max-w-3xl">
+          <div className="max-h-[calc(100svh-3rem)] overflow-y-auto [scrollbar-gutter:stable]">
+            <LandingAssistant
+              onIngest={handleIngest}
+              prefillText={prefillText}
+              onAnalyzeRequest={handleAnalyzeRequest}
+              lang={lang}
+            />
+          </div>
         </div>
       </div>
 

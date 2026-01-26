@@ -5,6 +5,7 @@ import { ACCESS_TIER_CONFIG } from "../config";
 import { applyVogMembershipDiscount } from "../discount";
 import type { AccessTier } from "../types";
 import type { PricingContext } from "../discount";
+import { B2C_PLAN_ORDER } from "@/config/plans";
 
 const CURRENCY = new Intl.NumberFormat("de-DE", {
   style: "currency",
@@ -12,13 +13,7 @@ const CURRENCY = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 2,
 });
 
-const ORDER: AccessTier[] = [
-  "public",
-  "citizenBasic",
-  "citizenPremium",
-  "institutionBasic",
-  "institutionPremium",
-];
+const ORDER: AccessTier[] = B2C_PLAN_ORDER;
 
 type PricingWidgetProps = Partial<PricingContext>;
 
@@ -27,7 +22,7 @@ export function PricingWidget_eDbtt({ hasVogMembership = false }: PricingWidgetP
     <section className="space-y-6">
       <header className="space-y-2">
         <h2 className="text-2xl font-semibold text-slate-900">
-          Nutzungsmodell eDbtt
+          Pakete & Kontingente
         </h2>
         <p className="text-sm text-slate-600">
           Lesen & Swipen bleiben frei. Wer viele eigene Beiträge einreichen will,

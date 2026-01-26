@@ -9,9 +9,32 @@ const KEY = "vog_content_lang";
 export function getStoredContentLang(): LanguageCode {
   if (typeof window === "undefined") return "de";
   const v = window.localStorage.getItem(KEY);
-  if (v === "de" || v === "en" || v === "es" || v === "it" || v === "pl" || v === "fr" || v === "tr") return v;
+  if (
+    v === "de" ||
+    v === "en" ||
+    v === "es" ||
+    v === "it" ||
+    v === "pl" ||
+    v === "fr" ||
+    v === "tr" ||
+    v === "ru" ||
+    v === "zh" ||
+    v === "ar"
+  )
+    return v;
   const nav = (navigator.language || "").slice(0, 2);
-  if (nav === "de" || nav === "en" || nav === "es" || nav === "it" || nav === "pl" || nav === "fr" || nav === "tr") {
+  if (
+    nav === "de" ||
+    nav === "en" ||
+    nav === "es" ||
+    nav === "it" ||
+    nav === "pl" ||
+    nav === "fr" ||
+    nav === "tr" ||
+    nav === "ru" ||
+    nav === "zh" ||
+    nav === "ar"
+  ) {
     return nav as LanguageCode;
   }
   return FALLBACK_LANG;

@@ -1,4 +1,4 @@
-export const LANGUAGE_CODES = ["de", "en", "es", "it", "pl", "fr", "tr"] as const;
+export const LANGUAGE_CODES = ["de", "en", "es", "it", "pl", "fr", "tr", "ru", "zh", "ar"] as const;
 export type LanguageCode = (typeof LANGUAGE_CODES)[number];
 
 export const FALLBACK_LANG: LanguageCode = "en";
@@ -12,4 +12,7 @@ export const UI_LANGS: Array<{ code: LanguageCode; label: string }> = [
   { code: "pl", label: "Polski" },
   { code: "fr", label: "Francais" },
   { code: "tr", label: "Turkce" },
+  { code: "ru", label: "Русский" },
+  { code: "zh", label: "中文" },
+  { code: "ar", label: "العربية" },
 ];

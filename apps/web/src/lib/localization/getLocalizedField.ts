@@ -33,6 +33,11 @@ export function resolveLocalizedField(
   const direct = attempt(locale);
   if (direct) return direct;
 
+  if (locale !== "de") {
+    const enFallback = attempt("en");
+    if (enFallback) return enFallback;
+  }
+
   const fallback = attempt(fallbackLocale);
   if (fallback) return fallback;
 

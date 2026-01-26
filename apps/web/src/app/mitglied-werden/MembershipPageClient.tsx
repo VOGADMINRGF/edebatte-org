@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MEMBER_DISCOUNT } from "@/config/pricing";
 import type { EDebattePlan, VOGMembershipPlan } from "@/config/pricing";
 import { useLocale } from "@/context/LocaleContext";
@@ -45,6 +45,8 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
   const { locale } = useLocale();
   const strings = getMembershipStrings(locale);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillDone = React.useRef(false);
 
   // Auswahl: Mitgliedschaft + eDebatte
   const [withEdebate, setWithEdebate] = React.useState(false);
@@ -83,6 +85,27 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
     }
     draftLoaded.current = true;
   }, [membershipPlan.suggestedPerPersonPerMonth]);
+
+  React.useEffect(() => {
+    if (prefillDone.current) return;
+    if (!searchParams) return;
+    const wantsEdebate =
+      searchParams.get("edb") === "1" || Boolean(searchParams.get("edbPlan"));
+    const plan = searchParams.get("edbPlan");
+    const billing = searchParams.get("edbBilling");
+
+    if (wantsEdebate) {
+      setWithEdebate(true);
+    }
+    if (plan === "edb-basis" || plan === "edb-start" || plan === "edb-pro") {
+      setSelectedPlanId(plan);
+    }
+    if (billing === "monthly" || billing === "yearly") {
+      setBillingInterval(billing);
+    }
+
+    prefillDone.current = true;
+  }, [searchParams]);
 
   // Wenn Rhythmus auf jährlich wechselt, Billing-Interval (eDebatte) mitziehen
   React.useEffect(() => {
@@ -266,6 +289,14 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
             <p className="text-sm leading-relaxed text-slate-700 md:text-base">
               {strings.heroIntro}
             </p>
+            <a
+              href="https://voiceopengov.org"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-white"
+            >
+              Mehr zur Initiative auf voiceopengov.org →
+            </a>
           </header>
 
           <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-900 md:text-sm">
@@ -365,6 +396,9 @@ export function MembershipPageClient({ membershipPlan, edebattePlans }: Props) {
                   Preise sind Richtwerte während der Pilotphase.
                 </p>
               </div>
+              <p className="text-[11px] text-slate-500">
+                Vorbestellung: −15% · Vorkasse: +10% · 2 Jahre: +5% (max. 30%)
+              </p>
 
               <div className="grid gap-4 md:grid-cols-3">
                 {edebattePlans.map((plan) => {

@@ -435,6 +435,10 @@ export default function LandingAssistant({
   };
 
   const handleSubmitRequest = () => {
+    if (!canSubmit) {
+      void handleSubmit();
+      return;
+    }
     if (onAnalyzeRequest) {
       // kept as a gate hook (prelaunch modal), but still save-only
       onAnalyzeRequest({ submit: () => void handleSubmit(), refine: () => setShowContext(true) });
@@ -576,8 +580,11 @@ export default function LandingAssistant({
               <button
                 type="button"
                 onClick={handleSubmitRequest}
-                disabled={!canSubmit}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 px-5 py-2.5 text-sm font-semibold text-white shadow hover:opacity-95 active:translate-y-[0.5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 disabled:opacity-60"
+                disabled={loading}
+                aria-disabled={!canSubmit}
+                className={`inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 px-5 py-2.5 text-sm font-semibold text-white shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${
+                  !canSubmit ? "opacity-70" : "hover:opacity-95 active:translate-y-[0.5px]"
+                } ${loading ? "opacity-60" : ""}`}
                 aria-label={loading ? t.buttons.starting : t.buttons.start}
               >
                 <IconPlay />

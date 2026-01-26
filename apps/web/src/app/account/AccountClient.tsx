@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { EDEBATTE_PACKAGES_WITH_NONE, EDEBATTE_PACKAGES } from "@/config/edebatte";
 import { BRAND } from "@/lib/brand";
 import type { UserRole } from "@/types/user";
@@ -145,6 +146,8 @@ export type AccountClientProps = {
 
 export function AccountClient({ initialData, membershipNotice, welcomeNotice }: AccountClientProps) {
   const [data, setData] = useState<NormalizedOverview>(normalizeOverview(initialData));
+  const searchParams = useSearchParams();
+  const preorderHandledRef = useRef(false);
   const pendingMicroTransfer =
     data.membershipSnapshot?.status === "waiting_payment" &&
     data.membershipSnapshot?.paymentInfo?.mandateStatus === "pending_microtransfer";
@@ -163,6 +166,52 @@ export function AccountClient({ initialData, membershipNotice, welcomeNotice }: 
       console.warn("[account] refresh overview failed", err);
     }
   }
+
+  useEffect(() => {
+    if (preorderHandledRef.current) return;
+    const preorderFlag = searchParams?.get("preorder");
+    const rawPlan = searchParams?.get("edbPlan");
+    const normalizedPlan = rawPlan ? rawPlan.replace(/^edb-/, "") : null;
+    const plan = normalizedPlan as EDebattePackage | null;
+    if (!preorderFlag || !plan || !EDEBATTE_PACKAGES.includes(plan)) return;
+
+    const already =
+      data.edebatte.package === plan &&
+      (data.edebatte.status === "preorder" || data.edebatte.status === "active");
+
+    const cleanup = () => {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("preorder");
+        url.searchParams.delete("edbPlan");
+        url.searchParams.delete("source");
+        window.history.replaceState(null, "", url.toString());
+      } catch {
+        // ignore
+      }
+    };
+
+    preorderHandledRef.current = true;
+    if (already) {
+      cleanup();
+      return;
+    }
+
+    fetch("/api/edebatte/package", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ package: plan, source: "pricing" }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json().catch(() => ({}));
+      })
+      .then(() => refreshOverview())
+      .catch((err) => {
+        console.warn("[account] preorder failed", err);
+      })
+      .finally(() => cleanup());
+  }, [data.edebatte.package, data.edebatte.status, refreshOverview, searchParams]);
 
   return (
     <div className="flex flex-col gap-10">

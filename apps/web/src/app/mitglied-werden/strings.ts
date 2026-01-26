@@ -6,21 +6,21 @@ type LocaleString = Record<"de", string> & Partial<Record<SupportedLocale, strin
 type LocaleStringArray = Record<"de", string[]> & Partial<Record<SupportedLocale, string[]>>;
 
 const STRINGS = {
-  heroTitle: { de: "eDebatte beitreten & eDebatte nutzen" } as LocaleString,
+  heroTitle: { de: "VoiceOpenGov unterstützen & eDebatte nutzen" } as LocaleString,
   heroIntro: {
-    de: "eDebatte ist die direktdemokratische Bewegung. Wir heißen alle willkommen, die das Mehrheitsprinzip stärken und an eine gerechtere Welt glauben. Mit eDebatte, unserem eigens entwickelten Werkzeug, unterstützen wir die Digitalisierung von Beteiligung und bauen eine neue Infrastruktur für nachvollziehbare Entscheidungen. Deine Mitgliedschaft trägt diese Bewegung und hält eDebatte unabhängig. Wie wir das absichern, zeigen wir im Transparenzbericht.",
+    de: "VoiceOpenGov ist die Initiative für moderne Bürgerbeteiligung, eDebatte ist das Werkzeug. Mit eDebatte digitalisieren wir Beteiligung – transparent, überprüfbar und für alle zugänglich. Deine Mitgliedschaft trägt die Initiative und schützt unsere Unabhängigkeit. Mehr zur Initiative: voiceopengov.org.",
   } as LocaleString,
 
   transparencyTitle: { de: "Wichtiger Hinweis zur Transparenz" } as LocaleString,
   transparencyBody: {
-    de: "eDebatte befindet sich in der Gründungsphase – umso wichtiger ist deine Unterstützung, ob monatlich, einmalig oder als Vorbestellung der eDebatte. Bis zur Eintragung gehen Beiträge über PayPal oder – bevorzugt – per Überweisung an das Konto des Initiators und werden strikt projektbezogen verbucht; wir stellen derzeit keine Spendenquittungen aus, Beiträge sind in der Regel nicht steuerlich absetzbar. Die Bewegung soll dauerhaft von vielen Menschen getragen werden – nach dem Prinzip „eine Person, eine Stimme“. Die eDebatte-Pakete, inklusive eDebatte Basis (kostenfrei), sind unten beschrieben und frei wählbar und zubuchbar.",
+    de: "eDebatte befindet sich in der Gründungsphase. Deine Unterstützung hilft jetzt besonders – monatlich, einmalig oder als Vorbestellung der eDebatte. Bis zur Eintragung laufen Beiträge über PayPal oder bevorzugt per Überweisung an das Konto des Initiators und werden strikt projektbezogen verbucht. Wir stellen derzeit keine Spendenquittungen aus; Beiträge sind in der Regel nicht steuerlich absetzbar. Die Bewegung soll dauerhaft von vielen Menschen getragen werden – nach dem Prinzip „eine Person, eine Stimme“. Die eDebatte‑Pakete, inkl. eDebatte Basis (kostenfrei), sind unten beschrieben und frei kombinierbar.",
   } as LocaleString,
 
   enableTitle: { de: "Was du mit deiner Mitgliedschaft ermöglichst" } as LocaleString,
   enableList: {
     de: [
-      "Du wirst Mitglied bei eDebatte, weil du die direktdemokratische Bewegung stärken willst. eDebatte ist unser Werkzeug, das überall dort eingesetzt werden kann, wo Menschen gemeinsam Entscheidungen treffen.",
-      "Dein Beitrag ermöglicht Moderation, Weiterentwicklung und Betrieb der Infrastruktur. So kann eDebatte weltweit wachsen – getragen von vielen Menschen statt von einzelnen Großinteressen. Wie wir mit den Mitteln umgehen, zeigen wir im Transparenzbericht.",
+      "Du stärkst eine direktdemokratische Bewegung, die Mehrheiten transparent und fair organisiert.",
+      "Dein Beitrag finanziert Moderation, Weiterentwicklung und Betrieb der Infrastruktur – damit eDebatte weltweit wachsen kann, getragen von vielen statt wenigen. Wie wir mit Mitteln umgehen, steht im Transparenzbericht.",
     ],
   } as LocaleStringArray,
 
@@ -29,15 +29,15 @@ const STRINGS = {
   } as LocaleString,
   
   tiersIntro: {
-    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Uns ist wichtig, dass du dich damit wohlfühlst – jede Mitgliedschaft zählt gleich viel. Diese Stufen zeigen dir nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; der einzige finanzielle Vorteil ist der allgemeine 25 % Mitgliederrabatt.",
+    de: "Du entscheidest selbst, welchen Beitrag du geben möchtest. Wichtig: Jede Mitgliedschaft zählt gleich viel – die Stufen sind nur Richtwerte. Alle Mitglieder werden gleich behandelt, egal ob 5,63 € oder 25 € monatlich; der einzige finanzielle Vorteil ist der allgemeine 25 % Mitgliederrabatt.",
   } as LocaleString,
   
   tiersList: {
     de: [
-      "<strong>5,63 €</strong> – Unser Basisbeitrag: Hilft, die Bewegung und den Grundbetrieb zu tragen.",
-      "<strong>10 €</strong> – Danke für deine Unterstützung: Macht Weiterentwicklung und Qualitätssicherung möglich.",
-      "<strong>25 €</strong> – Für alle, die uns stärker tragen möchten: Sichert Planung und Stabilität.",
-      "<strong>50 €+</strong> – Echte Solidarität: Ermöglicht niedrigere Beiträge für andere und stärkt Team & Infrastruktur.",
+      "<strong>5,63 €</strong> – Basisbeitrag: Trägt Bewegung und Grundbetrieb.",
+      "<strong>10 €</strong> – Unterstützer:in: Ermöglicht Weiterentwicklung und Qualität.",
+      "<strong>25 €</strong> – Stabilisierer:in: Sichert Planung und Verlässlichkeit.",
+      "<strong>50 €+</strong> – Solidarisch: Ermöglicht niedrigere Beiträge für andere und stärkt Team & Infrastruktur.",
       "Ganz gleich, welchen Betrag du wählst – <strong>wir freuen uns sehr, wenn du Teil der Bewegung wirst.</strong>",
     ],
   } as LocaleStringArray,
@@ -45,7 +45,7 @@ const STRINGS = {
 
   calculatorTitle: { de: "Beitrag berechnen – eDebatte" } as LocaleString,
   calculatorIntro: {
-    de: "Empfehlung: 1 % vom frei verfügbaren Haushaltsnettoeinkommen (Netto minus Warmmiete), mindestens 5,63 € pro Person ab 16 Jahren. Dieser Betrag entspricht dem sozial verträglichen Minimum, an dem wir uns orientieren, damit die Bewegung wachsen kann.",
+    de: "Empfehlung: 1 % vom frei verfügbaren Haushaltsnettoeinkommen (Netto minus Warmmiete), mindestens 5,63 € pro Person ab 16 Jahren. Das ist unser sozial verträgliches Minimum, damit die Bewegung wachsen kann.",
   } as LocaleString,
 
   householdNetLabel: { de: "Haushaltsnetto (€/Monat)" } as LocaleString,
@@ -55,7 +55,7 @@ const STRINGS = {
 
   suggestionTitle: { de: "Vorgeschlagener Beitrag pro Person" } as LocaleString,
   suggestionNote: {
-    de: "basierend auf deinen Angaben und mindestens dem orientierenden Basisbeitrag von 5,63 €.",
+    de: "Basierend auf deinen Angaben – mindestens der Basisbeitrag von 5,63 €.",
   } as LocaleString,
   suggestionButton: { de: "Vorschlag übernehmen" } as LocaleString,
 
@@ -76,19 +76,19 @@ const STRINGS = {
   summarySkills: { de: "Fähigkeiten" } as LocaleString,
   summaryBoxLabel: { de: "Beitrag gesamt" } as LocaleString,
   summaryBoxNote: {
-    de: "Der Rechner soll dir ein Gefühl für einen fairen Beitrag geben. Du kannst deinen Betrag jederzeit anpassen – nach oben oder unten.",
+    de: "Der Rechner ist eine Orientierung. Du kannst deinen Betrag jederzeit anpassen – nach oben oder unten.",
   } as LocaleString,
   summaryMembershipHintMonthly: {
-    de: "Du hast einen monatlichen Betrag eingetragen, aber die Mitgliedschaft ist deaktiviert. Aktuell würdest du nur ein eDebatte-Paket buchen. Wenn du die Bewegung mit einem Mitgliedsbeitrag unterstützen möchtest, aktiviere bitte oben die Mitgliedschaft.",
+    de: "Du hast einen monatlichen Betrag eingetragen, aber die Mitgliedschaft ist deaktiviert. Aktuell würdest du nur ein eDebatte‑Paket buchen. Wenn du die Bewegung unterstützen möchtest, aktiviere bitte oben die Mitgliedschaft.",
   } as LocaleString,
   summaryMembershipHintOnce: {
-    de: "Du hast einen einmaligen Betrag eingetragen, ohne eine laufende Mitgliedschaft zu wählen. Danke für deine Unterstützung – wir würden uns freuen, dich später als Mitglied der Bewegung zu begrüßen.",
+    de: "Du hast einen einmaligen Betrag eingetragen, ohne eine laufende Mitgliedschaft zu wählen. Danke für deine Unterstützung – wir würden uns freuen, dich später als Mitglied zu begrüßen.",
   } as LocaleString,
   summaryButton: { de: "Weiter zum Antrag" } as LocaleString,
 
   finalTitle: { de: "Mehr als ein Beitrag – wie du noch mitmachen kannst" } as LocaleString,
   finalIntro: {
-    de: "Ohne Mitglieder, Unterstützer:innen und Partner funktioniert das alles nicht. Wenn dich die Idee überzeugt, kannst du auf unterschiedliche Weise einsteigen – als Bürger:in, als Verband/Verein oder als Redaktion/Creator:",
+    de: "Ohne Mitglieder, Unterstützer:innen und Partner funktioniert das alles nicht. Wenn dich die Idee überzeugt, kannst du auf verschiedenen Wegen einsteigen – als Bürger:in, als Verband/Verein oder als Redaktion/Creator:",
   } as LocaleString,
   finalList: {
     de: [
@@ -109,7 +109,7 @@ const STRINGS = {
     Partial<Record<SupportedLocale, { label: string; body: string }[]>>,
 
   creatorBox: {
-    de: "Wenn du zusätzlich zu deiner Mitgliedschaft als Creator:in oder Repräsentant:in, als Institution oder Redaktion enger zusammenarbeiten möchtest, kannst du dich direkt über unsere Team-Seite melden. Gemeinsam klären wir, welches Setup für dich passt.",
+    de: "Wenn du zusätzlich zur Mitgliedschaft als Creator:in oder Repräsentant:in, als Institution oder Redaktion enger zusammenarbeiten möchtest, melde dich direkt über unsere Team‑Seite. Gemeinsam klären wir, welches Setup für dich passt.",
   } as LocaleString,
   creatorButtons: {
     de: [
@@ -144,7 +144,7 @@ const STRINGS = {
     de: "Mitgliedschaft & eDebatte-App",
   } as LocaleString,
   membershipAppBody: {
-    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu intensiven Pro-Paketen für Redaktionen oder Kommunen. Mitglieder erhalten einen festen Nachlass auf kostenpflichtige eDebatte-Pakete. Die Mitgliedschaft bleibt dabei ideell – App-Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
+    de: "eDebatte ist unser eigens entwickeltes Werkzeug. Die App gibt es in mehreren Paketen – von eDebatte Basis (kostenfrei) bis zu Pro‑Paketen für Redaktionen oder Kommunen. Mitglieder erhalten einen festen Nachlass auf kostenpflichtige eDebatte‑Pakete. Die Mitgliedschaft bleibt ideell – App‑Pakete werden separat fakturiert und technisch nur verknüpft, nicht gebündelt verkauft.",
   } as LocaleString,
   merchNote: {
     de: "Sobald unser Merchandise-Shop startet, gilt derselbe Nachlass automatisch auch dort für Mitglieder.",

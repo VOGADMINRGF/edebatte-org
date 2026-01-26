@@ -33,9 +33,9 @@ const NAV_ITEMS: NavItem[] = [
     description: "Mitgliedschaft und Beteiligung bei eDebatte starten.",
   },
   {
-    href: "/nutzungsmodell",
+    href: "/pricing",
     label: "Preise",
-    description: "Nutzungsmodell und Pakete für Partner:innen.",
+    description: "Pakete, Vorbestellung und Mitgliedschaft.",
   },
   {
     href: "/faq",

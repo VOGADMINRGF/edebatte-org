@@ -237,13 +237,13 @@ export default function HowToWorksBewegungPage() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-slate-50 pb-16">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_50%_at_50%_0%,rgba(56,189,248,0.18),transparent_60%),radial-gradient(55%_45%_at_80%_15%,rgba(168,85,247,0.16),transparent_55%),radial-gradient(55%_45%_at_20%_15%,rgba(34,197,94,0.10),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_50%_at_50%_0%,rgba(56,189,248,0.18),transparent_60%),radial-gradient(60%_50%_at_85%_10%,rgba(14,165,233,0.16),transparent_55%),radial-gradient(60%_50%_at_15%_12%,rgba(45,212,191,0.14),transparent_55%)]" />
       <section className="relative mx-auto max-w-5xl px-4 py-14 space-y-10 sm:py-16">
         <header className="space-y-4">
           <h1 className="headline-grad text-4xl font-extrabold leading-tight">
             {text(heroCopy, "title")}
           </h1>
-          <div className="rounded-[40px] border border-transparent bg-gradient-to-br from-sky-50 via-white to-emerald-50/60 p-1 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
+          <div className="rounded-[40px] border border-transparent bg-gradient-to-br from-sky-50 via-white to-cyan-50/80 p-1 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
             <div className="rounded-[36px] bg-white/90 p-6 space-y-4">
               <p className="text-lg text-slate-700">{text(heroCopy, "lead")}</p>
               <p className="text-sm text-slate-600">{text(heroCopy, "secondary")}</p>

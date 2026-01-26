@@ -83,7 +83,7 @@ export function ExamplesMarqueeRows(props: {
       <div className="pointer-events-none absolute inset-0 bg-white/25" />
 
       {/* tighter vertical rhythm */}
-      <div className="relative mx-auto w-full space-y-3 px-5 py-6">
+      <div className="relative mx-auto grid h-[100svh] min-h-screen w-full grid-rows-[repeat(5,minmax(0,1fr))] gap-3 overflow-hidden px-3 pt-14 pb-5 sm:gap-4 sm:px-6">
         {props.blocks.map((block, idx) => {
           const baseItems = tileToCount(block.items, minCount);
           const doubled = baseItems.length ? [...baseItems, ...baseItems] : baseItems;
@@ -94,7 +94,7 @@ export function ExamplesMarqueeRows(props: {
           const route = routingHintForBucket(block.label, props.lang);
 
           return (
-            <section key={block.label} className="relative">
+            <section key={block.label} className="relative min-h-0 flex flex-col">
               {/* Slim header (no “bar” look) */}
               <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -112,7 +112,7 @@ export function ExamplesMarqueeRows(props: {
                 )}
               </div>
 
-              <div className="relative overflow-hidden">
+              <div className="relative min-h-0 flex-1 overflow-hidden">
                 {/* softer edge masks */}
                 <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-slate-50/70 to-transparent" />
                 <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-slate-50/70 to-transparent" />

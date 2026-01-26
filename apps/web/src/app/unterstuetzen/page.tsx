@@ -46,8 +46,8 @@ export default function UnterstuetzenPage() {
 
         <p className="text-center text-sm text-slate-600">
           {tSupport(SUPPORT_STRINGS.bundlesNotePrefix, locale)}{" "}
-          <Link href="/nutzungsmodell" className="text-emerald-600 underline">
-            /nutzungsmodell
+          <Link href="/pricing" className="text-emerald-600 underline">
+            /pricing
           </Link>
           {tSupport(SUPPORT_STRINGS.bundlesNoteSuffix, locale)}
         </p>
