@@ -3,10 +3,12 @@ import type {
   CreateClaimDraft,
   CreateHandoffAction,
   CreateHandoffReviewState,
+  CreateHandoffJurisdictionConfirmation,
   CreateHandoffTopicSeed,
   CreateOpenQuestionDraft,
   SourceGrounding,
 } from "@/features/create/createHandoff";
+import type { ExistingMatchUserDecision } from "@/features/create/createContributionPackageContract";
 import type { CreateProductionAccessDecision } from "@/features/create/createProductionAccess";
 import type { CreatePlannerResult } from "@/features/create/createPlanner";
 import type { CreateInputClassification } from "@/features/create/inputClassification";
@@ -43,6 +45,9 @@ export type PersistedCreateHandoffRecord = {
   openQuestions: CreateOpenQuestionDraft[];
   sourceGrounding: SourceGrounding[];
   topicSeed: CreateHandoffTopicSeed;
+  authorStandpoint?: string | null;
+  existingMatchDecision?: ExistingMatchUserDecision | null;
+  jurisdictionConfirmation?: CreateHandoffJurisdictionConfirmation | null;
   resumeHref: string;
   reviewState: CreateHandoffReviewState;
   visibilityState: RegionPublicationVisibilityState;

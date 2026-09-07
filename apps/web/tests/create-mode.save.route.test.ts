@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
+import {
+  buildCreateJurisdictionCandidateKey,
+} from "@/features/create/createCitizenIntakeContext";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 
 const mocks = vi.hoisted(() => {
   type AnyDoc = Record<string, any>;
@@ -228,10 +232,14 @@ describe("create mode split - save route", () => {
       issuedAtMs: Date.parse("2026-09-06T10:00:00.000Z"),
       expiresAtMs: Date.parse("2026-09-06T10:30:00.000Z"),
     });
+    const guestCitizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({
+        text: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
+      });
     mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
       inputHash: "server-input-hash",
       result: {
-        sourceText: "Servergebundener Gast-Beitrag.",
+        sourceText: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
         generatedAt: "2026-09-06T10:00:00.000Z",
         understanding: {
           summary: "Serverseitig validierte Einordnung",
@@ -252,6 +260,7 @@ describe("create mode split - save route", () => {
           },
           graphMatch: {},
           analysis: { state: "result_ready", validationStatus: "validated" },
+          citizenContext: guestCitizenContext,
         },
       },
     });
@@ -527,9 +536,9 @@ describe("create mode split - save route", () => {
     expect(secondBody.draftId).toBe(firstBody.draftId);
     expect(mocks.readAll()).toHaveLength(1);
     const saved = mocks.readAll()[0];
-    expect(saved.text).toBe("Servergebundener Gast-Beitrag.");
-    expect(saved.textOriginal).toBe("Servergebundener Gast-Beitrag.");
-    expect(saved.textPrepared).toBe("Servergebundener Gast-Beitrag.");
+    expect(saved.text).toBe("In Wuppertal sollte vor der Grundschule Tempo 30 gelten.");
+    expect(saved.textOriginal).toBe("In Wuppertal sollte vor der Grundschule Tempo 30 gelten.");
+    expect(saved.textPrepared).toBe("In Wuppertal sollte vor der Grundschule Tempo 30 gelten.");
     expect(saved.analysis?.intelligentFollowup?.understanding?.summary).toBe(
       "Serverseitig validierte Einordnung",
     );
@@ -547,6 +556,60 @@ describe("create mode split - save route", () => {
       operationType: "create_intelligent_followup_planner",
     });
     expect(mocks.adoptCompletedCreateOrchestrationClaim).toHaveBeenCalledTimes(3);
+  });
+
+  it("adopts a later jurisdiction confirmation from the trusted guest result", async () => {
+    const citizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({
+        text: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
+      });
+    const candidate = citizenContext.jurisdictionCandidates[0];
+    expect(candidate).toBeDefined();
+    if (!candidate) return;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: candidateKey,
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const saved = mocks.readAll()[0];
+    expect(
+      saved.analysis?.intelligentFollowup?.meta?.citizenContext
+        ?.jurisdictionConfirmation,
+    ).toEqual({ status: "confirmed", candidateKey });
+    expect(saved.analysis?.guestResume).toMatchObject({
+      serverValidated: true,
+      jurisdictionServerValidated: true,
+    });
+  });
+
+  it("rejects an invented jurisdiction key before consuming guest adoption", async () => {
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: "municipality:frei erfundene behörde",
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "CREATE_GUEST_JURISDICTION_NOT_ALLOWED",
+    });
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
   });
 
   it("rejects guest provenance when the signed anonymous session is missing", async () => {

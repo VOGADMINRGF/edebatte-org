@@ -1,5 +1,14 @@
 import type { CreatePlannerResult } from "@/features/create/createPlanner";
 import type { NormalizedMaterialItem } from "@/features/create/materialRouting";
+import type {
+  ExistingMatchUserDecision,
+  JurisdictionCandidate,
+} from "@/features/create/createContributionPackageContract";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
+import {
+  buildCreateExistingMatchAuthorStandpoint,
+  normalizeCreateExistingMatchDecision,
+} from "@/features/create/createExistingMatchDecision";
 import { normalizeGermanSlug } from "@features/common/utils/textNormalization";
 import {
   resolveCreateHandoffVisibilityState,
@@ -64,6 +73,14 @@ export type CreateHandoffTopicSeed = {
   themenradarSourceType: "create_intake";
 };
 
+export type CreateHandoffJurisdictionConfirmation = {
+  candidateKey: string;
+  candidate: JurisdictionCandidate | null;
+  regionId: string | null;
+  regionLabel: string | null;
+  serverValidated: boolean;
+};
+
 export type CreateHandoffDraft = {
   id: string;
   source: "create";
@@ -76,6 +93,9 @@ export type CreateHandoffDraft = {
   openQuestions: CreateOpenQuestionDraft[];
   sourceGrounding: SourceGrounding[];
   topicSeed: CreateHandoffTopicSeed;
+  authorStandpoint: string | null;
+  existingMatchDecision: ExistingMatchUserDecision | null;
+  jurisdictionConfirmation: CreateHandoffJurisdictionConfirmation | null;
   resumeHref: string;
   reviewState: CreateHandoffReviewState;
   visibilityState?: RegionPublicationVisibilityState;
@@ -90,6 +110,8 @@ type BuildCreateHandoffDraftInput = {
   createdAt?: string;
   sourceUrls?: string[];
   materialItems?: NormalizedMaterialItem[];
+  existingMatchDecision?: ExistingMatchUserDecision | null;
+  authorStandpoint?: string | null;
 };
 
 const STORAGE_KEY = "edb_create_handoff_drafts_v1";
@@ -292,6 +314,34 @@ function buildTopicSeed(result: CreateIntelligentFollowupResult, plannerResult: 
   };
 }
 
+function buildJurisdictionConfirmation(
+  result: CreateIntelligentFollowupResult,
+): CreateHandoffJurisdictionConfirmation | null {
+  const context = result.meta?.citizenContext;
+  const candidateKey = String(
+    context?.jurisdictionConfirmation.candidateKey ?? "",
+  ).trim();
+  if (
+    !context ||
+    context.jurisdictionConfirmation.status !== "confirmed" ||
+    !candidateKey
+  ) {
+    return null;
+  }
+  const candidate = context.jurisdictionCandidates.find(
+    (entry) => buildCreateJurisdictionCandidateKey(entry) === candidateKey,
+  );
+  return candidate
+    ? {
+        candidateKey,
+        candidate: { ...candidate },
+        regionId: context.placeResolution.selectedCandidate?.id ?? null,
+        regionLabel: context.selectedRegionLabel,
+        serverValidated: false,
+      }
+    : null;
+}
+
 export function buildCreateHandoffResumeHref(handoffId: string): string {
   const search = new URLSearchParams();
   search.set("resume", "create_handoff");
@@ -334,6 +384,12 @@ export function buildCreateHandoffDraft(input: BuildCreateHandoffDraftInput): Cr
     graphMatches: normalizedGraphMatches,
     openQuestions,
   });
+  const existingMatchDecision = normalizeCreateExistingMatchDecision(
+    input.existingMatchDecision,
+  );
+  const authorStandpoint = buildCreateExistingMatchAuthorStandpoint({
+    decision: existingMatchDecision,
+  });
   return {
     id: handoffId,
     source: "create",
@@ -349,6 +405,11 @@ export function buildCreateHandoffDraft(input: BuildCreateHandoffDraftInput): Cr
       materialItems: input.materialItems,
     }),
     topicSeed: buildTopicSeed(input.result, plannerResult),
+    authorStandpoint:
+      authorStandpoint ??
+      (existingMatchDecision ? null : input.authorStandpoint?.trim() || null),
+    existingMatchDecision,
+    jurisdictionConfirmation: buildJurisdictionConfirmation(input.result),
     resumeHref: buildCreateHandoffResumeHref(handoffId),
     reviewState,
     visibilityState: resolveCreateHandoffVisibilityState({

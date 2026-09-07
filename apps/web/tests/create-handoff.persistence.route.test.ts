@@ -24,6 +24,10 @@ import {
   setRegionOrganizationRuntimeRepoForTests,
 } from "@features/region";
 import { setPricingOrderContractsRuntimeRepoForTests } from "@features/pricing/orderContractsRuntime";
+import {
+  buildCreateJurisdictionCandidateKey,
+} from "@/features/create/createCitizenIntakeContext";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 
 const mocks = vi.hoisted(() => ({
   getSessionUser: vi.fn(),
@@ -361,6 +365,8 @@ describe("/api/create/handoffs", () => {
       noPublicOfficial: true,
       selectedAction: "create_dossier",
       intakeClassification: "claim",
+      existingMatchDecision: null,
+      authorStandpoint: null,
     });
     await expect(getDossierRuntimeRecord("create-handoff-route-1")).resolves.toMatchObject({
       id: "dossier-runtime:create-handoff-route-1",
@@ -369,6 +375,151 @@ describe("/api/create/handoffs", () => {
       status: "queued_for_review",
       visibility: "internal_review",
       createdDossierId: null,
+    });
+  });
+
+  it("canonically persists an explicit counterposition and a server-validated jurisdiction", async () => {
+    const sourceText =
+      "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.";
+    const citizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const candidate = citizenContext.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+    const id = "create-handoff-route-durable-decision";
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            id,
+            sourceText,
+            selectedAction: "request_review",
+            resumeHref: `/create?resume=create_handoff&handoffId=${id}`,
+            existingMatchDecision: "count_as_opposition",
+            authorStandpoint: "Vom Client frei erfundene Haltung",
+            jurisdictionConfirmation: {
+              candidateKey,
+              candidate: { label: "Vom Client erfundene Behörde" },
+              serverValidated: true,
+            },
+          },
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const stored = await getPersistedCreateHandoffRecord(id);
+    expect(stored).toMatchObject({
+      regionId: null,
+      organizationId: null,
+      existingMatchDecision: "count_as_opposition",
+      authorStandpoint: "Widerspricht der bestehenden Position",
+      jurisdictionConfirmation: {
+        candidateKey,
+        candidate,
+        regionId: citizenContext.placeResolution.selectedCandidate?.id,
+        regionLabel: "Wuppertal",
+        serverValidated: true,
+      },
+    });
+    const resumedResponse = await GET(
+      new Request(`http://localhost/api/create/handoffs/${id}`),
+      { params: Promise.resolve({ handoffId: id }) },
+    );
+    const resumed = await resumedResponse.json();
+    expect(resumed.draft).toMatchObject({
+      existingMatchDecision: "count_as_opposition",
+      authorStandpoint: "Widerspricht der bestehenden Position",
+      jurisdictionConfirmation: {
+        candidateKey,
+        candidate,
+        regionId: citizenContext.placeResolution.selectedCandidate?.id,
+        regionLabel: "Wuppertal",
+        serverValidated: true,
+      },
+    });
+  });
+
+  it("persists every explicit existing-match decision with its canonical standpoint", async () => {
+    const cases = [
+      ["count_my_position", "Unterstützt die bestehende Position"],
+      ["count_as_opposition", "Widerspricht der bestehenden Position"],
+      ["add_as_nuance", "Ergänzt eine alternative oder differenzierende Position zu"],
+      ["keep_separate", "Führt eine eigenständige neue Position getrennt weiter zu"],
+    ] as const;
+
+    for (const [decision, authorStandpoint] of cases) {
+      const id = `create-handoff-route-${decision}`;
+      const response = await persistRoute(
+        new NextRequest("http://localhost/api/create/handoffs", {
+          method: "POST",
+          body: JSON.stringify({
+            draft: {
+              ...draftPayload,
+              id,
+              selectedAction: "request_review",
+              resumeHref: `/create?resume=create_handoff&handoffId=${id}`,
+              existingMatchDecision: decision,
+            },
+          }),
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      await expect(getPersistedCreateHandoffRecord(id)).resolves.toMatchObject({
+        existingMatchDecision: decision,
+        authorStandpoint,
+      });
+    }
+  });
+
+  it("rejects a client-invented jurisdiction candidate key", async () => {
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            jurisdictionConfirmation: {
+              candidateKey: "municipality:frei erfundene behörde",
+            },
+          },
+          dossierId: "dossier-1",
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "invalid_create_handoff_jurisdiction_confirmation",
+    });
+  });
+
+  it("rejects an unknown existing-match decision instead of silently dropping it", async () => {
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            existingMatchDecision: "silently_merge",
+            authorStandpoint: "Automatisch zusammenführen",
+          },
+          dossierId: "dossier-1",
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "invalid_create_handoff_existing_match_decision",
     });
   });
 

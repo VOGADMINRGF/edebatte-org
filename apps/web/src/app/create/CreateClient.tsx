@@ -585,6 +585,31 @@ export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrim
     const intakeText = typeof parsed.intakeText === "string" ? parsed.intakeText : "";
     const hasStarted = parsed.hasStarted === true;
     if (!hasPrimaryIntakeText(intakeText) && !hasStarted) return null;
+    const intelligentFollowup = isCreateIntelligentFollowupSnapshot(
+      parsed.intelligentFollowup,
+    )
+      ? parsed.intelligentFollowup
+      : null;
+    const requestedJurisdictionKey =
+      typeof parsed.confirmedJurisdictionKey === "string" &&
+      parsed.confirmedJurisdictionKey.trim()
+        ? parsed.confirmedJurisdictionKey.trim().slice(0, 240)
+        : null;
+    const citizenContext = intelligentFollowup?.meta?.citizenContext;
+    const confirmedJurisdictionKey =
+      requestedJurisdictionKey &&
+      citizenContext?.jurisdictionConfirmation?.status === "confirmed" &&
+      citizenContext.jurisdictionConfirmation.candidateKey ===
+        requestedJurisdictionKey &&
+      Array.isArray(citizenContext.jurisdictionCandidates) &&
+      citizenContext.jurisdictionCandidates.some(
+        (candidate) =>
+          candidate.level !== "unknown" &&
+          buildCreateJurisdictionCandidateKey(candidate) ===
+            requestedJurisdictionKey,
+      )
+        ? requestedJurisdictionKey
+        : null;
     return {
       intakeText,
       hasStarted,
@@ -592,10 +617,7 @@ export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrim
         typeof parsed.updatedAt === "string" && parsed.updatedAt.trim()
           ? parsed.updatedAt
           : new Date().toISOString(),
-      intelligentFollowup:
-        isCreateIntelligentFollowupSnapshot(parsed.intelligentFollowup)
-          ? parsed.intelligentFollowup
-          : null,
+      intelligentFollowup,
       plannerTrace:
         parsed.plannerTrace && typeof parsed.plannerTrace === "object"
           ? (parsed.plannerTrace as CreatePlannerRuntimeTrace)
@@ -616,11 +638,7 @@ export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrim
         parsed.guestContextExpiresAt.trim()
           ? parsed.guestContextExpiresAt.trim()
           : null,
-      confirmedJurisdictionKey:
-        typeof parsed.confirmedJurisdictionKey === "string" &&
-        parsed.confirmedJurisdictionKey.trim()
-          ? parsed.confirmedJurisdictionKey.trim().slice(0, 240)
-          : null,
+      confirmedJurisdictionKey,
     };
   } catch {
     return null;
@@ -676,6 +694,9 @@ export function buildCreateGuestAdoptionPayload(input: {
     locale: input.locale,
     source: "create_guest_resume",
     createMode: input.createMode,
+    ...(input.snapshot.confirmedJurisdictionKey
+      ? { confirmedJurisdictionKey: input.snapshot.confirmedJurisdictionKey }
+      : {}),
     analysis: {
       guestResume: {
         operationId,
@@ -3868,6 +3889,7 @@ export default function CreateClient({
                   if (
                     !citizenContext?.jurisdictionCandidates.some(
                       (candidate) =>
+                        candidate.level !== "unknown" &&
                         buildCreateJurisdictionCandidateKey(candidate) === candidateKey,
                     )
                   ) {

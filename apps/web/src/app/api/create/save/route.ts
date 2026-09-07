@@ -46,6 +46,7 @@ import {
 } from "@/features/create/createOrchestrationSingleFlight";
 import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
 import { hasValidatedCreateSemanticOutput } from "@/features/create/createCandidatePreview";
+import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
 
 const DraftSaveSchema = z.object({
   draftId: z.string().max(160).optional(),
@@ -81,6 +82,7 @@ const DraftSaveSchema = z.object({
   uploadIds: z.array(z.string().min(1).max(160)).max(20).optional(),
   materialItems: z.array(z.record(z.string(), z.any())).max(20).optional(),
   analysis: z.unknown().optional(),
+  confirmedJurisdictionKey: z.string().trim().min(1).max(240).optional(),
   manualReviewRequested: z.boolean().optional(),
 });
 
@@ -507,6 +509,37 @@ export async function POST(req: NextRequest) {
     ? null
     : body.evidenceInput ?? existingDraft?.evidenceInput ?? null;
 
+  const validatedGuestCitizenContext =
+    isGuestAdoption && body.confirmedJurisdictionKey && guestClaim
+      ? validateCreateJurisdictionConfirmation({
+          sourceText: guestClaim.result.sourceText,
+          candidateKey: body.confirmedJurisdictionKey,
+          locale: normalizedLocale,
+          trustedContext: guestClaim.result.meta?.citizenContext ?? null,
+        })
+      : null;
+  if (
+    isGuestAdoption &&
+    body.confirmedJurisdictionKey &&
+    !validatedGuestCitizenContext
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "CREATE_GUEST_JURISDICTION_NOT_ALLOWED" },
+      { status: 403 },
+    );
+  }
+  const guestFollowupResult = guestClaim
+    ? {
+        ...guestClaim.result,
+        meta: {
+          ...guestClaim.result.meta,
+          ...(validatedGuestCitizenContext
+            ? { citizenContext: validatedGuestCitizenContext }
+            : {}),
+        },
+      }
+    : null;
+
   if (!normalizedText) {
     return NextResponse.json({ ok: false, error: "empty_text" }, { status: 422 });
   }
@@ -556,11 +589,12 @@ export async function POST(req: NextRequest) {
   const textToPersist = hasPiiOrDoxxingFindings(safety) ? safety.redactedText : normalizedText;
   const effectiveAnalysis = isGuestAdoption
     ? {
-        intelligentFollowup: guestClaim?.result,
+        intelligentFollowup: guestFollowupResult,
         guestResume: {
           operationId: guestOperationId,
           providerRunReused: true,
           serverValidated: true,
+          jurisdictionServerValidated: Boolean(validatedGuestCitizenContext),
           noAutoPublish: true,
         },
       }

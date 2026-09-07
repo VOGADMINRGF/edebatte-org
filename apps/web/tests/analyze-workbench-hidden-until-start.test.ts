@@ -147,6 +147,31 @@ describe("analyze workbench progressive disclosure", () => {
     expect(ignored).toBeNull();
   });
 
+  it("drops an unverified jurisdiction key from a malformed browser snapshot", () => {
+    const parsed = parseCreatePrimaryIntakeSnapshot(
+      JSON.stringify({
+        intakeText: "Beitrag bleibt erhalten",
+        hasStarted: true,
+        confirmedJurisdictionKey: "municipality:invented",
+        intelligentFollowup: {
+          sourceText: "Beitrag bleibt erhalten",
+          generatedAt: "2026-04-22T10:00:00.000Z",
+          understanding: {
+            summary: "Zusammenfassung",
+            categories: [],
+            topics: [],
+            statements: [],
+            scopes: [],
+          },
+          suggestions: [],
+          meta: { citizenContext: {} },
+        },
+      }),
+    );
+
+    expect(parsed?.confirmedJurisdictionKey).toBeNull();
+  });
+
   it("resumes the guest AI workstate after login without requiring another planner run", () => {
     const guestRaw = JSON.stringify({
       intakeText: "Tempo 30 vor der Schule prüfen.",
@@ -155,6 +180,8 @@ describe("analyze workbench progressive disclosure", () => {
       guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
       productMode: "analyze",
       guestOperationId: "guest-operation-12345678",
+      confirmedJurisdictionKey:
+        "municipality:kommunale straßenverkehrsbehörde für wuppertal (wahrscheinlich)",
       intelligentFollowup: {
         sourceText: "Tempo 30 vor der Schule prüfen.",
         generatedAt: "2026-09-06T10:00:00.000Z",
@@ -211,6 +238,18 @@ describe("analyze workbench progressive disclosure", () => {
             regionStatus: "resolved",
             regionSource: "contribution_text",
             regionChipLabel: "Wuppertal · aus deinem Text",
+            jurisdictionCandidates: [
+              {
+                level: "municipality",
+                label:
+                  "Kommunale Straßenverkehrsbehörde für Wuppertal (wahrscheinlich)",
+              },
+            ],
+            jurisdictionConfirmation: {
+              status: "confirmed",
+              candidateKey:
+                "municipality:kommunale straßenverkehrsbehörde für wuppertal (wahrscheinlich)",
+            },
           },
         },
       },
@@ -256,6 +295,7 @@ describe("analyze workbench progressive disclosure", () => {
     });
     expect(payload).toMatchObject({
       source: "create_guest_resume",
+      confirmedJurisdictionKey: resume.snapshot!.confirmedJurisdictionKey,
       analysis: {
         guestResume: {
           operationId: "guest-operation-12345678",

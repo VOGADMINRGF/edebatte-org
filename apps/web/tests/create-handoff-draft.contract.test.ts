@@ -10,6 +10,11 @@ vi.mock("@features/analyze/analyzeContribution", () => ({
 
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
 import { buildCreateHandoffDraft } from "@/features/create/createHandoff";
+import {
+  applyCreateJurisdictionConfirmation,
+  buildCreateJurisdictionCandidateKey,
+} from "@/features/create/createCitizenIntakeContext";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 
 const TIERWOHL_TEXT =
   "Ich bin für besseren Tierschutz und Tierhaltung. Das sollte Europa und weltweit einheitlich umgesetzt werden, mindestens in den Ländern, aus denen wir importieren oder in die wir exportieren. Das sollte für Fleisch, Geflügel und Fisch gelten. Es geht um Tierwohl, Agrar, Bio-Label und Haltungsstufen.";
@@ -37,14 +42,14 @@ describe("create handoff draft contract", () => {
     expect(draft.id).toBe("handoff-1");
     expect(draft.source).toBe("create");
     expect(draft.sourceText).toContain("Tierschutz");
-    expect(draft.plannerResult.plannerTopic).toBe("GPT-Einordnung nicht abgeschlossen");
+    expect(draft.plannerResult.plannerTopic).toBe("Analyse noch nicht validiert");
     expect(draft.graphMatches.stage).toBe("after_structure");
-    expect(draft.claims.length).toBeGreaterThan(0);
+    expect(draft.claims).toEqual([]);
     expect(draft.arguments.length).toBeGreaterThan(0);
-    expect(draft.openQuestions.length).toBeGreaterThan(0);
+    expect(draft.openQuestions).toEqual([]);
     expect(draft.topicSeed).toEqual({
-      topicKey: "gpt-einordnung-nicht-abgeschlossen",
-      topicLabel: "GPT-Einordnung nicht abgeschlossen",
+      topicKey: "analyse-noch-nicht-validiert",
+      topicLabel: "Analyse noch nicht validiert",
       jurisdiction: "mixed",
       themenradarSourceType: "create_intake",
     });
@@ -94,5 +99,37 @@ describe("create handoff draft contract", () => {
         }),
       ]),
     );
+  });
+
+  it("carries a confirmed jurisdiction candidate into the canonical handoff", async () => {
+    const sourceText = "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.";
+    const followup = await buildCreateIntelligentFollowup({
+      text: TIERWOHL_TEXT,
+      locale: "de",
+      intent: "contribute",
+    });
+    const citizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const candidate = citizenContext.jurisdictionCandidates[0]!;
+
+    const confirmedContext = applyCreateJurisdictionConfirmation(
+      citizenContext,
+      buildCreateJurisdictionCandidateKey(candidate),
+    );
+    const draft = buildCreateHandoffDraft({
+      result: {
+        ...followup,
+        sourceText,
+        meta: { ...followup.meta, citizenContext: confirmedContext },
+      },
+      selectedAction: "request_review",
+      id: "handoff-jurisdiction",
+    });
+
+    expect(draft.jurisdictionConfirmation).toMatchObject({
+      candidateKey: buildCreateJurisdictionCandidateKey(candidate),
+      candidate,
+      serverValidated: false,
+    });
   });
 });

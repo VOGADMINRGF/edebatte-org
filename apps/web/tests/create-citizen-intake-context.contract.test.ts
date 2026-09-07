@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyCreateJurisdictionConfirmation,
+  applyCreateRegionPriority,
   buildCreateJurisdictionCandidateKey,
   resolveCreateCitizenIntakeContext,
   type CreateRegionDirectoryEntry,
 } from "@/features/create/createCitizenIntakeContext";
+import {
+  resolveCreateCitizenIntakeContextFromOfficialDirectory,
+  validateCreateJurisdictionConfirmation,
+} from "@/features/create/createCitizenIntakeContextServer";
 
 const DIRECTORY: CreateRegionDirectoryEntry[] = [
   {
@@ -213,5 +218,110 @@ describe("citizen-first Create intake context", () => {
         candidateKey: null,
       });
     }
+  });
+
+  it("validates jurisdiction keys against server-owned candidates only", () => {
+    const sourceText =
+      "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.";
+    const context = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+      text: sourceText,
+      locale: "de",
+    });
+    const candidate = context.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+
+    expect(
+      validateCreateJurisdictionConfirmation({ sourceText, candidateKey }),
+    ).toMatchObject({
+      regionSource: "contribution_text",
+      selectedRegionLabel: "Wuppertal",
+      jurisdictionConfirmation: {
+        status: "confirmed",
+        candidateKey,
+      },
+    });
+    expect(
+      validateCreateJurisdictionConfirmation({
+        sourceText,
+        candidateKey: "municipality:frei erfundene behörde",
+      }),
+    ).toBeNull();
+  });
+
+  it("preserves explicit federal and EU scope during server validation", () => {
+    for (const [sourceText, level] of [
+      ["Bundesweit sollte das Wahlalter bei 16 Jahren liegen.", "federal"],
+      ["Auf EU-Ebene sollte die Kennzeichnungspflicht gelten.", "eu"],
+    ] as const) {
+      const context =
+        resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+      const candidateKey = buildCreateJurisdictionCandidateKey(
+        context.jurisdictionCandidates[0]!,
+      );
+      expect(
+        validateCreateJurisdictionConfirmation({ sourceText, candidateKey })
+          ?.jurisdictionCandidates[0]?.level,
+      ).toBe(level);
+    }
+  });
+
+  it("keeps ambiguous and unknown jurisdiction in clarification", () => {
+    const sourceText = "In Neustadt sollte der Bahnhof barrierefrei werden.";
+    const context =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const candidateKey = buildCreateJurisdictionCandidateKey(
+      context.jurisdictionCandidates[0]!,
+    );
+
+    expect(context.regionStatus).toBe("needs_clarification");
+    expect(context.jurisdictionCandidates[0]?.level).toBe("unknown");
+    expect(
+      validateCreateJurisdictionConfirmation({ sourceText, candidateKey }),
+    ).toBeNull();
+  });
+
+  it("does not let a profile-derived key override an explicit place", () => {
+    const sourceText = "In Berlin sollte der Schulweg sicherer werden.";
+    const unbound =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({
+        text: "Der Schulweg sollte sicherer werden.",
+      });
+    const profileContext = applyCreateRegionPriority(unbound, {
+      profileRegion: "Wuppertal",
+    });
+    const profileCandidateKey = buildCreateJurisdictionCandidateKey(
+      profileContext.jurisdictionCandidates[0]!,
+    );
+
+    expect(
+      validateCreateJurisdictionConfirmation({
+        sourceText,
+        candidateKey: profileCandidateKey,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not broaden a trusted guest result to a different official candidate", () => {
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const base = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+      text: sourceText,
+    });
+    const trustedContext = applyCreateRegionPriority(base, {
+      confirmedRegion: "Wuppertal",
+    });
+    const differentContext = applyCreateRegionPriority(base, {
+      confirmedRegion: "Berlin",
+    });
+    const differentCandidateKey = buildCreateJurisdictionCandidateKey(
+      differentContext.jurisdictionCandidates[0]!,
+    );
+
+    expect(
+      validateCreateJurisdictionConfirmation({
+        sourceText,
+        candidateKey: differentCandidateKey,
+        trustedContext,
+      }),
+    ).toBeNull();
   });
 });

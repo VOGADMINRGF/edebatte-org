@@ -190,7 +190,9 @@ export function applyCreateJurisdictionConfirmation(
 ): CreateCitizenIntakeContext {
   const normalizedKey = String(candidateKey ?? "").trim();
   const candidate = context.jurisdictionCandidates.find(
-    (entry) => buildCreateJurisdictionCandidateKey(entry) === normalizedKey,
+    (entry) =>
+      entry.level !== "unknown" &&
+      buildCreateJurisdictionCandidateKey(entry) === normalizedKey,
   );
   return {
     ...context,

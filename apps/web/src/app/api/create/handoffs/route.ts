@@ -7,11 +7,18 @@ import type {
   CreateClaimDraft,
   CreateHandoffAction,
   CreateHandoffDraft,
+  CreateHandoffJurisdictionConfirmation,
   CreateHandoffReviewState,
   CreateHandoffTopicSeed,
   CreateOpenQuestionDraft,
   SourceGrounding,
 } from "@/features/create/createHandoff";
+import {
+  buildCreateExistingMatchAuthorStandpoint,
+  normalizeCreateExistingMatchDecision,
+} from "@/features/create/createExistingMatchDecision";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
+import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
 import {
   resolveCreateProductionAccessDecision,
   type CreateProductionAccessDecision,
@@ -198,6 +205,28 @@ function normalizeTopicSeed(value: unknown): CreateHandoffTopicSeed {
   };
 }
 
+function normalizeJurisdictionConfirmation(
+  value: unknown,
+): CreateHandoffJurisdictionConfirmation | null {
+  if (value === null || value === undefined) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("invalid_create_handoff_jurisdiction_confirmation");
+  }
+  const candidateKey = String(
+    (value as Record<string, unknown>).candidateKey ?? "",
+  ).trim();
+  if (!candidateKey || candidateKey.length > 240) {
+    throw new Error("invalid_create_handoff_jurisdiction_confirmation");
+  }
+  return {
+    candidateKey,
+    candidate: null,
+    regionId: null,
+    regionLabel: null,
+    serverValidated: false,
+  };
+}
+
 function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
   const draft = (value ?? {}) as Record<string, unknown>;
   const id = String(draft.id ?? "").trim();
@@ -205,6 +234,16 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
   const resumeHref = String(draft.resumeHref ?? "").trim();
   if (!id || !sourceText || !resumeHref) {
     throw new Error("invalid_create_handoff_draft");
+  }
+  const existingMatchDecision = normalizeCreateExistingMatchDecision(
+    draft.existingMatchDecision,
+  );
+  if (
+    draft.existingMatchDecision !== null &&
+    draft.existingMatchDecision !== undefined &&
+    !existingMatchDecision
+  ) {
+    throw new Error("invalid_create_handoff_existing_match_decision");
   }
   return {
     id,
@@ -218,6 +257,13 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
     openQuestions: normalizeOpenQuestions(draft.openQuestions),
     sourceGrounding: normalizeSourceGrounding(draft.sourceGrounding),
     topicSeed: normalizeTopicSeed(draft.topicSeed),
+    authorStandpoint: buildCreateExistingMatchAuthorStandpoint({
+      decision: existingMatchDecision,
+    }),
+    existingMatchDecision,
+    jurisdictionConfirmation: normalizeJurisdictionConfirmation(
+      draft.jurisdictionConfirmation,
+    ),
     resumeHref,
     reviewState: normalizeCreateHandoffReviewState(draft.reviewState),
     visibilityState: normalizeVisibilityState(draft.visibilityState),
@@ -229,7 +275,7 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
 export async function POST(req: NextRequest) {
   try {
     const body = CreateHandoffBodySchema.parse(await req.json());
-    const draft = normalizeCreateHandoffDraft(body.draft);
+    let draft = normalizeCreateHandoffDraft(body.draft);
     const intakeClassification = classifyCreateHandoffDraft(draft);
     const context = await resolvePersistedCreateHandoffContext({
       draft,
@@ -242,6 +288,37 @@ export async function POST(req: NextRequest) {
     });
     const userId = scopeContext?.actorId ?? null;
     if (!scopeContext || !userId) return unauthorized();
+    if (draft.jurisdictionConfirmation) {
+      const validatedContext = validateCreateJurisdictionConfirmation({
+        sourceText: draft.sourceText,
+        candidateKey: draft.jurisdictionConfirmation.candidateKey,
+      });
+      const candidate = validatedContext?.jurisdictionCandidates.find(
+        (entry) =>
+          buildCreateJurisdictionCandidateKey(entry) ===
+          draft.jurisdictionConfirmation?.candidateKey,
+      );
+      if (!validatedContext || !candidate) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "invalid_create_handoff_jurisdiction_confirmation",
+          },
+          { status: 400 },
+        );
+      }
+      draft = {
+        ...draft,
+        jurisdictionConfirmation: {
+          candidateKey: buildCreateJurisdictionCandidateKey(candidate),
+          candidate,
+          regionId:
+            validatedContext.placeResolution.selectedCandidate?.id ?? null,
+          regionLabel: validatedContext.selectedRegionLabel,
+          serverValidated: true,
+        },
+      };
+    }
     const accessContext = scopeContext.regionAccess;
     const scope = regionScopeFromRegionAccessContext({ accessContext });
     if (
@@ -286,16 +363,18 @@ export async function POST(req: NextRequest) {
         });
       }
     }
-    const fallbackRegionId =
-      context.regionId ??
-      requestScope?.primaryRegionId ??
-      scopeContext.regionIds[0] ??
-      null;
-    const fallbackOrganizationId =
-      context.organizationId ??
-      requestScope?.organizationId ??
-      scopeContext.regionAccess.organization.primaryOrganizationId ??
-      null;
+    const fallbackRegionId = draft.jurisdictionConfirmation
+      ? context.regionId
+      : context.regionId ??
+        requestScope?.primaryRegionId ??
+        scopeContext.regionIds[0] ??
+        null;
+    const fallbackOrganizationId = draft.jurisdictionConfirmation
+      ? context.organizationId
+      : context.organizationId ??
+        requestScope?.organizationId ??
+        scopeContext.regionAccess.organization.primaryOrganizationId ??
+        null;
     const record = await persistCreateHandoffForReview({
       draft,
       createdByUserId: userId,
