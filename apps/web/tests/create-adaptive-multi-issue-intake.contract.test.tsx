@@ -150,15 +150,22 @@ describe("create adaptive single-/multi-issue intake", () => {
   });
 
   it("keeps numbered measures under one concern as aspects, not separate topics", async () => {
-    const text = `Sichere Schulwege verbessern
+    for (const text of [
+      `Sichere Schulwege verbessern
 1. Tempo 30
 2. Zebrastreifen
-3. Elterntaxis`;
-    const result = await buildCreateIntelligentFollowup({ text, locale: "de" });
+3. Elterntaxis`,
+      `Sichere Schulwege verbessern
+1. Tempo 30 – vor Schulen
+2. Zebrastreifen – an Hauptstraßen
+3. Elterntaxis – einschränken`,
+    ]) {
+      const result = await buildCreateIntelligentFollowup({ text, locale: "de" });
 
-    expect(result.meta?.planner?.issueMode).toBe("single_issue");
-    expect(result.meta?.planner?.topicCandidates).toEqual([
-      "Kommunale Entwicklung",
-    ]);
+      expect(result.meta?.planner?.issueMode).toBe("single_issue");
+      expect(result.meta?.planner?.topicCandidates).toEqual([
+        "Kommunale Entwicklung",
+      ]);
+    }
   });
 });

@@ -380,25 +380,57 @@ const WORKSHOP_PARTICIPATION_TOPIC =
   "Arbeitsbedingungen und Teilhabe in Behindertenwerkstätten";
 function resolveCitizenFirstSharedCore(text: string): {
   topic: string;
+  core: string | null;
   aspects: string[];
 } | null {
-  const hasWorkshop = /behindertenwerkst(?:ä|ae)tt/i.test(text);
-  const hasWage = /\bmindestlohn\b|\bentlohnung\b|\bvergütung\b|\bverguetung\b/i.test(text);
+  const hasWorkshop =
+    /behindertenwerkst(?:ä|ae)tt/i.test(text) ||
+    /werkst(?:ä|ae)tten?\s+f(?:ü|ue)r\s+behinderte\s+menschen/i.test(text);
+  const hasWage =
+    /\bmindestlohn\b|\bentlohnung\b/i.test(text) ||
+    /(?:\bvergütung\b|\bverguetung\b)[^.!?]{0,80}\b(?:besch(?:ä|ae)ftigt|arbeitnehm)/i.test(text);
   const hasIntegration = /\bintegration\b|allgemeinen arbeitsmarkt/i.test(text);
+  const hasFinancing = /\bfinanzier|\bfinanzierung/i.test(text);
+  const hasLeadershipCompensation =
+    /\bvergütung\b|\bverguetung\b/i.test(text) &&
+    /gesch(?:ä|ae)ftsf(?:ü|ue)hr|vorst(?:ä|ae)nd/i.test(text);
   const hasGovernance =
-    /\bkontroll|\btransparenz/i.test(text) &&
-    /vorst(?:ä|ae)nd|tr(?:ä|ae)ger/i.test(text);
-  if (!hasWorkshop || [hasWage, hasIntegration, hasGovernance].filter(Boolean).length < 2) return null;
+    hasLeadershipCompensation ||
+    (/\bkontroll|\btransparenz/i.test(text) &&
+      /gesch(?:ä|ae)ftsf(?:ü|ue)hr|vorst(?:ä|ae)nd|tr(?:ä|ae)ger/i.test(text));
+  const hasAllocation =
+    /\banteil\b[^.!?]{0,120}\bmittel\b|\bmittel\b[^.!?]{0,120}(?:besch(?:ä|ae)ftigt|ankomm)/i.test(text);
+  if (
+    !hasWorkshop ||
+    [hasWage, hasIntegration, hasFinancing, hasGovernance, hasAllocation].filter(Boolean).length < 2
+  ) {
+    return null;
+  }
+  const hasBroadWorkshopCore = hasIntegration || hasFinancing || hasAllocation;
   const aspects = dedupeStrings([
-    hasWage ? "Faire Entlohnung / Mindestlohn" : null,
+    hasWage
+      ? /gesetzlich[^.!?]{0,40}\bmindestlohn\b/i.test(text)
+        ? "Gesetzlicher Mindestlohn"
+        : "Faire Entlohnung / Mindestlohn"
+      : null,
     hasIntegration ? "Integration in den allgemeinen Arbeitsmarkt" : null,
-    hasGovernance ? "Kontrolle / Governance der Träger bzw. Vorstände" : null,
+    hasFinancing ? "Finanzierung der Werkstätten" : null,
+    hasGovernance
+      ? hasLeadershipCompensation
+        ? "Vergütung und Kontrolle von Geschäftsführung und Vorständen"
+        : "Kontrolle / Governance der Träger bzw. Vorstände"
+      : null,
+    hasAllocation ? "Mittelverwendung zugunsten der Beschäftigten" : null,
   ]);
   return {
     topic:
-      hasWage && hasGovernance && !hasIntegration
+      hasWage && hasGovernance && !hasBroadWorkshopCore
         ? "Mindestlohn und Kontrolle in Behindertenwerkstätten"
         : WORKSHOP_PARTICIPATION_TOPIC,
+    core:
+      hasWage && hasFinancing && hasGovernance && hasAllocation
+        ? "Mindestlohn, Finanzierung, Governance und Mittelverwendung in Werkstätten für behinderte Menschen"
+        : null,
     aspects,
   };
 }
@@ -517,7 +549,7 @@ function inferScopesFromText(text: string): CreatePlannerScope[] {
   if (/bezirk/i.test(text)) scopes.add("district");
   if (/kommune|kommunal|stadt|gemeinde/i.test(text)) scopes.add("municipal");
   if (/landtag|landes/i.test(text)) scopes.add("state");
-  if (/bund|bundes|grundgesetz/i.test(text)) scopes.add("federal");
+  if (/bund|bundes|grundgesetz|gesetzlich[^.!?]{0,40}\bmindestlohn\b/i.test(text)) scopes.add("federal");
   if (/\beu\b|europa/i.test(text)) scopes.add("eu");
   if (/international|weltweit|global|import|export/i.test(text)) scopes.add("international");
   if (scopes.size === 0) scopes.add("unclear");
@@ -1429,13 +1461,15 @@ function normalizeProviderPlannerPayload(
       ? `Vorschlagspaket mit ${structuredTopicLabels.length} Themenbereichen`
       : payload.plannerTopic
   );
-  const plannerCore = payload.plannerCore;
+  const plannerCore = citizenFirstSharedCore?.core ?? payload.plannerCore;
 
   // Jurisdiction is input evidence, not a provider inference. Reliable bound
   // context can be added at the caller later; without it, text is the authority.
   const resolvedPlannerScope = inferScopesFromText(text);
   const plannerStanceRaw = payload.plannerStance;
-  const explicitProStance = /\bich\s+bin\s+f(?:ü|ue)r\b|\bich\s+unterst(?:ü|ue)tze\b/i.test(text);
+  const explicitProStance =
+    /\bich\s+bin\s+f(?:ü|ue)r\b|\bich\s+unterst(?:ü|ue)tze\b/i.test(text) ||
+    /\bsollten\b[^.!?]{0,100}\b(?:mindestlohn|vergütung|verguetung)\b[^.!?]{0,80}\berhalten\b/i.test(text);
   const explicitContraStance = /\bich\s+bin\s+(?:dagegen|gegen)\b|\bich\s+lehne\b/i.test(text);
   const plannerStance =
     (plannerStanceRaw === "open" || plannerStanceRaw === "unclear") && explicitProStance && !explicitContraStance

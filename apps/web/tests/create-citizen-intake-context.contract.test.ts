@@ -122,6 +122,7 @@ describe("citizen-first Create intake context", () => {
       "Das Essen in der Schule muss besser werden.",
       "Wir brauchen mehr Wissen über Pflege.",
       "Fleisch, Geflügel und Fisch sollen bessere Standards erfüllen.",
+      "Schutz von Kindern muss Vorrang haben.",
     ]) {
       const result =
         resolveCreateCitizenIntakeContextFromOfficialDirectory({ text });
@@ -144,6 +145,15 @@ describe("citizen-first Create intake context", () => {
     expect(result.regionSource).toBe("contribution_text");
     expect(result.selectedRegionLabel).toBe("Essen");
     expect(result.jurisdictionCandidates[0]?.level).toBe("municipality");
+  });
+
+  it("accepts a lowercase sentence-leading place with municipal subject evidence", () => {
+    const result = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+      text: "wuppertal braucht sichere Schulwege.",
+    });
+
+    expect(result.regionSource).toBe("contribution_text");
+    expect(result.selectedRegionLabel).toBe("Wuppertal");
   });
 
   it("asks the smallest useful question for an ambiguous place name", () => {

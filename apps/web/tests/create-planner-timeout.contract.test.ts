@@ -69,6 +69,7 @@ describe("create planner timeout contract", () => {
     expect(planner.providerPlan.plannerProvider).toBe("local_fallback");
     expect(planner.plannerDegraded).toBe(true);
     expect(planner.degradedReason).toBe("timeout");
+    expect(planner.degradedReason).not.toBe("quality_gate_failed");
     expect(planner.plannerTopic).toBe("Analyse noch nicht validiert");
     expect(planner.topicCandidates).toEqual([]);
     expect(planner.plannerDebug.attemptedProvider).toBe("openai");

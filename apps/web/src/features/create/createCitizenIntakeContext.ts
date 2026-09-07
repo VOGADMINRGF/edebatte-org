@@ -43,7 +43,7 @@ const REQUEST_RE =
   /\b(soll(?:te|ten)?|muss|müssen|fordere|fordern|bitte|ändern|verbessern|einführen|abschaffen|prüfen|klären)\b/iu;
 const SOURCE_RE = /https?:\/\/|\b(quelle|studie|bericht|artikel|dokument|pdf|video)\b/iu;
 const MUNICIPAL_SIGNAL_RE =
-  /\b(schule|grundschule|kita|straße|strasse|verkehr|tempo\s*30|radweg|gehweg|park|spielplatz|bezirk|stadtteil|kommune)\b/iu;
+  /\b(schule|grundschule|schulweg(?:e|en|s)?|kita|straße|strasse|verkehr|nahverkehr|öpnv|tempo\s*30|radweg|gehweg|park|spielplatz|bezirk|stadtteil|kommune)\b/iu;
 const PRIVATE_CASE_RE =
   /\b(mein(?:e|er|em|en)?\s+(?:nachbar|vermieter|arbeitgeber|arzt|familie)|private[rnms]?\s+streit|mein\s+einzelfall)\b/iu;
 const STREET_RE =
@@ -59,6 +59,7 @@ const LEXICALLY_AMBIGUOUS_PLACE_LABELS = new Set([
   "lage",
   "norden",
   "regen",
+  "schutz",
   "waren",
   "wetter",
   "wissen",
@@ -103,7 +104,7 @@ function hasExplicitPlaceSyntax(text: string, label: string): boolean {
 function hasSentenceLeadingPlaceSyntax(text: string, label: string): boolean {
   return new RegExp(
     `(?:^|[.!?]\\s+)${escapeRegex(label)}(?=$|[^\\p{L}])`,
-    "u",
+    "iu",
   ).test(text);
 }
 
@@ -118,7 +119,8 @@ export function hasCreateExplicitPlaceMention(text: string, label: string): bool
   if (hasExplicitPlaceSyntax(text, label)) return true;
   return (
     !isCreatePlaceLabelLexicallyAmbiguous(label) &&
-    hasSentenceLeadingPlaceSyntax(text, label)
+    hasSentenceLeadingPlaceSyntax(text, label) &&
+    (MUNICIPAL_SIGNAL_RE.test(text) || PLACE_COMPARISON_RE.test(text))
   );
 }
 

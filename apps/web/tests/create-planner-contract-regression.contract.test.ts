@@ -28,6 +28,16 @@ import { deriveCreateDebattenstandModel } from "@/features/create/createDebatten
 const REGRESSION_TEXT =
   "ich bin für mindestlohn bei behindertenwerkstätten, für mehr integration innerhalb der wirtschaft aber auch für stärkere kontrollen der vorstände der jeweiligen akteure";
 
+const EXACT_WORKSHOP_TEXT =
+  "Menschen, die in Werkstätten für behinderte Menschen arbeiten, sollten mindestens den gesetzlichen Mindestlohn erhalten. Gleichzeitig interessiert mich, wie diese Werkstätten finanziert werden, wie hoch die Vergütung ihrer Geschäftsführungen und Vorstände ist und welcher Anteil der verfügbaren Mittel tatsächlich bei den Beschäftigten ankommt.";
+
+const EXACT_WORKSHOP_ASPECTS = [
+  "Gesetzlicher Mindestlohn",
+  "Finanzierung der Werkstätten",
+  "Vergütung und Kontrolle von Geschäftsführung und Vorständen",
+  "Mittelverwendung zugunsten der Beschäftigten",
+];
+
 const EXPECTED_ASPECTS = [
   "Faire Entlohnung / Mindestlohn",
   "Integration in den allgemeinen Arbeitsmarkt",
@@ -210,6 +220,74 @@ describe("create planner contract regression", () => {
     expect(result.understanding.aspects).toEqual(EXPECTED_ASPECTS);
     expect(result.understanding.statements[0]?.stance).toBe("pro");
     expect(mocks.callOpenAIJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the exact workshop quality-gate regression as one result-ready concern", async () => {
+    mocks.callOpenAIJson.mockResolvedValue({
+      text: JSON.stringify({
+        plannerTopic: "Mindestlohn, Finanzierung und Werkstatt-Governance",
+        plannerCore:
+          "Der Beitrag verbindet Entlohnung, Finanzierung, Leitungsvergütung und Mittelverwendung in Werkstätten.",
+        plannerScope: ["federal"],
+        plannerStance: "unclear",
+        plannerClusters: [
+          "Mindestlohn",
+          "Finanzierung",
+          "Vergütung der Geschäftsführungen und Vorstände",
+          "Mittel für Beschäftigte",
+        ],
+        plannerOpenQuestions: [],
+        topicCandidates: [
+          "Mindestlohn",
+          "Finanzierung der Werkstätten",
+          "Vergütung der Leitung",
+          "Mittelverwendung",
+        ],
+      }),
+      model: "gpt-4.1-mini",
+      formatUsed: "json_schema",
+      didFallback: false,
+    });
+
+    const result = await buildCreateIntelligentFollowup({
+      text: EXACT_WORKSHOP_TEXT,
+      locale: "de",
+    });
+    const planner = result.meta?.planner;
+
+    expect(result.meta?.analysis).toMatchObject({
+      state: "result_ready",
+      validationStatus: "validated",
+      userMessage: null,
+    });
+    expect(result.degraded).toBe(false);
+    expect(planner).toMatchObject({
+      plannerTopic: "Arbeitsbedingungen und Teilhabe in Behindertenwerkstätten",
+      plannerCore:
+        "Mindestlohn, Finanzierung, Governance und Mittelverwendung in Werkstätten für behinderte Menschen",
+      plannerScope: ["federal"],
+      plannerStance: "pro",
+      plannerClusters: EXACT_WORKSHOP_ASPECTS,
+      topicCandidates: [
+        "Arbeitsbedingungen und Teilhabe in Behindertenwerkstätten",
+      ],
+      qualityStatus: "specific",
+      qualityIssues: [],
+      plannerDegraded: false,
+      degradedReason: null,
+      providerCallSucceeded: true,
+    });
+    expect(planner?.plannerDebug.providerErrorCode).not.toBe(
+      "quality_gate_failed",
+    );
+    expect(planner?.plannerClusters.length).toBeGreaterThanOrEqual(3);
+    expect(planner?.topicCandidates).toHaveLength(1);
+    expect(planner?.plannerStance).not.toBe("unclear");
+    expect(result.understanding.topics).toHaveLength(1);
+    expect(result.understanding.aspects).toEqual(EXACT_WORKSHOP_ASPECTS);
+    expect(JSON.stringify(result)).not.toMatch(
+      /\[object Object\]|"undefined"|"null"/,
+    );
   });
 
   it.each([

@@ -22,7 +22,7 @@ function dedupeLabels(values: string[]): string[] {
 export function extractCreateStructuredTopicLabels(text: string): string[] {
   const lines = text.split(/\r?\n/);
   const hasNumberedTopicPackageHeader = lines.some((line) =>
-    /(?:^|\b)(?:themen(?:bereiche)?|vorschlagspaket|programm|agenda|gesamtkonzept)\s*:/iu.test(
+    /(?:^|\b)(?:themen(?:bereiche)?|vorschlagspaket|programm|agenda|gesamtkonzept)\b[^:\n]{0,80}:/iu.test(
       line,
     ),
   );
@@ -31,11 +31,7 @@ export function extractCreateStructuredTopicLabels(text: string): string[] {
     const numbered = line.match(/^\s*\d{1,2}\s*[.)]\s+(.+)$/u);
     const markdownHeading = line.match(/^\s*#{1,6}\s+(.+)$/u);
     const numberedTopic =
-      numbered?.[1] &&
-      (hasNumberedTopicPackageHeader ||
-        /^[^:–—-]{2,60}\s*[:–—-]\s+\S/u.test(numbered[1]))
-        ? numbered[1]
-        : null;
+      numbered?.[1] && hasNumberedTopicPackageHeader ? numbered[1] : null;
     const candidate = numberedTopic ?? markdownHeading?.[1] ?? null;
     if (!candidate) continue;
     const label = normalizeStructuredTopicLabel(candidate);
