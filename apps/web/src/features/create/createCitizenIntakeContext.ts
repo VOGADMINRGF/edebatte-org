@@ -36,7 +36,7 @@ const FEDERAL_SCOPE_RE =
   /\b(bundesweit|deutschlandweit|in\s+deutschland|bundestag|bundesregierung|bundesgesetz|auf\s+bundesebene)\b/iu;
 const EU_SCOPE_RE = /\b(eu(?:ropa)?weit|europäische[nrms]?\s+union|eu-parlament|auf\s+eu-ebene|eu-regel)\b/iu;
 const GERMAN_EMERGENCY_RE =
-  /\b(akute?\s+gefahr|notfall|sofort\s+die\s+112|ruf(?:t)?\s+die\s+112|es\s+brennt|unfall\s+gerade|lebensgefahr)\b/iu;
+  /\b(akute?\s+gefahr|notfall|sofort\s+die\s+112|ruf(?:t)?\s+die\s+112|112\s+(?:wählen|anrufen|rufen)|(?:wähl|ruf|verständig)[\p{L}-]*[^.!?]{0,30}\b112|es\s+brennt|(?:feuer|brand|rauch)(?:\s+[\p{L}-]+){0,3}\s+(?:in|im|am|auf|aus)\b|(?:in|im|am|auf|aus)\b[^.!?]{0,60}\b(?:feuer|brand|rauch)\b|unfall\s+gerade|lebensgefahr)\b/iu;
 const ENGLISH_EMERGENCY_RE =
   /\b(?:acute\s+danger|emergency|life[-\s]?threatening|call\s+112|dial\s+112|fire\s+right\s+now|there\s+is\s+a\s+fire|serious\s+accident)\b/iu;
 const REQUEST_RE =

@@ -212,6 +212,21 @@ describe("citizen-first Create intake context", () => {
     expect(result.safety.emergencyNoticeRequired).toBe(true);
   });
 
+  it.each([
+    "Feuer in der Schule, bitte 112 wählen.",
+    "Brand im Wohnhaus.",
+    "Rauch aus dem Keller, bitte sofort 112 anrufen.",
+  ])("recognizes common German fire emergency wording: %s", (text) => {
+    const result = resolveCreateCitizenIntakeContext({
+      text,
+      locale: "de",
+      directoryEntries: DIRECTORY,
+    });
+
+    expect(result.concernKind).toBe("emergency");
+    expect(result.safety.emergencyNoticeRequired).toBe(true);
+  });
+
   it("keeps all four explicit match decisions draft-only and requires confirmation", () => {
     const result = resolveCreateCitizenIntakeContext({
       text: "In Wuppertal sollte Tempo 30 gelten.",

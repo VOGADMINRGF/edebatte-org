@@ -62,6 +62,39 @@ describe("create existing topic matches runtime bridge", () => {
     ).toBe("opposing");
   });
 
+  it.each([
+    [
+      "Wir brauchen Maßnahmen gegen Kinderarmut.",
+      "Maßnahmen zur Bekämpfung von Kinderarmut",
+    ],
+    [
+      "Tempo 30, damit Kinder nicht gefährdet werden.",
+      "Tempo 30 vor Schulen",
+    ],
+    [
+      "Tempo 30 soll gelten, damit Kinder nicht gefährdet werden.",
+      "Tempo 30 vor Schulen",
+    ],
+    [
+      "Warum manche Tempo 30 ablehnen und andere es unterstützen.",
+      "Tempo 30 vor Schulen",
+    ],
+  ])("keeps incidental negation in a supporting relation", (source, match) => {
+    expect(inferExistingTopicMatchRelation(source, match)).toBe("related");
+  });
+
+  it("recognizes an explicit policy rejection as opposition", () => {
+    for (const source of [
+      "Ich bin gegen Tempo 30 vor Schulen.",
+      "Ich lehne Tempo 30 vor Schulen ab.",
+      "Tempo 30 soll vor Schulen nicht gelten.",
+    ]) {
+      expect(
+        inferExistingTopicMatchRelation(source, "Tempo 30 vor Schulen"),
+      ).toBe("opposing");
+    }
+  });
+
   it("maps every supported runtime entity kind onto the visible existing-topic-match contract", () => {
     const entities: ExistingTopicMatchesRuntimeEntity[] = [
       {

@@ -170,6 +170,41 @@ function textSimilarity(left: string, right: string): number {
   );
 }
 
+const RELATION_POLICY_SIGNALS = [
+  "tempo",
+  "wahlalter",
+  "mindestlohn",
+  "steuer",
+  "quote",
+] as const;
+
+function hasExplicitPolicyOpposition(
+  text: string,
+  sharedPolicySignals: string[],
+): boolean {
+  if (sharedPolicySignals.length === 0) return false;
+  const policyObject = sharedPolicySignals.join("|");
+  return (
+    new RegExp(
+      `\\bgegen\\s+(?:(?:den|die|das|ein|eine|einen|einem|einer)\\s+)?(?:${policyObject})\\b`,
+      "u",
+    ).test(text) ||
+    new RegExp(`\\bkein(?:e|en|er|es)?\\s+(?:${policyObject})\\b`, "u").test(text) ||
+    new RegExp(
+      `\\b(?:ich|wir)\\s+lehn(?:e|en)\\b[^.!?]{0,60}\\b(?:${policyObject})\\b[^.!?]{0,30}\\bab\\b`,
+      "u",
+    ).test(text) ||
+    new RegExp(
+      `^(?:(?:den|die|das|ein|eine|einen|einem|einer)\\s+)?(?:${policyObject})\\b[^.!?]{0,60}\\b(?:ablehnen|abschaffen|verhindern)\\b`,
+      "u",
+    ).test(text) ||
+    new RegExp(
+      `\\b(?:${policyObject})\\b(?:(?!\\b(?:damit|sodass|um)\\b)[^.!?]){0,60}\\b(?:soll(?:te|ten)?|darf|dürfen|muss|müssen)\\b(?:(?!\\b(?:damit|sodass|um)\\b)[^.!?]){0,40}\\bnicht\\b`,
+      "u",
+    ).test(text)
+  );
+}
+
 export function inferExistingTopicMatchRelation(
   sourceText: string,
   matchText: string,
@@ -178,16 +213,17 @@ export function inferExistingTopicMatchRelation(
   const candidate = normalizeText(matchText);
   if (!source || !candidate) return "unclear";
 
-  const sourceOpposition = /\b(gegen|ablehnen|abschaffen|verhindern|nicht|kein|beibehalten)\b/u.test(source);
-  const candidateOpposition = /\b(gegen|ablehnen|abschaffen|verhindern|nicht|kein|beibehalten)\b/u.test(candidate);
   const sourceNumbers = new Set(source.match(/\b\d{1,4}\b/g) ?? []);
   const candidateNumbers = new Set(candidate.match(/\b\d{1,4}\b/g) ?? []);
   const hasConflictingNumbers =
     sourceNumbers.size > 0 &&
     candidateNumbers.size > 0 &&
     Array.from(sourceNumbers).every((number) => !candidateNumbers.has(number));
-  const sharedPolicySignal = ["tempo", "wahlalter", "mindestlohn", "steuer", "quote"]
-    .some((signal) => source.includes(signal) && candidate.includes(signal));
+  const sharedPolicySignals = RELATION_POLICY_SIGNALS
+    .filter((signal) => source.includes(signal) && candidate.includes(signal));
+  const sharedPolicySignal = sharedPolicySignals.length > 0;
+  const sourceOpposition = hasExplicitPolicyOpposition(source, sharedPolicySignals);
+  const candidateOpposition = hasExplicitPolicyOpposition(candidate, sharedPolicySignals);
 
   if (sourceOpposition !== candidateOpposition || (sharedPolicySignal && hasConflictingNumbers)) {
     return "opposing";
