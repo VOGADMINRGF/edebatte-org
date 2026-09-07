@@ -378,7 +378,7 @@ describe("/api/create/handoffs", () => {
     });
   });
 
-  it("canonically persists an explicit counterposition and a server-validated jurisdiction", async () => {
+  it("persists an explicit counterposition, validated jurisdiction and independent organization ownership", async () => {
     const sourceText =
       "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.";
     const citizenContext =
@@ -415,7 +415,7 @@ describe("/api/create/handoffs", () => {
     const stored = await getPersistedCreateHandoffRecord(id);
     expect(stored).toMatchObject({
       regionId: null,
-      organizationId: null,
+      organizationId: "org-reinickendorf-1",
       existingMatchDecision: "count_as_opposition",
       relatedMatchId: "match-school-street",
       relatedMatchTitle: "Tempo 30 vor der Grundschule",

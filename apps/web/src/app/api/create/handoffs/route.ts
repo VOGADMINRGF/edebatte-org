@@ -396,12 +396,11 @@ export async function POST(req: NextRequest) {
         requestScope?.primaryRegionId ??
         scopeContext.regionIds[0] ??
         null;
-    const fallbackOrganizationId = draft.jurisdictionConfirmation
-      ? context.organizationId
-      : context.organizationId ??
-        requestScope?.organizationId ??
-        scopeContext.regionAccess.organization.primaryOrganizationId ??
-        null;
+    const fallbackOrganizationId =
+      context.organizationId ??
+      requestScope?.organizationId ??
+      scopeContext.regionAccess.organization.primaryOrganizationId ??
+      null;
     const record = await persistCreateHandoffForReview({
       draft,
       createdByUserId: userId,
