@@ -67,6 +67,8 @@ import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollo
 import {
   createMutationRequestHeaders,
   primeCreateSecuritySession,
+  readCreateAnonymousStorageContext,
+  type CreateAnonymousStorageContext,
 } from "@/features/create/createMutationSecurityContract";
 import {
   buildCreateFollowupPrimaryCtaHref,
@@ -116,7 +118,11 @@ import {
   type CreateVoxyLocale,
 } from "@/features/create/createVoxySupportCopy";
 import type { CreateSupportHandoffPublic } from "@/features/support/createSupportTicketContract";
-import { applyCreateRegionPriority } from "@/features/create/createCitizenIntakeContext";
+import {
+  applyCreateJurisdictionConfirmation,
+  applyCreateRegionPriority,
+  buildCreateJurisdictionCandidateKey,
+} from "@/features/create/createCitizenIntakeContext";
 import {
   isCreateIntelligentFollowupAbortError,
   resolveCreateIntakeTiming,
@@ -429,6 +435,8 @@ export type CreatePrimaryIntakeSnapshot = {
   productMode?: CreateProductMode;
   guestOperationId?: string | null;
   serverDraftId?: string | null;
+  guestContextExpiresAt?: string | null;
+  confirmedJurisdictionKey?: string | null;
 };
 
 type CreateFollowupSurface = "none" | "lightweight" | "analysis";
@@ -610,9 +618,21 @@ function CreateAssistantStatusBubble(props: {
 
 const CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX = "vog_create_primary_intake_v1";
 
-export function buildCreatePrimaryIntakeStorageKey(userId?: string | null): string {
+export function buildCreatePrimaryIntakeStorageKey(userId?: string | null): string | null {
   const normalizedUserId = String(userId ?? "").trim();
-  return `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:${normalizedUserId || "guest"}`;
+  return normalizedUserId
+    ? `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:account:${normalizedUserId}`
+    : null;
+}
+
+export function buildCreateGuestPrimaryIntakeStorageKey(
+  context: CreateAnonymousStorageContext | null | undefined,
+): string | null {
+  const namespace = String(context?.namespace ?? "").trim();
+  const expiresAtMs = Date.parse(String(context?.expiresAt ?? ""));
+  if (!/^g1_[A-Za-z0-9_-]{32,96}$/.test(namespace)) return null;
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) return null;
+  return `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:guest:${namespace}`;
 }
 
 function isCreateIntelligentFollowupSnapshot(
@@ -677,6 +697,16 @@ export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrim
         typeof parsed.serverDraftId === "string" && parsed.serverDraftId.trim()
           ? parsed.serverDraftId.trim().slice(0, 160)
           : null,
+      guestContextExpiresAt:
+        typeof parsed.guestContextExpiresAt === "string" &&
+        parsed.guestContextExpiresAt.trim()
+          ? parsed.guestContextExpiresAt.trim()
+          : null,
+      confirmedJurisdictionKey:
+        typeof parsed.confirmedJurisdictionKey === "string" &&
+        parsed.confirmedJurisdictionKey.trim()
+          ? parsed.confirmedJurisdictionKey.trim().slice(0, 240)
+          : null,
     };
   } catch {
     return null;
@@ -688,17 +718,29 @@ export function resolveCreatePrimaryIntakeResumeSnapshot(input: {
   guestRaw: string | null;
   isAuthenticated: boolean;
   preferGuest?: boolean;
+  guestContextExpiresAt?: string | null;
+  nowMs?: number;
 }): { snapshot: CreatePrimaryIntakeSnapshot | null; source: "owned" | "guest" | null } {
   const owned = parseCreatePrimaryIntakeSnapshot(input.ownedRaw);
-  const guest = parseCreatePrimaryIntakeSnapshot(input.guestRaw);
-  if (input.isAuthenticated && input.preferGuest && guest) {
-    return { snapshot: guest, source: "guest" };
+  const parsedGuest = parseCreatePrimaryIntakeSnapshot(input.guestRaw);
+  const expectedGuestExpiry = String(input.guestContextExpiresAt ?? "").trim();
+  const nowMs = input.nowMs ?? Date.now();
+  const guestExpiryMs = Date.parse(parsedGuest?.guestContextExpiresAt ?? "");
+  const guest =
+    parsedGuest &&
+    expectedGuestExpiry &&
+    parsedGuest.guestContextExpiresAt === expectedGuestExpiry &&
+    Number.isFinite(guestExpiryMs) &&
+    guestExpiryMs > nowMs
+      ? parsedGuest
+      : null;
+  if (input.isAuthenticated) {
+    if (input.preferGuest && guest) return { snapshot: guest, source: "guest" };
+    if (owned) return { snapshot: owned, source: "owned" };
+    return { snapshot: null, source: null };
   }
-  if (owned) return { snapshot: owned, source: "owned" };
-  if (!input.isAuthenticated) return { snapshot: null, source: null };
-  return guest
-    ? { snapshot: guest, source: "guest" }
-    : { snapshot: null, source: null };
+  if (guest) return { snapshot: guest, source: "guest" };
+  return { snapshot: null, source: null };
 }
 
 export function buildCreateGuestAdoptionPayload(input: {
@@ -717,17 +759,12 @@ export function buildCreateGuestAdoptionPayload(input: {
     return null;
   }
   return {
-    text,
-    textOriginal: text,
-    textPrepared: input.snapshot.intelligentFollowup.sourceText.trim() || text,
     locale: input.locale,
     source: "create_guest_resume",
     createMode: input.createMode,
     analysis: {
-      intelligentFollowup: input.snapshot.intelligentFollowup,
       guestResume: {
         operationId,
-        providerRunReused: true,
         noAutoPublish: true,
       },
     },
@@ -997,18 +1034,39 @@ export default function CreateClient({
     if (normalizeAnlassraumId(initialAnlassraumId)) return null;
     return text.selectionInfoInvalidContext;
   });
-  const intakeStorageKey = React.useMemo(
+  const ownedIntakeStorageKey = React.useMemo(
     () => buildCreatePrimaryIntakeStorageKey(overview?.userId),
     [overview?.userId],
   );
-  const progressResumeStorageKey = React.useMemo(
-    () =>
-      buildCreateProgressResumeStorageKey(
-        initialResumeGuestWorkspace ? "guest" : overview?.userId ?? "guest",
-      ),
-    [initialResumeGuestWorkspace, overview?.userId],
+  const [guestStorageContext, setGuestStorageContext] =
+    React.useState<CreateAnonymousStorageContext | null>(() =>
+      readCreateAnonymousStorageContext(),
+    );
+  const [guestStorageContextResolved, setGuestStorageContextResolved] =
+    React.useState(false);
+  const guestIntakeStorageKey = React.useMemo(
+    () => buildCreateGuestPrimaryIntakeStorageKey(guestStorageContext),
+    [guestStorageContext],
   );
-  const guestIntakeStorageKey = buildCreatePrimaryIntakeStorageKey(null);
+  const intakeStorageKey = entitlements.isAuthenticated
+    ? ownedIntakeStorageKey
+    : guestIntakeStorageKey;
+  const progressResumeStorageKey = React.useMemo(() => {
+    if (initialResumeGuestWorkspace || !entitlements.isAuthenticated) {
+      const guestNamespace = String(guestStorageContext?.namespace ?? "").trim();
+      return guestNamespace
+        ? buildCreateProgressResumeStorageKey(`guest:${guestNamespace}`)
+        : null;
+    }
+    return overview?.userId
+      ? buildCreateProgressResumeStorageKey(`account:${overview.userId}`)
+      : null;
+  }, [
+    entitlements.isAuthenticated,
+    guestStorageContext?.namespace,
+    initialResumeGuestWorkspace,
+    overview?.userId,
+  ]);
   const intakeRestoreInfoText =
     surfaceLocale === "en"
       ? "Your draft was restored from local browser storage."
@@ -1040,6 +1098,10 @@ export default function CreateClient({
   const [understandingConfirmed, setUnderstandingConfirmed] = React.useState<boolean>(false);
   const [activeTopicLabel, setActiveTopicLabel] = React.useState<string | null>(null);
   const [selectedPrimaryTopic, setSelectedPrimaryTopic] = React.useState<string | null>(null);
+  const [confirmedJurisdictionKey, setConfirmedJurisdictionKey] =
+    React.useState<string | null>(null);
+  const lastJurisdictionResultAtRef = React.useRef<string | null>(null);
+  const hasSeenJurisdictionResultRef = React.useRef(false);
   const [groupedTopicLabels, setGroupedTopicLabels] = React.useState<string[]>([]);
   const [parkedTopicLabels, setParkedTopicLabels] = React.useState<string[]>([]);
   const [documentTopicOverviewOpened, setDocumentTopicOverviewOpened] = React.useState(false);
@@ -1073,16 +1135,40 @@ export default function CreateClient({
   const lastFocusedDynamicStatusRef = React.useRef<string | null>(null);
   const analysisSceneRef = React.useRef<HTMLDivElement | null>(null);
   const [analysisSceneMode, setAnalysisSceneMode] = React.useState<CreateProductMode | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void primeCreateSecuritySession().finally(() => {
+      if (cancelled) return;
+      setGuestStorageContext(readCreateAnonymousStorageContext());
+      setGuestStorageContextResolved(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const readStoredPrimaryIntake = React.useCallback(
     () => {
       return resolveCreatePrimaryIntakeResumeSnapshot({
-        ownedRaw: window.localStorage.getItem(intakeStorageKey),
-        guestRaw: window.localStorage.getItem(guestIntakeStorageKey),
+        ownedRaw: ownedIntakeStorageKey
+          ? window.localStorage.getItem(ownedIntakeStorageKey)
+          : null,
+        guestRaw: guestIntakeStorageKey
+          ? window.localStorage.getItem(guestIntakeStorageKey)
+          : null,
         isAuthenticated: entitlements.isAuthenticated,
         preferGuest: initialResumeGuestWorkspace,
+        guestContextExpiresAt: guestStorageContext?.expiresAt,
       }).snapshot;
     },
-    [entitlements.isAuthenticated, guestIntakeStorageKey, initialResumeGuestWorkspace, intakeStorageKey],
+    [
+      entitlements.isAuthenticated,
+      guestIntakeStorageKey,
+      guestStorageContext?.expiresAt,
+      initialResumeGuestWorkspace,
+      ownedIntakeStorageKey,
+    ],
   );
 
   const startDraftRestore = useCreateStartDraftRestore({
@@ -1097,13 +1183,24 @@ export default function CreateClient({
 
   React.useEffect(() => {
     if (intakeHydratedRef.current) return;
+    if (
+      (!entitlements.isAuthenticated || initialResumeGuestWorkspace) &&
+      !guestStorageContextResolved
+    ) {
+      return;
+    }
     intakeHydratedRef.current = true;
     try {
       const resume = resolveCreatePrimaryIntakeResumeSnapshot({
-        ownedRaw: window.localStorage.getItem(intakeStorageKey),
-        guestRaw: window.localStorage.getItem(guestIntakeStorageKey),
+        ownedRaw: ownedIntakeStorageKey
+          ? window.localStorage.getItem(ownedIntakeStorageKey)
+          : null,
+        guestRaw: guestIntakeStorageKey
+          ? window.localStorage.getItem(guestIntakeStorageKey)
+          : null,
         isAuthenticated: entitlements.isAuthenticated,
         preferGuest: initialResumeGuestWorkspace,
+        guestContextExpiresAt: guestStorageContext?.expiresAt,
       });
       const snapshot = resume.snapshot;
       if (!snapshot) return;
@@ -1127,6 +1224,7 @@ export default function CreateClient({
         setProgressEvents(snapshot.progressEvents ?? []);
         setGuestOperationId(snapshot.guestOperationId ?? null);
         setSavedDraftId(snapshot.serverDraftId ?? null);
+        setConfirmedJurisdictionKey(snapshot.confirmedJurisdictionKey ?? null);
         if (snapshot.productMode) setProductMode(snapshot.productMode);
         setFollowupSnapshot(
           buildCreateLightweightFollowupSnapshot({
@@ -1155,10 +1253,12 @@ export default function CreateClient({
   }, [
     entitlements.isAuthenticated,
     guestIntakeStorageKey,
+    guestStorageContext?.expiresAt,
+    guestStorageContextResolved,
     initialText,
     initialResumeGuestWorkspace,
     intakeRestoreInfoText,
-    intakeStorageKey,
+    ownedIntakeStorageKey,
     productMode,
     surfaceLocale,
     surfaceTexts,
@@ -1218,6 +1318,7 @@ export default function CreateClient({
 
   React.useEffect(() => {
     try {
+      if (!intakeStorageKey || guestResumePending) return;
       if (!hasPrimaryIntakeText(intakeText) && !hasStarted) {
         window.localStorage.removeItem(intakeStorageKey);
         return;
@@ -1233,12 +1334,31 @@ export default function CreateClient({
         productMode,
         guestOperationId,
         serverDraftId: savedDraftId,
+        guestContextExpiresAt: entitlements.isAuthenticated
+          ? null
+          : guestStorageContext?.expiresAt ?? null,
+        confirmedJurisdictionKey,
       };
       window.localStorage.setItem(intakeStorageKey, JSON.stringify(snapshot));
     } catch {
       // ignore local draft persistence errors
     }
-  }, [guestOperationId, hasStarted, intakeStorageKey, intakeText, intelligentFollowup, plannerTrace, productMode, progressEvents, savedDraftId]);
+  }, [
+    confirmedJurisdictionKey,
+    entitlements.isAuthenticated,
+    guestOperationId,
+    guestResumePending,
+    guestStorageContext?.expiresAt,
+    hasStarted,
+    intakeStorageKey,
+    intakeText,
+    intelligentFollowup,
+    plannerTrace,
+    ownedIntakeStorageKey,
+    productMode,
+    progressEvents,
+    savedDraftId,
+  ]);
 
   React.useEffect(() => {
     let ignore = false;
@@ -1349,6 +1469,8 @@ export default function CreateClient({
     if (
       !guestResumePending ||
       !entitlements.isAuthenticated ||
+      !ownedIntakeStorageKey ||
+      !guestIntakeStorageKey ||
       savedDraftId ||
       guestAdoptionInFlightRef.current
     ) {
@@ -1364,6 +1486,8 @@ export default function CreateClient({
       productMode,
       guestOperationId,
       serverDraftId: null,
+      guestContextExpiresAt: guestStorageContext?.expiresAt ?? null,
+      confirmedJurisdictionKey,
     };
     const payload = buildCreateGuestAdoptionPayload({
       snapshot,
@@ -1391,8 +1515,12 @@ export default function CreateClient({
           ...snapshot,
           updatedAt: new Date().toISOString(),
           serverDraftId: draftId,
+          guestContextExpiresAt: null,
         };
-        window.localStorage.setItem(intakeStorageKey, JSON.stringify(adoptedSnapshot));
+        window.localStorage.setItem(
+          ownedIntakeStorageKey,
+          JSON.stringify(adoptedSnapshot),
+        );
         window.localStorage.removeItem(guestIntakeStorageKey);
         setIntakeRestoreInfo(
           surfaceLocale === "en"
@@ -1412,16 +1540,18 @@ export default function CreateClient({
     void adoptGuestWorkspace();
   }, [
     canonicalCreateMode,
+    confirmedJurisdictionKey,
     entitlements.isAuthenticated,
     guestIntakeStorageKey,
     guestOperationId,
     guestResumePending,
+    guestStorageContext?.expiresAt,
     hasStarted,
-    intakeStorageKey,
     intakeText,
     intelligentFollowup,
     plannerTrace,
     progressEvents,
+    ownedIntakeStorageKey,
     productMode,
     savedDraftId,
     surfaceLocale,
@@ -2207,11 +2337,55 @@ export default function CreateClient({
       initialIntakeContext?.reviewState === "confirmed"
         ? initialIntakeContext.region
         : null;
-    return applyCreateRegionPriority(detected, {
+    const prioritized = applyCreateRegionPriority(detected, {
       confirmedRegion,
       profileRegion,
     });
-  }, [initialIntakeContext, intelligentFollowup?.meta?.citizenContext, overview?.profile]);
+    return applyCreateJurisdictionConfirmation(
+      prioritized,
+      confirmedJurisdictionKey,
+    );
+  }, [
+    confirmedJurisdictionKey,
+    initialIntakeContext,
+    intelligentFollowup?.meta?.citizenContext,
+    overview?.profile,
+  ]);
+
+  React.useEffect(() => {
+    const generatedAt = intelligentFollowup?.generatedAt ?? null;
+    if (!hasSeenJurisdictionResultRef.current) {
+      if (generatedAt) {
+        hasSeenJurisdictionResultRef.current = true;
+        lastJurisdictionResultAtRef.current = generatedAt;
+      }
+      return;
+    }
+    if (generatedAt !== lastJurisdictionResultAtRef.current) {
+      lastJurisdictionResultAtRef.current = generatedAt;
+      setConfirmedJurisdictionKey(null);
+    }
+  }, [intelligentFollowup?.generatedAt]);
+
+  const updateCitizenJurisdictionConfirmation = React.useCallback(
+    (candidateKey: string | null) => {
+      setConfirmedJurisdictionKey(candidateKey);
+      setIntelligentFollowup((current) => {
+        if (!current || !current.meta || !citizenContext) return current;
+        return {
+          ...current,
+          meta: {
+            ...current.meta,
+            citizenContext: applyCreateJurisdictionConfirmation(
+              citizenContext,
+              candidateKey,
+            ),
+          },
+        };
+      });
+    },
+    [citizenContext],
+  );
   const startChatAssistantTitle = isStarting
     ? surfaceLocale === "en"
       ? "I’m organizing this briefly"
@@ -4083,6 +4257,26 @@ export default function CreateClient({
                   ) : null
                 }
                 citizenContext={citizenContext}
+                confirmedJurisdictionKey={confirmedJurisdictionKey}
+                onConfirmCitizenJurisdiction={(candidateKey) => {
+                  if (
+                    !citizenContext?.jurisdictionCandidates.some(
+                      (candidate) =>
+                        buildCreateJurisdictionCandidateKey(candidate) === candidateKey,
+                    )
+                  ) {
+                    return;
+                  }
+                  updateCitizenJurisdictionConfirmation(candidateKey);
+                  setActionNotice("Zuständigkeit als Vorschlag bestätigt.");
+                }}
+                onEditCitizenJurisdiction={() => {
+                  updateCitizenJurisdictionConfirmation(null);
+                  setWorkspaceActionMode("edit");
+                  setActionNotice(
+                    "Beschreibe die passende Zuständigkeit direkt in deinem Beitrag.",
+                  );
+                }}
                 onEditCitizenRegion={() => {
                   setWorkspaceActionMode("edit");
                   setActionNotice("Du kannst Ort oder Region direkt in deinem Beitrag ändern.");

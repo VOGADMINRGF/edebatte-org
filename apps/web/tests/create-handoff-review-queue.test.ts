@@ -82,6 +82,20 @@ describe("create handoff review queue contract", () => {
     expect(blocksReviewQueueAutoRuntimeSideEffects(existingBranchItem)).toBe(true);
   });
 
+  it("carries an explicit counterposition decision into the review queue", () => {
+    const draft = createHandoffDraftFromExistingTopicMatch(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+      "opinion_count",
+      "count_as_opposition",
+    );
+    const item = createReviewQueueItemFromHandoffDraft(draft);
+
+    expect(item.existingMatchDecision).toBe("count_as_opposition");
+    expect(item.authorStandpoint).toContain("Widerspricht der bestehenden Position");
+    expect(item.autoCreate).toBe(false);
+    expect(item.autoPublish).toBe(false);
+  });
+
   it("queues eligible drafts and rejects unsafe ones", () => {
     const queueableDraft = createHandoffDraftFromDialogOutcome(
       DIALOG_INTELLIGENCE_PREVIEW_FIXTURES.clarifyStandpoint,

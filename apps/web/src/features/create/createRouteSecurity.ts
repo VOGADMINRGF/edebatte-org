@@ -32,6 +32,7 @@ const RATE_LIMITS: Record<
   {
     userLimit: number;
     ipLimit: number;
+    anonymousIpLimit?: number;
     anonymousLimit: number;
     clientLimit: number;
     windowMs: number;
@@ -47,6 +48,7 @@ const RATE_LIMITS: Record<
   create_intelligent_followup: {
     userLimit: 12,
     ipLimit: 30,
+    anonymousIpLimit: 12,
     anonymousLimit: 18,
     clientLimit: 18,
     windowMs: 10 * 60 * 1000,
@@ -211,6 +213,22 @@ export async function enforceCreateMutationSecurity(input: {
           namespace: `create:${input.scope}:anonymous`,
           subjectHash: digest(`${input.scope}:anonymous:${anonymousSession.id}`),
           limit: policy.anonymousLimit,
+          windowMs: policy.windowMs,
+        }),
+      );
+    }
+
+    if (
+      anonymousSession &&
+      input.scope === "create_intelligent_followup" &&
+      input.actorKey.startsWith("anonymous:") &&
+      policy.anonymousIpLimit
+    ) {
+      baseChecks.push(
+        limiter({
+          namespace: `create:${input.scope}:anonymous-ip`,
+          subjectHash: ipHash,
+          limit: policy.anonymousIpLimit,
           windowMs: policy.windowMs,
         }),
       );

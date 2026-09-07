@@ -178,6 +178,36 @@ function jurisdictionFor(params: {
   return [];
 }
 
+export function buildCreateJurisdictionCandidateKey(
+  candidate: JurisdictionCandidate,
+): string {
+  return `${candidate.level}:${candidate.label.trim().toLocaleLowerCase("de")}`;
+}
+
+export function applyCreateJurisdictionConfirmation(
+  context: CreateCitizenIntakeContext,
+  candidateKey: string | null | undefined,
+): CreateCitizenIntakeContext {
+  const normalizedKey = String(candidateKey ?? "").trim();
+  const candidate = context.jurisdictionCandidates.find(
+    (entry) => buildCreateJurisdictionCandidateKey(entry) === normalizedKey,
+  );
+  return {
+    ...context,
+    jurisdictionConfirmation: {
+      status:
+        context.jurisdictionCandidates.length === 0
+          ? "not_required"
+          : candidate
+            ? "confirmed"
+            : "unconfirmed",
+      candidateKey: candidate
+        ? buildCreateJurisdictionCandidateKey(candidate)
+        : null,
+    },
+  };
+}
+
 export function applyCreateRegionPriority(
   context: CreateCitizenIntakeContext,
   input: { confirmedRegion?: string | null; profileRegion?: string | null },
@@ -226,6 +256,10 @@ export function applyCreateRegionPriority(
         ? context.clarificationQuestion
         : null,
     jurisdictionCandidates,
+    jurisdictionConfirmation: {
+      status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+      candidateKey: null,
+    },
     placeResolution: {
       ...context.placeResolution,
       candidates: [selectedCandidate],
@@ -342,7 +376,7 @@ export function resolveCreateCitizenIntakeContext(
     ? unique([selectedCandidate.city, selectedCandidate.state, selectedCandidate.country])
     : [];
   const jurisdictionCandidates = jurisdictionFor({ text, regionStatus, selectedRegion: selectedCandidate });
-  const placeResolution = {
+  const placeResolution: CreateCitizenIntakeContext["placeResolution"] = {
     normalizedInput: text,
     exactStreetMatch: false,
     exactPlaceMatch: Boolean(selectedCandidate),
@@ -358,6 +392,10 @@ export function resolveCreateCitizenIntakeContext(
         : []),
     ],
     jurisdictionCandidates,
+    jurisdictionConfirmation: {
+      status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+      candidateKey: null,
+    },
   };
 
   const base: CreateCitizenIntakeContext = {
@@ -372,6 +410,10 @@ export function resolveCreateCitizenIntakeContext(
     detectedStreetName,
     placeResolution,
     jurisdictionCandidates,
+    jurisdictionConfirmation: {
+      status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+      candidateKey: null,
+    },
     desiredChange: REQUEST_RE.test(text) ? text : null,
     safety: {
       decision: safetyResult.decision,

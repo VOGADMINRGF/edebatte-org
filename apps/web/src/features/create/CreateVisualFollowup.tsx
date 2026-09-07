@@ -22,7 +22,9 @@ import {
   type CreateVisualNode,
 } from "@/features/create/intelligentFollowupContract";
 import CreateHandoffDraftSummary from "@/features/create/CreateHandoffDraftSummary";
-import ExistingTopicMatchesPanel from "@/features/create/ExistingTopicMatchesPanel";
+import ExistingTopicMatchesPanel, {
+  type CitizenMatchDecision,
+} from "@/features/create/ExistingTopicMatchesPanel";
 import {
   createHandoffDraftFromDialogOutcome,
   createHandoffDraftFromExistingTopicMatch,
@@ -401,6 +403,18 @@ function resolveExistingTopicMatchDraftTarget(
     return "participation_space_candidate";
   }
   return "existing_branch_connection";
+}
+
+export function resolveCitizenMatchDecisionDraftTarget(
+  match: ExistingTopicMatch,
+  decision: CitizenMatchDecision | null | undefined,
+): CreateHandoffDraftTarget {
+  if (decision === "keep_separate") return "new_branch";
+  if (decision === "add_as_nuance") return "existing_branch_connection";
+  if (decision === "count_my_position" || decision === "count_as_opposition") {
+    return "opinion_count";
+  }
+  return resolveExistingTopicMatchDraftTarget(match);
 }
 
 function resolveNextIndexFromKey(currentIndex: number, key: string, total: number): number | null {
@@ -3538,6 +3552,9 @@ export default function CreateVisualFollowup({
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [deepDiveOpen, setDeepDiveOpen] = React.useState(false);
   const [preparedHandoffDraft, setPreparedHandoffDraft] = React.useState<CreateHandoffDraft | null>(null);
+  const [existingMatchDecisions, setExistingMatchDecisions] = React.useState<
+    Record<string, CitizenMatchDecision>
+  >({});
   const [preparedReviewQueueItem, setPreparedReviewQueueItem] =
     React.useState<CreateHandoffReviewQueueItem | null>(null);
   const [reviewQueueRuntimeState, setReviewQueueRuntimeState] = React.useState<
@@ -3560,6 +3577,7 @@ export default function CreateVisualFollowup({
 
   React.useEffect(() => {
     setPreparedHandoffDraft(null);
+    setExistingMatchDecisions({});
     setPreparedReviewQueueItem(null);
     setReviewQueueRuntimeState("idle");
     setReviewQueueRuntimeMessage(null);
@@ -3637,9 +3655,14 @@ export default function CreateVisualFollowup({
   );
 
   const prepareExistingMatchDraft = React.useCallback(
-    (matchId: string, explicitTarget?: CreateHandoffDraftTarget) => {
+    (
+      matchId: string,
+      explicitTarget?: CreateHandoffDraftTarget,
+      explicitDecision?: CitizenMatchDecision,
+    ) => {
       const match = existingTopicMatchesModel.matches.find((entry) => entry.id === matchId);
       if (!match) return;
+      const decision = explicitDecision ?? existingMatchDecisions[matchId] ?? null;
 
       setPreparedReviewQueueItem(null);
       setReviewQueueRuntimeState("idle");
@@ -3647,11 +3670,12 @@ export default function CreateVisualFollowup({
       setPreparedHandoffDraft(
         createHandoffDraftFromExistingTopicMatch(
           match,
-          explicitTarget ?? resolveExistingTopicMatchDraftTarget(match),
+          explicitTarget ?? resolveCitizenMatchDecisionDraftTarget(match, decision),
+          decision,
         ),
       );
     },
-    [existingTopicMatchesModel.matches],
+    [existingMatchDecisions, existingTopicMatchesModel.matches],
   );
 
   const prepareNewBranchDraft = React.useCallback(() => {
@@ -4156,11 +4180,30 @@ export default function CreateVisualFollowup({
                       <div className="mt-4">
                         <ExistingTopicMatchesPanel
                           model={existingTopicMatchesModel}
+                          decisions={existingMatchDecisions}
                           onSelectMatch={(matchId) => prepareExistingMatchDraft(matchId)}
                           onCountSimilarOpinion={(matchId) =>
                             prepareExistingMatchDraft(matchId, "opinion_count")
                           }
                           onPrepareReview={(matchId) => prepareExistingMatchDraft(matchId)}
+                          onMatchDecision={(matchId, decision) => {
+                            const match = existingTopicMatchesModel.matches.find(
+                              (entry) => entry.id === matchId,
+                            );
+                            if (!match) return;
+                            setExistingMatchDecisions((current) => ({
+                              ...current,
+                              [matchId]: decision,
+                            }));
+                            prepareExistingMatchDraft(
+                              matchId,
+                              resolveCitizenMatchDecisionDraftTarget(
+                                match,
+                                decision,
+                              ),
+                              decision,
+                            );
+                          }}
                           onStartNewBranch={prepareNewBranchDraft}
                         />
                       </div>

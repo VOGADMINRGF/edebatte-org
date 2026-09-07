@@ -5,6 +5,7 @@ import {
   CREATE_INTELLIGENT_FOLLOWUP_SECTION_LABELS,
   buildCreateLightweightFollowupSnapshot,
   buildCreateGuestAdoptionPayload,
+  buildCreateGuestPrimaryIntakeStorageKey,
   buildCreatePrimaryIntakeStorageKey,
   buildGuidedWorkspaceText,
   hasPrimaryIntakeText,
@@ -108,10 +109,20 @@ describe("analyze workbench progressive disclosure", () => {
     ).toContain("Guided focus");
   });
 
-  it("uses stable owned and guest keys for browser-bounded intake persistence", () => {
-    expect(buildCreatePrimaryIntakeStorageKey("user-1")).toBe("vog_create_primary_intake_v1:user-1");
-    expect(buildCreatePrimaryIntakeStorageKey("")).toBe("vog_create_primary_intake_v1:guest");
-    expect(buildCreatePrimaryIntakeStorageKey(null)).toBe("vog_create_primary_intake_v1:guest");
+  it("separates account storage from opaque, expiring guest-session storage", () => {
+    expect(buildCreatePrimaryIntakeStorageKey("user-1")).toBe(
+      "vog_create_primary_intake_v1:account:user-1",
+    );
+    expect(buildCreatePrimaryIntakeStorageKey("")).toBeNull();
+    expect(buildCreatePrimaryIntakeStorageKey(null)).toBeNull();
+    expect(
+      buildCreateGuestPrimaryIntakeStorageKey({
+        namespace: "g1_opaque-session-scope-12345678901234567890",
+        expiresAt: "2099-09-06T10:30:00.000Z",
+      }),
+    ).toBe(
+      "vog_create_primary_intake_v1:guest:g1_opaque-session-scope-12345678901234567890",
+    );
   });
 
   it("keeps in-flight guest progress on the guest resume key after login navigation", () => {
@@ -169,6 +180,7 @@ describe("analyze workbench progressive disclosure", () => {
       intakeText: "Tempo 30 vor der Schule prüfen.",
       hasStarted: true,
       updatedAt: "2026-09-06T10:00:00.000Z",
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
       productMode: "analyze",
       guestOperationId: "guest-operation-12345678",
       intelligentFollowup: {
@@ -241,6 +253,8 @@ describe("analyze workbench progressive disclosure", () => {
       guestRaw,
       isAuthenticated: true,
       preferGuest: true,
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      nowMs: Date.parse("2026-09-06T10:05:00.000Z"),
     });
 
     expect(resume.source).toBe("guest");
@@ -269,16 +283,69 @@ describe("analyze workbench progressive disclosure", () => {
       createMode: "source",
     });
     expect(payload).toMatchObject({
-      text: "Tempo 30 vor der Schule prüfen.",
       source: "create_guest_resume",
       analysis: {
         guestResume: {
           operationId: "guest-operation-12345678",
-          providerRunReused: true,
           noAutoPublish: true,
         },
       },
     });
+    expect(payload).not.toHaveProperty("textPrepared");
+    expect(payload?.analysis).not.toHaveProperty("intelligentFollowup");
+  });
+
+  it("does not expose a guest snapshot across sessions, expiry, or implicit login resume", () => {
+    const guestRaw = JSON.stringify({
+      intakeText: "Sessiongebundener Gast-Arbeitsstand",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+    });
+    const ownedRaw = JSON.stringify({
+      intakeText: "Konto-Arbeitsstand",
+      hasStarted: true,
+      updatedAt: "2026-09-06T09:00:00.000Z",
+    });
+    const base = {
+      ownedRaw,
+      guestRaw,
+      nowMs: Date.parse("2026-09-06T10:05:00.000Z"),
+    };
+
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: false,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      }).source,
+    ).toBe("guest");
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: false,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T11:00:00.000Z",
+      }).snapshot,
+    ).toBeNull();
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: true,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      }).source,
+    ).toBe("owned");
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: true,
+        preferGuest: true,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+        nowMs: Date.parse("2026-09-06T10:31:00.000Z"),
+      }).source,
+    ).toBe("owned");
   });
 
   it("keeps analyze workspace hidden until follow-up explicitly activates review", () => {

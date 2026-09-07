@@ -15,7 +15,7 @@ import {
 } from "@/features/create/existingTopicMatches";
 import type { ExistingMatchUserDecision } from "@/features/create/createContributionPackageContract";
 
-type CitizenMatchDecision = Extract<
+export type CitizenMatchDecision = Extract<
   ExistingMatchUserDecision,
   "count_my_position" | "count_as_opposition" | "add_as_nuance" | "keep_separate"
 >;
@@ -37,6 +37,7 @@ export type ExistingTopicMatchesPanelProps = {
   onCountSimilarOpinion?: (matchId: string) => void;
   onPrepareReview?: (matchId: string) => void;
   onMatchDecision?: (matchId: string, decision: CitizenMatchDecision) => void;
+  decisions?: Readonly<Record<string, CitizenMatchDecision>>;
 };
 
 function getStrengthLabel(strength: ExistingTopicMatch["strength"]): string {
@@ -114,6 +115,7 @@ export default function ExistingTopicMatchesPanel(
   props: ExistingTopicMatchesPanelProps,
 ) {
   const [decisions, setDecisions] = React.useState<Record<string, CitizenMatchDecision>>({});
+  const activeDecisions = props.decisions ?? decisions;
   const matches = getVisibleExistingTopicMatches(props.model);
   const guardrailNote = getExistingTopicMatchGuardrailNote(props.model);
   const primaryMatch = getPrimaryExistingTopicMatch(props.model);
@@ -218,7 +220,7 @@ export default function ExistingTopicMatchesPanel(
                     </legend>
                     <div className="mt-2 flex flex-wrap gap-2" data-existing-match-decisions>
                       {CITIZEN_MATCH_DECISIONS.map((decision) => {
-                        const selected = decisions[match.id] === decision.id;
+                        const selected = activeDecisions[match.id] === decision.id;
                         return (
                           <button
                             key={decision.id}
@@ -230,7 +232,9 @@ export default function ExistingTopicMatchesPanel(
                             }`}
                             aria-pressed={selected}
                             onClick={() => {
-                              setDecisions((current) => ({ ...current, [match.id]: decision.id }));
+                              if (!props.decisions) {
+                                setDecisions((current) => ({ ...current, [match.id]: decision.id }));
+                              }
                               props.onMatchDecision?.(match.id, decision.id);
                             }}
                           >
@@ -239,7 +243,7 @@ export default function ExistingTopicMatchesPanel(
                         );
                       })}
                     </div>
-                    {decisions[match.id] ? (
+                    {activeDecisions[match.id] ? (
                       <p className="mt-2 text-xs text-[rgb(var(--muted))]" role="status">
                         Deine Auswahl bleibt ein Entwurf. Es wurde nichts zusammengeführt oder veröffentlicht.
                       </p>

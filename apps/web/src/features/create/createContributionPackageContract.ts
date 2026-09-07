@@ -171,6 +171,10 @@ export type PlaceResolutionResult = {
   confidence: "low" | "medium" | "high";
   warnings: string[];
   jurisdictionCandidates: JurisdictionCandidate[];
+  jurisdictionConfirmation?: {
+    status: "not_required" | "unconfirmed" | "confirmed";
+    candidateKey: string | null;
+  };
 };
 
 export type CreateCitizenConcernKind =
@@ -211,6 +215,10 @@ export type CreateCitizenIntakeContext = {
   detectedStreetName: string | null;
   placeResolution: PlaceResolutionResult;
   jurisdictionCandidates: JurisdictionCandidate[];
+  jurisdictionConfirmation: {
+    status: "not_required" | "unconfirmed" | "confirmed";
+    candidateKey: string | null;
+  };
   desiredChange: string | null;
   safety: CreateCitizenSafetySummary;
   matching: {

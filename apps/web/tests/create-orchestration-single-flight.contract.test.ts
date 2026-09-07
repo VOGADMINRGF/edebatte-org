@@ -30,8 +30,10 @@ vi.mock("@/features/create/createRouteSecurity", () => ({
 import { POST } from "@/app/api/create/intelligent-followup/route";
 import {
   CREATE_PROGRESS_EVENT_CAP,
+  adoptCompletedCreateOrchestrationClaim,
   createInMemoryCreateOrchestrationClaimRepo,
   createOrchestrationClaimKeyForTests,
+  readCompletedCreateOrchestrationClaim,
   runCreateOrchestrationSingleFlight,
   setCreateOrchestrationClaimRepoForTests,
 } from "@/features/create/createOrchestrationSingleFlight";
@@ -462,5 +464,50 @@ describe("persistent create orchestration single-flight", () => {
     });
 
     expect(result.result).toEqual({ state: "completed" });
+  });
+
+  it("atomically adopts a completed anonymous claim once and only for its bound session", async () => {
+    const keyInput = {
+      actorKey: "anonymous:guest-session-a",
+      draftId: "anonymous:guest-session-a",
+      correlationId: "guest-operation-12345678",
+      operationType: OPERATION_TYPE,
+    };
+    const result = successfulFollowup();
+    await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "guest-input-hash",
+      run: async () => result,
+    });
+
+    await expect(readCompletedCreateOrchestrationClaim(keyInput)).resolves.toMatchObject({
+      inputHash: "guest-input-hash",
+      result,
+    });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-a",
+      }),
+    ).resolves.toEqual({ kind: "adopted", result });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-a",
+      }),
+    ).resolves.toEqual({ kind: "reused", result });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-b",
+      }),
+    ).resolves.toEqual({ kind: "conflict" });
+    await expect(
+      readCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        actorKey: "anonymous:guest-session-b",
+        draftId: "anonymous:guest-session-b",
+      }),
+    ).resolves.toBeNull();
   });
 });

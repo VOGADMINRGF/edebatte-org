@@ -46,11 +46,12 @@ describe("create fast-intake latency contract", () => {
 
   it("starts the planner deadline only after durable save and skips it for link intake", () => {
     const client = source("src/app/create/CreateClient.tsx");
+    const startFlowIndex = client.indexOf("const startCreateFlow");
     const startFlow = client.slice(
-      client.indexOf("const startCreateFlow"),
+      startFlowIndex,
       client.indexOf("const handleStart"),
     );
-    const saveIndex = client.indexOf('fetch("/api/create/save"');
+    const saveIndex = client.indexOf('fetch("/api/create/save"', startFlowIndex);
     const durableSaveIndex = client.indexOf("draftSavedForRun = true", saveIndex);
     const linkIntakeIndex = client.indexOf(
       "if (linkDetection.hasLink && linkDetection.primaryUrl)",

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyCreateJurisdictionConfirmation,
+  buildCreateJurisdictionCandidateKey,
   resolveCreateCitizenIntakeContext,
   type CreateRegionDirectoryEntry,
 } from "@/features/create/createCitizenIntakeContext";
@@ -171,5 +173,45 @@ describe("citizen-first Create intake context", () => {
       ],
       noSilentMerge: true,
     });
+  });
+
+  it("requires an exact candidate confirmation and never silently chooses another authority", () => {
+    const result = resolveCreateCitizenIntakeContext({
+      text: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
+      directoryEntries: DIRECTORY,
+    });
+    const candidate = result.jurisdictionCandidates[0]!;
+
+    expect(result.jurisdictionConfirmation).toEqual({
+      status: "unconfirmed",
+      candidateKey: null,
+    });
+    expect(
+      applyCreateJurisdictionConfirmation(result, "municipality:fremde-behörde")
+        .jurisdictionConfirmation,
+    ).toEqual({ status: "unconfirmed", candidateKey: null });
+    expect(
+      applyCreateJurisdictionConfirmation(
+        result,
+        buildCreateJurisdictionCandidateKey(candidate),
+      ).jurisdictionConfirmation,
+    ).toEqual({
+      status: "confirmed",
+      candidateKey: buildCreateJurisdictionCandidateKey(candidate),
+    });
+  });
+
+  it("keeps federal and EU jurisdiction suggestions explicit and unconfirmed", () => {
+    for (const text of [
+      "Bundesweit sollte das Wahlalter bei 16 Jahren liegen.",
+      "Auf EU-Ebene sollte die Kennzeichnungspflicht vereinheitlicht werden.",
+    ]) {
+      const result = resolveCreateCitizenIntakeContext({ text, directoryEntries: DIRECTORY });
+      expect(result.jurisdictionCandidates).toHaveLength(1);
+      expect(result.jurisdictionConfirmation).toEqual({
+        status: "unconfirmed",
+        candidateKey: null,
+      });
+    }
   });
 });

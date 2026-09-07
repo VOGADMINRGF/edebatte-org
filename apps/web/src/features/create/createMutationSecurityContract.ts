@@ -6,10 +6,33 @@ export const CREATE_MAX_TEXT_LENGTH = 10_000;
 export const CREATE_MAX_CONTEXT_LENGTH = 2_000;
 export const CREATE_MAX_URL_LENGTH = 2_048;
 
+export type CreateAnonymousStorageContext = {
+  namespace: string;
+  expiresAt: string;
+};
+
 const CREATE_HONEYPOT_ID = "edebatte-create-request-note";
 const CREATE_CLIENT_SESSION_STORAGE_KEY = "edebatte:create:client-session:v1";
 let createSecuritySessionPrimed = false;
-let createSecuritySessionPromise: Promise<boolean> | null = null;
+let createSecuritySessionPromise: Promise<CreateAnonymousStorageContext | null> | null = null;
+let createAnonymousStorageContext: CreateAnonymousStorageContext | null = null;
+
+function parseAnonymousStorageContext(value: unknown): CreateAnonymousStorageContext | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const namespace = typeof record.namespace === "string" ? record.namespace.trim() : "";
+  const expiresAt = typeof record.expiresAt === "string" ? record.expiresAt.trim() : "";
+  const expiresAtMs = Date.parse(expiresAt);
+  if (!/^g1_[A-Za-z0-9_-]{32,96}$/.test(namespace)) return null;
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) return null;
+  return { namespace, expiresAt: new Date(expiresAtMs).toISOString() };
+}
+
+export function readCreateAnonymousStorageContext(): CreateAnonymousStorageContext | null {
+  const parsed = parseAnonymousStorageContext(createAnonymousStorageContext);
+  if (!parsed) createAnonymousStorageContext = null;
+  return parsed;
+}
 
 function createClientSessionId() {
   if (typeof globalThis.crypto?.randomUUID === "function") {
@@ -66,8 +89,12 @@ function readCreateHoneypotValue() {
 
 export function primeCreateSecuritySession(): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
-  if (createSecuritySessionPromise) return createSecuritySessionPromise;
-  if (createSecuritySessionPrimed) return Promise.resolve(true);
+  if (createSecuritySessionPromise) {
+    return createSecuritySessionPromise.then(Boolean);
+  }
+  if (createSecuritySessionPrimed && readCreateAnonymousStorageContext()) {
+    return Promise.resolve(true);
+  }
   createSecuritySessionPrimed = true;
   createSecuritySessionPromise = window
     .fetch("/api/create/session", {
@@ -80,18 +107,39 @@ export function primeCreateSecuritySession(): Promise<boolean> {
       },
       body: "{}",
     })
-    .then((response) => {
-      if (!response.ok) createSecuritySessionPrimed = false;
-      return response.ok;
+    .then(async (response) => {
+      if (!response.ok) {
+        createSecuritySessionPrimed = false;
+        createAnonymousStorageContext = null;
+        return null;
+      }
+      const body = await response.json().catch(() => null);
+      const context = parseAnonymousStorageContext(body?.storageContext);
+      if (!context) {
+        createSecuritySessionPrimed = false;
+        createAnonymousStorageContext = null;
+        return null;
+      }
+      createAnonymousStorageContext = context;
+      return context;
     })
     .catch(() => {
       createSecuritySessionPrimed = false;
-      return false;
+      createAnonymousStorageContext = null;
+      return null;
     })
     .finally(() => {
       createSecuritySessionPromise = null;
     });
-  return createSecuritySessionPromise;
+  return createSecuritySessionPromise.then(Boolean);
+}
+
+export function setCreateAnonymousStorageContextForTests(
+  context: CreateAnonymousStorageContext | null,
+) {
+  createAnonymousStorageContext = context;
+  createSecuritySessionPrimed = Boolean(context);
+  createSecuritySessionPromise = null;
 }
 
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "test") {

@@ -38,8 +38,9 @@ type ResumeRemovableStorage = {
 
 function safelyRemoveCreateProgressResumeSnapshot(
   storage: ResumeRemovableStorage,
-  key: string,
+  key: string | null | undefined,
 ) {
+  if (!key) return;
   try {
     storage.removeItem(key);
   } catch {
@@ -92,9 +93,10 @@ export function buildCreateProgressResumeSnapshot(input: {
 
 export function readCreateProgressResumeSnapshot(
   storage: ResumeReadableStorage,
-  key: string,
+  key: string | null | undefined,
   now: Date = new Date(),
 ): CreateProgressResumeSnapshot | null {
+  if (!key) return null;
   try {
     const raw = storage.getItem(key);
     if (!raw) return null;
@@ -112,9 +114,10 @@ export function readCreateProgressResumeSnapshot(
 
 export function writeCreateProgressResumeSnapshot(
   storage: ResumeWritableStorage,
-  key: string,
+  key: string | null | undefined,
   snapshot: CreateProgressResumeSnapshot,
 ) {
+  if (!key) return false;
   try {
     storage.setItem(
       key,
@@ -128,7 +131,7 @@ export function writeCreateProgressResumeSnapshot(
 
 export function clearCreateProgressResumeSnapshot(
   storage: ResumeRemovableStorage,
-  key: string,
+  key: string | null | undefined,
 ) {
   safelyRemoveCreateProgressResumeSnapshot(storage, key);
 }
