@@ -109,6 +109,18 @@ describe("/create progressive transparency contract", () => {
       provisional: false,
       label: "Entwurf in diesem Browser gespeichert.",
     });
+
+    const failedPersistence = buildCreateInitialProgressEvents({
+      text: "Beschäftigte in Behindertenwerkstätten sollen den gesetzlichen Mindestlohn erhalten.",
+      operationId: OPERATION_ID,
+      correlationId: OPERATION_ID,
+      locale: "de",
+      persistence: "browser",
+      draftSaved: false,
+      createdAt: CREATED_AT,
+    });
+    expect(failedPersistence.events.some((event) => event.type === "draft.saved")).toBe(false);
+    expect(failedPersistence.events[0]?.type).toBe("intake.classified");
   });
 
   it("makes a real 15-to-14 consolidation correction visible", () => {

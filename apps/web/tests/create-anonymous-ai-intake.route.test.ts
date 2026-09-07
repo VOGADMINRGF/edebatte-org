@@ -165,7 +165,7 @@ describe("POST /api/create/intake", () => {
     );
   });
 
-  it("streams browser-truth progress through the same anonymous single-flight", async () => {
+  it("streams only server-observable progress through the anonymous single-flight", async () => {
     const response = await POST(request({
       text: "Tempo 30 vor der Schule in Wuppertal prüfen.",
       locale: "de",
@@ -177,7 +177,8 @@ describe("POST /api/create/intake", () => {
 
     expect(response.headers.get("content-type")).toContain("text/event-stream");
     expect(payload).toContain("event: progress");
-    expect(payload).toContain("Entwurf in diesem Browser gespeichert.");
+    expect(payload).not.toContain('"type":"draft.saved"');
+    expect(payload).toContain('"type":"intake.classified"');
     expect(payload).toContain("event: result");
     expect(payload).not.toMatch(/research\.|graph\.|providerPayload|userId/);
     expect(mocks.runCreateOrchestrationSingleFlight).toHaveBeenCalledWith(

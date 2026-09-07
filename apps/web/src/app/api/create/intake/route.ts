@@ -208,6 +208,9 @@ export async function POST(req: NextRequest) {
           correlationId: requestId,
           locale,
           persistence: "browser",
+          // Only the browser can verify its own storage write. The client adds
+          // draft.saved after that write succeeds.
+          draftSaved: false,
         });
         for (const event of initialProgress.events) {
           await publishProgressEvent(event);

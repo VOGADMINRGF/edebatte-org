@@ -11,12 +11,14 @@ import {
   hasPrimaryIntakeText,
   parseCreatePrimaryIntakeSnapshot,
   resolveCreatePrimaryIntakeResumeSnapshot,
+  retainCreateClientOnlyProgressEventsForResume,
   resolveCreatePostStartSectionOrder,
   resolveFollowupSurfaceOnStart,
   shouldShowCreateFollowupQuestionCard,
   shouldRenderCreateIntelligentFollowup,
   shouldRenderCreateAnalyzeWorkspace,
   shouldShowCreatePostInputModules,
+  writeCreatePrimaryIntakeSnapshot,
 } from "@/app/create/CreateClient";
 import { CREATE_VISUAL_FOLLOWUP_COPY } from "@/features/create/CreateVisualFollowup";
 import { detectCreateLinkIntake } from "@/features/create/linkIntake";
@@ -132,12 +134,70 @@ describe("analyze workbench progressive disclosure", () => {
     );
 
     expect(source).toContain(
-      'initialResumeGuestWorkspace ? "guest" : overview?.userId ?? "guest"',
+      "buildCreateProgressResumeStorageKey(`guest:${guestNamespace}`)",
     );
+    expect(source).toContain("buildCreateProgressResumeStorageKey(`account:${overview.userId}`)");
+    expect(source).not.toContain('overview?.userId ?? "guest"');
     expect(source).toContain(
       'const anonymousResume = resumeSnapshot.actorMode === "anonymous";',
     );
     expect(source).toContain("anonymous: anonymousResume");
+  });
+
+  it("reports primary guest workstate persistence failures without mutating memory state", () => {
+    const snapshot = {
+      intakeText: "Dieser Text bleibt im React-Arbeitsstand.",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+    };
+    const blockedStorage = {
+      setItem: () => {
+        throw new DOMException("Storage blocked", "SecurityError");
+      },
+    };
+
+    expect(
+      writeCreatePrimaryIntakeSnapshot(blockedStorage, "guest-key", snapshot),
+    ).toBe(false);
+    expect(snapshot.intakeText).toBe("Dieser Text bleibt im React-Arbeitsstand.");
+    expect(writeCreatePrimaryIntakeSnapshot(blockedStorage, null, snapshot)).toBe(false);
+  });
+
+  it("retains only the client-verified guest save event during server reconnect", () => {
+    const operationId = "operation-guest-reconnect-12345678";
+    const initial = buildCreateInitialProgressEvents({
+      text: "Ein gespeicherter Gastbeitrag mit einer erkannten Struktur.",
+      operationId,
+      correlationId: operationId,
+      locale: "de",
+      persistence: "browser",
+      createdAt: "2026-09-06T10:00:00.000Z",
+    });
+    const resumeSnapshot = {
+      operationId,
+      correlationId: operationId,
+      actorMode: "anonymous" as const,
+      draftId: "guest-browser",
+      inputFingerprint: "create-deadbeef-50",
+      locale: "de",
+      anlassraumId: null,
+      dossierId: null,
+      intent: null,
+      createdAt: "2026-09-06T10:00:00.000Z",
+      expiresAt: "2026-09-06T10:14:00.000Z",
+    };
+
+    expect(
+      retainCreateClientOnlyProgressEventsForResume(initial.events, resumeSnapshot).map(
+        (event) => event.type,
+      ),
+    ).toEqual(["draft.saved"]);
+    expect(
+      retainCreateClientOnlyProgressEventsForResume(initial.events, {
+        ...resumeSnapshot,
+        actorMode: "authenticated",
+      }),
+    ).toEqual([]);
   });
 
   it("parses valid primary intake snapshots and ignores empty/no-op payloads", () => {

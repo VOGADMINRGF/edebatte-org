@@ -196,13 +196,15 @@ export function buildCreateInitialProgressEvents(input: {
   correlationId: string;
   locale: string;
   persistence?: "account_draft" | "browser";
+  draftSaved?: boolean;
   createdAt?: string;
 }): { structure: CreateDeterministicStructure; events: CreateProgressEvent[] } {
   const createdAt = input.createdAt ?? new Date().toISOString();
   const isEnglish = input.locale.trim().toLowerCase().startsWith("en");
   const structure = inspectCreateDeterministicStructure(input.text);
-  const events: CreateProgressEvent[] = [
-    createEvent({
+  const events: CreateProgressEvent[] = [];
+  if (input.draftSaved !== false) {
+    events.push(createEvent({
       ...input,
       createdAt,
       sequence: 0,
@@ -219,7 +221,9 @@ export function buildCreateInitialProgressEvents(input: {
             ? "Draft saved."
             : "Entwurf gespeichert.",
       provisional: false,
-    }),
+    }));
+  }
+  events.push(
     createEvent({
       ...input,
       createdAt,
@@ -238,7 +242,7 @@ export function buildCreateInitialProgressEvents(input: {
             : "Ein zusammenhängendes Anliegen erkannt.",
       provisional: true,
     }),
-  ];
+  );
 
   if (structure.segmentCount >= 3) {
     events.push(

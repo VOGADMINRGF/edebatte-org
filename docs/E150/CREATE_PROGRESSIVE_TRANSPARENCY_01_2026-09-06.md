@@ -1,12 +1,12 @@
 # /create Progressive Transparency – Slice #726
 
-Stand: 6. September 2026
+Stand: 7. September 2026
 
 Branch: `feat/create-progressive-transparency-01`
 
 Base: `fix/operator-notifications-01@8eceb6544f47f748fe40b350aeaab412ade63c34`
 
-Konvergierter Create-Unterbau: `fix/citizen-first-create-01@52baa748c157810d4fd30ac1fe57d00fc342733b`
+Konvergierter Create-Unterbau: `fix/citizen-first-create-01@a12978a5fc7f22f4f5281d393a26834cadd36204`
 
 ## Ergebnis
 
@@ -41,6 +41,18 @@ geschriebenen browserlokalen Gast-Arbeitsstand entstehen unmittelbar:
 - `draft.saved`
 - `intake.classified`
 - bei mindestens drei tatsächlich erkannten Segmenten `structure.detected`
+
+Für Gastläufe behauptet der Server keine Browser-Persistenz: Er emittiert kein
+`draft.saved`, weil er den lokalen Schreibvorgang nicht beobachten kann. Der
+Client ergänzt dieses verifizierte Ereignis erst, wenn sowohl der vollständige,
+an den signierten Anonymous-Kontext gebundene Gast-Arbeitsstand als auch die
+kurzlebige Resume-Referenz erfolgreich geschrieben wurden. Schlägt einer der
+Writes etwa wegen Quota- oder Security-Einschränkungen fehl, bleibt der Beitrag
+im aktuellen React-Arbeitsstand sichtbar, `draft.saved` entfällt und ein
+expliziter Hinweis fordert dazu auf, die Seite geöffnet zu lassen oder den Text
+zu kopieren. Beim Reconnect bleibt ausschließlich dieses clientseitig belegte,
+operations- und korrelationsgebundene Gast-Save-Ereignis erhalten; alle
+Serverereignisse werden weiterhin aus dem actor-bound Single Flight replayt.
 
 Die pure Früherkennung verwendet die vorhandene Single-/Multi-Issue-Logik und
 wertet nummerierte Blöcke, Markdown-/Standalone-Überschriften sowie
@@ -148,11 +160,12 @@ durch die isolierten Route- und Source-Contracts abgedeckt.
 ## Verifikation
 
 - kompletter CI-Focused-Create-Block einschließlich Progressive Transparency,
-  Anonymous Stream/Resume und Single Flight: 312/312
-- isolierter Save-/Security-Harness: 25/25
-- zusätzliche Mobile-, Region-, Degraded-, Graph-after-Planner- und
-  Multi-Branch-Regressions: 24/24; drei opt-in Live-Smokes bewusst nicht erneut
-  ausgeführt
+  Anonymous Stream/Resume und Single Flight: 319/319
+- kombinierte geänderte #682/#727-Testfläche: 42 Dateien und 275 Tests grün;
+  drei opt-in Live-Smokes bewusst nicht erneut ausgeführt
+- isolierter Save-/Security-Harness: 27/27
+- gezielter Nachlauf für browsergebundenes `draft.saved`, Storage-Fehler,
+  Anonymous Stream, Reconnect und Save-vor-Timer: 54/54
 - Production Guardrails: 36/36
 - Web Critical: 192/192 und Guardrail-Skript grün
 - Live Provider/Chromium: 3/3

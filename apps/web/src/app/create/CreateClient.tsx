@@ -635,6 +635,33 @@ export function buildCreateGuestPrimaryIntakeStorageKey(
   return `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:guest:${namespace}`;
 }
 
+export function writeCreatePrimaryIntakeSnapshot(
+  storage: Pick<Storage, "setItem">,
+  key: string | null | undefined,
+  snapshot: CreatePrimaryIntakeSnapshot,
+) {
+  if (!key) return false;
+  try {
+    storage.setItem(key, JSON.stringify(snapshot));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function retainCreateClientOnlyProgressEventsForResume(
+  events: CreateProgressEvent[],
+  resumeSnapshot: ReturnType<typeof buildCreateProgressResumeSnapshot>,
+) {
+  if (resumeSnapshot.actorMode !== "anonymous") return [];
+  return events.filter(
+    (event) =>
+      event.type === "draft.saved" &&
+      event.operationId === resumeSnapshot.operationId &&
+      event.correlationId === resumeSnapshot.correlationId,
+  );
+}
+
 function isCreateIntelligentFollowupSnapshot(
   value: unknown,
 ): value is CreateIntelligentFollowupResult {
@@ -1339,7 +1366,7 @@ export default function CreateClient({
           : guestStorageContext?.expiresAt ?? null,
         confirmedJurisdictionKey,
       };
-      window.localStorage.setItem(intakeStorageKey, JSON.stringify(snapshot));
+      writeCreatePrimaryIntakeSnapshot(window.localStorage, intakeStorageKey, snapshot);
     } catch {
       // ignore local draft persistence errors
     }
@@ -1616,6 +1643,7 @@ export default function CreateClient({
   React.useEffect(() => {
     if (progressResumeAttemptedRef.current || analysisRunInFlightRef.current) return;
     if (!privacyGate.hasRequiredAcknowledgement) return;
+    if (!progressResumeStorageKey) return;
     const normalizedText = intakeText.trim();
     if (!normalizedText) return;
     const resumeSnapshot = readCreateProgressResumeSnapshot(
@@ -1637,7 +1665,9 @@ export default function CreateClient({
 
     progressResumeAttemptedRef.current = true;
     analysisRunInFlightRef.current = true;
-    setProgressEvents([]);
+    setProgressEvents((current) =>
+      retainCreateClientOnlyProgressEventsForResume(current, resumeSnapshot),
+    );
     if (resumeSnapshot.actorMode === "authenticated") {
       setSavedDraftId(resumeSnapshot.draftId);
     }
@@ -1804,6 +1834,8 @@ export default function CreateClient({
     const submitStartedAt = performance.now();
     let saveMs: number | null = null;
     const correlationId = createClientCorrelationId();
+    let activeProgressResumeStorageKey = progressResumeStorageKey;
+    let browserWorkstatePersistedForRun = !anonymousRun;
     let plannerCorrelationId: string | null = correlationId;
     let plannerDeadline: CreateIntelligentFollowupDeadline | null = null;
     let firstProgressVisibleMs: number | null = null;
@@ -1872,18 +1904,36 @@ export default function CreateClient({
         const sessionReady = await primeCreateSecuritySession();
         if (!sessionReady) throw new Error("create_anonymous_session_failed");
 
+        const activeGuestStorageContext = readCreateAnonymousStorageContext();
+        setGuestStorageContext(activeGuestStorageContext);
+        const activeGuestIntakeStorageKey = buildCreateGuestPrimaryIntakeStorageKey(
+          activeGuestStorageContext,
+        );
+        const guestNamespace = String(activeGuestStorageContext?.namespace ?? "").trim();
+        activeProgressResumeStorageKey = guestNamespace
+          ? buildCreateProgressResumeStorageKey(`guest:${guestNamespace}`)
+          : null;
         setGuestOperationId(correlationId);
-        const initialProgress = buildCreateInitialProgressEvents({
-          text: normalizedText,
-          operationId: correlationId,
-          correlationId,
-          locale: surfaceLocale,
-          persistence: "browser",
-        });
-        initialProgress.events.forEach(recordProgress);
-        writeCreateProgressResumeSnapshot(
+        const primarySnapshotPersisted = writeCreatePrimaryIntakeSnapshot(
           window.localStorage,
-          progressResumeStorageKey,
+          activeGuestIntakeStorageKey,
+          {
+            intakeText: normalizedText,
+            hasStarted: true,
+            updatedAt: new Date().toISOString(),
+            intelligentFollowup: null,
+            plannerTrace: null,
+            progressEvents: [],
+            productMode,
+            guestOperationId: correlationId,
+            serverDraftId: null,
+            guestContextExpiresAt: activeGuestStorageContext?.expiresAt ?? null,
+            confirmedJurisdictionKey,
+          },
+        );
+        const progressResumePersisted = writeCreateProgressResumeSnapshot(
+          window.localStorage,
+          activeProgressResumeStorageKey,
           buildCreateProgressResumeSnapshot({
             operationId: correlationId,
             correlationId,
@@ -1894,6 +1944,17 @@ export default function CreateClient({
             intent: activeIntent,
           }),
         );
+        browserWorkstatePersistedForRun =
+          primarySnapshotPersisted && progressResumePersisted;
+        const initialProgress = buildCreateInitialProgressEvents({
+          text: normalizedText,
+          operationId: correlationId,
+          correlationId,
+          locale: surfaceLocale,
+          persistence: "browser",
+          draftSaved: browserWorkstatePersistedForRun,
+        });
+        initialProgress.events.forEach(recordProgress);
         const intakeTiming = resolveCreateIntakeTiming(normalizedText);
         plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
         plannerDeadlineRef.current = plannerDeadline;
@@ -1913,7 +1974,10 @@ export default function CreateClient({
               : "create_anonymous_intake_failed",
           );
         }
-        clearCreateProgressResumeSnapshot(window.localStorage, progressResumeStorageKey);
+        clearCreateProgressResumeSnapshot(
+          window.localStorage,
+          activeProgressResumeStorageKey,
+        );
 
         const nextIntelligentFollowup = body.result as CreateIntelligentFollowupResult;
         setIntelligentFollowup(nextIntelligentFollowup);
@@ -1932,7 +1996,11 @@ export default function CreateClient({
         setFollowupSurface(nextFollowupSurface);
         setAnalysisSceneMode(null);
         setActionNotice(
-          hasValidatedCreateSemanticOutput(nextIntelligentFollowup)
+          !browserWorkstatePersistedForRun
+            ? surfaceLocale === "en"
+              ? "Your classification is available in this view, but the guest draft could not be saved in this browser. Keep this page open or copy your text."
+              : "Deine Einordnung ist in dieser Ansicht verfügbar, aber der Gast-Entwurf konnte nicht in diesem Browser gespeichert werden. Lass die Seite geöffnet oder kopiere deinen Text."
+            : hasValidatedCreateSemanticOutput(nextIntelligentFollowup)
             ? surfaceLocale === "en"
               ? "Your first classification is available as a guest. Sign in only when you want to save or continue it."
               : "Deine erste Einordnung ist als Gast verfügbar. Melde dich erst an, wenn du sie speichern oder weiterführen möchtest."
@@ -2092,7 +2160,11 @@ export default function CreateClient({
               status: "failed",
               technicalReference: plannerCorrelationId,
               safeUserMessage:
-                surfaceLocale === "en"
+                !browserWorkstatePersistedForRun
+                  ? surfaceLocale === "en"
+                    ? "The classification is unavailable. Your text remains only in this open view."
+                    : "Die Einordnung ist nicht verfügbar. Dein Text bleibt nur in dieser geöffneten Ansicht erhalten."
+                  : surfaceLocale === "en"
                   ? "The classification is currently unavailable. Your contribution remains in this browser."
                   : "Die Einordnung ist gerade nicht verfügbar. Dein Beitrag bleibt in diesem Browser erhalten.",
             }
@@ -2105,13 +2177,21 @@ export default function CreateClient({
             sourceType: "text",
             sourceLoaded: true,
             userMessage:
-              surfaceLocale === "en"
+              !browserWorkstatePersistedForRun
+                ? surfaceLocale === "en"
+                  ? "I couldn’t complete the classification, and browser storage is unavailable. Your text remains only in this open view."
+                  : "Ich konnte die Einordnung nicht abschließen, und der Browserspeicher ist nicht verfügbar. Dein Text bleibt nur in dieser geöffneten Ansicht erhalten."
+                : surfaceLocale === "en"
                 ? "I couldn’t complete the classification just now. Your text remains in this browser so you can try again."
                 : "Ich konnte die Einordnung gerade nicht abschließen. Dein Text bleibt in diesem Browser und du kannst es erneut versuchen.",
           }),
         );
         setActionNotice(
-          plannerTimedOut
+          !browserWorkstatePersistedForRun
+            ? surfaceLocale === "en"
+              ? "The guest draft could not be saved in this browser. Keep this page open or copy your text."
+              : "Der Gast-Entwurf konnte nicht in diesem Browser gespeichert werden. Lass die Seite geöffnet oder kopiere deinen Text."
+            : plannerTimedOut
             ? surfaceLocale === "en"
               ? "The classification took longer than expected. Your contribution remains in this browser."
               : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt in diesem Browser."
@@ -2155,7 +2235,11 @@ export default function CreateClient({
       }
       if (plannerTimedOut) {
         setActionNotice(
-          surfaceLocale === "en"
+          anonymousRun && !browserWorkstatePersistedForRun
+            ? surfaceLocale === "en"
+              ? "The classification took longer than expected, and the guest draft could not be saved in this browser. Keep this page open or copy your text."
+              : "Die Einordnung hat länger als erwartet gedauert, und der Gast-Entwurf konnte nicht in diesem Browser gespeichert werden. Lass die Seite geöffnet oder kopiere deinen Text."
+            : surfaceLocale === "en"
             ? "The classification took longer than expected. Your contribution is saved; you can try the classification again."
             : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag ist gespeichert; du kannst die Einordnung erneut versuchen.",
         );
@@ -2191,6 +2275,7 @@ export default function CreateClient({
     isStarting,
     canonicalCreateMode,
     canonicalIntent,
+    confirmedJurisdictionKey,
     productMode,
     productModeConfig.label,
     productModeConfig.minimumInputHint,
@@ -3353,6 +3438,9 @@ export default function CreateClient({
     const retryStartedAt = performance.now();
     let firstProgressVisibleMs: number | null = null;
     let firstValidatedTopicVisibleMs: number | null = null;
+    let activeRetryResumeStorageKey = progressResumeStorageKey;
+    let browserWorkstatePersistedForRetry = entitlements.isAuthenticated;
+    let plannerDeadline: CreateIntelligentFollowupDeadline | null = null;
     const runProgressEvents: CreateProgressEvent[] = [];
     const recordProgress = (event: CreateProgressEvent) => {
       if (runProgressEvents.some((candidate) => candidate.eventId === event.eventId)) return;
@@ -3364,37 +3452,72 @@ export default function CreateClient({
       }
       setProgressEvents((current) => dedupeCreateProgressEvents([...current, event]));
     };
-    buildCreateInitialProgressEvents({
-      text: sourceText,
-      operationId: correlationId,
-      correlationId,
-      locale: surfaceLocale,
-      persistence: entitlements.isAuthenticated ? "account_draft" : "browser",
-    }).events.forEach(recordProgress);
-    writeCreateProgressResumeSnapshot(
-      window.localStorage,
-      progressResumeStorageKey,
-      buildCreateProgressResumeSnapshot({
-        operationId: correlationId,
-        correlationId,
-        actorMode: entitlements.isAuthenticated ? "authenticated" : "anonymous",
-        draftId: savedDraftId ?? "guest-browser",
-        text: sourceText,
-        locale: surfaceLocale,
-        anlassraumId: selectedAnlassraumId,
-        dossierId: dossierId ?? null,
-        intent: activeIntent,
-      }),
-    );
-    if (!entitlements.isAuthenticated) setGuestOperationId(correlationId);
-    const intakeTiming = resolveCreateIntakeTiming(sourceText);
-    const plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
-    plannerDeadlineRef.current = plannerDeadline;
     try {
       if (!entitlements.isAuthenticated) {
         const sessionReady = await primeCreateSecuritySession();
         if (!sessionReady) throw new Error("create_anonymous_session_failed");
+
+        const activeGuestStorageContext = readCreateAnonymousStorageContext();
+        setGuestStorageContext(activeGuestStorageContext);
+        const activeGuestIntakeStorageKey = buildCreateGuestPrimaryIntakeStorageKey(
+          activeGuestStorageContext,
+        );
+        const guestNamespace = String(activeGuestStorageContext?.namespace ?? "").trim();
+        activeRetryResumeStorageKey = guestNamespace
+          ? buildCreateProgressResumeStorageKey(`guest:${guestNamespace}`)
+          : null;
+        const primarySnapshotPersisted = writeCreatePrimaryIntakeSnapshot(
+          window.localStorage,
+          activeGuestIntakeStorageKey,
+          {
+            intakeText: sourceText,
+            hasStarted: true,
+            updatedAt: new Date().toISOString(),
+            intelligentFollowup,
+            plannerTrace,
+            progressEvents,
+            productMode,
+            guestOperationId: correlationId,
+            serverDraftId: null,
+            guestContextExpiresAt: activeGuestStorageContext?.expiresAt ?? null,
+            confirmedJurisdictionKey,
+          },
+        );
+        setGuestOperationId(correlationId);
+        browserWorkstatePersistedForRetry = primarySnapshotPersisted;
       }
+      const progressResumePersisted = writeCreateProgressResumeSnapshot(
+        window.localStorage,
+        activeRetryResumeStorageKey,
+        buildCreateProgressResumeSnapshot({
+          operationId: correlationId,
+          correlationId,
+          actorMode: entitlements.isAuthenticated ? "authenticated" : "anonymous",
+          draftId: savedDraftId ?? "guest-browser",
+          text: sourceText,
+          locale: surfaceLocale,
+          anlassraumId: selectedAnlassraumId,
+          dossierId: dossierId ?? null,
+          intent: activeIntent,
+        }),
+      );
+      if (!entitlements.isAuthenticated) {
+        browserWorkstatePersistedForRetry =
+          browserWorkstatePersistedForRetry && progressResumePersisted;
+      }
+      buildCreateInitialProgressEvents({
+        text: sourceText,
+        operationId: correlationId,
+        correlationId,
+        locale: surfaceLocale,
+        persistence: entitlements.isAuthenticated ? "account_draft" : "browser",
+        draftSaved: browserWorkstatePersistedForRetry,
+      }).events.forEach(recordProgress);
+      const intakeTiming = resolveCreateIntakeTiming(sourceText);
+      plannerDeadline = startCreateIntelligentFollowupDeadline(
+        intakeTiming.clientTimeoutMs,
+      );
+      plannerDeadlineRef.current = plannerDeadline;
       const body = await requestCreateProgressiveFollowup({
         text: sourceText,
         locale: surfaceLocale,
@@ -3410,7 +3533,10 @@ export default function CreateClient({
       if (!body?.ok || !body?.result) {
         throw new Error("create_intelligent_followup_failed");
       }
-      clearCreateProgressResumeSnapshot(window.localStorage, progressResumeStorageKey);
+      clearCreateProgressResumeSnapshot(
+        window.localStorage,
+        activeRetryResumeStorageKey,
+      );
       const nextFollowup = body.result as CreateIntelligentFollowupResult;
       const finalVisibleMs = performance.now() - retryStartedAt;
       setIntelligentFollowup(nextFollowup);
@@ -3446,7 +3572,11 @@ export default function CreateClient({
       setWorkspaceActionMode("default");
       setShowFollowupCorrectionComposer(false);
       setActionNotice(
-        isPlannerReadyForStructuredHandoff(nextFollowup)
+        !browserWorkstatePersistedForRetry
+          ? surfaceLocale === "en"
+            ? "Your updated classification is available in this view, but the guest draft could not be saved in this browser. Keep this page open or copy your text."
+            : "Deine aktualisierte Einordnung ist in dieser Ansicht verfügbar, aber der Gast-Entwurf konnte nicht in diesem Browser gespeichert werden. Lass die Seite geöffnet oder kopiere deinen Text."
+          : isPlannerReadyForStructuredHandoff(nextFollowup)
           ? surfaceLocale === "en"
             ? "Classification updated. Please confirm which part we should prepare first."
             : "Einordnung aktualisiert. Bitte bestätige, welchen Teil wir zuerst vorbereiten sollen."
@@ -3456,12 +3586,16 @@ export default function CreateClient({
       );
     } catch (error: unknown) {
       const plannerTimedOut =
-        plannerDeadline.didTimeout() &&
+        plannerDeadline?.didTimeout() === true &&
         isCreateIntelligentFollowupAbortError(error);
       setSupportHandoff({
         status: "failed",
         technicalReference: correlationId,
-        safeUserMessage: plannerTimedOut
+        safeUserMessage: !browserWorkstatePersistedForRetry
+          ? surfaceLocale === "en"
+            ? "The classification is unavailable. Your text remains only in this open view."
+            : "Die Einordnung ist nicht verfügbar. Dein Text bleibt nur in dieser geöffneten Ansicht erhalten."
+          : plannerTimedOut
           ? surfaceLocale === "en"
             ? "The classification took longer than expected. Your contribution remains saved."
             : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt gespeichert."
@@ -3470,14 +3604,18 @@ export default function CreateClient({
             : "Die technische Übergabe konnte nicht bestätigt werden.",
       });
       setActionNotice(
-        plannerTimedOut
+        !browserWorkstatePersistedForRetry
+          ? surfaceLocale === "en"
+            ? "The guest draft could not be saved in this browser. Keep this page open or copy your text."
+            : "Der Gast-Entwurf konnte nicht in diesem Browser gespeichert werden. Lass die Seite geöffnet oder kopiere deinen Text."
+          : plannerTimedOut
           ? surfaceLocale === "en"
             ? "The classification took longer than expected. Your contribution is saved; you can try again."
             : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag ist gespeichert; du kannst es erneut versuchen."
           : null,
       );
     } finally {
-      plannerDeadline.clear();
+      plannerDeadline?.clear();
       if (plannerDeadlineRef.current === plannerDeadline) {
         plannerDeadlineRef.current = null;
       }
@@ -3486,15 +3624,20 @@ export default function CreateClient({
     }
   }, [
     activeIntent,
+    confirmedJurisdictionKey,
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
     dossierId,
     entitlements.isAuthenticated,
     followupSnapshot?.originalText,
+    intelligentFollowup,
     intelligentFollowup?.sourceText,
     isRetryPlannerPending,
     normalizedIntakeText,
+    plannerTrace,
     privacyGate,
+    productMode,
+    progressEvents,
     progressResumeStorageKey,
     savedDraftId,
     selectedAnlassraumId,
