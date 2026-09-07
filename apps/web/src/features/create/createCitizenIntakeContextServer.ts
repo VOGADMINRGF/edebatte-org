@@ -4,11 +4,19 @@ import type { CreateRegionDirectoryEntry } from "@/features/create/createCitizen
 import {
   applyCreateJurisdictionConfirmation,
   applyCreateRegionPriority,
+  buildCreateMunicipalJurisdictionCandidate,
   buildCreateJurisdictionCandidateKey,
+  normalizeCreateMunicipalityLabel,
   resolveCreateCitizenIntakeContext,
 } from "@/features/create/createCitizenIntakeContext";
 
 let cachedOfficialDirectoryEntries: CreateRegionDirectoryEntry[] | null = null;
+let cachedOfficialCandidateIndex: Map<
+  string,
+  CreateRegionDirectoryEntry[]
+> | null = null;
+let cachedOfficialPlaceLabelIndex: Set<string> | null = null;
+let cachedOfficialPlaceLabelMaxWords = 1;
 
 function officialDirectoryEntries(): CreateRegionDirectoryEntry[] {
   if (cachedOfficialDirectoryEntries) return cachedOfficialDirectoryEntries;
@@ -26,6 +34,100 @@ function officialDirectoryEntries(): CreateRegionDirectoryEntry[] {
       authorityName: region.officialBody?.label ?? null,
     }));
   return cachedOfficialDirectoryEntries;
+}
+
+function officialCandidateIndex(): Map<string, CreateRegionDirectoryEntry[]> {
+  if (cachedOfficialCandidateIndex) return cachedOfficialCandidateIndex;
+  const index = new Map<string, CreateRegionDirectoryEntry[]>();
+  for (const entry of officialDirectoryEntries()) {
+    const city = normalizeCreateMunicipalityLabel(entry.municipalityName);
+    const cityKey = city.toLocaleLowerCase("de");
+    const selectedRegion = {
+      id: entry.id,
+      city,
+      municipality: city,
+      state: entry.state ?? null,
+      country: entry.country ?? "DE",
+      registryId: entry.registryId ?? null,
+      matchType: "exact" as const,
+      confidence: 0.96,
+      reason: "Amtlicher Verzeichniseintrag.",
+    };
+    for (const traffic of [false, true]) {
+      const key = buildCreateJurisdictionCandidateKey(
+        buildCreateMunicipalJurisdictionCandidate({
+          selectedRegion,
+          traffic,
+        }),
+      );
+      const current = index.get(key) ?? [];
+      const samePlaceIndex = current.findIndex(
+        (candidate) =>
+          normalizeCreateMunicipalityLabel(
+            candidate.municipalityName,
+          ).toLocaleLowerCase("de") === cityKey &&
+          String(candidate.state ?? "").toLocaleLowerCase("de") ===
+            String(entry.state ?? "").toLocaleLowerCase("de") &&
+          String(candidate.country ?? "DE").toUpperCase() ===
+            String(entry.country ?? "DE").toUpperCase(),
+      );
+      if (samePlaceIndex < 0) {
+        index.set(key, [...current, entry]);
+      } else if (
+        String(entry.registryId ?? "").length >
+        String(current[samePlaceIndex]?.registryId ?? "").length
+      ) {
+        const next = [...current];
+        next[samePlaceIndex] = entry;
+        index.set(key, next);
+      }
+    }
+  }
+  cachedOfficialCandidateIndex = index;
+  return index;
+}
+
+function normalizeOfficialPlaceSearchText(value: string): string {
+  return value
+    .toLocaleLowerCase("de")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function findOfficialPlaceSignals(text: string): Set<string> {
+  if (!cachedOfficialPlaceLabelIndex) {
+    cachedOfficialPlaceLabelIndex = new Set<string>();
+    for (const entry of officialDirectoryEntries()) {
+      const label = normalizeOfficialPlaceSearchText(
+        normalizeCreateMunicipalityLabel(entry.municipalityName),
+      );
+      if (!label) continue;
+      cachedOfficialPlaceLabelIndex.add(label);
+      cachedOfficialPlaceLabelMaxWords = Math.max(
+        cachedOfficialPlaceLabelMaxWords,
+        label.split(" ").length,
+      );
+    }
+  }
+  const words = normalizeOfficialPlaceSearchText(text).split(" ").filter(Boolean);
+  const matches = new Set<string>();
+  for (let start = 0; start < words.length; start += 1) {
+    for (
+      let length = 1;
+      length <= cachedOfficialPlaceLabelMaxWords && start + length <= words.length;
+      length += 1
+    ) {
+      if (
+        cachedOfficialPlaceLabelIndex.has(
+          words.slice(start, start + length).join(" "),
+        )
+      ) {
+        matches.add(words.slice(start, start + length).join(" "));
+      }
+    }
+  }
+  return matches;
 }
 
 function attachOfficialRegionIdentity(
@@ -109,35 +211,59 @@ export function validateCreateJurisdictionConfirmation(input: {
     return confirmFromContext(input.trustedContext, candidateKey);
   }
 
-  const base = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+  const base = resolveCreateCitizenIntakeContext({
     text: input.sourceText,
     locale: input.locale,
+    directoryEntries: [],
   });
   const directMatch = confirmFromContext(base, candidateKey);
   if (directMatch) return directMatch;
+
+  const indexedEntries = officialCandidateIndex().get(candidateKey) ?? [];
+  if (indexedEntries.length !== 1) return null;
+  const officialEntry = indexedEntries[0]!;
+  const officialPlaceLabel = normalizeOfficialPlaceSearchText(
+    normalizeCreateMunicipalityLabel(officialEntry.municipalityName),
+  );
+  const sourcePlaceSignals = findOfficialPlaceSignals(input.sourceText);
+  if (
+    sourcePlaceSignals.size > 0 &&
+    (sourcePlaceSignals.size !== 1 ||
+      !sourcePlaceSignals.has(officialPlaceLabel))
+  ) {
+    return null;
+  }
+  const contributionContext = resolveCreateCitizenIntakeContext({
+    text: input.sourceText,
+    locale: input.locale,
+    directoryEntries: [officialEntry],
+  });
+  const contributionMatch = confirmFromContext(
+    contributionContext,
+    candidateKey,
+  );
+  if (contributionMatch) return contributionMatch;
 
   // An explicit place, federal scope, EU scope or ambiguous place in the
   // contribution always outranks any later profile-derived suggestion.
   if (
     base.regionSource === "contribution_text" ||
     base.regionStatus === "not_location_bound" ||
-    base.detectedRegionLabels.length > 0
+    base.detectedRegionLabels.length > 0 ||
+    sourcePlaceSignals.size > 0
   ) {
     return null;
   }
 
-  const matches = officialDirectoryEntries()
-    .map((entry) => {
-      const confirmed = confirmFromContext(
-        applyCreateRegionPriority(base, {
-          confirmedRegion: entry.municipalityName,
-        }),
-        candidateKey,
-      );
-      return confirmed ? attachOfficialRegionIdentity(confirmed, entry) : null;
-    })
-    .filter((context): context is CreateCitizenIntakeContext => Boolean(context));
-
-  // Duplicate official place names remain ambiguous and must be clarified.
-  return matches.length === 1 ? matches[0] : null;
+  const confirmed = confirmFromContext(
+    applyCreateRegionPriority(base, {
+      confirmedRegion: normalizeCreateMunicipalityLabel(
+        officialEntry.municipalityName,
+      ),
+    }),
+    candidateKey,
+  );
+  return confirmed
+    ? attachOfficialRegionIdentity(confirmed, officialEntry)
+    : null;
 }

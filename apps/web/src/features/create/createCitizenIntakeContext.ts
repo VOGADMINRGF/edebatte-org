@@ -52,7 +52,7 @@ function clean(value?: string | null): string | null {
   return normalized || null;
 }
 
-function municipalityLabel(value: string): string {
+export function normalizeCreateMunicipalityLabel(value: string): string {
   return value
     .replace(/,\s*(?:Stadt|Gemeinde|Landeshauptstadt|Hansestadt)$/iu, "")
     .trim();
@@ -72,7 +72,7 @@ function labelIndex(text: string, label: string): number {
   return index < 0 ? Number.MAX_SAFE_INTEGER : index;
 }
 
-function explicitPlaceMention(text: string): string | null {
+function extractCreateExplicitPlaceMention(text: string): string | null {
   return clean(
     text.match(/(?:^|[.!?]\s+|\s)(?:In|in|Für|für|Aus|aus|Bei|bei)\s+([A-ZÄÖÜ][\p{L}().-]{2,})/u)?.[1],
   );
@@ -152,19 +152,12 @@ function jurisdictionFor(params: {
   }
   if (params.selectedRegion) {
     const traffic = /\b(tempo|verkehr|straße|strasse|radweg|gehweg|parken)\b/iu.test(params.text);
-    return [{
-      level: "municipality",
-      label: traffic
-        ? `Kommunale Straßenverkehrsbehörde für ${params.selectedRegion.city} (wahrscheinlich)`
-        : `Kommune ${params.selectedRegion.city} (wahrscheinlich)`,
-      authorityName: traffic
-        ? `Straßenverkehrsbehörde der Stadt ${params.selectedRegion.city}`
-        : `Stadtverwaltung ${params.selectedRegion.city}`,
-      topicDependency: traffic ? "Straßenverkehr und Verkehrssicherheit" : null,
-      confidence: traffic ? 0.76 : 0.68,
-      reason: "Zuständigkeit wird aus Ort und Thema vorgeschlagen und muss bestätigt werden.",
-      needsReview: true,
-    }];
+    return [
+      buildCreateMunicipalJurisdictionCandidate({
+        selectedRegion: params.selectedRegion,
+        traffic,
+      }),
+    ];
   }
   if (params.regionStatus === "needs_clarification" || MUNICIPAL_SIGNAL_RE.test(params.text)) {
     return [{
@@ -176,6 +169,28 @@ function jurisdictionFor(params: {
     }];
   }
   return [];
+}
+
+export function buildCreateMunicipalJurisdictionCandidate(input: {
+  selectedRegion: PlaceResolutionCandidate;
+  traffic: boolean;
+}): JurisdictionCandidate {
+  return {
+    level: "municipality",
+    label: input.traffic
+      ? `Kommunale Straßenverkehrsbehörde für ${input.selectedRegion.city} (wahrscheinlich)`
+      : `Kommune ${input.selectedRegion.city} (wahrscheinlich)`,
+    authorityName: input.traffic
+      ? `Straßenverkehrsbehörde der Stadt ${input.selectedRegion.city}`
+      : `Stadtverwaltung ${input.selectedRegion.city}`,
+    topicDependency: input.traffic
+      ? "Straßenverkehr und Verkehrssicherheit"
+      : null,
+    confidence: input.traffic ? 0.76 : 0.68,
+    reason:
+      "Zuständigkeit wird aus Ort und Thema vorgeschlagen und muss bestätigt werden.",
+    needsReview: true,
+  };
 }
 
 export function buildCreateJurisdictionCandidateKey(
@@ -288,18 +303,18 @@ export function resolveCreateCitizenIntakeContext(
 
   const exactDirectoryMatches = (input.directoryEntries ?? [])
     .map((entry) => {
-      const label = municipalityLabel(entry.municipalityName);
+      const label = normalizeCreateMunicipalityLabel(entry.municipalityName);
       return { entry, label, candidateLabel: label, index: labelIndex(text, label) };
     })
     .filter(({ label }) => containsLabel(text, label));
-  const shortMention = explicitPlaceMention(text);
+  const shortMention = extractCreateExplicitPlaceMention(text);
   const shortMentionMatches =
     exactDirectoryMatches.length === 0 && shortMention
       ? (input.directoryEntries ?? [])
           .map((entry) => ({
             entry,
             label: shortMention,
-            candidateLabel: municipalityLabel(entry.municipalityName),
+            candidateLabel: normalizeCreateMunicipalityLabel(entry.municipalityName),
             index: labelIndex(text, shortMention),
           }))
           .filter(({ candidateLabel }) => {

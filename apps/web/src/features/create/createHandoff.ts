@@ -95,6 +95,8 @@ export type CreateHandoffDraft = {
   topicSeed: CreateHandoffTopicSeed;
   authorStandpoint: string | null;
   existingMatchDecision: ExistingMatchUserDecision | null;
+  relatedMatchId: string | null;
+  relatedMatchTitle: string | null;
   jurisdictionConfirmation: CreateHandoffJurisdictionConfirmation | null;
   resumeHref: string;
   reviewState: CreateHandoffReviewState;
@@ -112,6 +114,8 @@ type BuildCreateHandoffDraftInput = {
   materialItems?: NormalizedMaterialItem[];
   existingMatchDecision?: ExistingMatchUserDecision | null;
   authorStandpoint?: string | null;
+  relatedMatchId?: string | null;
+  relatedMatchTitle?: string | null;
 };
 
 const STORAGE_KEY = "edb_create_handoff_drafts_v1";
@@ -387,8 +391,18 @@ export function buildCreateHandoffDraft(input: BuildCreateHandoffDraftInput): Cr
   const existingMatchDecision = normalizeCreateExistingMatchDecision(
     input.existingMatchDecision,
   );
+  const relatedMatchId = existingMatchDecision
+    ? input.relatedMatchId?.trim() || null
+    : null;
+  const relatedMatchTitle = existingMatchDecision
+    ? input.relatedMatchTitle?.trim() || null
+    : null;
+  if (existingMatchDecision && (!relatedMatchId || !relatedMatchTitle)) {
+    throw new Error("invalid_create_handoff_existing_match_reference");
+  }
   const authorStandpoint = buildCreateExistingMatchAuthorStandpoint({
     decision: existingMatchDecision,
+    topicTitle: relatedMatchTitle,
   });
   return {
     id: handoffId,
@@ -409,6 +423,8 @@ export function buildCreateHandoffDraft(input: BuildCreateHandoffDraftInput): Cr
       authorStandpoint ??
       (existingMatchDecision ? null : input.authorStandpoint?.trim() || null),
     existingMatchDecision,
+    relatedMatchId,
+    relatedMatchTitle,
     jurisdictionConfirmation: buildJurisdictionConfirmation(input.result),
     resumeHref: buildCreateHandoffResumeHref(handoffId),
     reviewState,

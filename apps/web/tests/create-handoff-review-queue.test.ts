@@ -92,6 +92,12 @@ describe("create handoff review queue contract", () => {
 
     expect(item.existingMatchDecision).toBe("count_as_opposition");
     expect(item.authorStandpoint).toContain("Widerspricht der bestehenden Position");
+    expect(item.topicTitle).toBe(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.title,
+    );
+    expect(item.relatedMatchId).toBe(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.id,
+    );
     expect(item.autoCreate).toBe(false);
     expect(item.autoPublish).toBe(false);
   });

@@ -60,6 +60,7 @@ export type CreateHandoffReviewQueueItem = {
   authorStandpoint?: string | null;
   existingMatchDecision?: ExistingMatchUserDecision | null;
   topicTitle?: string | null;
+  relatedMatchId?: string | null;
   target: CreateHandoffDraftTarget;
   requiresEditorialReview: boolean;
   requiresFactcheck: boolean;
@@ -178,6 +179,7 @@ export function createReviewQueueItemFromHandoffDraft(
     authorStandpoint: draft.authorStandpoint ?? null,
     existingMatchDecision: draft.existingMatchDecision ?? null,
     topicTitle: draft.topicTitle ?? null,
+    relatedMatchId: draft.relatedMatchId ?? null,
     target: draft.target,
     requiresEditorialReview: draft.requiresEditorialReview,
     requiresFactcheck: draft.requiresFactcheck,

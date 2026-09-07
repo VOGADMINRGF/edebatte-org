@@ -47,6 +47,8 @@ export type PersistedCreateHandoffRecord = {
   topicSeed: CreateHandoffTopicSeed;
   authorStandpoint?: string | null;
   existingMatchDecision?: ExistingMatchUserDecision | null;
+  relatedMatchId?: string | null;
+  relatedMatchTitle?: string | null;
   jurisdictionConfirmation?: CreateHandoffJurisdictionConfirmation | null;
   resumeHref: string;
   reviewState: CreateHandoffReviewState;

@@ -397,6 +397,8 @@ describe("/api/create/handoffs", () => {
             selectedAction: "request_review",
             resumeHref: `/create?resume=create_handoff&handoffId=${id}`,
             existingMatchDecision: "count_as_opposition",
+            relatedMatchId: "match-school-street",
+            relatedMatchTitle: "Tempo 30 vor der Grundschule",
             authorStandpoint: "Vom Client frei erfundene Haltung",
             jurisdictionConfirmation: {
               candidateKey,
@@ -415,7 +417,10 @@ describe("/api/create/handoffs", () => {
       regionId: null,
       organizationId: null,
       existingMatchDecision: "count_as_opposition",
-      authorStandpoint: "Widerspricht der bestehenden Position",
+      relatedMatchId: "match-school-street",
+      relatedMatchTitle: "Tempo 30 vor der Grundschule",
+      authorStandpoint:
+        "Widerspricht der bestehenden Position: Tempo 30 vor der Grundschule",
       jurisdictionConfirmation: {
         candidateKey,
         candidate,
@@ -431,7 +436,10 @@ describe("/api/create/handoffs", () => {
     const resumed = await resumedResponse.json();
     expect(resumed.draft).toMatchObject({
       existingMatchDecision: "count_as_opposition",
-      authorStandpoint: "Widerspricht der bestehenden Position",
+      relatedMatchId: "match-school-street",
+      relatedMatchTitle: "Tempo 30 vor der Grundschule",
+      authorStandpoint:
+        "Widerspricht der bestehenden Position: Tempo 30 vor der Grundschule",
       jurisdictionConfirmation: {
         candidateKey,
         candidate,
@@ -462,6 +470,8 @@ describe("/api/create/handoffs", () => {
               selectedAction: "request_review",
               resumeHref: `/create?resume=create_handoff&handoffId=${id}`,
               existingMatchDecision: decision,
+              relatedMatchId: "match-school-street",
+              relatedMatchTitle: "Tempo 30 vor der Grundschule",
             },
           }),
           headers: { "content-type": "application/json" },
@@ -471,7 +481,9 @@ describe("/api/create/handoffs", () => {
       expect(response.status).toBe(200);
       await expect(getPersistedCreateHandoffRecord(id)).resolves.toMatchObject({
         existingMatchDecision: decision,
-        authorStandpoint,
+        relatedMatchId: "match-school-street",
+        relatedMatchTitle: "Tempo 30 vor der Grundschule",
+        authorStandpoint: `${authorStandpoint}: Tempo 30 vor der Grundschule`,
       });
     }
   });
@@ -520,6 +532,28 @@ describe("/api/create/handoffs", () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: false,
       error: "invalid_create_handoff_existing_match_decision",
+    });
+  });
+
+  it("rejects an explicit match decision without its selected match reference", async () => {
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            existingMatchDecision: "count_as_opposition",
+          },
+          dossierId: "dossier-1",
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "invalid_create_handoff_existing_match_reference",
     });
   });
 

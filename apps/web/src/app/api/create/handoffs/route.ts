@@ -227,6 +227,21 @@ function normalizeJurisdictionConfirmation(
   };
 }
 
+function normalizeOptionalBoundedString(
+  value: unknown,
+  maxLength: number,
+): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") {
+    throw new Error("invalid_create_handoff_existing_match_reference");
+  }
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength) {
+    throw new Error("invalid_create_handoff_existing_match_reference");
+  }
+  return normalized;
+}
+
 function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
   const draft = (value ?? {}) as Record<string, unknown>;
   const id = String(draft.id ?? "").trim();
@@ -245,6 +260,15 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
   ) {
     throw new Error("invalid_create_handoff_existing_match_decision");
   }
+  const relatedMatchId = existingMatchDecision
+    ? normalizeOptionalBoundedString(draft.relatedMatchId, 240)
+    : null;
+  const relatedMatchTitle = existingMatchDecision
+    ? normalizeOptionalBoundedString(draft.relatedMatchTitle, 500)
+    : null;
+  if (existingMatchDecision && (!relatedMatchId || !relatedMatchTitle)) {
+    throw new Error("invalid_create_handoff_existing_match_reference");
+  }
   return {
     id,
     source: "create",
@@ -259,8 +283,11 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
     topicSeed: normalizeTopicSeed(draft.topicSeed),
     authorStandpoint: buildCreateExistingMatchAuthorStandpoint({
       decision: existingMatchDecision,
+      topicTitle: relatedMatchTitle,
     }),
     existingMatchDecision,
+    relatedMatchId,
+    relatedMatchTitle,
     jurisdictionConfirmation: normalizeJurisdictionConfirmation(
       draft.jurisdictionConfirmation,
     ),

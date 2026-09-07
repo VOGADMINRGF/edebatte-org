@@ -303,6 +303,8 @@ export async function persistCreateHandoffForReview(input: {
     topicSeed: clone(input.draft.topicSeed),
     authorStandpoint: input.draft.authorStandpoint,
     existingMatchDecision: input.draft.existingMatchDecision,
+    relatedMatchId: input.draft.relatedMatchId,
+    relatedMatchTitle: input.draft.relatedMatchTitle,
     jurisdictionConfirmation: input.draft.jurisdictionConfirmation
       ? clone(input.draft.jurisdictionConfirmation)
       : null,
@@ -353,6 +355,8 @@ export function toCreateHandoffDraft(record: PersistedCreateHandoffRecord): Crea
     topicSeed: clone(record.topicSeed),
     authorStandpoint: record.authorStandpoint ?? null,
     existingMatchDecision: record.existingMatchDecision ?? null,
+    relatedMatchId: record.relatedMatchId ?? null,
+    relatedMatchTitle: record.relatedMatchTitle ?? null,
     jurisdictionConfirmation: record.jurisdictionConfirmation
       ? clone(record.jurisdictionConfirmation)
       : null,

@@ -158,6 +158,12 @@ describe("create handoff review queue runtime bridge", () => {
 
       expect(input.draft.existingMatchDecision).toBe(decision);
       expect(input.draft.authorStandpoint).toContain(standpoint);
+      expect(input.draft.relatedMatchId).toBe(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.id,
+      );
+      expect(input.draft.relatedMatchTitle).toBe(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.title,
+      );
     }
   });
 
@@ -175,6 +181,8 @@ describe("create handoff review queue runtime bridge", () => {
 
     expect(input.draft.existingMatchDecision).toBeNull();
     expect(input.draft.authorStandpoint).toBeNull();
+    expect(input.draft.relatedMatchId).toBeNull();
+    expect(input.draft.relatedMatchTitle).toBeNull();
   });
 
   it("maps review-first queue items onto the existing create handoff runtime input", () => {

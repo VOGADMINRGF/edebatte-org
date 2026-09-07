@@ -195,6 +195,8 @@ export function mapCreateHandoffReviewQueueItemToExistingReviewQueueInput(
     materialItems: context.materialItems,
     existingMatchDecision: item.existingMatchDecision,
     authorStandpoint: item.authorStandpoint,
+    relatedMatchId: item.relatedMatchId,
+    relatedMatchTitle: item.topicTitle,
   });
 
   return {
@@ -268,6 +270,8 @@ export async function submitCreateHandoffReviewQueueItemToRuntime(
         materialItems: options.materialItems,
         existingMatchDecision: item.existingMatchDecision,
         authorStandpoint: item.authorStandpoint,
+        relatedMatchId: item.relatedMatchId,
+        relatedMatchTitle: item.topicTitle,
       }),
       dossierId: options.dossierId ?? null,
       anlassraumId: options.anlassraumId ?? null,

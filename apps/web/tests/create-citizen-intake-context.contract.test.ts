@@ -248,6 +248,37 @@ describe("citizen-first Create intake context", () => {
     ).toBeNull();
   });
 
+  it("validates a confirmed profile fallback through the indexed official candidate", () => {
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const profileContext = applyCreateRegionPriority(
+      resolveCreateCitizenIntakeContext({
+        text: sourceText,
+        directoryEntries: [],
+      }),
+      { profileRegion: "Wuppertal" },
+    );
+    const candidateKey = buildCreateJurisdictionCandidateKey(
+      profileContext.jurisdictionCandidates[0]!,
+    );
+
+    const validated = validateCreateJurisdictionConfirmation({
+      sourceText,
+      candidateKey,
+    });
+
+    expect(validated).toMatchObject({
+      regionSource: "confirmed_context",
+      selectedRegionLabel: "Wuppertal",
+      placeResolution: {
+        selectedCandidate: {
+          id: "region-official-05124000",
+          registryId: "05124000",
+        },
+      },
+      jurisdictionConfirmation: { status: "confirmed", candidateKey },
+    });
+  });
+
   it("preserves explicit federal and EU scope during server validation", () => {
     for (const [sourceText, level] of [
       ["Bundesweit sollte das Wahlalter bei 16 Jahren liegen.", "federal"],
@@ -281,7 +312,7 @@ describe("citizen-first Create intake context", () => {
   });
 
   it("does not let a profile-derived key override an explicit place", () => {
-    const sourceText = "In Berlin sollte der Schulweg sicherer werden.";
+    const sourceText = "Berlin sollte den Schulweg sicherer machen.";
     const unbound =
       resolveCreateCitizenIntakeContextFromOfficialDirectory({
         text: "Der Schulweg sollte sicherer werden.",
@@ -296,6 +327,27 @@ describe("citizen-first Create intake context", () => {
     expect(
       validateCreateJurisdictionConfirmation({
         sourceText,
+        candidateKey: profileCandidateKey,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps a multi-place contribution in clarification during indexed validation", () => {
+    const base = resolveCreateCitizenIntakeContext({
+      text: "Der Schulweg sollte sicherer werden.",
+      directoryEntries: [],
+    });
+    const profileContext = applyCreateRegionPriority(base, {
+      profileRegion: "Wuppertal",
+    });
+    const profileCandidateKey = buildCreateJurisdictionCandidateKey(
+      profileContext.jurisdictionCandidates[0]!,
+    );
+
+    expect(
+      validateCreateJurisdictionConfirmation({
+        sourceText:
+          "Berlin und Wuppertal sollten ihre Schulwege gemeinsam vergleichen.",
         candidateKey: profileCandidateKey,
       }),
     ).toBeNull();
