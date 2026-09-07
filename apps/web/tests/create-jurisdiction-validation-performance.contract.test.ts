@@ -4,9 +4,34 @@ import {
   buildCreateJurisdictionCandidateKey,
   buildCreateMunicipalJurisdictionCandidate,
 } from "@/features/create/createCitizenIntakeContext";
-import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
+import {
+  resolveCreateCitizenIntakeContextFromOfficialDirectory,
+  validateCreateJurisdictionConfirmation,
+} from "@/features/create/createCitizenIntakeContextServer";
 
 describe("create jurisdiction confirmation performance", () => {
+  it("resolves intake through the indexed official directory on cold and warm calls", () => {
+    const sourceText =
+      "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.";
+
+    const coldStartedAt = performance.now();
+    const cold = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+      text: sourceText,
+    });
+    const coldMs = performance.now() - coldStartedAt;
+
+    const warmStartedAt = performance.now();
+    const warm = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+      text: sourceText,
+    });
+    const warmMs = performance.now() - warmStartedAt;
+
+    expect(cold.selectedRegionLabel).toBe("Wuppertal");
+    expect(warm).toEqual(cold);
+    expect(coldMs).toBeLessThan(5_000);
+    expect(warmMs).toBeLessThan(750);
+  });
+
   it("validates an official candidate without a directory-wide regex rescan", () => {
     const sourceText =
       "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.";

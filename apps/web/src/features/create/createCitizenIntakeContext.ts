@@ -46,6 +46,22 @@ const PRIVATE_CASE_RE =
   /\b(mein(?:e|er|em|en)?\s+(?:nachbar|vermieter|arbeitgeber|arzt|familie)|private[rnms]?\s+streit|mein\s+einzelfall)\b/iu;
 const STREET_RE =
   /\b([A-ZÄÖÜ][\p{L}-]{2,}(?:straße|strasse|weg|allee|platz|gasse|ring)|(?:Straße|Strasse)\s+[A-ZÄÖÜ][\p{L}-]*)\b/iu;
+const LEXICALLY_AMBIGUOUS_PLACE_LABELS = new Set([
+  "aue",
+  "bergen",
+  "burg",
+  "essen",
+  "hagen",
+  "halle",
+  "lage",
+  "norden",
+  "regen",
+  "waren",
+  "wetter",
+  "wissen",
+]);
+const PLACE_COMPARISON_RE =
+  /\b(?:vergleich(?:en|bar)?|gegenüberstell(?:en|ung)|zwischen|beide[nrms]?|gemeinsam)\b/iu;
 
 function clean(value?: string | null): string | null {
   const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -65,6 +81,31 @@ function escapeRegex(value: string): string {
 function containsLabel(text: string, label: string): boolean {
   if (label.length < 3) return false;
   return new RegExp(`(^|[^\\p{L}])${escapeRegex(label)}(?=$|[^\\p{L}])`, "iu").test(text);
+}
+
+function hasExplicitPlaceSyntax(text: string, label: string): boolean {
+  const escapedLabel = escapeRegex(label);
+  return (
+    new RegExp(
+      `(?:^|[^\\p{L}])(?:in|für|aus|bei|nach|von|durch|stadt|gemeinde|kommune)\\s+${escapedLabel}(?=$|[^\\p{L}])`,
+      "iu",
+    ).test(text) ||
+    new RegExp(
+      `(?:^|[^\\p{L}])${escapedLabel}(?=\\s+(?:stadt|gemeinde|kommune|liegt|befindet\\s+sich)\\b)`,
+      "iu",
+    ).test(text)
+  );
+}
+
+export function isCreatePlaceLabelLexicallyAmbiguous(label: string): boolean {
+  return LEXICALLY_AMBIGUOUS_PLACE_LABELS.has(
+    normalizeCreateMunicipalityLabel(label).toLocaleLowerCase("de"),
+  );
+}
+
+export function hasCreateExplicitPlaceMention(text: string, label: string): boolean {
+  if (!containsLabel(text, label)) return false;
+  return !isCreatePlaceLabelLexicallyAmbiguous(label) || hasExplicitPlaceSyntax(text, label);
 }
 
 function labelIndex(text: string, label: string): number {
@@ -301,12 +342,24 @@ export function resolveCreateCitizenIntakeContext(
   const concernKind = inferConcernKind({ text, safetyDecision: safetyResult.decision });
   const detectedStreetName = clean(text.match(STREET_RE)?.[1]);
 
-  const exactDirectoryMatches = (input.directoryEntries ?? [])
+  const rawExactDirectoryMatches = (input.directoryEntries ?? [])
     .map((entry) => {
       const label = normalizeCreateMunicipalityLabel(entry.municipalityName);
       return { entry, label, candidateLabel: label, index: labelIndex(text, label) };
     })
     .filter(({ label }) => containsLabel(text, label));
+  const hasUnambiguousPlaceMention = rawExactDirectoryMatches.some(
+    ({ label }) =>
+      !isCreatePlaceLabelLexicallyAmbiguous(label) &&
+      hasCreateExplicitPlaceMention(text, label),
+  );
+  const exactDirectoryMatches = rawExactDirectoryMatches.filter(
+    ({ label }) =>
+      hasCreateExplicitPlaceMention(text, label) ||
+      (hasUnambiguousPlaceMention &&
+        isCreatePlaceLabelLexicallyAmbiguous(label) &&
+        PLACE_COMPARISON_RE.test(text)),
+  );
   const shortMention = extractCreateExplicitPlaceMention(text);
   const shortMentionMatches =
     exactDirectoryMatches.length === 0 && shortMention

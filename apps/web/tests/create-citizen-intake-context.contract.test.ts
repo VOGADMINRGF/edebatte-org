@@ -117,6 +117,34 @@ describe("citizen-first Create intake context", () => {
     expect(result.clarificationQuestion).toMatch(/ausdrücklich um den Vergleich/);
   });
 
+  it("does not treat ordinary nouns that share municipality names as places", () => {
+    for (const text of [
+      "Das Essen in der Schule muss besser werden.",
+      "Wir brauchen mehr Wissen über Pflege.",
+    ]) {
+      const result =
+        resolveCreateCitizenIntakeContextFromOfficialDirectory({ text });
+      expect(result.regionSource).toBe("none");
+      expect(result.selectedRegionLabel).toBeNull();
+      expect(result.detectedRegionLabels).toEqual([]);
+      expect(result.jurisdictionCandidates).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ level: "municipality" }),
+        ]),
+      );
+    }
+  });
+
+  it("accepts a lexically ambiguous municipality only with explicit place syntax", () => {
+    const result = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+      text: "In Essen muss das Schulessen besser werden.",
+    });
+
+    expect(result.regionSource).toBe("contribution_text");
+    expect(result.selectedRegionLabel).toBe("Essen");
+    expect(result.jurisdictionCandidates[0]?.level).toBe("municipality");
+  });
+
   it("asks the smallest useful question for an ambiguous place name", () => {
     const result = resolveCreateCitizenIntakeContext({
       text: "In Neustadt sollte der Bahnhof barrierefrei werden.",

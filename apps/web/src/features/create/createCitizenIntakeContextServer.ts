@@ -6,6 +6,7 @@ import {
   applyCreateRegionPriority,
   buildCreateMunicipalJurisdictionCandidate,
   buildCreateJurisdictionCandidateKey,
+  hasCreateExplicitPlaceMention,
   normalizeCreateMunicipalityLabel,
   resolveCreateCitizenIntakeContext,
 } from "@/features/create/createCitizenIntakeContext";
@@ -15,8 +16,11 @@ let cachedOfficialCandidateIndex: Map<
   string,
   CreateRegionDirectoryEntry[]
 > | null = null;
-let cachedOfficialPlaceLabelIndex: Set<string> | null = null;
-let cachedOfficialPlaceLabelMaxWords = 1;
+let cachedOfficialPlaceIndex: {
+  entriesByLabel: Map<string, CreateRegionDirectoryEntry[]>;
+  entriesByShortLabel: Map<string, CreateRegionDirectoryEntry[]>;
+  maxWords: number;
+} | null = null;
 
 function officialDirectoryEntries(): CreateRegionDirectoryEntry[] {
   if (cachedOfficialDirectoryEntries) return cachedOfficialDirectoryEntries;
@@ -95,39 +99,75 @@ function normalizeOfficialPlaceSearchText(value: string): string {
     .replace(/\s+/g, " ");
 }
 
-function findOfficialPlaceSignals(text: string): Set<string> {
-  if (!cachedOfficialPlaceLabelIndex) {
-    cachedOfficialPlaceLabelIndex = new Set<string>();
-    for (const entry of officialDirectoryEntries()) {
-      const label = normalizeOfficialPlaceSearchText(
-        normalizeCreateMunicipalityLabel(entry.municipalityName),
-      );
-      if (!label) continue;
-      cachedOfficialPlaceLabelIndex.add(label);
-      cachedOfficialPlaceLabelMaxWords = Math.max(
-        cachedOfficialPlaceLabelMaxWords,
-        label.split(" ").length,
-      );
+function addOfficialPlaceIndexEntry(
+  index: Map<string, CreateRegionDirectoryEntry[]>,
+  label: string,
+  entry: CreateRegionDirectoryEntry,
+) {
+  const entries = index.get(label) ?? [];
+  if (!entries.some((candidate) => candidate.id === entry.id)) {
+    index.set(label, [...entries, entry]);
+  }
+}
+
+function officialPlaceIndex() {
+  if (cachedOfficialPlaceIndex) return cachedOfficialPlaceIndex;
+  const entriesByLabel = new Map<string, CreateRegionDirectoryEntry[]>();
+  const entriesByShortLabel = new Map<string, CreateRegionDirectoryEntry[]>();
+  let maxWords = 1;
+  for (const entry of officialDirectoryEntries()) {
+    const label = normalizeOfficialPlaceSearchText(
+      normalizeCreateMunicipalityLabel(entry.municipalityName),
+    );
+    if (!label) continue;
+    addOfficialPlaceIndexEntry(entriesByLabel, label, entry);
+    const words = label.split(" ");
+    maxWords = Math.max(maxWords, words.length);
+    if (words.length > 1) {
+      addOfficialPlaceIndexEntry(entriesByShortLabel, words[0]!, entry);
     }
   }
+  cachedOfficialPlaceIndex = { entriesByLabel, entriesByShortLabel, maxWords };
+  return cachedOfficialPlaceIndex;
+}
+
+function findOfficialDirectoryEntries(text: string): CreateRegionDirectoryEntry[] {
+  const index = officialPlaceIndex();
   const words = normalizeOfficialPlaceSearchText(text).split(" ").filter(Boolean);
-  const matches = new Set<string>();
+  const matches = new Map<string, CreateRegionDirectoryEntry>();
   for (let start = 0; start < words.length; start += 1) {
     for (
       let length = 1;
-      length <= cachedOfficialPlaceLabelMaxWords && start + length <= words.length;
+      length <= index.maxWords && start + length <= words.length;
       length += 1
     ) {
-      if (
-        cachedOfficialPlaceLabelIndex.has(
-          words.slice(start, start + length).join(" "),
-        )
-      ) {
-        matches.add(words.slice(start, start + length).join(" "));
+      const label = words.slice(start, start + length).join(" ");
+      for (const entry of index.entriesByLabel.get(label) ?? []) {
+        matches.set(entry.id, entry);
       }
     }
   }
-  return matches;
+
+  const explicitShortMention = text.match(
+    /(?:^|[.!?]\s+|\s)(?:In|in|Für|für|Aus|aus|Bei|bei)\s+([A-ZÄÖÜ][\p{L}().-]{2,})/u,
+  )?.[1];
+  if (explicitShortMention) {
+    const shortLabel = normalizeOfficialPlaceSearchText(explicitShortMention);
+    for (const entry of index.entriesByShortLabel.get(shortLabel) ?? []) {
+      matches.set(entry.id, entry);
+    }
+  }
+
+  return Array.from(matches.values()).filter((entry) => {
+    const label = normalizeCreateMunicipalityLabel(entry.municipalityName);
+    return (
+      hasCreateExplicitPlaceMention(text, label) ||
+      (explicitShortMention !== undefined &&
+        label.toLocaleLowerCase("de").startsWith(
+          `${explicitShortMention.toLocaleLowerCase("de")} `,
+        ))
+    );
+  });
 }
 
 function attachOfficialRegionIdentity(
@@ -174,7 +214,7 @@ export function resolveCreateCitizenIntakeContextFromOfficialDirectory(input: {
   return resolveCreateCitizenIntakeContext({
     text: input.text,
     locale: input.locale,
-    directoryEntries: officialDirectoryEntries(),
+    directoryEntries: findOfficialDirectoryEntries(input.text),
   });
 }
 
@@ -222,21 +262,10 @@ export function validateCreateJurisdictionConfirmation(input: {
   const indexedEntries = officialCandidateIndex().get(candidateKey) ?? [];
   if (indexedEntries.length !== 1) return null;
   const officialEntry = indexedEntries[0]!;
-  const officialPlaceLabel = normalizeOfficialPlaceSearchText(
-    normalizeCreateMunicipalityLabel(officialEntry.municipalityName),
-  );
-  const sourcePlaceSignals = findOfficialPlaceSignals(input.sourceText);
-  if (
-    sourcePlaceSignals.size > 0 &&
-    (sourcePlaceSignals.size !== 1 ||
-      !sourcePlaceSignals.has(officialPlaceLabel))
-  ) {
-    return null;
-  }
   const contributionContext = resolveCreateCitizenIntakeContext({
     text: input.sourceText,
     locale: input.locale,
-    directoryEntries: [officialEntry],
+    directoryEntries: findOfficialDirectoryEntries(input.sourceText),
   });
   const contributionMatch = confirmFromContext(
     contributionContext,
@@ -247,10 +276,9 @@ export function validateCreateJurisdictionConfirmation(input: {
   // An explicit place, federal scope, EU scope or ambiguous place in the
   // contribution always outranks any later profile-derived suggestion.
   if (
-    base.regionSource === "contribution_text" ||
+    contributionContext.regionSource === "contribution_text" ||
     base.regionStatus === "not_location_bound" ||
-    base.detectedRegionLabels.length > 0 ||
-    sourcePlaceSignals.size > 0
+    contributionContext.detectedRegionLabels.length > 0
   ) {
     return null;
   }
