@@ -37,6 +37,16 @@ import {
   getCreateContributionDraftForResumeRecord,
   saveUserScopedServerDraft,
 } from "@/server/serverDrafts";
+import {
+  CREATE_ANON_SESSION_COOKIE,
+  verifyAnonymousSession,
+} from "@/features/create/createAnonymousSession";
+import {
+  adoptCompletedCreateOrchestrationClaim,
+  readCompletedCreateOrchestrationClaim,
+} from "@/features/create/createOrchestrationSingleFlight";
+import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
+import { hasValidatedCreateSemanticOutput } from "@/features/create/createCandidatePreview";
 
 const DraftSaveSchema = z.object({
   draftId: z.string().max(160).optional(),
@@ -84,6 +94,22 @@ function hasPiiOrDoxxingFindings(safety: CreateInputSafetyResult): boolean {
       finding.kind === "postal_code" ||
       finding.kind === "doxxing",
   );
+}
+
+function readGuestResumeOperationId(analysis: unknown): string | null {
+  if (!analysis || typeof analysis !== "object" || Array.isArray(analysis)) {
+    return null;
+  }
+  const guestResume = (analysis as Record<string, unknown>).guestResume;
+  if (!guestResume || typeof guestResume !== "object" || Array.isArray(guestResume)) {
+    return null;
+  }
+  const operationId = String(
+    (guestResume as Record<string, unknown>).operationId ?? "",
+  ).trim();
+  return operationId.length >= 8 && operationId.length <= 160
+    ? operationId
+    : null;
 }
 
 function withSafetyAnalysis(
@@ -405,34 +431,82 @@ export async function POST(req: NextRequest) {
     await resolveRequestScopeContext(req).catch(() => null),
   );
   const contextMs = Date.now() - contextStartedAt;
-  const normalizedText =
-    body.textPrepared?.trim() ||
-    body.textOriginal?.trim() ||
-    body.text?.trim() ||
-    existingDraft?.text?.trim() ||
-    "";
-  const textOriginal =
-    body.textOriginal?.trim() ||
-    body.text?.trim() ||
-    existingDraft?.textOriginal?.trim() ||
-    normalizedText;
-  const textPrepared =
-    body.textPrepared?.trim() ||
-    body.text?.trim() ||
-    existingDraft?.textPrepared?.trim() ||
-    normalizedText;
-  const normalizedCreateMode: CreateMode =
-    body.createMode ??
-    existingDraft?.createMode ??
-    ((body.source ?? existingDraft?.source) === "statement_new" ? "manual" : "source");
-  const normalizedAnlassraumId = body.anlassraumId
-    ? new ObjectId(body.anlassraumId).toHexString()
-    : (existingDraft?.anlassraumId ?? null);
-  const normalizedLocale = body.locale ?? existingDraft?.locale ?? "de";
   const normalizedSource = body.source ?? existingDraft?.source ?? null;
-  const normalizedAuthorName = body.authorName ?? existingDraft?.authorName ?? null;
-  const normalizedUseCase = body.useCase ?? existingDraft?.useCase ?? null;
-  const normalizedEvidenceInput = body.evidenceInput ?? existingDraft?.evidenceInput ?? null;
+  const isGuestAdoption = normalizedSource === "create_guest_resume";
+  const guestOperationId = isGuestAdoption
+    ? readGuestResumeOperationId(body.analysis)
+    : null;
+  const anonymousSession = isGuestAdoption
+    ? verifyAnonymousSession(req.cookies.get(CREATE_ANON_SESSION_COOKIE)?.value)
+    : null;
+  if (isGuestAdoption && (!guestOperationId || !anonymousSession || existingDraft)) {
+    return NextResponse.json(
+      { ok: false, error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED" },
+      { status: 403 },
+    );
+  }
+
+  const guestClaim =
+    isGuestAdoption && guestOperationId && anonymousSession
+      ? await readCompletedCreateOrchestrationClaim<CreateIntelligentFollowupResult>({
+          actorKey: `anonymous:${anonymousSession.id}`,
+          draftId: `anonymous:${anonymousSession.id}`,
+          correlationId: guestOperationId,
+          operationType: "create_intelligent_followup_planner",
+        }).catch(() => null)
+      : null;
+  if (
+    isGuestAdoption &&
+    (!guestClaim || !hasValidatedCreateSemanticOutput(guestClaim.result))
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED" },
+      { status: 403 },
+    );
+  }
+
+  // A guest adoption is only a proof of ownership of a completed server-side
+  // operation. The client snapshot is never an authority for text or analysis.
+  const normalizedText = isGuestAdoption
+    ? guestClaim?.result.sourceText.trim() ?? ""
+    : body.textPrepared?.trim() ||
+      body.textOriginal?.trim() ||
+      body.text?.trim() ||
+      existingDraft?.text?.trim() ||
+      "";
+  const textOriginal = isGuestAdoption
+    ? normalizedText
+    : body.textOriginal?.trim() ||
+      body.text?.trim() ||
+      existingDraft?.textOriginal?.trim() ||
+      normalizedText;
+  const textPrepared = isGuestAdoption
+    ? normalizedText
+    : body.textPrepared?.trim() ||
+      body.text?.trim() ||
+      existingDraft?.textPrepared?.trim() ||
+      normalizedText;
+  const normalizedCreateMode: CreateMode =
+    isGuestAdoption
+      ? "source"
+      : body.createMode ??
+        existingDraft?.createMode ??
+        ((body.source ?? existingDraft?.source) === "statement_new" ? "manual" : "source");
+  const normalizedAnlassraumId = isGuestAdoption
+    ? null
+    : body.anlassraumId
+      ? new ObjectId(body.anlassraumId).toHexString()
+      : (existingDraft?.anlassraumId ?? null);
+  const normalizedLocale = body.locale ?? existingDraft?.locale ?? "de";
+  const normalizedAuthorName = isGuestAdoption
+    ? null
+    : body.authorName ?? existingDraft?.authorName ?? null;
+  const normalizedUseCase = isGuestAdoption
+    ? null
+    : body.useCase ?? existingDraft?.useCase ?? null;
+  const normalizedEvidenceInput = isGuestAdoption
+    ? null
+    : body.evidenceInput ?? existingDraft?.evidenceInput ?? null;
 
   if (!normalizedText) {
     return NextResponse.json({ ok: false, error: "empty_text" }, { status: 422 });
@@ -452,35 +526,92 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const guestAdoption =
+    isGuestAdoption && guestOperationId && anonymousSession
+      ? await adoptCompletedCreateOrchestrationClaim<CreateIntelligentFollowupResult>({
+          actorKey: `anonymous:${anonymousSession.id}`,
+          draftId: `anonymous:${anonymousSession.id}`,
+          correlationId: guestOperationId,
+          operationType: "create_intelligent_followup_planner",
+          consumerKey: `user:${userId}`,
+        }).catch(() => ({ kind: "not_found" as const }))
+      : null;
+  if (
+    isGuestAdoption &&
+    (!guestAdoption ||
+      guestAdoption.kind === "not_found" ||
+      guestAdoption.kind === "not_completed")
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED" },
+      { status: 403 },
+    );
+  }
+  if (isGuestAdoption && guestAdoption?.kind === "conflict") {
+    return NextResponse.json(
+      { ok: false, error: "CREATE_GUEST_ADOPTION_ALREADY_CLAIMED" },
+      { status: 409 },
+    );
+  }
+
   const textToPersist = hasPiiOrDoxxingFindings(safety) ? safety.redactedText : normalizedText;
-  const analysisWithMaterial = withMaterialContext(body.analysis ?? existingDraft?.analysis, {
-    sourceUrls: body.sourceUrls,
-    uploadIds: body.uploadIds,
-    materialItems: body.materialItems as Record<string, unknown>[] | undefined,
+  const effectiveAnalysis = isGuestAdoption
+    ? {
+        intelligentFollowup: guestClaim?.result,
+        guestResume: {
+          operationId: guestOperationId,
+          providerRunReused: true,
+          serverValidated: true,
+          noAutoPublish: true,
+        },
+      }
+    : body.analysis ?? existingDraft?.analysis;
+  const effectiveSourceUrls = isGuestAdoption ? undefined : body.sourceUrls;
+  const effectiveUploadIds = isGuestAdoption ? undefined : body.uploadIds;
+  const effectiveMaterialItems = isGuestAdoption
+    ? undefined
+    : (body.materialItems as Record<string, unknown>[] | undefined);
+  const analysisWithMaterial = withMaterialContext(effectiveAnalysis, {
+    sourceUrls: effectiveSourceUrls,
+    uploadIds: effectiveUploadIds,
+    materialItems: effectiveMaterialItems,
   });
   const claimSafety = buildClaimSafety(analysisWithMaterial, normalizedLocale);
   const baseAnalysisWithSafety = withSafetyAnalysis(analysisWithMaterial, safety, claimSafety);
   const manualReviewTruthMeta = readManualReviewTruthMeta(baseAnalysisWithSafety);
-  const packageId = body.packageId?.trim() || undefined;
-  const idempotencyKey = buildCanonicalCreateDraftIdempotencyKey({
-    userId,
-    source: normalizedSource,
-    text: textToPersist,
-    textOriginal,
-    textPrepared,
-    evidenceInput: normalizedEvidenceInput,
-    locale: normalizedLocale,
-    createMode: normalizedCreateMode,
-    anlassraumId: normalizedAnlassraumId,
-    authorName: normalizedAuthorName,
-    useCase: normalizedUseCase,
-    packageId,
-    sourceUrls: body.sourceUrls,
-    uploadIds: body.uploadIds,
-    materialItems: body.materialItems as unknown[] | undefined,
-    analysis: body.analysis ?? null,
-    manualReviewRequested: body.manualReviewRequested === true,
-  });
+  const packageId = isGuestAdoption
+    ? undefined
+    : body.packageId?.trim() || undefined;
+  const manualReviewRequested = !isGuestAdoption && body.manualReviewRequested === true;
+  const idempotencyKey = isGuestAdoption
+    ? buildCanonicalCreateDraftIdempotencyKey({
+        userId,
+        source: normalizedSource,
+        text: textToPersist,
+        analysis: {
+          guestOperationId,
+          guestClaimInputHash: guestClaim?.inputHash ?? null,
+        },
+      })
+    : buildCanonicalCreateDraftIdempotencyKey({
+        userId,
+        source: normalizedSource,
+        text: textToPersist,
+        textOriginal,
+        textPrepared,
+        evidenceInput: normalizedEvidenceInput,
+        locale: normalizedLocale,
+        createMode: normalizedCreateMode,
+        anlassraumId: normalizedAnlassraumId,
+        authorName: normalizedAuthorName,
+        useCase: normalizedUseCase,
+        packageId,
+        sourceUrls: effectiveSourceUrls,
+        uploadIds: effectiveUploadIds,
+        materialItems: effectiveMaterialItems,
+        analysis: effectiveAnalysis ?? null,
+        manualReviewRequested,
+      });
 
   const saveStartedAt = Date.now();
   const initialSave = await saveUserScopedServerDraft({
@@ -598,7 +729,7 @@ export async function POST(req: NextRequest) {
     },
   };
 
-  if (body.manualReviewRequested) {
+  if (manualReviewRequested) {
     responseBody.reviewRequest = await createEditorialReviewRequestFromContributionSave({
       draftId: finalSave.draftId,
       userId,

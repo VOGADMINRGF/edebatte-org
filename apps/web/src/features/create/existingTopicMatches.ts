@@ -48,6 +48,7 @@ export type ExistingTopicMatch = {
   strength: ExistingTopicMatchStrength;
   status: ExistingTopicMatchStatus;
   reason: string;
+  relation?: "supporting" | "opposing" | "related" | "unclear";
   relatedTopicId?: string | null;
   relatedBranchId?: string | null;
   relatedParticipationSpaceId?: string | null;

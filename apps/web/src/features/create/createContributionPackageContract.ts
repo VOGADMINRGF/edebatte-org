@@ -105,6 +105,19 @@ export type PlaceResolutionStatus =
 
 export type PlaceResolutionSource = "directory" | "registry" | "user_input" | "none";
 
+export type CreateRegionContextSource =
+  | "contribution_text"
+  | "confirmed_context"
+  | "profile_suggestion"
+  | "none";
+
+export type CreateRegionContextStatus =
+  | "resolved"
+  | "suggested"
+  | "needs_clarification"
+  | "not_location_bound"
+  | "unresolved";
+
 export type StreetRegistryLookupStatus =
   | "not_configured"
   | "no_match"
@@ -158,6 +171,67 @@ export type PlaceResolutionResult = {
   confidence: "low" | "medium" | "high";
   warnings: string[];
   jurisdictionCandidates: JurisdictionCandidate[];
+  jurisdictionConfirmation?: {
+    status: "not_required" | "unconfirmed" | "confirmed";
+    candidateKey: string | null;
+  };
+};
+
+export type CreateCitizenConcernKind =
+  | "public_concern"
+  | "source_without_request"
+  | "private_case"
+  | "emergency"
+  | "unsafe_content"
+  | "unclear";
+
+export type CreateCitizenSafetySummary = {
+  decision:
+    | "allow"
+    | "revise_required"
+    | "factcheck_required"
+    | "graph_review_required"
+    | "moderation_required"
+    | "blocked";
+  sensitiveFindingKinds: string[];
+  requiresHumanReview: boolean;
+  emergencyNoticeRequired: boolean;
+};
+
+/**
+ * Citizen-first context attached to the existing contribution package. This
+ * is a reviewable intake view of the canonical place, jurisdiction and match
+ * contracts, not a second Create or region workflow.
+ */
+export type CreateCitizenIntakeContext = {
+  concernKind: CreateCitizenConcernKind;
+  regionStatus: CreateRegionContextStatus;
+  regionSource: CreateRegionContextSource;
+  regionChipLabel: string | null;
+  selectedRegionLabel: string | null;
+  detectedRegionLabels: string[];
+  regionHierarchy: string[];
+  clarificationQuestion: string | null;
+  detectedStreetName: string | null;
+  placeResolution: PlaceResolutionResult;
+  jurisdictionCandidates: JurisdictionCandidate[];
+  jurisdictionConfirmation: {
+    status: "not_required" | "unconfirmed" | "confirmed";
+    candidateKey: string | null;
+  };
+  desiredChange: string | null;
+  safety: CreateCitizenSafetySummary;
+  matching: {
+    requiresConfirmation: true;
+    allowedDecisions: ExistingMatchUserDecision[];
+    noSilentMerge: true;
+  };
+  guardrails: {
+    noAutoPublish: true;
+    noAutoMandate: true;
+    noTruthDecision: true;
+    noProfileRegionAsFact: true;
+  };
 };
 
 export type ContributionPackageScopeConfidence = "low" | "medium" | "high";

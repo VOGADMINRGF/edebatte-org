@@ -20,6 +20,12 @@ import {
   type CreateSupportHandoffPublic,
 } from "@/features/support/createSupportTickets";
 import { scheduleSupportTicketNotification } from "@/features/operator/operatorNotifications";
+import {
+  buildCreateInitialProgressEvents,
+  buildCreateStructureConsolidatingEvent,
+  buildCreateValidatedProgressEvents,
+  type CreateProgressEvent,
+} from "@/features/create/createProgressEventContract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +54,27 @@ const RequestSchema = z.object({
   intent: z.string().trim().max(CREATE_MAX_CONTEXT_LENGTH).optional().nullable(),
   correlationId: z.string().trim().min(8).max(160),
   draftId: z.string().trim().min(1).max(160),
+  stream: z.boolean().optional(),
+  resumeOnly: z.boolean().optional(),
 });
+
+const CREATE_PROGRESS_STREAM_HEADERS = {
+  "content-type": "text/event-stream; charset=utf-8",
+  "cache-control": "no-cache, no-transform",
+  connection: "keep-alive",
+  "x-accel-buffering": "no",
+} as const;
+
+function wantsCreateProgressStream(req: NextRequest, stream?: boolean) {
+  if (stream === true) return true;
+  return (req.headers.get("accept")?.toLowerCase() ?? "").includes(
+    "text/event-stream",
+  );
+}
+
+function encodeCreateProgressStreamEvent(event: string, data: unknown) {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
 
 type VerifiedCreateUserActor = {
   actorKey: string;
@@ -211,11 +237,14 @@ export async function POST(req: NextRequest) {
       actorKey: `user:${userId}`,
       affectedUserId: userId,
     };
-    const singleFlight = await runCreateOrchestrationSingleFlight({
+    const runOperation = (onProgress?: (event: CreateProgressEvent) => void | Promise<void>) =>
+      runCreateOrchestrationSingleFlight({
       actorKey: verifiedActor.actorKey,
       draftId: draftBinding.draftId,
       correlationId: requestId,
       operationType,
+      resumeOnly: body.resumeOnly === true,
+      onProgress,
       inputHash: stableHash({
         draftBinding: draftBinding.inputHash,
         text: body.text,
@@ -227,8 +256,31 @@ export async function POST(req: NextRequest) {
       run: async ({
         recoveryWithoutExternalCall,
         markExternalExecutionStarted,
+        publishProgressEvent,
       }) => {
+        const initialProgress = buildCreateInitialProgressEvents({
+          text: body.text,
+          operationId,
+          correlationId: requestId,
+          locale,
+        });
+        for (const event of initialProgress.events) {
+          await publishProgressEvent(event);
+        }
+
         if (recoveryWithoutExternalCall) {
+          for (const event of buildCreateValidatedProgressEvents({
+            operationId,
+            correlationId: requestId,
+            locale,
+            structure: initialProgress.structure,
+            topics: [],
+            scopes: ["unclear"],
+            qualityPassed: false,
+            partial: true,
+          })) {
+            await publishProgressEvent(event);
+          }
           const supportHandoff = await createSupportHandoff({
             actor: verifiedActor,
             requestId,
@@ -268,6 +320,15 @@ export async function POST(req: NextRequest) {
 
         try {
           await markExternalExecutionStarted();
+          const consolidatingEvent = buildCreateStructureConsolidatingEvent({
+            operationId,
+            correlationId: requestId,
+            locale,
+            structure: initialProgress.structure,
+          });
+          if (consolidatingEvent) {
+            await publishProgressEvent(consolidatingEvent);
+          }
           const orchestrationStartedAt = Date.now();
           const result = await buildCreateIntelligentFollowup({
             text: body.text,
@@ -284,6 +345,22 @@ export async function POST(req: NextRequest) {
           const orchestrationMs = Date.now() - orchestrationStartedAt;
           const plannerMs = result.meta?.planner?.runtimeMs ?? null;
           const analysisState = result.meta?.analysis?.state ?? null;
+          const qualityPassed =
+            result.meta?.planner?.qualityStatus === "specific" &&
+            result.meta.planner.plannerDegraded === false &&
+            analysisState === "result_ready";
+          for (const event of buildCreateValidatedProgressEvents({
+            operationId,
+            correlationId: requestId,
+            locale,
+            structure: initialProgress.structure,
+            topics: result.understanding.topics,
+            scopes: result.understanding.scopes,
+            qualityPassed,
+            partial: !qualityPassed,
+          })) {
+            await publishProgressEvent(event);
+          }
           const supportHandoff =
             analysisState === "ai_failed" || analysisState === "fetch_failed"
               ? await createSupportHandoff({
@@ -329,6 +406,18 @@ export async function POST(req: NextRequest) {
             },
           };
         } catch {
+          for (const event of buildCreateValidatedProgressEvents({
+            operationId,
+            correlationId: requestId,
+            locale,
+            structure: initialProgress.structure,
+            topics: [],
+            scopes: ["unclear"],
+            qualityPassed: false,
+            partial: true,
+          })) {
+            await publishProgressEvent(event);
+          }
           const supportHandoff = await createSupportHandoff({
             actor: verifiedActor,
             requestId,
@@ -368,7 +457,10 @@ export async function POST(req: NextRequest) {
         }
       },
     });
-    const response = NextResponse.json({
+
+    const buildResponsePayload = (
+      singleFlight: Awaited<ReturnType<typeof runOperation>>,
+    ) => ({
       ...singleFlight.result,
       trace: {
         ...singleFlight.result.trace,
@@ -383,7 +475,54 @@ export async function POST(req: NextRequest) {
         },
       },
     });
-    return response;
+
+    if (wantsCreateProgressStream(req, body.stream)) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const send = (event: string, data: unknown) => {
+            try {
+              controller.enqueue(
+                encoder.encode(encodeCreateProgressStreamEvent(event, data)),
+              );
+            } catch {
+              // The durable operation continues even if the client disconnects.
+            }
+          };
+          try {
+            const singleFlight = await runOperation((event) => {
+              send("progress", { event });
+            });
+            send("result", buildResponsePayload(singleFlight));
+          } catch (error) {
+            send("error", {
+              errorCode:
+                error instanceof Error &&
+                error.message === "create_single_flight_resume_unavailable"
+                  ? "CREATE_PROGRESS_RESUME_UNAVAILABLE"
+                  : "CREATE_PROGRESS_STREAM_FAILED",
+              message:
+                locale.toLowerCase().startsWith("en")
+                  ? "The saved analysis could not be resumed. You can retry it explicitly."
+                  : "Die gespeicherte Analyse konnte nicht fortgesetzt werden. Du kannst sie ausdrücklich erneut starten.",
+            });
+          } finally {
+            try {
+              controller.close();
+            } catch {
+              // The browser may already have closed the stream.
+            }
+          }
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: CREATE_PROGRESS_STREAM_HEADERS,
+      });
+    }
+
+    const singleFlight = await runOperation();
+    return NextResponse.json(buildResponsePayload(singleFlight));
   } catch {
     const normalizedBody =
       rawBody && typeof rawBody === "object"

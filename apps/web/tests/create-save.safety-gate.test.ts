@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 import { CREATE_SAFETY_ADVERSARIAL_FIXTURES } from "./fixtures/createSafetyAdversarialFixtures";
+import "./support/create-save-route-security.setup";
 
 const mocks = vi.hoisted(() => {
   type AnyDoc = Record<string, any>;

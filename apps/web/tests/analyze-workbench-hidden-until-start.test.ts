@@ -4,19 +4,25 @@ import { resolve } from "node:path";
 import {
   CREATE_INTELLIGENT_FOLLOWUP_SECTION_LABELS,
   buildCreateLightweightFollowupSnapshot,
+  buildCreateGuestAdoptionPayload,
+  buildCreateGuestPrimaryIntakeStorageKey,
   buildCreatePrimaryIntakeStorageKey,
   buildGuidedWorkspaceText,
   hasPrimaryIntakeText,
   parseCreatePrimaryIntakeSnapshot,
+  resolveCreatePrimaryIntakeResumeSnapshot,
+  retainCreateClientOnlyProgressEventsForResume,
   resolveCreatePostStartSectionOrder,
   resolveFollowupSurfaceOnStart,
   shouldShowCreateFollowupQuestionCard,
   shouldRenderCreateIntelligentFollowup,
   shouldRenderCreateAnalyzeWorkspace,
   shouldShowCreatePostInputModules,
+  writeCreatePrimaryIntakeSnapshot,
 } from "@/app/create/CreateClient";
 import { CREATE_VISUAL_FOLLOWUP_COPY } from "@/features/create/CreateVisualFollowup";
 import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import { buildCreateInitialProgressEvents } from "@/features/create/createProgressEventContract";
 
 describe("analyze workbench progressive disclosure", () => {
   it("keeps post-input modules hidden before explicit start", () => {
@@ -105,22 +111,112 @@ describe("analyze workbench progressive disclosure", () => {
     ).toContain("Guided focus");
   });
 
-  it("uses stable per-user local draft keys for primary intake persistence", () => {
-    expect(buildCreatePrimaryIntakeStorageKey("user-1")).toBe("vog_create_primary_intake_v1:user-1");
-    expect(() => buildCreatePrimaryIntakeStorageKey("")).toThrow(
-      "authenticated_create_user_required",
+  it("separates account storage from opaque, expiring guest-session storage", () => {
+    expect(buildCreatePrimaryIntakeStorageKey("user-1")).toBe(
+      "vog_create_primary_intake_v1:account:user-1",
     );
-    expect(() => buildCreatePrimaryIntakeStorageKey(null)).toThrow(
-      "authenticated_create_user_required",
+    expect(buildCreatePrimaryIntakeStorageKey("")).toBeNull();
+    expect(buildCreatePrimaryIntakeStorageKey(null)).toBeNull();
+    expect(
+      buildCreateGuestPrimaryIntakeStorageKey({
+        namespace: "g1_opaque-session-scope-12345678901234567890",
+        expiresAt: "2099-09-06T10:30:00.000Z",
+      }),
+    ).toBe(
+      "vog_create_primary_intake_v1:guest:g1_opaque-session-scope-12345678901234567890",
     );
   });
 
+  it("keeps in-flight guest progress on the guest resume key after login navigation", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/app/create/CreateClient.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain(
+      "buildCreateProgressResumeStorageKey(`guest:${guestNamespace}`)",
+    );
+    expect(source).toContain("buildCreateProgressResumeStorageKey(`account:${overview.userId}`)");
+    expect(source).not.toContain('overview?.userId ?? "guest"');
+    expect(source).toContain(
+      'const anonymousResume = resumeSnapshot.actorMode === "anonymous";',
+    );
+    expect(source).toContain("anonymous: anonymousResume");
+  });
+
+  it("reports primary guest workstate persistence failures without mutating memory state", () => {
+    const snapshot = {
+      intakeText: "Dieser Text bleibt im React-Arbeitsstand.",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+    };
+    const blockedStorage = {
+      setItem: () => {
+        throw new DOMException("Storage blocked", "SecurityError");
+      },
+    };
+
+    expect(
+      writeCreatePrimaryIntakeSnapshot(blockedStorage, "guest-key", snapshot),
+    ).toBe(false);
+    expect(snapshot.intakeText).toBe("Dieser Text bleibt im React-Arbeitsstand.");
+    expect(writeCreatePrimaryIntakeSnapshot(blockedStorage, null, snapshot)).toBe(false);
+  });
+
+  it("retains only the client-verified guest save event during server reconnect", () => {
+    const operationId = "operation-guest-reconnect-12345678";
+    const initial = buildCreateInitialProgressEvents({
+      text: "Ein gespeicherter Gastbeitrag mit einer erkannten Struktur.",
+      operationId,
+      correlationId: operationId,
+      locale: "de",
+      persistence: "browser",
+      createdAt: "2026-09-06T10:00:00.000Z",
+    });
+    const resumeSnapshot = {
+      operationId,
+      correlationId: operationId,
+      actorMode: "anonymous" as const,
+      draftId: "guest-browser",
+      inputFingerprint: "create-deadbeef-50",
+      locale: "de",
+      anlassraumId: null,
+      dossierId: null,
+      intent: null,
+      createdAt: "2026-09-06T10:00:00.000Z",
+      expiresAt: "2026-09-06T10:14:00.000Z",
+    };
+
+    expect(
+      retainCreateClientOnlyProgressEventsForResume(initial.events, resumeSnapshot).map(
+        (event) => event.type,
+      ),
+    ).toEqual(["draft.saved"]);
+    expect(
+      retainCreateClientOnlyProgressEventsForResume(initial.events, {
+        ...resumeSnapshot,
+        actorMode: "authenticated",
+      }),
+    ).toEqual([]);
+  });
+
   it("parses valid primary intake snapshots and ignores empty/no-op payloads", () => {
+    const progressEvents = buildCreateInitialProgressEvents({
+      text: "Beitrag bleibt erhalten",
+      operationId: "guest-operation-12345678",
+      correlationId: "guest-operation-12345678",
+      locale: "de",
+      persistence: "browser",
+    }).events;
     const parsed = parseCreatePrimaryIntakeSnapshot(
       JSON.stringify({
         intakeText: "Beitrag bleibt erhalten",
         hasStarted: true,
         updatedAt: "2026-04-22T10:00:00.000Z",
+        progressEvents: [
+          ...progressEvents,
+          { ...progressEvents[0], providerPayload: { raw: true } },
+        ],
       }),
     );
     expect(parsed).toMatchObject({
@@ -128,6 +224,7 @@ describe("analyze workbench progressive disclosure", () => {
       hasStarted: true,
       updatedAt: "2026-04-22T10:00:00.000Z",
     });
+    expect(parsed?.progressEvents).toEqual(progressEvents);
 
     const ignored = parseCreatePrimaryIntakeSnapshot(
       JSON.stringify({
@@ -136,6 +233,179 @@ describe("analyze workbench progressive disclosure", () => {
       }),
     );
     expect(ignored).toBeNull();
+  });
+
+  it("resumes the guest AI workstate after login without requiring another planner run", () => {
+    const guestRaw = JSON.stringify({
+      intakeText: "Tempo 30 vor der Schule prüfen.",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      productMode: "analyze",
+      guestOperationId: "guest-operation-12345678",
+      intelligentFollowup: {
+        sourceText: "Tempo 30 vor der Schule prüfen.",
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Sicherer Schulweg",
+          categories: [],
+          topics: [{ id: "topic-1", label: "Schulwegsicherheit", confidence: "high" }],
+          aspects: ["Tempo 30", "Querung"],
+          statements: [{
+            id: "statement-1",
+            text: "Tempo 30 vor der Schule prüfen.",
+            kind: "demand",
+            stance: "pro",
+            confidence: "high",
+          }],
+          scopes: ["municipal"],
+          openQuestion: null,
+          confidence: "medium",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            plannerSource: "openai",
+            plannerProvider: "openai",
+            providerPlan: { plannerProvider: "openai" },
+            providerCallSucceeded: true,
+            providerAttemptCount: 1,
+            providerAttempts: [{
+              attempt: 1,
+              provider: "openai",
+              model: "test-model",
+              status: "succeeded",
+              resultCode: "ok",
+              responseLength: 120,
+              responseHash: null,
+            }],
+            plannerDebug: {
+              attemptedProvider: "openai",
+              usedProvider: "openai",
+              attemptedModel: "test-model",
+              usedModel: "test-model",
+              attemptNumber: 1,
+            },
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: {
+            state: "result_ready",
+            validationStatus: "validated",
+          },
+          citizenContext: {
+            regionStatus: "resolved",
+            regionSource: "contribution_text",
+            regionChipLabel: "Wuppertal · aus deinem Text",
+          },
+        },
+      },
+    });
+
+    const resume = resolveCreatePrimaryIntakeResumeSnapshot({
+      ownedRaw: JSON.stringify({
+        intakeText: "Älterer Kontoentwurf",
+        hasStarted: false,
+        updatedAt: "2026-09-05T10:00:00.000Z",
+      }),
+      guestRaw,
+      isAuthenticated: true,
+      preferGuest: true,
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      nowMs: Date.parse("2026-09-06T10:05:00.000Z"),
+    });
+
+    expect(resume.source).toBe("guest");
+    expect(resume.snapshot).toMatchObject({
+      intakeText: "Tempo 30 vor der Schule prüfen.",
+      hasStarted: true,
+      productMode: "analyze",
+      guestOperationId: "guest-operation-12345678",
+      intelligentFollowup: {
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          aspects: ["Tempo 30", "Querung"],
+          statements: [expect.objectContaining({ stance: "pro" })],
+        },
+        meta: {
+          citizenContext: expect.objectContaining({
+            regionSource: "contribution_text",
+          }),
+        },
+      },
+    });
+
+    const payload = buildCreateGuestAdoptionPayload({
+      snapshot: resume.snapshot!,
+      locale: "de",
+      createMode: "source",
+    });
+    expect(payload).toMatchObject({
+      source: "create_guest_resume",
+      analysis: {
+        guestResume: {
+          operationId: "guest-operation-12345678",
+          noAutoPublish: true,
+        },
+      },
+    });
+    expect(payload).not.toHaveProperty("textPrepared");
+    expect(payload?.analysis).not.toHaveProperty("intelligentFollowup");
+  });
+
+  it("does not expose a guest snapshot across sessions, expiry, or implicit login resume", () => {
+    const guestRaw = JSON.stringify({
+      intakeText: "Sessiongebundener Gast-Arbeitsstand",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+    });
+    const ownedRaw = JSON.stringify({
+      intakeText: "Konto-Arbeitsstand",
+      hasStarted: true,
+      updatedAt: "2026-09-06T09:00:00.000Z",
+    });
+    const base = {
+      ownedRaw,
+      guestRaw,
+      nowMs: Date.parse("2026-09-06T10:05:00.000Z"),
+    };
+
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: false,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      }).source,
+    ).toBe("guest");
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: false,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T11:00:00.000Z",
+      }).snapshot,
+    ).toBeNull();
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: true,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      }).source,
+    ).toBe("owned");
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: true,
+        preferGuest: true,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+        nowMs: Date.parse("2026-09-06T10:31:00.000Z"),
+      }).source,
+    ).toBe("owned");
   });
 
   it("keeps analyze workspace hidden until follow-up explicitly activates review", () => {
@@ -177,8 +447,12 @@ describe("analyze workbench progressive disclosure", () => {
 
     expect(clientSource).toContain('data-create-loading-thread={isStarting ? "true" : undefined}');
     expect(clientSource).toContain("workspaceActiveStage");
-    expect(clientSource.indexOf("setFollowupSnapshot(snapshot);")).toBeLessThan(
-      clientSource.indexOf('await fetch("/api/create/intelligent-followup"'),
+    const startFlowSource = clientSource.slice(
+      clientSource.indexOf("const startCreateFlow"),
+      clientSource.indexOf("const handleStart"),
+    );
+    expect(startFlowSource.indexOf("setFollowupSnapshot(snapshot);")).toBeLessThan(
+      startFlowSource.indexOf("await requestCreateProgressiveFollowup({"),
     );
   });
 
@@ -307,7 +581,6 @@ describe("analyze workbench progressive disclosure", () => {
     expect(source).toContain("StructureProposalPanel");
     expect(source).toContain("NextStepPanel");
     expect(source).toContain("create-chat-workspace");
-    expect(source).toContain("create-chat-spine");
     expect(source).toContain("create-chat-message");
     expect(source).toContain("Du");
     expect(source).toContain("Voxy");
@@ -315,7 +588,6 @@ describe("analyze workbench progressive disclosure", () => {
     expect(source).toContain("Eigenes Hauptthema benennen");
     expect(source).toContain("Aussage schärfen");
     expect(source).toContain("Quellenmodus geöffnet");
-    expect(source).toContain("Entwurf kann weitergeführt werden");
     expect(source).toContain("Redaktionell prüfen lassen");
     expect(source).toContain("Deine Struktur auf einen Blick");
     expect(source).toContain("data-structure-overview-grid");

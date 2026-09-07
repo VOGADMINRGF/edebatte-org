@@ -302,9 +302,15 @@ describe("/create Voxy and support recovery contract", () => {
       source.indexOf("const startCreateFlow"),
       source.indexOf("const handleStart"),
     );
-    expect(startFlow.indexOf('fetch("/api/create/save"')).toBeLessThan(
-      startFlow.indexOf('fetch("/api/create/intelligent-followup"'),
+    const authenticatedStartFlow = startFlow.slice(
+      startFlow.indexOf("const saveStartedAt"),
     );
+    expect(authenticatedStartFlow.indexOf('fetch("/api/create/save"')).toBeLessThan(
+      authenticatedStartFlow.indexOf("requestCreateProgressiveFollowup({"),
+    );
+    expect(source).toContain('"/api/create/intelligent-followup"');
+    expect(startFlow).toContain('anonymous: true');
+    expect(source).toContain('accept: "text/event-stream"');
     expect(startFlow).toContain("analysisRunInFlightRef.current");
     expect(startFlow).toContain("correlationId");
     expect(startFlow).toContain("draftId: runDraftId");

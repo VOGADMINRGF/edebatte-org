@@ -156,6 +156,11 @@ export type CreatePlannerRuntimeTrace = {
   userScope: "present" | "missing_runtime_truth";
   timings?: {
     saveMs?: number | null;
+    firstProgressVisibleMs?: number | null;
+    firstValidatedTopicVisibleMs?: number | null;
+    finalVisibleMs?: number | null;
+    eventCount?: number;
+    correctedEventCount?: number;
     accessMs: number;
     plannerMs: number | null;
     contextMs: number | null;

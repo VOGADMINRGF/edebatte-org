@@ -40,6 +40,23 @@ export type CreateAnonymousSession = {
   expiresAtMs: number;
 };
 
+export type CreateAnonymousStorageContext = {
+  namespace: string;
+  expiresAt: string;
+};
+
+export function createAnonymousStorageContext(
+  session: CreateAnonymousSession,
+): CreateAnonymousStorageContext | null {
+  const secret = readSigningSecret();
+  if (!secret || session.expiresAtMs <= Date.now()) return null;
+  const binding = `create-storage.v1.${session.id}.${session.expiresAtMs}`;
+  return {
+    namespace: `g1_${sign(binding, secret)}`,
+    expiresAt: new Date(session.expiresAtMs).toISOString(),
+  };
+}
+
 export function createAnonymousSession(nowMs = Date.now()): {
   value: string;
   session: CreateAnonymousSession;

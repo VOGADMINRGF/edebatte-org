@@ -46,29 +46,33 @@ describe("create fast-intake latency contract", () => {
 
   it("starts the planner deadline only after durable save and skips it for link intake", () => {
     const client = source("src/app/create/CreateClient.tsx");
+    const startFlowIndex = client.indexOf("const startCreateFlow");
     const startFlow = client.slice(
-      client.indexOf("const startCreateFlow"),
+      startFlowIndex,
       client.indexOf("const handleStart"),
     );
-    const saveIndex = client.indexOf('fetch("/api/create/save"');
-    const durableSaveIndex = client.indexOf("draftSavedForRun = true", saveIndex);
-    const linkIntakeIndex = client.indexOf(
+    const saveIndex = startFlow.indexOf('fetch("/api/create/save"');
+    const durableSaveIndex = startFlow.indexOf("draftSavedForRun = true", saveIndex);
+    const linkIntakeIndex = startFlow.indexOf(
       "if (linkDetection.hasLink && linkDetection.primaryUrl)",
       durableSaveIndex,
     );
-    const deadlineIndex = client.indexOf(
+    const deadlineIndex = startFlow.indexOf(
       "plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs)",
       durableSaveIndex,
     );
-    const plannerIndex = client.indexOf('fetch("/api/create/intelligent-followup"');
+    const plannerIndex = startFlow.indexOf(
+      "const body = await requestCreateProgressiveFollowup({",
+      deadlineIndex,
+    );
 
     expect(saveIndex).toBeGreaterThan(-1);
     expect(durableSaveIndex).toBeGreaterThan(saveIndex);
     expect(linkIntakeIndex).toBeGreaterThan(durableSaveIndex);
     expect(deadlineIndex).toBeGreaterThan(linkIntakeIndex);
     expect(plannerIndex).toBeGreaterThan(deadlineIndex);
-    expect(client.slice(saveIndex, durableSaveIndex)).not.toContain("signal:");
-    expect(client.slice(plannerIndex, plannerIndex + 260)).toContain(
+    expect(startFlow.slice(saveIndex, durableSaveIndex)).not.toContain("signal:");
+    expect(startFlow.slice(plannerIndex, plannerIndex + 360)).toContain(
       "signal: plannerDeadline.signal",
     );
     expect(startFlow).toContain("plannerDeadline?.clear()");

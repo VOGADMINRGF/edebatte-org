@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getExistingTopicMatchesRuntimeBlockers,
+  inferExistingTopicMatchRelation,
   mapRuntimeEntityToExistingTopicMatch,
   resolveExistingTopicMatchesFromRuntime,
   type ExistingTopicMatchesRuntimeEntity,
@@ -52,6 +53,15 @@ function buildFollowup(params: {
 }
 
 describe("create existing topic matches runtime bridge", () => {
+  it("marks a same-topic counterposition as opposing without merging it", () => {
+    expect(
+      inferExistingTopicMatchRelation(
+        "Vor Schulen sollte Tempo 30 gelten.",
+        "Tempo 50 auf Hauptstraßen beibehalten",
+      ),
+    ).toBe("opposing");
+  });
+
   it("maps every supported runtime entity kind onto the visible existing-topic-match contract", () => {
     const entities: ExistingTopicMatchesRuntimeEntity[] = [
       {

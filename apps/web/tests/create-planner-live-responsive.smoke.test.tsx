@@ -4,6 +4,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import CreateVisualFollowup from "@/features/create/CreateVisualFollowup";
+import CreateProgressiveTransparency from "@/features/create/CreateProgressiveTransparency";
+import {
+  buildCreateInitialProgressEvents,
+  buildCreateValidatedProgressEvents,
+} from "@/features/create/createProgressEventContract";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
 import {
   CREATE_FAST_INTAKE_TIMEOUT_MS,
@@ -49,16 +54,55 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
         try {
           const page = await browser.newPage({ viewport: { width, height } });
           const fastIntakeStartedAt = performance.now();
+          const operationId = `live-regression-${device}-${Date.now()}`;
+          const initialProgress = buildCreateInitialProgressEvents({
+            text: REGRESSION_TEXT,
+            locale: "de",
+            operationId,
+            correlationId: operationId,
+          });
+          await page.setContent(
+            renderToStaticMarkup(
+              <CreateProgressiveTransparency
+                events={initialProgress.events}
+                isRunning
+                locale="de"
+              />,
+            ),
+            { waitUntil: "domcontentloaded" },
+          );
+          const firstProgressVisibleMs = Math.round(
+            performance.now() - fastIntakeStartedAt,
+          );
           const result = await buildCreateIntelligentFollowup({
             text: REGRESSION_TEXT,
             locale: "de",
             intent: "contribute",
-            requestId: `live-regression-${device}-${Date.now()}`,
-            operationId: `live-regression-${device}-${Date.now()}`,
+            requestId: operationId,
+            operationId,
             operationType: "create_intelligent_followup_planner",
           });
+          const finalProgress = buildCreateValidatedProgressEvents({
+            operationId,
+            correlationId: operationId,
+            locale: "de",
+            structure: initialProgress.structure,
+            topics: result.understanding.topics,
+            scopes: result.understanding.scopes,
+            qualityPassed:
+              result.meta?.planner?.qualityStatus === "specific" &&
+              result.meta.planner.plannerDegraded === false &&
+              result.meta?.analysis?.state === "result_ready",
+            partial: result.meta?.analysis?.state !== "result_ready",
+          });
+          const allProgress = [...initialProgress.events, ...finalProgress];
           const html = renderToStaticMarkup(
             <div data-test-viewport={`${width}x${height}`} style={{ width }}>
+              <CreateProgressiveTransparency
+                events={allProgress}
+                isRunning={false}
+                locale="de"
+              />
               <CreateVisualFollowup
                 result={result}
                 onConfirm={noop}
@@ -78,15 +122,27 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
             </div>,
           );
           await page.setContent(html, { waitUntil: "domcontentloaded" });
+          const firstValidatedTopicVisibleMs = Math.round(
+            performance.now() - fastIntakeStartedAt,
+          );
           const visible = await page
             .locator("[data-create-understanding-aspects]")
             .isVisible();
-          const fastIntakeToVisibleMs = Math.round(
+          const finalVisibleMs = Math.round(
             performance.now() - fastIntakeStartedAt,
           );
           const planner = result.meta?.planner;
           const evidence = {
             device: `${device} ${width}x${height}`,
+            durableSaveMs: null,
+            firstProgressVisibleMs,
+            firstValidatedTopicVisibleMs,
+            finalPlannerMs: planner?.runtimeMs ?? null,
+            finalVisibleMs,
+            eventCount: allProgress.length,
+            correctedEventCount: allProgress.filter(
+              (event) => event.status === "corrected",
+            ).length,
             canonicalTopicCount: result.understanding.topics.length,
             mainTopic: result.understanding.topics[0]?.label ?? null,
             aspects: result.understanding.aspects ?? [],
@@ -102,9 +158,9 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
             plannerMs: planner?.runtimeMs ?? null,
             postPlannerToVisibleMs:
               typeof planner?.runtimeMs === "number"
-                ? Math.max(0, fastIntakeToVisibleMs - planner.runtimeMs)
+                ? Math.max(0, finalVisibleMs - planner.runtimeMs)
                 : null,
-            fastIntakeToVisibleMs,
+            fastIntakeToVisibleMs: finalVisibleMs,
           };
 
           console.info(`[create-live-regression] ${JSON.stringify(evidence)}`);
@@ -121,7 +177,8 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
           expect(planner?.runtimeMs).toBeLessThan(
             CREATE_FAST_INTAKE_TIMEOUT_MS + 300,
           );
-          expect(fastIntakeToVisibleMs).toBeLessThan(
+          expect(firstProgressVisibleMs).toBeLessThan(finalVisibleMs);
+          expect(finalVisibleMs).toBeLessThan(
             CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
           );
           expect(visible).toBe(true);
@@ -141,35 +198,93 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
       try {
         const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
         const submitStartedAt = performance.now();
+        const operationId = `live-regression-long-${Date.now()}`;
+        const initialProgress = buildCreateInitialProgressEvents({
+          text: LONG_COMMUNAL_PROGRAM,
+          locale: "de",
+          operationId,
+          correlationId: operationId,
+        });
+        await page.setContent(
+          renderToStaticMarkup(
+            <CreateProgressiveTransparency
+              events={initialProgress.events}
+              isRunning
+              locale="de"
+            />,
+          ),
+          { waitUntil: "domcontentloaded" },
+        );
+        const firstProgressVisibleMs = Math.round(
+          performance.now() - submitStartedAt,
+        );
+        expect(
+          await page
+            .getByText("Struktur erkannt: 14 getrennte Abschnitte.")
+            .isVisible(),
+        ).toBe(true);
         const result = await buildCreateIntelligentFollowup({
           text: LONG_COMMUNAL_PROGRAM,
           locale: "de",
           intent: "contribute",
-          requestId: `live-regression-long-${Date.now()}`,
-          operationId: `live-regression-long-${Date.now()}`,
+          requestId: operationId,
+          operationId,
           operationType: "create_intelligent_followup_planner",
         });
+        const finalProgress = buildCreateValidatedProgressEvents({
+          operationId,
+          correlationId: operationId,
+          locale: "de",
+          structure: initialProgress.structure,
+          topics: result.understanding.topics,
+          scopes: result.understanding.scopes,
+          qualityPassed:
+            result.meta?.planner?.qualityStatus === "specific" &&
+            result.meta.planner.plannerDegraded === false &&
+            result.meta?.analysis?.state === "result_ready",
+          partial: result.meta?.analysis?.state !== "result_ready",
+        });
+        const allProgress = [...initialProgress.events, ...finalProgress];
         const html = renderToStaticMarkup(
-          <CreateVisualFollowup
-            result={result}
-            compactBranchLimit={4}
-            onConfirm={noop}
-            onEdit={noop}
-            onPrepareSubmission={noop}
-            onPrepareAnlassraum={noop}
-            onOpenDossierAppend={noop}
-            onOpenDossierCreate={noop}
-            onPrepareVote={noop}
-            onSaveOnly={noop}
-            continuationValue=""
-            onContinuationChange={noop}
-            onContinueConversation={noop}
-          />,
+          <>
+            <CreateProgressiveTransparency
+              events={allProgress}
+              isRunning={false}
+              locale="de"
+            />
+            <CreateVisualFollowup
+              result={result}
+              compactBranchLimit={4}
+              onConfirm={noop}
+              onEdit={noop}
+              onPrepareSubmission={noop}
+              onPrepareAnlassraum={noop}
+              onOpenDossierAppend={noop}
+              onOpenDossierCreate={noop}
+              onPrepareVote={noop}
+              onSaveOnly={noop}
+              continuationValue=""
+              onContinuationChange={noop}
+              onContinueConversation={noop}
+            />
+          </>,
         );
         await page.setContent(html, { waitUntil: "domcontentloaded" });
-        const submitToVisibleResultMs = Math.round(performance.now() - submitStartedAt);
+        const firstValidatedTopicVisibleMs = Math.round(
+          performance.now() - submitStartedAt,
+        );
+        const finalVisibleMs = Math.round(performance.now() - submitStartedAt);
         const planner = result.meta?.planner;
         const evidence = {
+          durableSaveMs: null,
+          firstProgressVisibleMs,
+          firstValidatedTopicVisibleMs,
+          finalPlannerMs: planner?.runtimeMs ?? null,
+          finalVisibleMs,
+          eventCount: allProgress.length,
+          correctedEventCount: allProgress.filter(
+            (event) => event.status === "corrected",
+          ).length,
           selectedTimingLane: planner?.timingLane ?? null,
           inputLength: planner?.inputLength ?? null,
           canonicalTopicCount: result.understanding.topics.length,
@@ -178,7 +293,7 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
           model: planner?.plannerDebug.usedModel ?? null,
           providerAttempts: planner?.providerAttemptCount ?? null,
           plannerMs: planner?.runtimeMs ?? null,
-          submitToVisibleResultMs,
+          submitToVisibleResultMs: finalVisibleMs,
         };
 
         console.info(`[create-live-regression-long] ${JSON.stringify(evidence)}`);
@@ -193,9 +308,11 @@ describe.runIf(process.env.CREATE_LIVE_REGRESSION_SMOKE === "1")(
           "Gesundheit und Pflege",
         ]);
         expect(planner?.plannerProvider).toBe("openai");
-        expect(submitToVisibleResultMs).toBeLessThan(
+        expect(firstProgressVisibleMs).toBeLessThan(firstValidatedTopicVisibleMs);
+        expect(finalVisibleMs).toBeLessThan(
           CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
         );
+        expect(html).toContain("+ 10 weitere geprüfte Themen");
         expect(html).toContain("Das ist kein einzelnes Anliegen, sondern ein Vorschlagspaket.");
         expect(html).toContain("Ich erkenne 14 Themenbereiche.");
         expect(html).toContain("+10 weitere Themen");

@@ -29,11 +29,15 @@ vi.mock("@/features/create/createRouteSecurity", () => ({
 
 import { POST } from "@/app/api/create/intelligent-followup/route";
 import {
+  CREATE_PROGRESS_EVENT_CAP,
+  adoptCompletedCreateOrchestrationClaim,
   createInMemoryCreateOrchestrationClaimRepo,
   createOrchestrationClaimKeyForTests,
+  readCompletedCreateOrchestrationClaim,
   runCreateOrchestrationSingleFlight,
   setCreateOrchestrationClaimRepoForTests,
 } from "@/features/create/createOrchestrationSingleFlight";
+import { buildCreateInitialProgressEvents } from "@/features/create/createProgressEventContract";
 
 const OPERATION_TYPE = "create_intelligent_followup_planner" as const;
 
@@ -296,5 +300,214 @@ describe("persistent create orchestration single-flight", () => {
         run: async () => ({ state: "must_not_run" }),
       }),
     ).rejects.toThrow("create_single_flight_input_mismatch");
+  });
+
+  it("persists and replays idempotent progress to a concurrent reconnect", async () => {
+    const event = buildCreateInitialProgressEvents({
+      text: "Mehr sichere Schulwege.",
+      operationId: "correlation-progress-replay",
+      correlationId: "correlation-progress-replay",
+      locale: "de",
+      createdAt: "2026-09-06T09:00:00.000Z",
+    }).events[0];
+    const keyInput = {
+      actorKey: "user:progress-replay",
+      draftId: "draft-progress-replay",
+      correlationId: "correlation-progress-replay",
+      operationType: OPERATION_TYPE,
+      inputHash: "input-progress-replay",
+      waitMs: 2_000,
+    };
+    let releaseOwner!: () => void;
+    const ownerGate = new Promise<void>((resolve) => {
+      releaseOwner = resolve;
+    });
+    const ownerEvents: string[] = [];
+    const reconnectEvents: string[] = [];
+
+    const owner = runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      onProgress: (progress) => ownerEvents.push(progress.eventId),
+      run: async ({ publishProgressEvent }) => {
+        await publishProgressEvent(event);
+        await publishProgressEvent(event);
+        await ownerGate;
+        return { state: "completed" };
+      },
+    });
+    await vi.waitFor(() => expect(ownerEvents).toEqual([event.eventId]));
+
+    const reconnect = runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      resumeOnly: true,
+      onProgress: (progress) => reconnectEvents.push(progress.eventId),
+      run: async () => ({ state: "must_not_run" }),
+    });
+    await vi.waitFor(() => expect(reconnectEvents).toEqual([event.eventId]));
+    releaseOwner();
+
+    await expect(owner).resolves.toMatchObject({ result: { state: "completed" } });
+    await expect(reconnect).resolves.toMatchObject({
+      result: { state: "completed" },
+      reused: true,
+    });
+  });
+
+  it("fails resume-only closed when no durable operation exists", async () => {
+    await expect(
+      runCreateOrchestrationSingleFlight({
+        actorKey: "user:missing-progress",
+        draftId: "draft-missing-progress",
+        correlationId: "correlation-missing-progress",
+        operationType: OPERATION_TYPE,
+        inputHash: "input-missing-progress",
+        resumeOnly: true,
+        run: async () => ({ state: "must_not_run" }),
+      }),
+    ).rejects.toThrow("create_single_flight_resume_unavailable");
+  });
+
+  it("fails resume-only closed when Mongo TTL cleanup has not removed an expired claim yet", async () => {
+    const repo = createInMemoryCreateOrchestrationClaimRepo();
+    setCreateOrchestrationClaimRepoForTests(repo);
+    const keyInput = {
+      actorKey: "user:expired-progress",
+      draftId: "draft-expired-progress",
+      correlationId: "correlation-expired-progress",
+      operationType: OPERATION_TYPE,
+      inputHash: "input-expired-progress",
+    };
+    await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      run: async () => ({ state: "completed" }),
+    });
+    repo.expireResultForTests(createOrchestrationClaimKeyForTests(keyInput));
+
+    await expect(
+      runCreateOrchestrationSingleFlight({
+        ...keyInput,
+        resumeOnly: true,
+        run: async () => ({ state: "must_not_run" }),
+      }),
+    ).rejects.toThrow("create_single_flight_resume_unavailable");
+  });
+
+  it("caps durable progress and keeps observer failures away from the planner result", async () => {
+    const repo = createInMemoryCreateOrchestrationClaimRepo();
+    setCreateOrchestrationClaimRepoForTests(repo);
+    const baseEvent = buildCreateInitialProgressEvents({
+      text: "Mehr sichere Schulwege.",
+      operationId: "correlation-progress-cap",
+      correlationId: "correlation-progress-cap",
+      locale: "de",
+      createdAt: "2026-09-06T09:00:00.000Z",
+    }).events[0];
+    const keyInput = {
+      actorKey: "user:progress-cap",
+      draftId: "draft-progress-cap",
+      correlationId: "correlation-progress-cap",
+      operationType: OPERATION_TYPE,
+      inputHash: "input-progress-cap",
+    };
+
+    const result = await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      onProgress: () => {
+        throw new Error("disconnected observer");
+      },
+      run: async ({ publishProgressEvent }) => {
+        await publishProgressEvent({
+          ...baseEvent,
+          operationId: "foreign-operation-progress-cap",
+          correlationId: "foreign-correlation-progress-cap",
+          eventId: `${baseEvent.eventId}:foreign`,
+        });
+        for (let index = 0; index < CREATE_PROGRESS_EVENT_CAP + 8; index += 1) {
+          await publishProgressEvent({
+            ...baseEvent,
+            eventId: `${baseEvent.eventId}:${index}`,
+          });
+        }
+        return { state: "completed" };
+      },
+    });
+    const claimKey = createOrchestrationClaimKeyForTests(keyInput);
+    const snapshot = repo.snapshotForTests<{ state: string }>(claimKey);
+
+    expect(result.result).toEqual({ state: "completed" });
+    expect(snapshot?.status).toBe("completed");
+    expect(snapshot?.progressEvents).toHaveLength(CREATE_PROGRESS_EVENT_CAP);
+  });
+
+  it("does not corrupt the planner result when optional progress persistence fails", async () => {
+    const repo = createInMemoryCreateOrchestrationClaimRepo();
+    repo.appendProgress = vi.fn().mockRejectedValue(new Error("progress store unavailable"));
+    setCreateOrchestrationClaimRepoForTests(repo);
+    const event = buildCreateInitialProgressEvents({
+      text: "Mehr sichere Schulwege.",
+      operationId: "correlation-progress-write-failure",
+      correlationId: "correlation-progress-write-failure",
+      locale: "de",
+      createdAt: "2026-09-06T09:00:00.000Z",
+    }).events[0];
+
+    const result = await runCreateOrchestrationSingleFlight({
+      actorKey: "user:progress-write-failure",
+      draftId: "draft-progress-write-failure",
+      correlationId: "correlation-progress-write-failure",
+      operationType: OPERATION_TYPE,
+      inputHash: "input-progress-write-failure",
+      run: async ({ publishProgressEvent }) => {
+        await publishProgressEvent(event);
+        return { state: "completed" };
+      },
+    });
+
+    expect(result.result).toEqual({ state: "completed" });
+  });
+
+  it("atomically adopts a completed anonymous claim once and only for its bound session", async () => {
+    const keyInput = {
+      actorKey: "anonymous:guest-session-a",
+      draftId: "anonymous:guest-session-a",
+      correlationId: "guest-operation-12345678",
+      operationType: OPERATION_TYPE,
+    };
+    const result = successfulFollowup();
+    await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "guest-input-hash",
+      run: async () => result,
+    });
+
+    await expect(readCompletedCreateOrchestrationClaim(keyInput)).resolves.toMatchObject({
+      inputHash: "guest-input-hash",
+      result,
+    });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-a",
+      }),
+    ).resolves.toEqual({ kind: "adopted", result });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-a",
+      }),
+    ).resolves.toEqual({ kind: "reused", result });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-b",
+      }),
+    ).resolves.toEqual({ kind: "conflict" });
+    await expect(
+      readCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        actorKey: "anonymous:guest-session-b",
+        draftId: "anonymous:guest-session-b",
+      }),
+    ).resolves.toBeNull();
   });
 });

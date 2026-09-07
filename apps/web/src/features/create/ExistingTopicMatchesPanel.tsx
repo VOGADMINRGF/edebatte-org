@@ -13,6 +13,22 @@ import {
   type ExistingTopicMatch,
   type ExistingTopicMatchPanelModel,
 } from "@/features/create/existingTopicMatches";
+import type { ExistingMatchUserDecision } from "@/features/create/createContributionPackageContract";
+
+export type CitizenMatchDecision = Extract<
+  ExistingMatchUserDecision,
+  "count_my_position" | "count_as_opposition" | "add_as_nuance" | "keep_separate"
+>;
+
+const CITIZEN_MATCH_DECISIONS: ReadonlyArray<{
+  id: CitizenMatchDecision;
+  label: string;
+}> = [
+  { id: "count_my_position", label: "Unterstützen" },
+  { id: "count_as_opposition", label: "Widersprechen" },
+  { id: "add_as_nuance", label: "Ergänzen / Nuance" },
+  { id: "keep_separate", label: "Separat weiterführen" },
+];
 
 export type ExistingTopicMatchesPanelProps = {
   model: ExistingTopicMatchPanelModel;
@@ -20,6 +36,8 @@ export type ExistingTopicMatchesPanelProps = {
   onStartNewBranch?: () => void;
   onCountSimilarOpinion?: (matchId: string) => void;
   onPrepareReview?: (matchId: string) => void;
+  onMatchDecision?: (matchId: string, decision: CitizenMatchDecision) => void;
+  decisions?: Readonly<Record<string, CitizenMatchDecision>>;
 };
 
 function getStrengthLabel(strength: ExistingTopicMatch["strength"]): string {
@@ -96,6 +114,8 @@ function resolveMatchAction(
 export default function ExistingTopicMatchesPanel(
   props: ExistingTopicMatchesPanelProps,
 ) {
+  const [decisions, setDecisions] = React.useState<Record<string, CitizenMatchDecision>>({});
+  const activeDecisions = props.decisions ?? decisions;
   const matches = getVisibleExistingTopicMatches(props.model);
   const guardrailNote = getExistingTopicMatchGuardrailNote(props.model);
   const primaryMatch = getPrimaryExistingTopicMatch(props.model);
@@ -157,6 +177,11 @@ export default function ExistingTopicMatchesPanel(
                     <h4 className="text-sm font-semibold text-[rgb(var(--fg))]">
                       {match.title}
                     </h4>
+                    {match.relation === "opposing" ? (
+                      <p className="text-xs font-medium text-violet-800 dark:text-violet-200">
+                        Mögliche Gegenposition
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -186,6 +211,44 @@ export default function ExistingTopicMatchesPanel(
                     Review-first: Dossier-, Anlass- und Beteiligungsanschlüsse bleiben
                     vorbereitend und brauchen eine bewusste Prüfung.
                   </p>
+                ) : null}
+
+                {match.kind !== "source_question" ? (
+                  <fieldset className="mt-3">
+                    <legend className="text-xs font-semibold text-[rgb(var(--fg))]">
+                      Wie möchtest du damit weitergehen?
+                    </legend>
+                    <div className="mt-2 flex flex-wrap gap-2" data-existing-match-decisions>
+                      {CITIZEN_MATCH_DECISIONS.map((decision) => {
+                        const selected = activeDecisions[match.id] === decision.id;
+                        return (
+                          <button
+                            key={decision.id}
+                            type="button"
+                            className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-2 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                              selected
+                                ? "border-cyan-500 bg-cyan-500/[0.14] text-cyan-950 dark:text-cyan-50"
+                                : "border-slate-300 text-[rgb(var(--fg))] hover:border-slate-400 dark:border-[rgb(var(--border))]"
+                            }`}
+                            aria-pressed={selected}
+                            onClick={() => {
+                              if (!props.decisions) {
+                                setDecisions((current) => ({ ...current, [match.id]: decision.id }));
+                              }
+                              props.onMatchDecision?.(match.id, decision.id);
+                            }}
+                          >
+                            {decision.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {activeDecisions[match.id] ? (
+                      <p className="mt-2 text-xs text-[rgb(var(--muted))]" role="status">
+                        Deine Auswahl bleibt ein Entwurf. Es wurde nichts zusammengeführt oder veröffentlicht.
+                      </p>
+                    ) : null}
+                  </fieldset>
                 ) : null}
 
                 {action ? (

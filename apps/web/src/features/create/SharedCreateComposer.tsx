@@ -12,6 +12,8 @@ import type {
   CreateSurfaceModeDefinition,
 } from "@/features/create/createSurfaceConfig";
 import EntryHeroHeading from "@/components/surfaces/EntryHeroHeading";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
 
 type SpeechRecognitionLike = {
   lang: string;
@@ -165,6 +167,12 @@ export type SharedCreateComposerProps = {
   error?: string | null;
   errorRef?: React.Ref<React.ElementRef<"p">>;
   contextBanner?: React.ReactNode;
+  citizenContext?: CreateCitizenIntakeContext | null;
+  onEditCitizenRegion?: () => void;
+  confirmedJurisdictionKey?: string | null;
+  onConfirmCitizenJurisdiction?: (candidateKey: string) => void;
+  onEditCitizenJurisdiction?: () => void;
+  allowAttachments?: boolean;
   allowVoice?: boolean;
   onAttachmentsChange?: (files: File[]) => void;
   minRows?: number;
@@ -208,6 +216,12 @@ export default function SharedCreateComposer({
   error,
   errorRef,
   contextBanner,
+  citizenContext,
+  onEditCitizenRegion,
+  confirmedJurisdictionKey = null,
+  onConfirmCitizenJurisdiction,
+  onEditCitizenJurisdiction,
+  allowAttachments = true,
   allowVoice = true,
   onAttachmentsChange,
   minRows = 9,
@@ -430,6 +444,91 @@ export default function SharedCreateComposer({
 
           {contextBanner}
 
+          {citizenContext?.regionChipLabel ? (
+            <div
+              className="flex flex-wrap items-center gap-2"
+              data-create-region-context={citizenContext.regionSource}
+            >
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] items-center rounded-full border border-cyan-300/45 bg-cyan-500/[0.08] px-3.5 py-2 text-sm font-medium text-cyan-950 transition hover:bg-cyan-500/[0.13] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 dark:border-cyan-300/25 dark:bg-cyan-500/[0.12] dark:text-cyan-50"
+                onClick={() => {
+                  onEditCitizenRegion?.();
+                  textareaRef.current?.focus();
+                }}
+                aria-label={`${citizenContext.regionChipLabel}. Region bearbeiten`}
+              >
+                <span aria-hidden="true" className="mr-1.5">📍</span>
+                {citizenContext.regionChipLabel}
+              </button>
+            </div>
+          ) : null}
+
+          {citizenContext && citizenContext.jurisdictionCandidates.length > 0 ? (
+            <div
+              className="rounded-2xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-950/25 dark:text-amber-50"
+              data-create-jurisdiction-confirmation
+            >
+              <p className="font-semibold">
+                {citizenContext.jurisdictionCandidates.length === 1
+                  ? `Vermutlich zuständig: ${citizenContext.jurisdictionCandidates[0]?.label}`
+                  : "Mehrere Zuständigkeiten kommen infrage"}
+              </p>
+              <p className="mt-1 leading-relaxed">
+                {citizenContext.jurisdictionCandidates.length === 1
+                  ? "Passt das? Die Zuständigkeit bleibt ein Vorschlag, bis du sie bestätigst."
+                  : "Bitte bestätige genau den Vorschlag, der zu deinem Anliegen passt."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {citizenContext.jurisdictionCandidates.map((candidate) => {
+                  const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+                  const selected = confirmedJurisdictionKey === candidateKey;
+                  const canConfirm = candidate.level !== "unknown";
+                  return (
+                    <button
+                      key={candidateKey}
+                      type="button"
+                      className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                        selected
+                          ? "border-emerald-600 bg-emerald-100 text-emerald-950 dark:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-50"
+                          : "border-amber-500/50 bg-white/70 text-amber-950 hover:border-amber-600 dark:bg-amber-950/20 dark:text-amber-50"
+                      }`}
+                      aria-pressed={selected}
+                      disabled={!canConfirm || !onConfirmCitizenJurisdiction}
+                      onClick={() => onConfirmCitizenJurisdiction?.(candidateKey)}
+                    >
+                      {selected
+                        ? `${candidate.label} · bestätigt`
+                        : citizenContext.jurisdictionCandidates.length === 1
+                          ? "Ja, das passt"
+                          : candidate.label}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-amber-500/50 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:border-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-amber-50"
+                  onClick={() => {
+                    onEditCitizenJurisdiction?.();
+                    textareaRef.current?.focus();
+                  }}
+                >
+                  {confirmedJurisdictionKey ? "Zuständigkeit ändern" : "Im Beitrag präzisieren"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {citizenContext?.safety.emergencyNoticeRequired ? (
+            <div
+              role="alert"
+              className="rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-300/30 dark:bg-red-950/30 dark:text-red-50"
+              data-create-emergency-notice
+            >
+              Bei akuter Gefahr ist eDebatte nicht der richtige Notfallkanal. Ruf 112 oder wende dich direkt an Polizei beziehungsweise Rettungsdienst.
+            </div>
+          ) : null}
+
           <label className="sr-only" htmlFor={inputId}>
             {inputLabel ?? texts.inputLabel}
           </label>
@@ -449,16 +548,18 @@ export default function SharedCreateComposer({
                 <span className="text-[12px] font-medium text-[rgb(var(--muted))]">
                   {locale === "en" ? "Write or speak" : "Schreiben oder sprechen"}
                 </span>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3.5 py-1.5 text-[13px] font-medium text-[rgb(var(--muted))] transition hover:text-[rgb(var(--fg))]"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label={texts.attachAria}
-                  title={texts.attachAria}
-                >
-                  <IconPaperclip />
-                  <span>{texts.attachLabel}</span>
-                </button>
+                {allowAttachments ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3.5 py-1.5 text-[13px] font-medium text-[rgb(var(--muted))] transition hover:text-[rgb(var(--fg))]"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label={texts.attachAria}
+                    title={texts.attachAria}
+                  >
+                    <IconPaperclip />
+                    <span>{texts.attachLabel}</span>
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
@@ -504,14 +605,16 @@ export default function SharedCreateComposer({
             </div>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept={FILE_ACCEPT}
-            className="sr-only"
-            onChange={handleFilesChange}
-          />
+          {allowAttachments ? (
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={FILE_ACCEPT}
+              className="sr-only"
+              onChange={handleFilesChange}
+            />
+          ) : null}
 
           {attachments.length > 0 ? (
             <details className="rounded-[1.3rem] border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-4 py-3">

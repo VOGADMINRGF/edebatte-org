@@ -49,6 +49,14 @@ function request(body: Record<string, unknown>) {
   });
 }
 
+function streamRequest(body: Record<string, unknown>) {
+  return new NextRequest("http://localhost/api/create/intelligent-followup", {
+    method: "POST",
+    headers: { ...SECURE_HEADERS, accept: "text/event-stream" },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+}
+
 describe("/api/create/intelligent-followup route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -68,14 +76,19 @@ describe("/api/create/intelligent-followup route", () => {
     mocks.markExternalExecutionStarted.mockResolvedValue(undefined);
     mocks.runCreateOrchestrationSingleFlight.mockImplementation(
       async (input: {
+        onProgress?: (event: unknown) => void | Promise<void>;
         run: (context: {
           recoveryWithoutExternalCall: boolean;
           markExternalExecutionStarted: () => Promise<void>;
+          publishProgressEvent: (event: unknown) => Promise<void>;
         }) => Promise<unknown>;
       }) => ({
         result: await input.run({
           recoveryWithoutExternalCall: false,
           markExternalExecutionStarted: mocks.markExternalExecutionStarted,
+          publishProgressEvent: async (event) => {
+            await input.onProgress?.(event);
+          },
         }),
         reused: false,
         recovered: false,
@@ -93,9 +106,12 @@ describe("/api/create/intelligent-followup route", () => {
   it("creates a user-safe support handoff for a degraded planner result", async () => {
     mocks.buildCreateIntelligentFollowup.mockResolvedValue({
       sourceText: "Input",
+      understanding: { topics: [], scopes: ["unclear"] },
       meta: {
         analysis: { state: "ai_failed" },
         planner: {
+          qualityStatus: "needs_confirmation",
+          plannerDegraded: true,
           degradedReason: "timeout",
           providerAttemptCount: 2,
           plannerDebug: {
@@ -176,6 +192,8 @@ describe("/api/create/intelligent-followup route", () => {
           issueMode: "single_issue",
           timingLane: "fast",
           inputLength: 5,
+          qualityStatus: "specific",
+          plannerDegraded: false,
         },
       },
       degraded: false,
@@ -223,6 +241,68 @@ describe("/api/create/intelligent-followup route", () => {
         dossierId: "dossier-1",
       }),
     );
+  });
+
+  it("streams only validated public state events after security and draft binding", async () => {
+    const text = Array.from(
+      { length: 14 },
+      (_, index) => `${index + 1}. Themenbereich ${index + 1}: Vorschlag`,
+    ).join("\n");
+    mocks.buildCreateIntelligentFollowup.mockResolvedValue({
+      understanding: {
+        summary: "Kommunalprogramm",
+        categories: [],
+        topics: Array.from({ length: 14 }, (_, index) => ({
+          id: `topic-${index + 1}`,
+          label: `Themenbereich ${index + 1}`,
+          confidence: index < 4 ? "high" : "medium",
+        })),
+        statements: [],
+        scopes: ["municipal"],
+        openQuestion: null,
+        confidence: "high",
+      },
+      suggestions: [],
+      sourceText: text,
+      generatedAt: "2026-09-06T09:00:00.000Z",
+      meta: {
+        analysis: { state: "result_ready" },
+        planner: {
+          runtimeMs: 2_000,
+          issueMode: "multi_issue",
+          timingLane: "standard",
+          inputLength: text.length,
+          qualityStatus: "specific",
+          plannerDegraded: false,
+        },
+      },
+      degraded: false,
+      degradedReason: null,
+    });
+
+    const response = await POST(streamRequest({
+      text,
+      locale: "de",
+      correlationId: "correlation-progress-route",
+      draftId: "draft-progress-route",
+    }));
+    const stream = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(mocks.enforceCreateMutationSecurity).toHaveBeenCalledTimes(1);
+    expect(mocks.verifyCreateDraftBinding).toHaveBeenCalledTimes(1);
+    expect(stream.indexOf('"type":"draft.saved"')).toBeLessThan(
+      stream.indexOf('"type":"structure.detected"'),
+    );
+    expect(stream.indexOf('"type":"structure.detected"')).toBeLessThan(
+      stream.indexOf('"type":"topic.detected"'),
+    );
+    expect(stream).toContain("Struktur erkannt: 14 getrennte Abschnitte.");
+    expect(stream).toContain('"type":"quality.passed"');
+    expect(stream).toContain('"type":"result.ready"');
+    expect(stream).toContain("event: result");
+    expect(stream).not.toMatch(/research\.|graph\.|providerPayload|sessionId|userId|apiKey/);
   });
 
   it("converts a final unhandled orchestration error into one safe support handoff", async () => {
@@ -302,12 +382,17 @@ describe("/api/create/intelligent-followup route", () => {
     async (draftId) => {
       mocks.verifyCreateDraftBinding.mockResolvedValue(null);
 
-      const response = await POST(request({
+      const requestBody = {
         text: "Bound input",
         locale: "de",
         correlationId: `correlation-${draftId}`,
         draftId,
-      }));
+      };
+      const response = await POST(
+        draftId === "foreign-draft"
+          ? streamRequest(requestBody)
+          : request(requestBody),
+      );
 
       expect(response.status).toBe(403);
       await expect(response.json()).resolves.toEqual({

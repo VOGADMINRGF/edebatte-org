@@ -5,6 +5,7 @@ import {
 } from "@/features/create/createMutationSecurityContract";
 import {
   CREATE_ANON_SESSION_COOKIE,
+  createAnonymousStorageContext,
   createAnonymousSession,
   createAnonymousSessionCookieOptions,
   verifyAnonymousSession,
@@ -24,6 +25,22 @@ function sameOriginRequest(req: NextRequest) {
   );
 }
 
+function sessionResponse(
+  session: Parameters<typeof createAnonymousStorageContext>[0],
+) {
+  const storageContext = createAnonymousStorageContext(session);
+  if (!storageContext) {
+    return NextResponse.json(
+      { ok: false, errorCode: "CREATE_SESSION_UNAVAILABLE" },
+      { status: 503, headers: { "cache-control": "no-store" } },
+    );
+  }
+  return NextResponse.json(
+    { ok: true, storageContext },
+    { status: 200, headers: { "cache-control": "no-store" } },
+  );
+}
+
 export async function POST(req: NextRequest) {
   if (!sameOriginRequest(req)) {
     return NextResponse.json(
@@ -36,10 +53,7 @@ export async function POST(req: NextRequest) {
     req.cookies.get(CREATE_ANON_SESSION_COOKIE)?.value,
   );
   if (existing) {
-    return NextResponse.json(
-      { ok: true },
-      { status: 200, headers: { "cache-control": "no-store" } },
-    );
+    return sessionResponse(existing);
   }
 
   const created = createAnonymousSession();
@@ -50,10 +64,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const response = NextResponse.json(
-    { ok: true },
-    { status: 200, headers: { "cache-control": "no-store" } },
-  );
+  const response = sessionResponse(created.session);
   response.cookies.set(
     CREATE_ANON_SESSION_COOKIE,
     created.value,

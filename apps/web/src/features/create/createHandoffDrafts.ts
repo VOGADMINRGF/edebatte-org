@@ -1,4 +1,5 @@
 import type { ExistingTopicMatch } from "@/features/create/existingTopicMatches";
+import type { ExistingMatchUserDecision } from "@/features/create/createContributionPackageContract";
 import type {
   DialogHandoffTarget,
   DialogOutcome,
@@ -52,6 +53,7 @@ export type CreateHandoffDraft = {
   title: string;
   summary: string;
   authorStandpoint?: string | null;
+  existingMatchDecision?: ExistingMatchUserDecision | null;
   topicTitle?: string | null;
   relatedMatchId?: string | null;
   relatedDialogOutcomeId?: string | null;
@@ -388,8 +390,24 @@ export function createHandoffDraftFromDialogOutcome(
 export function createHandoffDraftFromExistingTopicMatch(
   match: ExistingTopicMatch,
   target: CreateHandoffDraftTarget,
+  decision?: ExistingMatchUserDecision | null,
 ): CreateHandoffDraft {
   const timestamp = nowIso();
+  const authorStandpoint = (() => {
+    if (decision === "count_my_position") {
+      return `Unterstützt die bestehende Position: ${match.title}`;
+    }
+    if (decision === "count_as_opposition") {
+      return `Widerspricht der bestehenden Position: ${match.title}`;
+    }
+    if (decision === "add_as_nuance") {
+      return `Ergänzt eine alternative oder differenzierende Position zu: ${match.title}`;
+    }
+    if (decision === "keep_separate") {
+      return `Führt eine eigenständige neue Position getrennt weiter zu: ${match.title}`;
+    }
+    return null;
+  })();
 
   return {
     id: `create-handoff-draft-match-${match.id}-${target}`,
@@ -398,7 +416,8 @@ export function createHandoffDraftFromExistingTopicMatch(
     status: buildExistingMatchDraftStatus(match, target),
     title: buildExistingMatchDraftTitle(match, target),
     summary: buildExistingMatchDraftSummary(match, target),
-    authorStandpoint: null,
+    authorStandpoint,
+    existingMatchDecision: decision ?? null,
     topicTitle: match.title,
     relatedMatchId: match.id,
     selectedPerspectiveIds: [],

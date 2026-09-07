@@ -4,6 +4,7 @@ import {
 } from "@/features/create/part06TopicMapping";
 import type { CreatePlannerResult } from "@/features/create/createPlanner";
 import { hasValidatedCreatePlannerProviderIdentity } from "@/features/create/createPlannerProviderContract";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 
 export type FollowupConfidence = "low" | "medium" | "high";
 
@@ -193,6 +194,7 @@ export type CreateAnalysisRecord = {
 
 export type CreateIntelligentFollowupMeta = {
   planner?: CreatePlannerResult | null;
+  citizenContext?: CreateCitizenIntakeContext | null;
   graphMatch: CreateFollowupGraphMatchPlan;
   researchUsed: "none";
   researchProvider: null;

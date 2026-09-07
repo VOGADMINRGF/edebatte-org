@@ -59,6 +59,12 @@ jobs:
           tests/topics.route.test.ts
           tests/create-intelligent-followup.contract.test.ts
           tests/create-intelligent-followup.route.test.ts
+          tests/create-progressive-transparency.contract.test.tsx
+          tests/create-anonymous-ai-intake.route.test.ts
+          tests/create-anonymous-session.route.test.ts
+          tests/create-abuse-guard.contract.test.ts
+          tests/create-antispam-client.contract.test.ts
+          tests/create-route-antispam.contract.test.ts
           tests/create-link-analysis.auth-contract.test.ts
           tests/create-route-security.contract.test.ts
           tests/create-orchestration-single-flight.contract.test.ts
@@ -77,6 +83,12 @@ jobs:
           tests/create-workspace-actions.interaction.test.tsx
           tests/create-planner-debug-diagnostics.contract.test.ts
           tests/create-planner-timeout.contract.test.ts
+          tests/create-mode.page.test.ts
+          tests/analyze-workbench-hidden-until-start.test.ts
+          tests/create-citizen-intake-context.contract.test.ts
+          tests/create-adaptive-multi-issue-intake.contract.test.tsx
+          tests/create-existing-counterposition-choice.contract.test.tsx
+          tests/create-planner-contract-regression.contract.test.ts
           tests/openai-provider.reasoning.contract.test.ts
 
       - name: Create save domain contracts with isolated security harness

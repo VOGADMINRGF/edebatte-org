@@ -44,7 +44,18 @@ describe("create anonymous session route", () => {
     expect(cookie?.value).toBeTruthy();
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.sameSite).toBe("lax");
-    expect(verifyAnonymousSession(cookie?.value)).not.toBeNull();
+    const session = verifyAnonymousSession(cookie?.value);
+    expect(session).not.toBeNull();
+    const body = await response.json();
+    expect(body).toMatchObject({
+      ok: true,
+      storageContext: {
+        namespace: expect.stringMatching(/^g1_[A-Za-z0-9_-]+$/),
+        expiresAt: new Date(session!.expiresAtMs).toISOString(),
+      },
+    });
+    expect(body.storageContext.namespace).not.toContain(session!.id);
+    expect(JSON.stringify(body)).not.toContain(cookie!.value);
   });
 
   it("rejects cross-site priming", async () => {

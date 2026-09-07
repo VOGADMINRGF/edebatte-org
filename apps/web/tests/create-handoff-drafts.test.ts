@@ -65,6 +65,28 @@ describe("create handoff drafts contract", () => {
     expect(draft.requiresEditorialReview).toBe(false);
   });
 
+  it("preserves the citizen's explicit relation to an existing position", () => {
+    const match = EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch;
+    const cases = [
+      ["count_my_position", "Unterstützt die bestehende Position"],
+      ["count_as_opposition", "Widerspricht der bestehenden Position"],
+      ["add_as_nuance", "alternative oder differenzierende Position"],
+      ["keep_separate", "eigenständige neue Position"],
+    ] as const;
+
+    for (const [decision, expectedStandpoint] of cases) {
+      const draft = createHandoffDraftFromExistingTopicMatch(
+        match,
+        decision === "keep_separate" ? "new_branch" : "existing_branch_connection",
+        decision,
+      );
+      expect(draft.existingMatchDecision).toBe(decision);
+      expect(draft.authorStandpoint).toContain(expectedStandpoint);
+      expect(draft.autoCreate).toBe(false);
+      expect(draft.autoPublish).toBe(false);
+    }
+  });
+
   it("keeps existing branch connections free of merge side effects", () => {
     const draft = createHandoffDraftFromExistingTopicMatch(
       EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,

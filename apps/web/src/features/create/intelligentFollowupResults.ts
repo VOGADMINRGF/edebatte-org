@@ -12,6 +12,7 @@ import type {
   FollowupConfidence,
 } from "@/features/create/intelligentFollowupContract";
 import { normalizeDocumentAnalysisSummary } from "@/features/create/intelligentFollowupContract";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 
 export type BuildCreateTechnicalFollowupInput = {
   text: string;
@@ -22,6 +23,7 @@ export type BuildCreateTechnicalFollowupInput = {
   userMessage: string;
   generatedAt?: string;
   planner?: CreatePlannerResult | null;
+  citizenContext?: CreateCitizenIntakeContext | null;
   documentAnalysis?: DocumentAnalysisSummary | null;
 };
 
@@ -172,6 +174,7 @@ export function buildCreateTechnicalFollowup(
     generatedAt,
     meta: {
       planner,
+      citizenContext: input.citizenContext ?? null,
       graphMatch: buildGraphMatchPlan(planner),
       researchUsed: "none",
       researchProvider: null,

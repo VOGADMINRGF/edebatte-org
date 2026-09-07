@@ -102,9 +102,53 @@ describe("create layered anti-spam route security", () => {
     expect(namespaces).toContain("create:create_intelligent_followup:actor");
     expect(namespaces).toContain("create:create_intelligent_followup:ip");
     expect(namespaces).toContain("create:create_intelligent_followup:anonymous");
+    expect(namespaces).not.toContain("create:create_intelligent_followup:anonymous-ip");
     expect(namespaces).toContain("create:create_intelligent_followup:client");
     expect(namespaces).toContain("create:create_intelligent_followup:duplicate:actor");
     expect(namespaces).toContain("create:create_intelligent_followup:duplicate:ip");
+  });
+
+  it("keeps anonymous intake at twelve provider-eligible requests per IP despite session rotation", async () => {
+    const counters = new Map<string, number>();
+    mocks.consumePersistentRateLimit.mockImplementation(
+      async (input: { namespace: string; subjectHash: string; limit: number; windowMs: number }) => {
+        const key = `${input.namespace}:${input.subjectHash}`;
+        const count = (counters.get(key) ?? 0) + 1;
+        counters.set(key, count);
+        return {
+          ok: count <= input.limit,
+          remaining: Math.max(0, input.limit - count),
+          limit: input.limit,
+          resetAt: Date.now() + input.windowMs,
+          retryIn: count <= input.limit ? 0 : input.windowMs,
+        };
+      },
+    );
+
+    for (let requestIndex = 0; requestIndex < 13; requestIndex += 1) {
+      const created = createAnonymousSession(Date.now() + requestIndex);
+      expect(created).not.toBeNull();
+      if (!created) return;
+      const response = await enforceCreateMutationSecurity({
+        req: request({
+          text: `Legitimes Anliegen Nummer ${requestIndex}`,
+          cookie: `edebatte_create_session=${created.value}`,
+          headers: { "x-edebatte-create-client": `rotated-client-${requestIndex}` },
+        }),
+        scope: "create_intelligent_followup",
+        actorKey: `anonymous:${created.session.id}`,
+      });
+
+      if (requestIndex < 12) expect(response).toBeNull();
+      else expect(response?.status).toBe(429);
+    }
+
+    const anonymousIpCalls = mocks.consumePersistentRateLimit.mock.calls
+      .map(([input]) => input as { namespace: string; limit: number; windowMs: number })
+      .filter((input) => input.namespace === "create:create_intelligent_followup:anonymous-ip");
+    expect(anonymousIpCalls).toHaveLength(13);
+    expect(anonymousIpCalls.every((input) => input.limit === 12)).toBe(true);
+    expect(anonymousIpCalls.every((input) => input.windowMs === 10 * 60 * 1000)).toBe(true);
   });
 
   it("rate-limits repeated identical inputs before another provider call", async () => {

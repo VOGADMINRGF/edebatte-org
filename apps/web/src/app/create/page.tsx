@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getDraft } from "@/server/draftStore";
 import { getCreateContributionDraftForResume } from "@/server/createContributionDrafts";
@@ -97,20 +96,6 @@ async function detectPageLocale(): Promise<SupportedLocale> {
   return DEFAULT_LOCALE;
 }
 
-function toQueryString(resolved: Record<string, string | string[] | undefined>) {
-  const params = new URLSearchParams();
-  Object.entries(resolved).forEach(([key, value]) => {
-    if (Array.isArray(value)) {
-      value.forEach((item) => {
-        if (typeof item === "string") params.append(key, item);
-      });
-      return;
-    }
-    if (typeof value === "string") params.set(key, value);
-  });
-  return params.toString();
-}
-
 async function resolveCreateDraftResumeText(params: {
   draftId: string | null | undefined;
   userId: string;
@@ -145,19 +130,13 @@ export default async function CreatePage({
   searchParams?: SearchParamsShape;
 }) {
   const resolved = searchParams ? await searchParams : {};
-  const query = toQueryString(resolved);
   const pageLocale = resolveOperatorLocale(await detectPageLocale());
   const createText = getOperatorCreateTexts(pageLocale);
 
   const entitlements = await getCreateEntitlementsForRequest();
-  if (!entitlements.isAuthenticated || !entitlements.userId) {
-    redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
-  }
-
-  const overview = await getAccountOverview(entitlements.userId);
-  if (!overview) {
-    redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
-  }
+  const overview = entitlements.isAuthenticated && entitlements.userId
+    ? await getAccountOverview(entitlements.userId).catch(() => null)
+    : null;
 
   const mode = mapMode(readParam(resolved.mode));
   const rawModeParam = readParam(resolved.mode) ?? null;
@@ -172,16 +151,19 @@ export default async function CreatePage({
   const anlassraumId = readParam(resolved.anlassraumId) ?? null;
   const returnTo = readParam(resolved.returnTo) ?? null;
   const nextAction = readParam(resolved.nextAction) ?? null;
+  const resumeGuestWorkspace = readParam(resolved.resume) === "guest";
   const intakeContext = parseCreateIntakeContextFromQuery(resolved);
   const prefillText = decodeMaybe(readParam(resolved.prefill) ?? readParam(resolved.text));
   const draftId = readParam(resolved.draftId);
-  const requestScope = summarizeRequestScopeContext(
-    await resolveCurrentRequestScopeContext({
-      regionId: intakeContext?.region ?? null,
-    }),
-  );
+  const requestScope = overview
+    ? summarizeRequestScopeContext(
+        await resolveCurrentRequestScopeContext({
+          regionId: intakeContext?.region ?? null,
+        }),
+      )
+    : null;
 
-  const manualRoundServerDraft = draftId
+  const manualRoundServerDraft = draftId && overview
     ? await readManualAnlassraumServerDraftForCurrentUser(draftId).catch(() => null)
     : null;
   const initialRundenCreateHandoff: RundenCreateHandoffIntegrityState | null =
@@ -202,10 +184,10 @@ export default async function CreatePage({
   let initialText = prefillText ?? null;
   if (manualRoundServerDraft) {
     initialText = buildManualAnlassraumPrefill(manualRoundServerDraft.setup);
-  } else if (!initialText && draftId) {
+  } else if (!initialText && draftId && overview) {
     initialText = await resolveCreateDraftResumeText({
       draftId,
-      userId: entitlements.userId,
+      userId: overview.userId,
     });
   }
 
@@ -233,6 +215,7 @@ export default async function CreatePage({
             initialNextActionParam={nextAction}
             initialRequestScope={requestScope}
             initialRundenCreateHandoff={initialRundenCreateHandoff}
+            initialResumeGuestWorkspace={resumeGuestWorkspace}
           />
         </LocaleProvider>
       </div>
