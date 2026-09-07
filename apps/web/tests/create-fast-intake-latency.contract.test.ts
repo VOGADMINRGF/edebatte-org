@@ -175,7 +175,8 @@ describe("create fast-intake latency contract", () => {
 
     expect(confirmationGate).toBeGreaterThan(-1);
     expect(runtimeMatch).toBeGreaterThan(confirmationGate);
-    expect(planner).not.toContain("await recordCreatePlannerAiUsage({");
+    expect(planner).toContain("schedulePostResponseTask");
+    expect(followupRoute).toContain("schedulePostResponseTask: after");
     expect(saveRoute).toContain("accessMs");
     expect(saveRoute).toContain("contextMs");
     expect(saveRoute).toContain("saveMs");

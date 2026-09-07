@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
@@ -257,6 +257,7 @@ export async function POST(req: NextRequest) {
             dossierId: body.dossierId ?? null,
             intent: normalizedIntent,
             maxSuggestions: 6,
+            schedulePostResponseTask: after,
           });
           const orchestrationMs = Date.now() - orchestrationStartedAt;
           const plannerMs = result.meta?.planner?.runtimeMs ?? null;

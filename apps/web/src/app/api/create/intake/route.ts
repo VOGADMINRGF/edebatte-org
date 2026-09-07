@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
           anlassraumId: null,
           dossierId: null,
           maxSuggestions: 6,
+          schedulePostResponseTask: after,
         });
       },
     });

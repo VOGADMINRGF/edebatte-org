@@ -148,4 +148,17 @@ describe("create adaptive single-/multi-issue intake", () => {
     expect(html).toContain("10 weitere Themen");
     expect(html).toContain("Noch nicht veröffentlicht");
   });
+
+  it("keeps numbered measures under one concern as aspects, not separate topics", async () => {
+    const text = `Sichere Schulwege verbessern
+1. Tempo 30
+2. Zebrastreifen
+3. Elterntaxis`;
+    const result = await buildCreateIntelligentFollowup({ text, locale: "de" });
+
+    expect(result.meta?.planner?.issueMode).toBe("single_issue");
+    expect(result.meta?.planner?.topicCandidates).toEqual([
+      "Kommunale Entwicklung",
+    ]);
+  });
 });

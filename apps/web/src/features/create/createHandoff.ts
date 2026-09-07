@@ -300,7 +300,14 @@ function normalizeGraphMatches(graphMatches: CreateGraphMatchResult): CreateGrap
   };
 }
 
-function deriveTopicJurisdiction(plannerResult: CreatePlannerResult): CreateHandoffTopicSeed["jurisdiction"] {
+function deriveTopicJurisdiction(
+  plannerResult: CreatePlannerResult,
+  result: CreateIntelligentFollowupResult,
+): CreateHandoffTopicSeed["jurisdiction"] {
+  const contextLevel = result.meta?.citizenContext?.jurisdictionCandidates[0]?.level;
+  if (contextLevel === "municipality") return "kommune";
+  if (contextLevel === "state") return "land";
+  if (contextLevel === "federal") return "bund";
   const scopes = new Set(plannerResult.plannerScope);
   if (scopes.has("municipal") || scopes.has("district") || scopes.has("local")) return "kommune";
   if (scopes.has("state")) return "land";
@@ -313,7 +320,7 @@ function buildTopicSeed(result: CreateIntelligentFollowupResult, plannerResult: 
   return {
     topicKey: normalizeGermanSlug(topicLabel, { maxLength: 64, fallback: "oeffentliches-thema" }),
     topicLabel,
-    jurisdiction: deriveTopicJurisdiction(plannerResult),
+    jurisdiction: deriveTopicJurisdiction(plannerResult, result),
     themenradarSourceType: "create_intake",
   };
 }

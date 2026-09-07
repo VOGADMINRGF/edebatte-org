@@ -121,6 +121,7 @@ describe("citizen-first Create intake context", () => {
     for (const text of [
       "Das Essen in der Schule muss besser werden.",
       "Wir brauchen mehr Wissen über Pflege.",
+      "Fleisch, Geflügel und Fisch sollen bessere Standards erfüllen.",
     ]) {
       const result =
         resolveCreateCitizenIntakeContextFromOfficialDirectory({ text });
@@ -188,6 +189,17 @@ describe("citizen-first Create intake context", () => {
     );
     expect(emergency.concernKind).toBe("emergency");
     expect(emergency.safety.emergencyNoticeRequired).toBe(true);
+  });
+
+  it("recognizes common English emergency wording for the English locale", () => {
+    const result = resolveCreateCitizenIntakeContext({
+      text: "There is a fire right now, call 112 immediately.",
+      locale: "en",
+      directoryEntries: DIRECTORY,
+    });
+
+    expect(result.concernKind).toBe("emergency");
+    expect(result.safety.emergencyNoticeRequired).toBe(true);
   });
 
   it("keeps all four explicit match decisions draft-only and requires confirmation", () => {

@@ -213,6 +213,37 @@ describe("create intelligent follow-up contract", () => {
     expect(sections[0]?.label.trim().length).toBeGreaterThan(0);
   });
 
+  it("merges an official resolved place into the canonical planner scope", async () => {
+    mocks.buildCreatePlanner.mockResolvedValue({
+      ...buildTechnicalPlanner({
+        source: "openai",
+        plannerSource: "openai",
+        plannerProvider: "openai",
+        plannerTopic: "Sichere Schulwege",
+        plannerCore: "Schulwege sollen sicherer werden.",
+        shortSummary: "Sichere Schulwege in Wuppertal.",
+        topicCandidates: ["Sichere Schulwege"],
+        graphSearchTerms: ["sichere Schulwege"],
+        providerCallSucceeded: true,
+        qualityStatus: "generic",
+        qualityIssues: ["scope_too_unclear_for_explicit_jurisdiction"],
+        degradedReason: "quality_gate_failed",
+        plannerDegradedReason: "quality_gate_failed",
+      }),
+    });
+
+    const result = await buildCreateIntelligentFollowup({
+      text: "In Wuppertal brauchen wir sichere Schulwege.",
+      locale: "de",
+    });
+
+    expect(result.meta?.planner?.plannerScope).toEqual(["municipal"]);
+    expect(result.meta?.planner?.scopeCandidates).toEqual(["municipal"]);
+    expect(result.meta?.planner?.qualityStatus).toBe("specific");
+    expect(result.meta?.planner?.plannerDegraded).toBe(false);
+    expect(result.understanding.scopes).toEqual(["municipal"]);
+  });
+
   it("keeps non-validated planner runs on a technical ai_failed path", async () => {
     mocks.buildCreatePlanner.mockResolvedValue({
       source: "technical_fallback",

@@ -131,5 +131,6 @@ describe("create handoff draft contract", () => {
       candidate,
       serverValidated: false,
     });
+    expect(draft.topicSeed.jurisdiction).toBe("kommune");
   });
 });

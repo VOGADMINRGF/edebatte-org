@@ -35,8 +35,10 @@ const MATCH_DECISIONS = [
 const FEDERAL_SCOPE_RE =
   /\b(bundesweit|deutschlandweit|in\s+deutschland|bundestag|bundesregierung|bundesgesetz|auf\s+bundesebene)\b/iu;
 const EU_SCOPE_RE = /\b(eu(?:ropa)?weit|europäische[nrms]?\s+union|eu-parlament|auf\s+eu-ebene|eu-regel)\b/iu;
-const EMERGENCY_RE =
+const GERMAN_EMERGENCY_RE =
   /\b(akute?\s+gefahr|notfall|sofort\s+die\s+112|ruf(?:t)?\s+die\s+112|es\s+brennt|unfall\s+gerade|lebensgefahr)\b/iu;
+const ENGLISH_EMERGENCY_RE =
+  /\b(?:acute\s+danger|emergency|life[-\s]?threatening|call\s+112|dial\s+112|fire\s+right\s+now|there\s+is\s+a\s+fire|serious\s+accident)\b/iu;
 const REQUEST_RE =
   /\b(soll(?:te|ten)?|muss|müssen|fordere|fordern|bitte|ändern|verbessern|einführen|abschaffen|prüfen|klären)\b/iu;
 const SOURCE_RE = /https?:\/\/|\b(quelle|studie|bericht|artikel|dokument|pdf|video)\b/iu;
@@ -51,6 +53,7 @@ const LEXICALLY_AMBIGUOUS_PLACE_LABELS = new Set([
   "bergen",
   "burg",
   "essen",
+  "fisch",
   "hagen",
   "halle",
   "lage",
@@ -61,7 +64,7 @@ const LEXICALLY_AMBIGUOUS_PLACE_LABELS = new Set([
   "wissen",
 ]);
 const PLACE_COMPARISON_RE =
-  /\b(?:vergleich(?:en|bar)?|gegenüberstell(?:en|ung)|zwischen|beide[nrms]?|gemeinsam)\b/iu;
+  /\b(?:vergleich[\p{L}]*|verglich[\p{L}]*|gegenüberstell(?:en|ung)|zwischen|beide[nrms]?|gemeinsam)\b/iu;
 
 function clean(value?: string | null): string | null {
   const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -97,6 +100,13 @@ function hasExplicitPlaceSyntax(text: string, label: string): boolean {
   );
 }
 
+function hasSentenceLeadingPlaceSyntax(text: string, label: string): boolean {
+  return new RegExp(
+    `(?:^|[.!?]\\s+)${escapeRegex(label)}(?=$|[^\\p{L}])`,
+    "u",
+  ).test(text);
+}
+
 export function isCreatePlaceLabelLexicallyAmbiguous(label: string): boolean {
   return LEXICALLY_AMBIGUOUS_PLACE_LABELS.has(
     normalizeCreateMunicipalityLabel(label).toLocaleLowerCase("de"),
@@ -105,7 +115,11 @@ export function isCreatePlaceLabelLexicallyAmbiguous(label: string): boolean {
 
 export function hasCreateExplicitPlaceMention(text: string, label: string): boolean {
   if (!containsLabel(text, label)) return false;
-  return !isCreatePlaceLabelLexicallyAmbiguous(label) || hasExplicitPlaceSyntax(text, label);
+  if (hasExplicitPlaceSyntax(text, label)) return true;
+  return (
+    !isCreatePlaceLabelLexicallyAmbiguous(label) &&
+    hasSentenceLeadingPlaceSyntax(text, label)
+  );
 }
 
 function labelIndex(text: string, label: string): number {
@@ -155,9 +169,10 @@ function toPlaceCandidate(
 
 function inferConcernKind(params: {
   text: string;
+  locale?: string | null;
   safetyDecision: CreateCitizenIntakeContext["safety"]["decision"];
 }): CreateCitizenConcernKind {
-  if (EMERGENCY_RE.test(params.text)) return "emergency";
+  if (hasCreateEmergencySignal(params.text, params.locale)) return "emergency";
   if (params.safetyDecision === "blocked" || params.safetyDecision === "moderation_required") {
     return "unsafe_content";
   }
@@ -166,6 +181,13 @@ function inferConcernKind(params: {
     return "source_without_request";
   }
   return params.text.trim() ? "public_concern" : "unclear";
+}
+
+function hasCreateEmergencySignal(text: string, locale?: string | null): boolean {
+  const normalizedLocale = String(locale ?? "de").toLocaleLowerCase();
+  return normalizedLocale.startsWith("en")
+    ? ENGLISH_EMERGENCY_RE.test(text) || GERMAN_EMERGENCY_RE.test(text)
+    : GERMAN_EMERGENCY_RE.test(text) || ENGLISH_EMERGENCY_RE.test(text);
 }
 
 function jurisdictionFor(params: {
@@ -338,8 +360,12 @@ export function resolveCreateCitizenIntakeContext(
     locale: input.locale ?? "de",
     routeStage: "analyze",
   });
-  const emergencyNoticeRequired = EMERGENCY_RE.test(text);
-  const concernKind = inferConcernKind({ text, safetyDecision: safetyResult.decision });
+  const emergencyNoticeRequired = hasCreateEmergencySignal(text, input.locale);
+  const concernKind = inferConcernKind({
+    text,
+    locale: input.locale,
+    safetyDecision: safetyResult.decision,
+  });
   const detectedStreetName = clean(text.match(STREET_RE)?.[1]);
 
   const rawExactDirectoryMatches = (input.directoryEntries ?? [])
@@ -357,7 +383,6 @@ export function resolveCreateCitizenIntakeContext(
     ({ label }) =>
       hasCreateExplicitPlaceMention(text, label) ||
       (hasUnambiguousPlaceMention &&
-        isCreatePlaceLabelLexicallyAmbiguous(label) &&
         PLACE_COMPARISON_RE.test(text)),
   );
   const shortMention = extractCreateExplicitPlaceMention(text);

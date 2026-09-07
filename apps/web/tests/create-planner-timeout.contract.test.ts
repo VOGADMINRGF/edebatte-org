@@ -41,6 +41,7 @@ describe("create planner timeout contract", () => {
   });
 
   it("uses the 6500ms fast-intake ceiling and classifies provider aborts as TIMEOUT", async () => {
+    const scheduledTasks: Array<() => Promise<void>> = [];
     const timeoutError = Object.assign(new Error("The operation was aborted."), {
       name: "AbortError",
       meta: { code: "TIMEOUT" },
@@ -53,6 +54,7 @@ describe("create planner timeout contract", () => {
       requestId: "request-timeout",
       operationId: "operation-timeout",
       dossierId: "dossier-timeout",
+      schedulePostResponseTask: (task) => scheduledTasks.push(task),
     });
 
     expect(mocks.callOpenAIJson).toHaveBeenCalledTimes(1);
@@ -76,6 +78,9 @@ describe("create planner timeout contract", () => {
     expect(JSON.stringify(planner)).not.toContain("aborted");
     expect(planner.permissions.nonMutative).toBe(true);
     expect(planner.permissions.canDeepSearch).toBe(false);
+    expect(mocks.logAiUsage).not.toHaveBeenCalled();
+    expect(scheduledTasks).toHaveLength(1);
+    await scheduledTasks[0]!();
     expect(mocks.logAiUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "openai",

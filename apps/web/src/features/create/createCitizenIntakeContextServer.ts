@@ -1,12 +1,11 @@
-import { buildOfficialRegionsFromDirectory } from "@features/region/directory";
 import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 import type { CreateRegionDirectoryEntry } from "@/features/create/createCitizenIntakeContext";
+import officialMunicipalityIndex from "@/features/create/generatedOfficialMunicipalityIndex.json";
 import {
   applyCreateJurisdictionConfirmation,
   applyCreateRegionPriority,
   buildCreateMunicipalJurisdictionCandidate,
   buildCreateJurisdictionCandidateKey,
-  hasCreateExplicitPlaceMention,
   normalizeCreateMunicipalityLabel,
   resolveCreateCitizenIntakeContext,
 } from "@/features/create/createCitizenIntakeContext";
@@ -24,19 +23,9 @@ let cachedOfficialPlaceIndex: {
 
 function officialDirectoryEntries(): CreateRegionDirectoryEntry[] {
   if (cachedOfficialDirectoryEntries) return cachedOfficialDirectoryEntries;
-  cachedOfficialDirectoryEntries = buildOfficialRegionsFromDirectory()
-    .filter((region) => Boolean(region.officialDirectoryEntry))
-    .map((region) => ({
-      id: region.id,
-      municipalityName: region.name,
-      state: region.federalState,
-      country: region.country,
-      registryId:
-        region.officialDirectoryEntry?.ags ??
-        region.officialDirectoryEntry?.ars ??
-        null,
-      authorityName: region.officialBody?.label ?? null,
-    }));
+  cachedOfficialDirectoryEntries = officialMunicipalityIndex.entries.map(
+    (entry) => ({ ...entry }),
+  );
   return cachedOfficialDirectoryEntries;
 }
 
@@ -131,6 +120,11 @@ function officialPlaceIndex() {
   return cachedOfficialPlaceIndex;
 }
 
+export function prepareCreateOfficialDirectoryIndex(): void {
+  officialPlaceIndex();
+  officialCandidateIndex();
+}
+
 function findOfficialDirectoryEntries(text: string): CreateRegionDirectoryEntry[] {
   const index = officialPlaceIndex();
   const words = normalizeOfficialPlaceSearchText(text).split(" ").filter(Boolean);
@@ -158,16 +152,7 @@ function findOfficialDirectoryEntries(text: string): CreateRegionDirectoryEntry[
     }
   }
 
-  return Array.from(matches.values()).filter((entry) => {
-    const label = normalizeCreateMunicipalityLabel(entry.municipalityName);
-    return (
-      hasCreateExplicitPlaceMention(text, label) ||
-      (explicitShortMention !== undefined &&
-        label.toLocaleLowerCase("de").startsWith(
-          `${explicitShortMention.toLocaleLowerCase("de")} `,
-        ))
-    );
-  });
+  return Array.from(matches.values());
 }
 
 function attachOfficialRegionIdentity(
@@ -295,3 +280,7 @@ export function validateCreateJurisdictionConfirmation(input: {
     ? attachOfficialRegionIdentity(confirmed, officialEntry)
     : null;
 }
+
+// This module is imported while the Node route bundle initializes. The index
+// is therefore ready before either Create request handler starts its deadline.
+prepareCreateOfficialDirectoryIndex();

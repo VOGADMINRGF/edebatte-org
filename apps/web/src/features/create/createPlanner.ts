@@ -142,6 +142,7 @@ type BuildCreatePlannerInput = {
   dossierId?: string | null;
   userId?: string | null;
   organizationId?: string | null;
+  schedulePostResponseTask?: (task: () => Promise<void>) => void;
 };
 
 export type PlannerAttempt =
@@ -2108,6 +2109,21 @@ async function recordCreatePlannerAiUsage(params: {
   });
 }
 
+async function persistCreatePlannerAiUsage(params: {
+  input: BuildCreatePlannerInput;
+  attempt: PlannerAttempt;
+  durationMs: number;
+}) {
+  const task = async () => {
+    await recordCreatePlannerAiUsage(params).catch(() => {});
+  };
+  if (params.input.schedulePostResponseTask) {
+    params.input.schedulePostResponseTask(task);
+    return;
+  }
+  await task();
+}
+
 async function buildCreatePlannerResult(input: BuildCreatePlannerInput): Promise<CreatePlannerResult> {
   const text = input.text.trim();
   const budget = createPlannerAttemptBudget(text);
@@ -2116,11 +2132,11 @@ async function buildCreatePlannerResult(input: BuildCreatePlannerInput): Promise
     ...input,
     text,
   }, budget);
-  void recordCreatePlannerAiUsage({
+  await persistCreatePlannerAiUsage({
     input,
     attempt: openAiResult,
     durationMs: Date.now() - startedAt,
-  }).catch(() => {});
+  });
   if (openAiResult.ok) {
     return applyPlannerAttemptBudget(openAiResult.result, budget);
   }
@@ -2141,11 +2157,11 @@ async function buildCreatePlannerResult(input: BuildCreatePlannerInput): Promise
         fallbackProvider,
         budget,
       );
-      void recordCreatePlannerAiUsage({
+      await persistCreatePlannerAiUsage({
         input,
         attempt: fallbackResult,
         durationMs: Date.now() - fallbackStartedAt,
-      }).catch(() => {});
+      });
       if (fallbackResult.ok) {
         return applyPlannerAttemptBudget(fallbackResult.result, budget);
       }

@@ -20,6 +20,7 @@ import type {
   FollowupConfidence,
 } from "@/features/create/intelligentFollowupContract";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 
 type BuildCreateIntelligentFollowupInput = {
   text: string;
@@ -33,9 +34,54 @@ type BuildCreateIntelligentFollowupInput = {
   anlassraumId?: string | null;
   dossierId?: string | null;
   maxSuggestions?: number;
+  schedulePostResponseTask?: (task: () => Promise<void>) => void;
 };
 
 const MAX_UNDERSTANDING_TOPICS = 14;
+
+function reconcilePlannerJurisdictionScope(
+  planner: CreatePlannerResult,
+  citizenContext: CreateCitizenIntakeContext,
+): CreatePlannerResult {
+  const evidenceScopes = citizenContext.jurisdictionCandidates
+    .map((candidate): CreatePlannerScope | null => {
+      if (candidate.level === "municipality") return "municipal";
+      if (candidate.level === "state") return "state";
+      if (candidate.level === "federal") return "federal";
+      if (candidate.level === "eu") return "eu";
+      return null;
+    })
+    .filter((scope): scope is CreatePlannerScope => Boolean(scope));
+  if (evidenceScopes.length === 0) return planner;
+
+  const scopes = Array.from(
+    new Set([
+      ...planner.plannerScope.filter((scope) => scope !== "unclear"),
+      ...evidenceScopes,
+    ]),
+  ).slice(0, 4);
+  const qualityIssues = planner.qualityIssues.filter(
+    (issue) => issue !== "scope_too_unclear_for_explicit_jurisdiction",
+  );
+  const recoveredQuality =
+    planner.providerCallSucceeded &&
+    planner.degradedReason === "quality_gate_failed" &&
+    qualityIssues.length === 0;
+
+  return {
+    ...planner,
+    plannerScope: scopes,
+    scopeCandidates: scopes,
+    plannerDegraded: recoveredQuality ? false : planner.plannerDegraded,
+    degradedReason: recoveredQuality ? null : planner.degradedReason,
+    plannerDegradedReason: recoveredQuality ? null : planner.plannerDegradedReason,
+    qualityStatus: recoveredQuality ? "specific" : planner.qualityStatus,
+    qualityIssues,
+    plannerDebug: recoveredQuality
+      ? { ...planner.plannerDebug, qualityGatePassed: true }
+      : planner.plannerDebug,
+  };
+}
 
 function normalizeConfidence(score: number): FollowupConfidence {
   if (score >= 0.74) return "high";
@@ -223,7 +269,7 @@ export async function buildCreateIntelligentFollowup(
 ): Promise<CreateIntelligentFollowupResult> {
   const text = input.text.trim();
   const generatedAt = new Date().toISOString();
-  const planner = await buildCreatePlanner({
+  const plannerPromise = buildCreatePlanner({
     text,
     locale: input.locale,
     requestId: input.requestId ?? null,
@@ -232,7 +278,19 @@ export async function buildCreateIntelligentFollowup(
     dossierId: input.dossierId ?? null,
     userId: input.userId ?? null,
     organizationId: input.organizationId ?? null,
+    schedulePostResponseTask: input.schedulePostResponseTask,
   });
+  // Directory startup work is normally completed by instrumentation. Starting
+  // the provider first also overlaps the guarded fallback initialization with
+  // provider I/O if a runtime does not execute instrumentation.
+  const citizenContext = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+    text,
+    locale: input.locale,
+  });
+  const planner = reconcilePlannerJurisdictionScope(
+    await plannerPromise,
+    citizenContext,
+  );
 
   if (
     !hasValidatedCreatePlannerProviderIdentity(planner) ||
@@ -253,11 +311,6 @@ export async function buildCreateIntelligentFollowup(
   // The bounded AI planner remains the first semantic pass. Deterministic
   // directory/jurisdiction logic validates its successful result afterwards;
   // provider failure must not masquerade as a precise heuristic assignment.
-  const citizenContext = resolveCreateCitizenIntakeContextFromOfficialDirectory({
-    text,
-    locale: input.locale,
-  });
-
   const plannerUnderstanding = buildUnderstandingFromPlanner(planner);
   const understanding = citizenContext.clarificationQuestion
     ? {
