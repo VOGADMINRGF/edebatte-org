@@ -451,6 +451,60 @@ describe("/api/create/handoffs", () => {
     });
   });
 
+  it("persists the server-owned county level even when the client claims municipality", async () => {
+    const sourceText =
+      "In Dithmarschen muss der Busverkehr besser werden.";
+    const citizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const candidate = citizenContext.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+    const id = "create-handoff-route-dithmarschen";
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            id,
+            sourceText,
+            resumeHref: `/create?resume=create_handoff&handoffId=${id}`,
+            jurisdictionConfirmation: {
+              candidateKey,
+              candidate: {
+                ...candidate,
+                level: "municipality",
+                authorityName: "Stadtverwaltung Dithmarschen",
+              },
+              serverValidated: true,
+            },
+          },
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const stored = await getPersistedCreateHandoffRecord(id);
+    expect(stored?.jurisdictionConfirmation).toMatchObject({
+      candidateKey,
+      serverValidated: true,
+      candidate: {
+        level: "district",
+        authorityName: "Heide",
+        administrativeUnitType: "kreis",
+        administrativeSeat: "Heide",
+      },
+    });
+    const resumedResponse = await GET(
+      new Request(`http://localhost/api/create/handoffs/${id}`),
+      { params: Promise.resolve({ handoffId: id }) },
+    );
+    const resumed = await resumedResponse.json();
+    expect(resumed.draft.jurisdictionConfirmation).toEqual(
+      stored?.jurisdictionConfirmation,
+    );
+  });
+
   it("rejects an official jurisdiction candidate that was not offered by server context", async () => {
     const sourceText = "Der Schulweg sollte sicherer werden.";
     const profileContext = applyCreateRegionPriority(

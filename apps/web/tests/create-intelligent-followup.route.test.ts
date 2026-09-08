@@ -225,6 +225,41 @@ describe("/api/create/intelligent-followup route", () => {
     );
   });
 
+  it("keeps an authenticated unloaded link out of the text planner", async () => {
+    const response = await POST(request({
+      text: "Schau dir das an: https://example.com/mindestlohn-behindertenwerkstatt",
+      locale: "de",
+      correlationId: "correlation-link-route-1",
+      draftId: "draft-link-route-1",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: true,
+      result: {
+        understanding: { topics: [], statements: [] },
+        meta: {
+          planner: null,
+          analysis: {
+            state: "link_detected",
+            sourceType: "link",
+            sourceLoaded: false,
+            validationStatus: "not_started",
+          },
+        },
+      },
+      supportHandoff: null,
+      trace: {
+        sourceValidationRequired: true,
+        timings: { plannerMs: 0 },
+      },
+    });
+    expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
+    expect(mocks.runCreateOrchestrationSingleFlight).not.toHaveBeenCalled();
+    expect(mocks.ensureCreateSupportTicket).not.toHaveBeenCalled();
+  });
+
   it("converts a final unhandled orchestration error into one safe support handoff", async () => {
     mocks.buildCreateIntelligentFollowup.mockRejectedValue(
       new Error("raw upstream planner failure"),

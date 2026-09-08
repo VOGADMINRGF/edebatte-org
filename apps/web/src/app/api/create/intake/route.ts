@@ -2,7 +2,11 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
-import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
+import {
+  buildCreateTechnicalFollowup,
+  buildCreateUnloadedLinkFollowup,
+} from "@/features/create/intelligentFollowupResults";
+import { detectCreateLinkIntake } from "@/features/create/linkIntake";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { runCreateOrchestrationSingleFlight } from "@/features/create/createOrchestrationSingleFlight";
 import { evaluateCreateInputSafety } from "@/features/create/safety/createInputSafety";
@@ -117,6 +121,7 @@ export async function POST(req: NextRequest) {
   const locale = safeLocale(parsed.data.locale);
   const intent = safeIntent(parsed.data.intent);
   const requestId = parsed.data.correlationId;
+  const linkDetection = detectCreateLinkIntake(text);
   const safety = evaluateCreateInputSafety({
     text,
     locale,
@@ -159,6 +164,31 @@ export async function POST(req: NextRequest) {
       },
       422,
     );
+  }
+
+  if (linkDetection.hasLink && linkDetection.primaryUrl) {
+    return json({
+      ok: true,
+      result: buildCreateUnloadedLinkFollowup({
+        text,
+        sourceUrl: linkDetection.primaryUrl,
+        remainingText: linkDetection.remainingText,
+        locale,
+      }),
+      safety: safeSafetySummary(safety),
+      meta: {
+        mode: "anonymous_unloaded_source",
+        requestId,
+        persisted: false,
+        accountRequired: false,
+        sourceValidationRequired: true,
+        deepSearchUsed: false,
+        researchUsed: "none",
+        noAutoPublish: true,
+        noSilentMerge: true,
+        ownershipBoundary: "validate_source_before_durable_write",
+      },
+    });
   }
 
   try {

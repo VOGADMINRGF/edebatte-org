@@ -1,5 +1,6 @@
 import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 import type { CreateRegionDirectoryEntry } from "@/features/create/createCitizenIntakeContext";
+import officialAdministrativeUnitIndex from "@/features/create/generatedOfficialAdministrativeUnitIndex.json";
 import officialMunicipalityIndex from "@/features/create/generatedOfficialMunicipalityIndex.json";
 import {
   applyCreateJurisdictionConfirmation,
@@ -20,10 +21,23 @@ let cachedOfficialPlaceIndex: {
   maxWords: number;
 } | null = null;
 
+const officialAdministrativeUnitById =
+  officialAdministrativeUnitIndex.administrativeUnitById as Record<
+    string,
+    {
+      administrativeUnitType: string | null;
+      rawAdministrativeUnitLabel: string | null;
+      administrativeSeat: string | null;
+    }
+  >;
+
 function officialDirectoryEntries(): CreateRegionDirectoryEntry[] {
   if (cachedOfficialDirectoryEntries) return cachedOfficialDirectoryEntries;
   cachedOfficialDirectoryEntries = officialMunicipalityIndex.entries.map(
-    (entry) => ({ ...entry }),
+    (entry) => ({
+      ...entry,
+      ...(officialAdministrativeUnitById[entry.id] ?? {}),
+    }),
   );
   return cachedOfficialDirectoryEntries;
 }
@@ -41,6 +55,10 @@ function officialCandidateIndex(): Map<string, CreateRegionDirectoryEntry[]> {
       state: entry.state ?? null,
       country: entry.country ?? "DE",
       registryId: entry.registryId ?? null,
+      administrativeUnitType: entry.administrativeUnitType ?? null,
+      rawAdministrativeUnitLabel: entry.rawAdministrativeUnitLabel ?? null,
+      administrativeSeat: entry.administrativeSeat ?? null,
+      authorityName: entry.authorityName ?? null,
       matchType: "exact" as const,
       confidence: 0.96,
       reason: "Amtlicher Verzeichniseintrag.",
@@ -175,6 +193,10 @@ function attachOfficialRegionIdentity(
         registryId: entry.registryId ?? null,
         state: entry.state ?? null,
         country: entry.country ?? "DE",
+        administrativeUnitType: entry.administrativeUnitType ?? null,
+        rawAdministrativeUnitLabel: entry.rawAdministrativeUnitLabel ?? null,
+        administrativeSeat: entry.administrativeSeat ?? null,
+        authorityName: entry.authorityName ?? null,
       },
       candidates: context.placeResolution.candidates.map((candidate) =>
         candidate === selectedCandidate
@@ -184,6 +206,11 @@ function attachOfficialRegionIdentity(
               registryId: entry.registryId ?? null,
               state: entry.state ?? null,
               country: entry.country ?? "DE",
+              administrativeUnitType: entry.administrativeUnitType ?? null,
+              rawAdministrativeUnitLabel:
+                entry.rawAdministrativeUnitLabel ?? null,
+              administrativeSeat: entry.administrativeSeat ?? null,
+              authorityName: entry.authorityName ?? null,
             }
           : candidate,
       ),
@@ -237,7 +264,13 @@ export function validateCreateJurisdictionConfirmation(input: {
     const candidate = confirmed.jurisdictionCandidates.find(
       (entry) => buildCreateJurisdictionCandidateKey(entry) === candidateKey,
     );
-    if (candidate?.level !== "municipality") return confirmed;
+    if (
+      candidate?.level !== "municipality" &&
+      candidate?.level !== "district" &&
+      candidate?.level !== "state"
+    ) {
+      return confirmed;
+    }
     const indexedEntries = officialCandidateIndex().get(candidateKey) ?? [];
     return indexedEntries.length === 1
       ? attachOfficialRegionIdentity(confirmed, indexedEntries[0]!)

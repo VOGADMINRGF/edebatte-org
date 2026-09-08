@@ -48,6 +48,20 @@ import type { CreateIntelligentFollowupResult } from "@/features/create/intellig
 import { hasValidatedCreateSemanticOutput } from "@/features/create/createCandidatePreview";
 import { applyCreateRegionPriority } from "@/features/create/createCitizenIntakeContext";
 import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
+import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+
+function hasValidatedGuestSource(
+  result: CreateIntelligentFollowupResult,
+): boolean {
+  if (!detectCreateLinkIntake(result.sourceText).hasLink) return true;
+  const analysis = result.meta?.analysis;
+  return (
+    analysis?.sourceType === "link" &&
+    analysis.sourceLoaded === true &&
+    analysis.validationStatus === "validated" &&
+    analysis.state === "result_ready"
+  );
+}
 
 const DraftSaveSchema = z.object({
   draftId: z.string().max(160).optional(),
@@ -459,7 +473,9 @@ export async function POST(req: NextRequest) {
       : null;
   if (
     isGuestAdoption &&
-    (!guestClaim || !hasValidatedCreateSemanticOutput(guestClaim.result))
+    (!guestClaim ||
+      !hasValidatedCreateSemanticOutput(guestClaim.result) ||
+      !hasValidatedGuestSource(guestClaim.result))
   ) {
     return NextResponse.json(
       { ok: false, error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED" },

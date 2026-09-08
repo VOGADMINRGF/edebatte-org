@@ -15,6 +15,9 @@ export type CreateRegionDirectoryEntry = {
   country?: string | null;
   registryId?: string | null;
   authorityName?: string | null;
+  administrativeUnitType?: string | null;
+  rawAdministrativeUnitLabel?: string | null;
+  administrativeSeat?: string | null;
 };
 
 export type ResolveCreateCitizenIntakeContextInput = {
@@ -161,6 +164,10 @@ function toPlaceCandidate(
     state: clean(entry.state),
     country: clean(entry.country) ?? "DE",
     registryId: clean(entry.registryId),
+    administrativeUnitType: clean(entry.administrativeUnitType),
+    rawAdministrativeUnitLabel: clean(entry.rawAdministrativeUnitLabel),
+    administrativeSeat: clean(entry.administrativeSeat),
+    authorityName: clean(entry.authorityName),
     matchType: ambiguous ? "ambiguous" : "exact",
     confidence: ambiguous ? 0.58 : 0.96,
     reason: ambiguous
@@ -240,6 +247,85 @@ export function buildCreateMunicipalJurisdictionCandidate(input: {
   selectedRegion: PlaceResolutionCandidate;
   traffic: boolean;
 }): JurisdictionCandidate {
+  const administrativeUnitType = clean(
+    input.selectedRegion.administrativeUnitType,
+  );
+  const rawAdministrativeUnitLabel = clean(
+    input.selectedRegion.rawAdministrativeUnitLabel,
+  );
+  const administrativeSeat = clean(input.selectedRegion.administrativeSeat);
+  const officialUnitLabel =
+    rawAdministrativeUnitLabel &&
+    !input.selectedRegion.city
+      .toLocaleLowerCase("de")
+      .startsWith(rawAdministrativeUnitLabel.toLocaleLowerCase("de"))
+      ? `${rawAdministrativeUnitLabel} ${input.selectedRegion.city}`
+      : input.selectedRegion.city;
+  const officialMetadata = {
+    administrativeUnitType,
+    rawAdministrativeUnitLabel,
+    administrativeSeat,
+  };
+
+  if (
+    administrativeUnitType === "landkreis" ||
+    administrativeUnitType === "kreis" ||
+    administrativeUnitType === "regionalverband"
+  ) {
+    return {
+      level: "district",
+      label: `${officialUnitLabel} (wahrscheinlich)`,
+      authorityName:
+        clean(input.selectedRegion.authorityName) ??
+        administrativeSeat ??
+        officialUnitLabel,
+      topicDependency: input.traffic
+        ? "Straßenverkehr und Verkehrssicherheit"
+        : null,
+      confidence: input.traffic ? 0.76 : 0.68,
+      reason:
+        "Zuständigkeit wird aus amtlicher Verwaltungsebene, Ort und Thema vorgeschlagen und muss bestätigt werden.",
+      needsReview: true,
+      ...officialMetadata,
+    };
+  }
+
+  if (administrativeUnitType === "land") {
+    return {
+      level: "state",
+      label: `${officialUnitLabel} (wahrscheinlich)`,
+      authorityName:
+        clean(input.selectedRegion.authorityName) ??
+        administrativeSeat ??
+        officialUnitLabel,
+      topicDependency: null,
+      confidence: 0.68,
+      reason:
+        "Zuständigkeit wird aus amtlicher Verwaltungsebene und Thema vorgeschlagen und muss bestätigt werden.",
+      needsReview: true,
+      ...officialMetadata,
+    };
+  }
+
+  if (administrativeUnitType) {
+    return {
+      level: "unknown",
+      label: `${officialUnitLabel} · Zuständigkeit prüfen`,
+      authorityName:
+        clean(input.selectedRegion.authorityName) ??
+        administrativeSeat ??
+        officialUnitLabel,
+      topicDependency: input.traffic
+        ? "Straßenverkehr und Verkehrssicherheit"
+        : null,
+      confidence: 0.5,
+      reason:
+        "Die amtliche Verwaltungseinheit ist bekannt, aber keiner bestätigbaren kanonischen Zuständigkeitsebene zugeordnet.",
+      needsReview: true,
+      ...officialMetadata,
+    };
+  }
+
   return {
     level: "municipality",
     label: input.traffic

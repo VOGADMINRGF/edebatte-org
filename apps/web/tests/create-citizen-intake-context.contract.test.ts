@@ -156,6 +156,45 @@ describe("citizen-first Create intake context", () => {
     expect(result.selectedRegionLabel).toBe("Wuppertal");
   });
 
+  it("preserves the official Dithmarschen county level through server confirmation", () => {
+    const sourceText =
+      "In Dithmarschen muss der Busverkehr besser werden.";
+    const result =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const candidate = result.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+
+    expect(result.placeResolution.selectedCandidate).toMatchObject({
+      id: "region-official-01051",
+      registryId: "01051",
+      administrativeUnitType: "kreis",
+      rawAdministrativeUnitLabel: "Kreis",
+      administrativeSeat: "Heide",
+    });
+    expect(candidate).toMatchObject({
+      level: "district",
+      label: "Kreis Dithmarschen (wahrscheinlich)",
+      authorityName: "Heide",
+      administrativeUnitType: "kreis",
+      administrativeSeat: "Heide",
+    });
+    expect(candidateKey).toMatch(/^district:/);
+    expect(
+      validateCreateJurisdictionConfirmation({ sourceText, candidateKey }),
+    ).toMatchObject({
+      jurisdictionConfirmation: { status: "confirmed", candidateKey },
+      jurisdictionCandidates: [
+        expect.objectContaining({ level: "district" }),
+      ],
+    });
+    expect(
+      validateCreateJurisdictionConfirmation({
+        sourceText,
+        candidateKey: candidateKey.replace(/^district:/, "municipality:"),
+      }),
+    ).toBeNull();
+  });
+
   it("asks the smallest useful question for an ambiguous place name", () => {
     const result = resolveCreateCitizenIntakeContext({
       text: "In Neustadt sollte der Bahnhof barrierefrei werden.",

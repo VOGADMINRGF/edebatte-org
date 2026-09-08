@@ -159,6 +159,51 @@ describe("POST /api/create/intake", () => {
     );
   });
 
+  it.each([
+    "https://example.com/mindestlohn-behindertenwerkstatt",
+    "Schau dir das an: https://example.com/foo",
+    "https://example.com/in-wuppertal-verkehr",
+  ])(
+    "routes an anonymous unloaded link to source review without a planner call: %s",
+    async (text) => {
+      const response = await POST(request({
+        text,
+        locale: "de",
+        intent: "contribute",
+        correlationId: "request-link-12345678",
+      }));
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        result: {
+          understanding: { topics: [], statements: [], scopes: ["unclear"] },
+          suggestions: [],
+          meta: {
+            planner: null,
+            citizenContext: { jurisdictionCandidates: [] },
+            analysis: {
+              state: "link_detected",
+              sourceType: "link",
+              sourceLoaded: false,
+              validationStatus: "not_started",
+            },
+          },
+          degraded: true,
+        },
+        meta: {
+          mode: "anonymous_unloaded_source",
+          persisted: false,
+          sourceValidationRequired: true,
+          ownershipBoundary: "validate_source_before_durable_write",
+        },
+      });
+      expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
+      expect(mocks.runCreateOrchestrationSingleFlight).not.toHaveBeenCalled();
+    },
+  );
+
   it("redacts avoidable PII before the AI call while keeping the route read-only", async () => {
     mocks.evaluateCreateInputSafety.mockReturnValue(
       allowedSafety({

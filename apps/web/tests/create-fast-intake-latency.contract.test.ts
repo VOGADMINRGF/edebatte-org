@@ -52,6 +52,14 @@ describe("create fast-intake latency contract", () => {
       client.indexOf("const handleStart"),
     );
     const saveIndex = client.indexOf('fetch("/api/create/save"', startFlowIndex);
+    const anonymousLinkGateIndex = client.indexOf(
+      "if (anonymousRun && linkDetection.hasLink && linkDetection.primaryUrl)",
+      startFlowIndex,
+    );
+    const anonymousPlannerIndex = client.indexOf(
+      'fetch("/api/create/intake"',
+      startFlowIndex,
+    );
     const durableSaveIndex = client.indexOf("draftSavedForRun = true", saveIndex);
     const linkIntakeIndex = client.indexOf(
       "if (linkDetection.hasLink && linkDetection.primaryUrl)",
@@ -64,10 +72,21 @@ describe("create fast-intake latency contract", () => {
     const plannerIndex = client.indexOf('fetch("/api/create/intelligent-followup"');
 
     expect(saveIndex).toBeGreaterThan(-1);
+    expect(anonymousLinkGateIndex).toBeGreaterThan(startFlowIndex);
+    expect(anonymousPlannerIndex).toBeGreaterThan(anonymousLinkGateIndex);
+    expect(
+      client.slice(anonymousLinkGateIndex, anonymousPlannerIndex),
+    ).toContain("setGuestOperationId(null)");
+    expect(
+      client.slice(anonymousLinkGateIndex, anonymousPlannerIndex),
+    ).toContain("buildCreateUnloadedLinkFollowup");
     expect(durableSaveIndex).toBeGreaterThan(saveIndex);
     expect(linkIntakeIndex).toBeGreaterThan(durableSaveIndex);
     expect(deadlineIndex).toBeGreaterThan(linkIntakeIndex);
     expect(plannerIndex).toBeGreaterThan(deadlineIndex);
+    expect(client.slice(linkIntakeIndex, deadlineIndex)).toContain(
+      "buildCreateUnloadedLinkFollowup",
+    );
     expect(client.slice(saveIndex, durableSaveIndex)).not.toContain("signal:");
     expect(client.slice(plannerIndex, plannerIndex + 260)).toContain(
       "signal: plannerDeadline.signal",

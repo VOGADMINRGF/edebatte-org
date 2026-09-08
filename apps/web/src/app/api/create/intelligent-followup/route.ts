@@ -3,7 +3,11 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
-import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
+import {
+  buildCreateTechnicalFollowup,
+  buildCreateUnloadedLinkFollowup,
+} from "@/features/create/intelligentFollowupResults";
+import { detectCreateLinkIntake } from "@/features/create/linkIntake";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { parseCreateIntent } from "@/features/create/intentFlows";
 import { runCreateOrchestrationSingleFlight } from "@/features/create/createOrchestrationSingleFlight";
@@ -189,6 +193,32 @@ export async function POST(req: NextRequest) {
       actorKey: `user:${userId}`,
       affectedUserId: userId,
     };
+    const linkDetection = detectCreateLinkIntake(body.text);
+    if (linkDetection.hasLink && linkDetection.primaryUrl) {
+      return NextResponse.json({
+        ok: true,
+        result: buildCreateUnloadedLinkFollowup({
+          text: body.text,
+          sourceUrl: linkDetection.primaryUrl,
+          remainingText: linkDetection.remainingText,
+          locale,
+        }),
+        supportHandoff: null,
+        trace: {
+          requestId,
+          operationId,
+          operationType,
+          userScope: "present",
+          sourceValidationRequired: true,
+          timings: {
+            accessMs,
+            plannerMs: 0,
+            contextMs: 0,
+            totalMs: Date.now() - requestStartedAt,
+          },
+        },
+      });
+    }
     const singleFlight = await runCreateOrchestrationSingleFlight({
       actorKey: verifiedActor.actorKey,
       draftId: draftBinding.draftId,

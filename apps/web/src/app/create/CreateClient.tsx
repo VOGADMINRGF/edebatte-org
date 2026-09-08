@@ -63,7 +63,10 @@ import {
   normalizeDocumentAnalysisSummary,
   type CreateIntelligentFollowupResult,
 } from "@/features/create/intelligentFollowupContract";
-import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
+import {
+  buildCreateTechnicalFollowup,
+  buildCreateUnloadedLinkFollowup,
+} from "@/features/create/intelligentFollowupResults";
 import {
   createMutationRequestHeaders,
   primeCreateSecuritySession,
@@ -1598,6 +1601,23 @@ export default function CreateClient({
           : null,
       );
 
+      if (anonymousRun && linkDetection.hasLink && linkDetection.primaryUrl) {
+        setGuestOperationId(null);
+        setIntelligentFollowup(
+          buildCreateUnloadedLinkFollowup({
+            text: normalizedText,
+            sourceUrl: linkDetection.primaryUrl,
+            remainingText: linkDetection.remainingText,
+            locale: surfaceLocale,
+          }),
+        );
+        setPlannerTrace(null);
+        setAnalyzeTrace(null);
+        setFollowupSurface("lightweight");
+        setIsStarting(false);
+        return;
+      }
+
       if (anonymousRun) {
         const sessionReady = await primeCreateSecuritySession();
         if (!sessionReady) throw new Error("create_anonymous_session_failed");
@@ -1694,20 +1714,11 @@ export default function CreateClient({
 
       if (linkDetection.hasLink && linkDetection.primaryUrl) {
         setIntelligentFollowup(
-          buildCreateTechnicalFollowup({
+          buildCreateUnloadedLinkFollowup({
             text: normalizedText,
-            analysisState: "link_detected",
-            sourceType: "link",
             sourceUrl: linkDetection.primaryUrl,
-            sourceLoaded: false,
-            userMessage:
-              surfaceLocale === "en"
-                ? "I need to load the linked content in full and analyze it with the AI orchestrator first. No topics are derived before that."
-                : "Ich muss den verlinkten Inhalt zuerst vollständig laden und mit dem KI-Orchester analysieren. Vorher leite ich keine Themen ab.",
-            citizenContext: resolveCreateCitizenIntakeContext({
-              text: normalizedText,
-              locale: surfaceLocale,
-            }),
+            remainingText: linkDetection.remainingText,
+            locale: surfaceLocale,
           }),
         );
         setPlannerTrace(null);

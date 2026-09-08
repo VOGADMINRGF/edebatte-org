@@ -81,6 +81,10 @@ export type PlaceResolutionCandidate = {
   state?: string | null;
   country?: string | null;
   registryId?: string | null;
+  administrativeUnitType?: string | null;
+  rawAdministrativeUnitLabel?: string | null;
+  administrativeSeat?: string | null;
+  authorityName?: string | null;
   matchType: PlaceResolutionMatchType;
   confidence: number;
   reason: string;
@@ -90,6 +94,9 @@ export type JurisdictionCandidate = {
   level: "district" | "municipality" | "state" | "federal" | "eu" | "unknown";
   label: string;
   authorityName?: string | null;
+  administrativeUnitType?: string | null;
+  rawAdministrativeUnitLabel?: string | null;
+  administrativeSeat?: string | null;
   topicDependency?: string | null;
   confidence: number;
   reason: string;
