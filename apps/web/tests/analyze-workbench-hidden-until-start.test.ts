@@ -20,6 +20,7 @@ import {
 } from "@/app/create/CreateClient";
 import { CREATE_VISUAL_FOLLOWUP_COPY } from "@/features/create/CreateVisualFollowup";
 import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import { buildCreateUnloadedLinkFollowup } from "@/features/create/intelligentFollowupResults";
 
 describe("analyze workbench progressive disclosure", () => {
   it("keeps post-input modules hidden before explicit start", () => {
@@ -61,6 +62,12 @@ describe("analyze workbench progressive disclosure", () => {
     );
     expect(linkWithContext.hasLink).toBe(true);
     expect(linkWithContext.mostlyLinkOnly).toBe(false);
+
+    const markdownLink = detectCreateLinkIntake(
+      "[https://example.com/source](https://example.com/source)",
+    );
+    expect(markdownLink.primaryUrl).toBe("https://example.com/source");
+    expect(markdownLink.urls).toEqual(["https://example.com/source"]);
   });
 
   it("keeps guided analyze workspace hidden until guided bridge is confirmed", () => {
@@ -305,6 +312,40 @@ describe("analyze workbench progressive disclosure", () => {
     });
     expect(payload).not.toHaveProperty("textPrepared");
     expect(payload?.analysis).not.toHaveProperty("intelligentFollowup");
+  });
+
+  it("builds an adoption request for a server-bound pending guest link", () => {
+    const sourceText = "https://example.com/mindestlohn-behindertenwerkstatt";
+    const pendingLink = buildCreateUnloadedLinkFollowup({
+      text: sourceText,
+      sourceUrl: sourceText,
+      remainingText: "",
+      locale: "de",
+    });
+
+    const payload = buildCreateGuestAdoptionPayload({
+      snapshot: {
+        intakeText: sourceText,
+        hasStarted: true,
+        updatedAt: "2026-09-08T08:00:00.000Z",
+        guestOperationId: "guest-link-operation-12345678",
+        intelligentFollowup: pendingLink,
+      },
+      locale: "de",
+      createMode: "source",
+    });
+
+    expect(payload).toEqual({
+      locale: "de",
+      source: "create_guest_resume",
+      createMode: "source",
+      analysis: {
+        guestResume: {
+          operationId: "guest-link-operation-12345678",
+          noAutoPublish: true,
+        },
+      },
+    });
   });
 
   it("does not expose a guest snapshot across sessions, expiry, or implicit login resume", () => {

@@ -559,6 +559,92 @@ describe("create mode split - save route", () => {
     expect(mocks.adoptCompletedCreateOrchestrationClaim).toHaveBeenCalledTimes(3);
   });
 
+  it("adopts a server-bound pending link into exactly one account draft", async () => {
+    const sourceUrl =
+      "https://example.com/mindestlohn-behindertenwerkstatt";
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-pending-link-input-hash",
+      result: {
+        sourceText: sourceUrl,
+        generatedAt: "2026-09-08T08:00:00.000Z",
+        understanding: {
+          summary: "Quelle muss vor der Auswertung geladen werden.",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: ["unclear"],
+          openQuestion: null,
+          confidence: "low",
+        },
+        suggestions: [],
+        degraded: true,
+        degradedReason: null,
+        meta: {
+          planner: null,
+          graphMatch: {},
+          analysis: {
+            state: "link_detected",
+            sourceType: "link",
+            sourceUrl,
+            sourceLoaded: false,
+            validationStatus: "not_started",
+          },
+        },
+      },
+    });
+    const payload = {
+      source: "create_guest_resume",
+      createMode: "source",
+      sourceUrls: ["https://attacker.example/forged"],
+      analysis: {
+        guestResume: { operationId: "guest-operation-12345678" },
+      },
+    };
+
+    const first = await savePOST(req(payload));
+    const firstBody = await first.json();
+    const second = await savePOST(req(payload));
+    const secondBody = await second.json();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(secondBody.draftId).toBe(firstBody.draftId);
+    expect(mocks.readAll()).toHaveLength(1);
+    expect(mocks.readAll()[0]).toMatchObject({
+      text: sourceUrl,
+      createMode: "source",
+      analysis: {
+        intelligentFollowup: {
+          sourceText: sourceUrl,
+          meta: {
+            planner: null,
+            analysis: {
+              state: "link_detected",
+              sourceType: "link",
+              sourceUrl,
+              sourceLoaded: false,
+              validationStatus: "not_started",
+            },
+          },
+        },
+        inputContext: {
+          sourceUrls: [sourceUrl],
+          uploadIds: [],
+          materialItems: [],
+        },
+        guestResume: {
+          operationId: "guest-operation-12345678",
+          serverValidated: true,
+          noAutoPublish: true,
+        },
+      },
+    });
+    expect(JSON.stringify(mocks.readAll()[0])).not.toContain(
+      "attacker.example",
+    );
+  });
+
   it("adopts a later jurisdiction confirmation from the trusted guest result", async () => {
     const citizenContext =
       resolveCreateCitizenIntakeContextFromOfficialDirectory({
@@ -704,6 +790,51 @@ describe("create mode split - save route", () => {
       ok: false,
       error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED",
     });
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("rejects a pending source whose URL is not bound to the guest claim text", async () => {
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValueOnce({
+      inputHash: "server-input-hash-mismatched-link",
+      result: {
+        sourceText: "https://example.com/original-source",
+        generatedAt: "2026-09-08T08:00:00.000Z",
+        understanding: {
+          summary: "Quelle noch nicht geladen.",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: ["unclear"],
+          openQuestion: null,
+          confidence: "low",
+        },
+        suggestions: [],
+        meta: {
+          planner: null,
+          graphMatch: {},
+          analysis: {
+            state: "link_detected",
+            sourceType: "link",
+            sourceUrl: "https://attacker.example/forged-source",
+            sourceLoaded: false,
+            validationStatus: "not_started",
+          },
+        },
+      },
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
     expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
     expect(mocks.readAll()).toHaveLength(0);
   });

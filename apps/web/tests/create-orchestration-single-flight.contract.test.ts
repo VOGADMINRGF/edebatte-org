@@ -344,4 +344,46 @@ describe("persistent create orchestration single-flight", () => {
       }),
     ).resolves.toBeNull();
   });
+
+  it("stores and reuses a pending anonymous link source without external execution", async () => {
+    const keyInput = {
+      actorKey: "anonymous:guest-link-session",
+      draftId: "anonymous:guest-link-session",
+      correlationId: "guest-link-operation-12345678",
+      operationType: OPERATION_TYPE,
+    };
+    const result = {
+      sourceText: "https://example.com/source",
+      meta: {
+        planner: null,
+        analysis: {
+          state: "link_detected",
+          sourceType: "link",
+          sourceUrl: "https://example.com/source",
+          sourceLoaded: false,
+          validationStatus: "not_started",
+        },
+      },
+    };
+    const run = vi.fn(async () => result);
+
+    const first = await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "pending-link-input-hash",
+      run,
+    });
+    const second = await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "pending-link-input-hash",
+      run,
+    });
+
+    expect(first).toMatchObject({ result, reused: false });
+    expect(second).toMatchObject({ result, reused: true });
+    expect(run).toHaveBeenCalledTimes(1);
+    await expect(readCompletedCreateOrchestrationClaim(keyInput)).resolves.toMatchObject({
+      inputHash: "pending-link-input-hash",
+      result,
+    });
+  });
 });

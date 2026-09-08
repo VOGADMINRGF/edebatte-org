@@ -97,6 +97,7 @@ import {
   buildCreateLinkIntakeMeta,
   buildCreateLinkSourceNotice,
   detectCreateLinkIntake,
+  hasCreatePendingLinkSource,
   type CreateLinkIntentOptionId,
   type CreateLinkIntakeDetection,
 } from "@/features/create/linkIntake";
@@ -690,7 +691,8 @@ export function buildCreateGuestAdoptionPayload(input: {
     !text ||
     !operationId ||
     !input.snapshot.intelligentFollowup ||
-    !hasValidatedCreateSemanticOutput(input.snapshot.intelligentFollowup)
+    (!hasValidatedCreateSemanticOutput(input.snapshot.intelligentFollowup) &&
+      !hasCreatePendingLinkSource(input.snapshot.intelligentFollowup))
   ) {
     return null;
   }
@@ -1601,23 +1603,6 @@ export default function CreateClient({
           : null,
       );
 
-      if (anonymousRun && linkDetection.hasLink && linkDetection.primaryUrl) {
-        setGuestOperationId(null);
-        setIntelligentFollowup(
-          buildCreateUnloadedLinkFollowup({
-            text: normalizedText,
-            sourceUrl: linkDetection.primaryUrl,
-            remainingText: linkDetection.remainingText,
-            locale: surfaceLocale,
-          }),
-        );
-        setPlannerTrace(null);
-        setAnalyzeTrace(null);
-        setFollowupSurface("lightweight");
-        setIsStarting(false);
-        return;
-      }
-
       if (anonymousRun) {
         const sessionReady = await primeCreateSecuritySession();
         if (!sessionReady) throw new Error("create_anonymous_session_failed");
@@ -1625,13 +1610,17 @@ export default function CreateClient({
         const correlationId = createClientCorrelationId();
         plannerCorrelationId = correlationId;
         setGuestOperationId(correlationId);
-        const intakeTiming = resolveCreateIntakeTiming(normalizedText);
-        plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
-        plannerDeadlineRef.current = plannerDeadline;
+        if (!linkDetection.hasLink) {
+          const intakeTiming = resolveCreateIntakeTiming(normalizedText);
+          plannerDeadline = startCreateIntelligentFollowupDeadline(
+            intakeTiming.clientTimeoutMs,
+          );
+          plannerDeadlineRef.current = plannerDeadline;
+        }
         const response = await fetch("/api/create/intake", {
           method: "POST",
           headers: createMutationRequestHeaders(),
-          signal: plannerDeadline.signal,
+          signal: plannerDeadline?.signal,
           body: JSON.stringify({
             text: normalizedText,
             locale: surfaceLocale,
@@ -1665,7 +1654,11 @@ export default function CreateClient({
         setFollowupSurface(nextFollowupSurface);
         setAnalysisSceneMode(null);
         setActionNotice(
-          hasValidatedCreateSemanticOutput(nextIntelligentFollowup)
+          hasCreatePendingLinkSource(nextIntelligentFollowup)
+            ? surfaceLocale === "en"
+              ? "The source is preserved in this guest workspace. Sign in to load and analyze it."
+              : "Die Quelle bleibt in diesem Gast-Arbeitsstand erhalten. Melde dich an, um sie zu laden und zu analysieren."
+            : hasValidatedCreateSemanticOutput(nextIntelligentFollowup)
             ? surfaceLocale === "en"
               ? "Your first classification is available as a guest. Sign in only when you want to save or continue it."
               : "Deine erste Einordnung ist als Gast verfügbar. Melde dich erst an, wenn du sie speichern oder weiterführen möchtest."
@@ -3311,6 +3304,15 @@ export default function CreateClient({
       );
       return;
     }
+    if (!requireAuthenticatedOwnership()) return;
+    if (!savedDraftId) {
+      setActionNotice(
+        surfaceLocale === "en"
+          ? "Your guest source is being adopted securely. Start the link analysis once the saved draft is ready."
+          : "Deine Gast-Quelle wird sicher übernommen. Starte die Link-Analyse, sobald der gespeicherte Entwurf bereit ist.",
+      );
+      return;
+    }
     const currentState = intelligentFollowup?.meta?.analysis?.state ?? "link_detected";
     if (currentState === "link_detected") {
       setIntelligentFollowup(
@@ -3421,6 +3423,7 @@ export default function CreateClient({
     linkClarificationState?.additionalContext,
     normalizedIntakeText,
     privacyGate,
+    requireAuthenticatedOwnership,
     savedDraftId,
     surfaceLocale,
   ]);

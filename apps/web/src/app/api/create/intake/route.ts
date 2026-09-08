@@ -67,9 +67,10 @@ function safeSafetySummary(safety: ReturnType<typeof evaluateCreateInputSafety>)
  * Public, read-only citizen intake.
  *
  * This is intentionally NOT a second Create runtime. It projects the same
- * canonical AI planner used by authenticated `/create`, but without draft,
- * handoff, ticket or publication mutations. Durable ownership begins only
- * after authentication.
+ * canonical AI planner used by authenticated `/create`, but without account
+ * draft, handoff, ticket or publication mutations. A session-bound guest
+ * claim may retain the workstate until durable ownership begins after
+ * authentication.
  */
 export async function POST(req: NextRequest) {
   const anonymousSession = verifyAnonymousSession(
@@ -167,28 +168,70 @@ export async function POST(req: NextRequest) {
   }
 
   if (linkDetection.hasLink && linkDetection.primaryUrl) {
-    return json({
-      ok: true,
-      result: buildCreateUnloadedLinkFollowup({
-        text,
-        sourceUrl: linkDetection.primaryUrl,
-        remainingText: linkDetection.remainingText,
-        locale,
-      }),
-      safety: safeSafetySummary(safety),
-      meta: {
-        mode: "anonymous_unloaded_source",
-        requestId,
-        persisted: false,
-        accountRequired: false,
-        sourceValidationRequired: true,
-        deepSearchUsed: false,
-        researchUsed: "none",
-        noAutoPublish: true,
-        noSilentMerge: true,
-        ownershipBoundary: "validate_source_before_durable_write",
-      },
-    });
+    const sourceUrl = linkDetection.primaryUrl;
+    try {
+      const singleFlight = await runCreateOrchestrationSingleFlight({
+        actorKey: `anonymous:${anonymousSession.id}`,
+        draftId: `anonymous:${anonymousSession.id}`,
+        correlationId: requestId,
+        operationType: "create_intelligent_followup_planner",
+        inputHash: stableHash({
+          text,
+          locale,
+          intent,
+          sourceUrl,
+          state: "link_detected",
+        }),
+        waitMs: 25_000,
+        run: async () =>
+          buildCreateUnloadedLinkFollowup({
+            text,
+            sourceUrl,
+            remainingText: linkDetection.remainingText,
+            locale,
+          }),
+      });
+
+      return json({
+        ok: true,
+        result: singleFlight.result,
+        safety: safeSafetySummary(safety),
+        meta: {
+          mode: "anonymous_unloaded_source",
+          requestId,
+          guestOperationId: requestId,
+          operationState: "source_pending",
+          persisted: false,
+          accountRequired: false,
+          sourceValidationRequired: true,
+          deepSearchUsed: false,
+          researchUsed: "none",
+          noAutoPublish: true,
+          noSilentMerge: true,
+          ownershipBoundary: "validate_source_before_durable_write",
+          singleFlightReused: singleFlight.reused,
+          singleFlightRecovered: singleFlight.recovered,
+        },
+      });
+    } catch {
+      return json(
+        {
+          ok: false,
+          errorCode: "SOURCE_INTAKE_UNAVAILABLE",
+          message: locale.startsWith("en")
+            ? "I couldn’t preserve this source workspace securely. Please try again."
+            : "Ich konnte diesen Quellen-Arbeitsstand nicht sicher erhalten. Bitte versuche es erneut.",
+          retryable: true,
+          meta: {
+            mode: "anonymous_unloaded_source",
+            persisted: false,
+            noAutoPublish: true,
+            noSilentMerge: true,
+          },
+        },
+        503,
+      );
+    }
   }
 
   try {
@@ -241,6 +284,7 @@ export async function POST(req: NextRequest) {
       meta: {
         mode: "anonymous_ai_micro_pass",
         requestId,
+        guestOperationId: requestId,
         persisted: false,
         accountRequired: false,
         inputRedactedForAi: modelText !== text,

@@ -48,7 +48,11 @@ import type { CreateIntelligentFollowupResult } from "@/features/create/intellig
 import { hasValidatedCreateSemanticOutput } from "@/features/create/createCandidatePreview";
 import { applyCreateRegionPriority } from "@/features/create/createCitizenIntakeContext";
 import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
-import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import {
+  detectCreateLinkIntake,
+  hasCreatePendingLinkSource,
+  readCreateBoundLinkSourceUrl,
+} from "@/features/create/linkIntake";
 
 function hasValidatedGuestSource(
   result: CreateIntelligentFollowupResult,
@@ -471,11 +475,15 @@ export async function POST(req: NextRequest) {
           operationType: "create_intelligent_followup_planner",
         }).catch(() => null)
       : null;
+  const pendingGuestSource = guestClaim
+    ? hasCreatePendingLinkSource(guestClaim.result)
+    : false;
   if (
     isGuestAdoption &&
     (!guestClaim ||
-      !hasValidatedCreateSemanticOutput(guestClaim.result) ||
-      !hasValidatedGuestSource(guestClaim.result))
+      (!pendingGuestSource &&
+        (!hasValidatedCreateSemanticOutput(guestClaim.result) ||
+          !hasValidatedGuestSource(guestClaim.result))))
   ) {
     return NextResponse.json(
       { ok: false, error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED" },
@@ -626,7 +634,14 @@ export async function POST(req: NextRequest) {
         },
       }
     : body.analysis ?? existingDraft?.analysis;
-  const effectiveSourceUrls = isGuestAdoption ? undefined : body.sourceUrls;
+  const serverBoundGuestSourceUrl = guestClaim
+    ? readCreateBoundLinkSourceUrl(guestClaim.result)
+    : null;
+  const effectiveSourceUrls = isGuestAdoption
+    ? serverBoundGuestSourceUrl
+      ? [serverBoundGuestSourceUrl]
+      : undefined
+    : body.sourceUrls;
   const effectiveUploadIds = isGuestAdoption ? undefined : body.uploadIds;
   const effectiveMaterialItems = isGuestAdoption
     ? undefined

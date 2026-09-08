@@ -52,8 +52,8 @@ describe("create fast-intake latency contract", () => {
       client.indexOf("const handleStart"),
     );
     const saveIndex = client.indexOf('fetch("/api/create/save"', startFlowIndex);
-    const anonymousLinkGateIndex = client.indexOf(
-      "if (anonymousRun && linkDetection.hasLink && linkDetection.primaryUrl)",
+    const anonymousDeadlineGuardIndex = client.indexOf(
+      "if (!linkDetection.hasLink)",
       startFlowIndex,
     );
     const anonymousPlannerIndex = client.indexOf(
@@ -72,14 +72,14 @@ describe("create fast-intake latency contract", () => {
     const plannerIndex = client.indexOf('fetch("/api/create/intelligent-followup"');
 
     expect(saveIndex).toBeGreaterThan(-1);
-    expect(anonymousLinkGateIndex).toBeGreaterThan(startFlowIndex);
-    expect(anonymousPlannerIndex).toBeGreaterThan(anonymousLinkGateIndex);
+    expect(anonymousDeadlineGuardIndex).toBeGreaterThan(startFlowIndex);
+    expect(anonymousPlannerIndex).toBeGreaterThan(anonymousDeadlineGuardIndex);
     expect(
-      client.slice(anonymousLinkGateIndex, anonymousPlannerIndex),
-    ).toContain("setGuestOperationId(null)");
-    expect(
-      client.slice(anonymousLinkGateIndex, anonymousPlannerIndex),
-    ).toContain("buildCreateUnloadedLinkFollowup");
+      client.slice(anonymousDeadlineGuardIndex, anonymousPlannerIndex),
+    ).toContain("startCreateIntelligentFollowupDeadline");
+    expect(client.slice(startFlowIndex, anonymousPlannerIndex)).not.toContain(
+      "setGuestOperationId(null)",
+    );
     expect(durableSaveIndex).toBeGreaterThan(saveIndex);
     expect(linkIntakeIndex).toBeGreaterThan(durableSaveIndex);
     expect(deadlineIndex).toBeGreaterThan(linkIntakeIndex);
@@ -96,6 +96,25 @@ describe("create fast-intake latency contract", () => {
     expect(client).toContain("plannerDeadlineRef.current?.cancel()");
     expect(client).toContain("saveMs");
     expect(client).toContain("submitToResultMs");
+  });
+
+  it("requires authenticated draft ownership before invoking link analysis", () => {
+    const client = source("src/app/create/CreateClient.tsx");
+    const handlerIndex = client.indexOf("const handlePrepareLinkReview");
+    const authGateIndex = client.indexOf(
+      "if (!requireAuthenticatedOwnership()) return;",
+      handlerIndex,
+    );
+    const draftGateIndex = client.indexOf("if (!savedDraftId)", authGateIndex);
+    const linkAnalysisIndex = client.indexOf(
+      'fetch("/api/create/link-analysis"',
+      handlerIndex,
+    );
+
+    expect(handlerIndex).toBeGreaterThan(-1);
+    expect(authGateIndex).toBeGreaterThan(handlerIndex);
+    expect(draftGateIndex).toBeGreaterThan(authGateIndex);
+    expect(linkAnalysisIndex).toBeGreaterThan(draftGateIndex);
   });
 
   it("selects a longer client deadline for standard input without slowing fast intake", () => {

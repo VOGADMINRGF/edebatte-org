@@ -6,6 +6,8 @@
  * `inputType`, `segments`, `sourceHints` and `missingInfoQuestions`, but it
  * does not scrape, summarize or auto-evaluate linked content.
  */
+import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
+
 export type CreateLinkKind = "youtube" | "video" | "article" | "web" | "multiple" | "unknown";
 
 export type CreateLinkIntentOptionId =
@@ -118,7 +120,7 @@ const CREATE_LINK_INTENT_E150_MAPPING: Record<
   },
 };
 
-const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`]+|\bwww\.[^\s<>"'`]+/gi;
+const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`\])]+|\bwww\.[^\s<>"'`\])]+/gi;
 const TRAILING_PUNCTUATION_PATTERN = /[),.;:!?]+$/;
 
 function normalizeDetectedUrl(raw: string): string {
@@ -188,6 +190,28 @@ export function detectCreateLinkIntake(text: string): CreateLinkIntakeDetection 
     remainingText,
     remainingWordCount,
   };
+}
+
+export function readCreateBoundLinkSourceUrl(
+  followup: CreateIntelligentFollowupResult | null | undefined,
+): string | null {
+  const sourceUrl = followup?.meta?.analysis?.sourceUrl?.trim() ?? "";
+  if (!sourceUrl) return null;
+  const detection = detectCreateLinkIntake(followup?.sourceText ?? "");
+  return detection.primaryUrl === sourceUrl ? sourceUrl : null;
+}
+
+export function hasCreatePendingLinkSource(
+  followup: CreateIntelligentFollowupResult | null | undefined,
+): boolean {
+  const analysis = followup?.meta?.analysis;
+  return Boolean(
+    readCreateBoundLinkSourceUrl(followup) &&
+      analysis?.state === "link_detected" &&
+      analysis.sourceType === "link" &&
+      analysis.sourceLoaded === false &&
+      analysis.validationStatus === "not_started",
+  );
 }
 
 export function resolveCreateLinkIntentOptionLabel(

@@ -194,13 +194,27 @@ describe("POST /api/create/intake", () => {
         },
         meta: {
           mode: "anonymous_unloaded_source",
+          guestOperationId: "request-link-12345678",
+          operationState: "source_pending",
           persisted: false,
           sourceValidationRequired: true,
           ownershipBoundary: "validate_source_before_durable_write",
         },
       });
       expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
-      expect(mocks.runCreateOrchestrationSingleFlight).not.toHaveBeenCalled();
+      expect(mocks.runCreateOrchestrationSingleFlight).toHaveBeenCalledTimes(1);
+      expect(mocks.runCreateOrchestrationSingleFlight).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorKey: "anonymous:anonymous-1",
+          draftId: "anonymous:anonymous-1",
+          correlationId: "request-link-12345678",
+          operationType: "create_intelligent_followup_planner",
+          inputHash: expect.any(String),
+        }),
+      );
+      expect(
+        mocks.runCreateOrchestrationSingleFlight.mock.calls[0]?.[0]?.run,
+      ).toEqual(expect.any(Function));
     },
   );
 
