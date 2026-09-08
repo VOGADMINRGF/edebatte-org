@@ -10,7 +10,15 @@ export type SessionUser = {
   _id: ObjectId;
   email?: string | null;
   name?: string | null;
-  profile?: { displayName?: string | null; locale?: string | null } | null;
+  profile?: {
+    displayName?: string | null;
+    locale?: string | null;
+    publicLocation?: {
+      city?: string | null;
+      region?: string | null;
+      countryCode?: string | null;
+    } | null;
+  } | null;
   settings?: {
     uiLocale?: string | null;
     preferredLocale?: string | null;

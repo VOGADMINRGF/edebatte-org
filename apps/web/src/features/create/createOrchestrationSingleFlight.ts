@@ -3,6 +3,7 @@ import "server-only";
 import crypto from "node:crypto";
 import { coreCol } from "@core/db/triMongo";
 import { stableHash } from "@core/utils/hash";
+import { CREATE_ANON_SESSION_MAX_AGE_SECONDS } from "@/features/create/createAnonymousSession";
 
 export type CreateOrchestrationKind = "create_intelligent_followup_planner";
 
@@ -22,6 +23,8 @@ type CreateOrchestrationClaimRecord<T> = {
   externalExecutionStartedAt: string | null;
   result: T | null;
   failureCode: string | null;
+  adoptedBy: string | null;
+  adoptedAt: string | null;
   createdAt: string;
   updatedAt: string;
   expiresAt: Date;
@@ -43,6 +46,10 @@ type ClaimAcquireResult<T> =
       record: CreateOrchestrationClaimRecord<T>;
       result: T;
     };
+
+type ClaimAdoptionResult<T> =
+  | { kind: "adopted" | "reused"; result: T }
+  | { kind: "not_found" | "not_completed" | "conflict" };
 
 type ClaimRepository = {
   acquire<T>(input: {
@@ -68,6 +75,11 @@ type ClaimRepository = {
     failureCode: string;
     now: string;
   }): Promise<boolean>;
+  adoptCompleted<T>(input: {
+    key: string;
+    consumerKey: string;
+    now: string;
+  }): Promise<ClaimAdoptionResult<T>>;
 };
 
 type InMemoryClaimRepository = ClaimRepository & {
@@ -78,7 +90,7 @@ type InMemoryClaimRepository = ClaimRepository & {
 const CLAIMS_COLLECTION = "create_orchestration_claims";
 const DEFAULT_LEASE_MS = 45_000;
 const DEFAULT_WAIT_MS = 50_000;
-const RESULT_TTL_MS = 15 * 60 * 1000;
+const RESULT_TTL_MS = CREATE_ANON_SESSION_MAX_AGE_SECONDS * 1000;
 const POLL_INTERVAL_MS = 20;
 
 let repoSingleton: ClaimRepository | null = null;
@@ -253,6 +265,39 @@ function createMongoRepo(): ClaimRepository {
       );
       return result.modifiedCount === 1;
     },
+    async adoptCompleted<T>(input) {
+      await ensureIndexes();
+      const claims =
+        await coreCol<CreateOrchestrationClaimRecord<T>>(CLAIMS_COLLECTION);
+      const adopted = await claims.findOneAndUpdate(
+        {
+          key: input.key,
+          status: "completed",
+          result: { $ne: null },
+          $or: [{ adoptedBy: null }, { adoptedBy: { $exists: false } }],
+        },
+        {
+          $set: {
+            adoptedBy: input.consumerKey,
+            adoptedAt: input.now,
+            updatedAt: input.now,
+          },
+        },
+        { returnDocument: "after" },
+      );
+      if (adopted?.result !== null && adopted?.result !== undefined) {
+        return { kind: "adopted", result: clone(adopted.result) };
+      }
+      const current = await claims.findOne({ key: input.key });
+      if (!current) return { kind: "not_found" };
+      if (current.status !== "completed" || current.result === null) {
+        return { kind: "not_completed" };
+      }
+      if (current.adoptedBy === input.consumerKey) {
+        return { kind: "reused", result: clone(current.result) };
+      }
+      return { kind: "conflict" };
+    },
   };
 }
 
@@ -357,6 +402,28 @@ export function createInMemoryCreateOrchestrationClaimRepo(): InMemoryClaimRepos
       });
       return true;
     },
+    async adoptCompleted<T>(input) {
+      const current = records.get(input.key) as
+        | CreateOrchestrationClaimRecord<T>
+        | undefined;
+      if (!current) return { kind: "not_found" };
+      if (current.status !== "completed" || current.result === null) {
+        return { kind: "not_completed" };
+      }
+      if (current.adoptedBy && current.adoptedBy !== input.consumerKey) {
+        return { kind: "conflict" };
+      }
+      if (current.adoptedBy === input.consumerKey) {
+        return { kind: "reused", result: clone(current.result) };
+      }
+      records.set(input.key, {
+        ...current,
+        adoptedBy: input.consumerKey,
+        adoptedAt: input.now,
+        updatedAt: input.now,
+      });
+      return { kind: "adopted", result: clone(current.result) };
+    },
     expireClaimForTests(key) {
       const current = records.get(key);
       if (!current) return;
@@ -458,6 +525,8 @@ export async function runCreateOrchestrationSingleFlight<T>(input: {
         externalExecutionStartedAt: null,
         result: null,
         failureCode: null,
+        adoptedBy: null,
+        adoptedAt: null,
         createdAt: now,
         updatedAt: now,
         expiresAt: new Date(nowDate.getTime() + RESULT_TTL_MS),
@@ -528,6 +597,45 @@ export function setCreateOrchestrationClaimRepoForTests(
 ) {
   repoSingleton = repo;
   indexesReady = false;
+}
+
+export async function readCompletedCreateOrchestrationClaim<T>(input: {
+  actorKey: string;
+  draftId: string;
+  correlationId: string;
+  operationType: CreateOrchestrationKind;
+}): Promise<{ result: T; inputHash: string } | null> {
+  const key = buildClaimKey({
+    actorKey: normalizeScopeValue(input.actorKey, "actor"),
+    draftId: normalizeScopeValue(input.draftId, "draft"),
+    correlationId: normalizeScopeValue(input.correlationId, "correlation"),
+    operationType: input.operationType,
+  });
+  const record = await getRepo().find<T>(key);
+  if (!record || record.status !== "completed" || record.result === null) {
+    return null;
+  }
+  return { result: record.result, inputHash: record.inputHash };
+}
+
+export async function adoptCompletedCreateOrchestrationClaim<T>(input: {
+  actorKey: string;
+  draftId: string;
+  correlationId: string;
+  operationType: CreateOrchestrationKind;
+  consumerKey: string;
+}): Promise<ClaimAdoptionResult<T>> {
+  const key = buildClaimKey({
+    actorKey: normalizeScopeValue(input.actorKey, "actor"),
+    draftId: normalizeScopeValue(input.draftId, "draft"),
+    correlationId: normalizeScopeValue(input.correlationId, "correlation"),
+    operationType: input.operationType,
+  });
+  return getRepo().adoptCompleted<T>({
+    key,
+    consumerKey: normalizeScopeValue(input.consumerKey, "consumer"),
+    now: new Date().toISOString(),
+  });
 }
 
 export function createOrchestrationClaimKeyForTests(input: {

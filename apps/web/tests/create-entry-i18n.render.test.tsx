@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 import SharedCreateComposer from "@/features/create/SharedCreateComposer";
+import { resolveCreateCitizenIntakeContext } from "@/features/create/createCitizenIntakeContext";
 import {
   getCreateComposerTexts,
   getCreateContextAnchorDefinitions,
@@ -79,5 +80,43 @@ describe("create entry i18n render", () => {
     expect(html).toContain("Classifying …");
     expect(html).toContain("disabled=\"\"");
     expect(html).toContain("aria-busy=\"true\"");
+  });
+
+  it("renders the emergency notice in the active English UI language", () => {
+    const modeDefinitions = getCreateSurfaceModeDefinitions("en");
+    const citizenContext = resolveCreateCitizenIntakeContext({
+      text: "There is a fire right now, call 112 immediately.",
+      locale: "en",
+    });
+    const html = renderToStaticMarkup(
+      <SharedCreateComposer
+        badge="Canonical entry"
+        subline="Share your statement in one field."
+        texts={getCreateComposerTexts("en")}
+        modeOrder={["analyze", "media", "guided"]}
+        modeDefinitions={modeDefinitions}
+        activeMode="analyze"
+        onModeChange={() => {}}
+        helperText={modeDefinitions.analyze.helperText}
+        inputId="emergency-entry"
+        inputValue="There is a fire right now, call 112 immediately."
+        inputPlaceholder={modeDefinitions.analyze.placeholder}
+        onInputChange={() => {}}
+        onStart={() => {}}
+        startLabel={modeDefinitions.analyze.ctaLabel}
+        secondaryAction={{ href: "/runden", label: "Open rounds" }}
+        contextAnchors={getCreateContextAnchorDefinitions("en")}
+        activeContextAnchorId={null}
+        onContextAnchorSelect={() => {}}
+        helperLinks={getCreateHelperLinks("en")}
+        citizenContext={citizenContext}
+        locale="en"
+        experienceVariant="workspace_shell"
+      />,
+    );
+
+    expect(html).toContain("eDebatte is not the right emergency channel");
+    expect(html).toContain("Call 112");
+    expect(html).not.toContain("Bei akuter Gefahr");
   });
 });

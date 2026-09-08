@@ -1,0 +1,71 @@
+/* Final mobile-first polish for the public /create workspace.
+ * Keep the citizen's contribution and the next interaction in focus.
+ * This file deliberately targets existing stable create data attributes/classes
+ * so it can land without creating a second Create runtime or flow.
+ */
+
+/* A citizen without an organization does not need the internal membership
+ * scope vocabulary in the public composer. Keep real operator/org notices.
+ * The limited/default card is the only scope notice rendered muted. */
+[data-create-composer-bar="true"]
+  div.rounded-2xl.text-xs[class~="text-[rgb(var(--muted))]"] {
+  display: none !important;
+}
+
+/* The public create shell uses Voxy as a conversational marker at every
+ * breakpoint. The generic create surface avatar rule is intentionally larger
+ * and would otherwise turn the guide into a separate visual block on desktop. */
+[data-create-workspace-shell] [data-voxy-avatar].public-voxy-image {
+  width: 3.5rem !important;
+  max-width: 3.5rem !important;
+  opacity: 0.82;
+}
+
+@media (max-width: 767px) {
+  /* The mobile workspace should use the viewport instead of looking like a
+   * desktop card squeezed into a phone. */
+  [data-create-workspace-shell] {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    margin-inline: 0 !important;
+    padding-inline: 0 !important;
+    border-right: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-create-workspace-shell] [data-create-shell-thread] {
+    min-height: 0 !important;
+    padding: 1rem !important;
+  }
+
+  /* Voxy remains a guide, not the primary content object. This applies both
+   * to the greeting and to recovery states. */
+  [data-create-workspace-shell] [data-voxy-avatar] {
+    width: 3.25rem !important;
+    max-width: 3.25rem !important;
+    opacity: 0.76;
+  }
+
+  /* Input first: comfortable reading while typing, native vertical expansion
+   * and a sensible ceiling so controls remain reachable. */
+  [data-create-composer-bar="true"] {
+    padding: 0.75rem !important;
+  }
+
+  [data-create-composer-bar="true"] textarea {
+    min-height: clamp(11rem, 30svh, 19rem) !important;
+    max-height: 58svh !important;
+    resize: vertical !important;
+    overflow-y: auto !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Keep submitted text readable as text, not as a narrow speech bubble. */
+  .create-chat-message > div:last-child {
+    max-width: 100% !important;
+  }
+}

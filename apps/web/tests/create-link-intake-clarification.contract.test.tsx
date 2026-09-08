@@ -4,6 +4,7 @@ import CreateLinkIntakeClarification from "@/features/create/CreateLinkIntakeCla
 import {
   buildCreateLinkSourceNotice,
   detectCreateLinkIntake,
+  validateCreateSourceUrlForPersistence,
 } from "@/features/create/linkIntake";
 
 describe("create link intake clarification contract", () => {
@@ -28,6 +29,27 @@ describe("create link intake clarification contract", () => {
     expect(detection.hasLink).toBe(true);
     expect(detection.mostlyLinkOnly).toBe(false);
     expect(detection.remainingWordCount).toBeGreaterThan(6);
+  });
+
+  it.each([
+    "https://example.org/?email=max@example.org",
+    "https://example.org/?phone=01711234567",
+    "https://max@example.org:secret@example.org/foo",
+    "https://example.org/max@example.org/foo",
+    "https://example.org/max%40example.org/foo",
+    "https://example.org/foo#max@example.org",
+    "https://example.org/?token=opaque-secret",
+  ])("fails closed instead of rewriting an unsafe source URL: %s", (sourceUrl) => {
+    expect(validateCreateSourceUrlForPersistence(sourceUrl)).toEqual({ ok: false });
+  });
+
+  it("keeps a PII-free canonical source URL intact", () => {
+    const sourceUrl = "https://example.org/article?id=123";
+
+    expect(validateCreateSourceUrlForPersistence(sourceUrl)).toEqual({
+      ok: true,
+      canonicalUrl: sourceUrl,
+    });
   });
 
   it("renders the clarification options, youtube warning and honest guardrails", () => {

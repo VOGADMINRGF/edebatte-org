@@ -169,6 +169,15 @@ describe("/api/create/intelligent-followup route", () => {
       ],
       sourceText: "Input",
       generatedAt: "2026-05-05T10:00:00.000Z",
+      meta: {
+        analysis: { state: "result_ready" },
+        planner: {
+          runtimeMs: 1_234,
+          issueMode: "single_issue",
+          timingLane: "fast",
+          inputLength: 5,
+        },
+      },
       degraded: false,
       degradedReason: null,
     });
@@ -191,6 +200,18 @@ describe("/api/create/intelligent-followup route", () => {
       operationType: "create_intelligent_followup_planner",
       userScope: "present",
       singleFlight: "owner",
+      intake: {
+        selectedTimingLane: "fast",
+        inputLength: 5,
+        canonicalTopicCount: 1,
+        issueMode: "single_issue",
+      },
+      timings: {
+        accessMs: expect.any(Number),
+        plannerMs: 1_234,
+        contextMs: expect.any(Number),
+        totalMs: expect.any(Number),
+      },
     });
     expect(mocks.buildCreateIntelligentFollowup).toHaveBeenCalledTimes(1);
     expect(mocks.buildCreateIntelligentFollowup).toHaveBeenCalledWith(
@@ -202,6 +223,41 @@ describe("/api/create/intelligent-followup route", () => {
         dossierId: "dossier-1",
       }),
     );
+  });
+
+  it("keeps an authenticated unloaded link out of the text planner", async () => {
+    const response = await POST(request({
+      text: "Schau dir das an: https://example.com/mindestlohn-behindertenwerkstatt",
+      locale: "de",
+      correlationId: "correlation-link-route-1",
+      draftId: "draft-link-route-1",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: true,
+      result: {
+        understanding: { topics: [], statements: [] },
+        meta: {
+          planner: null,
+          analysis: {
+            state: "link_detected",
+            sourceType: "link",
+            sourceLoaded: false,
+            validationStatus: "not_started",
+          },
+        },
+      },
+      supportHandoff: null,
+      trace: {
+        sourceValidationRequired: true,
+        timings: { plannerMs: 0 },
+      },
+    });
+    expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
+    expect(mocks.runCreateOrchestrationSingleFlight).not.toHaveBeenCalled();
+    expect(mocks.ensureCreateSupportTicket).not.toHaveBeenCalled();
   });
 
   it("converts a final unhandled orchestration error into one safe support handoff", async () => {

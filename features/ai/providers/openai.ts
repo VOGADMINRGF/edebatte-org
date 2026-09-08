@@ -24,6 +24,7 @@ export type AskArgs = {
   signal?: AbortSignal;
   forceJsonFormat?: boolean;
   jsonSchema?: { name?: string; schema: any; strict?: boolean } | null;
+  allowJsonFormatFallback?: boolean;
 };
 
 export type AskResult = {
@@ -206,6 +207,7 @@ async function askOpenAI({
   signal,
   forceJsonFormat = false,
   jsonSchema,
+  allowJsonFormatFallback = true,
 }: AskArgs): Promise<AskResult> {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY fehlt");
 
@@ -330,6 +332,7 @@ async function askOpenAI({
             )) ||
           err?.status === 422;
         const needsFallback =
+          allowJsonFormatFallback &&
           schemaEnabled &&
           !didFallback &&
           attemptFormat === "json_schema" &&

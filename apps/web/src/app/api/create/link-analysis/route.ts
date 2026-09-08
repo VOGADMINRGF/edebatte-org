@@ -6,6 +6,7 @@ import {
   buildCreateTechnicalFollowup,
   buildCreateValidatedDocumentFollowup,
 } from "@/features/create/intelligentFollowupResults";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { resolveCreatePlannerModelCandidates } from "@/features/create/createPlanner";
 import type { DocumentAnalysisSummary } from "@/features/create/intelligentFollowupContract";
 import { getSessionUser } from "@/lib/server/auth/sessionUser";
@@ -440,6 +441,10 @@ export async function POST(req: NextRequest) {
           supportHandoff.status === "created"
             ? supportHandoff.ticket.safeUserMessage
             : supportHandoff.safeUserMessage,
+        citizenContext: resolveCreateCitizenIntakeContextFromOfficialDirectory({
+          text: body.text,
+          locale: body.locale,
+        }),
       }),
       supportHandoff,
       trace: { correlationId },

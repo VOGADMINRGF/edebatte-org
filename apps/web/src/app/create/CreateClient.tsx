@@ -63,8 +63,16 @@ import {
   normalizeDocumentAnalysisSummary,
   type CreateIntelligentFollowupResult,
 } from "@/features/create/intelligentFollowupContract";
-import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
-import { createMutationRequestHeaders } from "@/features/create/createMutationSecurityContract";
+import {
+  buildCreateTechnicalFollowup,
+  buildCreateUnloadedLinkFollowup,
+} from "@/features/create/intelligentFollowupResults";
+import {
+  createMutationRequestHeaders,
+  primeCreateSecuritySession,
+  readCreateAnonymousStorageContext,
+  type CreateAnonymousStorageContext,
+} from "@/features/create/createMutationSecurityContract";
 import {
   buildCreateFollowupPrimaryCtaHref,
   buildCreateFollowupTargetHref,
@@ -89,6 +97,7 @@ import {
   buildCreateLinkIntakeMeta,
   buildCreateLinkSourceNotice,
   detectCreateLinkIntake,
+  hasCreatePendingLinkSource,
   type CreateLinkIntentOptionId,
   type CreateLinkIntakeDetection,
 } from "@/features/create/linkIntake";
@@ -113,10 +122,22 @@ import {
   type CreateVoxyLocale,
 } from "@/features/create/createVoxySupportCopy";
 import type { CreateSupportHandoffPublic } from "@/features/support/createSupportTicketContract";
+import {
+  applyCreateJurisdictionConfirmation,
+  applyCreateRegionPriority,
+  buildCreateJurisdictionCandidateKey,
+  resolveCreateCitizenIntakeContext,
+} from "@/features/create/createCitizenIntakeContext";
+import {
+  isCreateIntelligentFollowupAbortError,
+  resolveCreateIntakeTiming,
+  startCreateIntelligentFollowupDeadline,
+  type CreateIntelligentFollowupDeadline,
+} from "@/features/create/createFastIntakeTiming";
 
 export type CreateClientProps = {
   initialEntitlements: CreateEntitlements;
-  overview: AccountOverview;
+  overview: AccountOverview | null;
   dossierId?: string | null;
   initialAnlassraumId?: string | null;
   initialMode?: CreateMode;
@@ -130,6 +151,7 @@ export type CreateClientProps = {
   initialNextActionParam?: string | null;
   initialRequestScope?: RequestScopeSummary | null;
   initialRundenCreateHandoff?: RundenCreateHandoffIntegrityState | null;
+  initialResumeGuestWorkspace?: boolean;
 };
 
 export const CREATE_PRODUCT_MODES = CREATE_PRODUCT_MODE_VALUES;
@@ -329,10 +351,17 @@ type GateState =
   | { status: "allowed"; entitlements: CreateEntitlements }
   | { status: "blocked"; entitlements: CreateEntitlements };
 
-type CreatePrimaryIntakeSnapshot = {
+export type CreatePrimaryIntakeSnapshot = {
   intakeText: string;
   hasStarted: boolean;
   updatedAt: string;
+  intelligentFollowup?: CreateIntelligentFollowupResult | null;
+  plannerTrace?: CreatePlannerRuntimeTrace | null;
+  productMode?: CreateProductMode;
+  guestOperationId?: string | null;
+  serverDraftId?: string | null;
+  guestContextExpiresAt?: string | null;
+  confirmedJurisdictionKey?: string | null;
 };
 
 type CreateFollowupSurface = "none" | "lightweight" | "analysis";
@@ -454,9 +483,8 @@ function CreateSubmittedContributionBubble(props: {
   locale: CreateVoxyLocale;
 }) {
   return (
-    <div className="create-chat-message flex min-w-0 gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[rgb(var(--muted))] ring-4 ring-[rgb(var(--card))]" />
-      <div className="w-full min-w-0 max-w-full sm:max-w-[78%]">
+    <div className="create-chat-message flex min-w-0 justify-end">
+      <div className="w-full min-w-0 max-w-[46rem] sm:w-auto sm:min-w-[42%]">
         <p className="text-sm font-semibold text-[rgb(var(--muted))]">
           {props.locale === "en" ? "You" : "Du"}
         </p>
@@ -475,55 +503,33 @@ function CreateAssistantStatusBubble(props: {
   title: string;
   body: string;
   notice?: string | null;
-  chips?: string[];
-  largeAvatar?: boolean;
   announce?: boolean;
 }) {
   return (
     <div
-      className={`create-chat-message flex gap-3 ${
-        props.largeAvatar ? "flex-col sm:flex-row sm:gap-5" : ""
-      }`}
-      data-create-voxy-intro={props.largeAvatar ? "large-aura" : undefined}
+      className="create-chat-message flex items-start gap-3"
+      data-create-voxy-intro="dialog"
       role={props.announce ? "status" : undefined}
       aria-live={props.announce ? "polite" : undefined}
       aria-atomic={props.announce ? "true" : undefined}
     >
       <div className="mt-1 shrink-0">
         <VoxyAvatar
-          appearance={props.largeAvatar ? "panel" : "inline"}
-          compact={!props.largeAvatar}
-          priority={props.largeAvatar}
+          appearance="inline"
+          compact
           variant="presenting"
         />
       </div>
-      <div
-        className={`w-full min-w-0 flex-1 break-words [overflow-wrap:anywhere] ${
-          props.largeAvatar ? "max-w-4xl" : "max-w-full sm:max-w-[78%]"
-        }`}
-      >
+      <div className="w-full min-w-0 max-w-[46rem] flex-1 break-words [overflow-wrap:anywhere]">
         <p className="text-sm font-semibold text-[rgb(var(--muted))]">Voxy</p>
-        <div className="mt-2 rounded-2xl rounded-tl-sm border border-[rgb(var(--grad-from))]/25 bg-[linear-gradient(180deg,color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--grad-from))_10%),color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%))] px-4 py-4 md:px-5 md:py-5">
+        <div className="mt-2 rounded-2xl rounded-tl-sm border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-4 py-3.5 md:px-5 md:py-4">
           {props.eyebrow ? (
             <p className="text-sm font-medium text-[rgb(var(--muted))]">
               {props.eyebrow}
             </p>
           ) : null}
-          <p className="mt-1 text-lg font-semibold text-[rgb(var(--fg))] md:text-[1.35rem]">{props.title}</p>
-          <p className="mt-3 text-base leading-relaxed text-[rgb(var(--fg))] md:text-[17px]">{props.body}</p>
-          {props.chips?.length ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {props.chips.map((chip) => (
-                <span
-                  key={chip}
-                  data-create-thread-prompt-chip
-                  className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-1.5 text-sm font-medium text-[rgb(var(--muted))]"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <p className="mt-1 text-base font-semibold text-[rgb(var(--fg))] md:text-lg">{props.title}</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-[rgb(var(--fg))] md:text-base">{props.body}</p>
           {props.notice ? (
             <p className="mt-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-sm text-[rgb(var(--fg))]">
               {props.notice}
@@ -537,12 +543,43 @@ function CreateAssistantStatusBubble(props: {
 
 const CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX = "vog_create_primary_intake_v1";
 
-export function buildCreatePrimaryIntakeStorageKey(userId?: string | null): string {
+export function buildCreatePrimaryIntakeStorageKey(userId?: string | null): string | null {
   const normalizedUserId = String(userId ?? "").trim();
-  if (!normalizedUserId) {
-    throw new Error("authenticated_create_user_required");
+  return normalizedUserId
+    ? `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:account:${normalizedUserId}`
+    : null;
+}
+
+export function buildCreateGuestPrimaryIntakeStorageKey(
+  context: CreateAnonymousStorageContext | null | undefined,
+): string | null {
+  const namespace = String(context?.namespace ?? "").trim();
+  const expiresAtMs = Date.parse(String(context?.expiresAt ?? ""));
+  if (!/^g1_[A-Za-z0-9_-]{32,96}$/.test(namespace)) return null;
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) return null;
+  return `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:guest:${namespace}`;
+}
+
+function isCreateIntelligentFollowupSnapshot(
+  value: unknown,
+): value is CreateIntelligentFollowupResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const understanding = record.understanding;
+  if (!understanding || typeof understanding !== "object" || Array.isArray(understanding)) {
+    return false;
   }
-  return `${CREATE_PRIMARY_INTAKE_STORAGE_KEY_PREFIX}:${normalizedUserId}`;
+  const parsedUnderstanding = understanding as Record<string, unknown>;
+  return (
+    typeof record.sourceText === "string" &&
+    typeof record.generatedAt === "string" &&
+    Array.isArray(record.suggestions) &&
+    typeof parsedUnderstanding.summary === "string" &&
+    Array.isArray(parsedUnderstanding.categories) &&
+    Array.isArray(parsedUnderstanding.topics) &&
+    Array.isArray(parsedUnderstanding.statements) &&
+    Array.isArray(parsedUnderstanding.scopes)
+  );
 }
 
 export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrimaryIntakeSnapshot | null {
@@ -553,6 +590,31 @@ export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrim
     const intakeText = typeof parsed.intakeText === "string" ? parsed.intakeText : "";
     const hasStarted = parsed.hasStarted === true;
     if (!hasPrimaryIntakeText(intakeText) && !hasStarted) return null;
+    const intelligentFollowup = isCreateIntelligentFollowupSnapshot(
+      parsed.intelligentFollowup,
+    )
+      ? parsed.intelligentFollowup
+      : null;
+    const requestedJurisdictionKey =
+      typeof parsed.confirmedJurisdictionKey === "string" &&
+      parsed.confirmedJurisdictionKey.trim()
+        ? parsed.confirmedJurisdictionKey.trim().slice(0, 240)
+        : null;
+    const citizenContext = intelligentFollowup?.meta?.citizenContext;
+    const confirmedJurisdictionKey =
+      requestedJurisdictionKey &&
+      citizenContext?.jurisdictionConfirmation?.status === "confirmed" &&
+      citizenContext.jurisdictionConfirmation.candidateKey ===
+        requestedJurisdictionKey &&
+      Array.isArray(citizenContext.jurisdictionCandidates) &&
+      citizenContext.jurisdictionCandidates.some(
+        (candidate) =>
+          candidate.level !== "unknown" &&
+          buildCreateJurisdictionCandidateKey(candidate) ===
+            requestedJurisdictionKey,
+      )
+        ? requestedJurisdictionKey
+        : null;
     return {
       intakeText,
       hasStarted,
@@ -560,10 +622,94 @@ export function parseCreatePrimaryIntakeSnapshot(raw: string | null): CreatePrim
         typeof parsed.updatedAt === "string" && parsed.updatedAt.trim()
           ? parsed.updatedAt
           : new Date().toISOString(),
+      intelligentFollowup,
+      plannerTrace:
+        parsed.plannerTrace && typeof parsed.plannerTrace === "object"
+          ? (parsed.plannerTrace as CreatePlannerRuntimeTrace)
+          : null,
+      productMode: CREATE_PRODUCT_MODE_VALUES.includes(parsed.productMode as CreateProductMode)
+        ? (parsed.productMode as CreateProductMode)
+        : undefined,
+      guestOperationId:
+        typeof parsed.guestOperationId === "string" && parsed.guestOperationId.trim()
+          ? parsed.guestOperationId.trim().slice(0, 160)
+          : null,
+      serverDraftId:
+        typeof parsed.serverDraftId === "string" && parsed.serverDraftId.trim()
+          ? parsed.serverDraftId.trim().slice(0, 160)
+          : null,
+      guestContextExpiresAt:
+        typeof parsed.guestContextExpiresAt === "string" &&
+        parsed.guestContextExpiresAt.trim()
+          ? parsed.guestContextExpiresAt.trim()
+          : null,
+      confirmedJurisdictionKey,
     };
   } catch {
     return null;
   }
+}
+
+export function resolveCreatePrimaryIntakeResumeSnapshot(input: {
+  ownedRaw: string | null;
+  guestRaw: string | null;
+  isAuthenticated: boolean;
+  preferGuest?: boolean;
+  guestContextExpiresAt?: string | null;
+  nowMs?: number;
+}): { snapshot: CreatePrimaryIntakeSnapshot | null; source: "owned" | "guest" | null } {
+  const owned = parseCreatePrimaryIntakeSnapshot(input.ownedRaw);
+  const parsedGuest = parseCreatePrimaryIntakeSnapshot(input.guestRaw);
+  const expectedGuestExpiry = String(input.guestContextExpiresAt ?? "").trim();
+  const nowMs = input.nowMs ?? Date.now();
+  const guestExpiryMs = Date.parse(parsedGuest?.guestContextExpiresAt ?? "");
+  const guest =
+    parsedGuest &&
+    expectedGuestExpiry &&
+    parsedGuest.guestContextExpiresAt === expectedGuestExpiry &&
+    Number.isFinite(guestExpiryMs) &&
+    guestExpiryMs > nowMs
+      ? parsedGuest
+      : null;
+  if (input.isAuthenticated) {
+    if (input.preferGuest && guest) return { snapshot: guest, source: "guest" };
+    if (owned) return { snapshot: owned, source: "owned" };
+    return { snapshot: null, source: null };
+  }
+  if (guest) return { snapshot: guest, source: "guest" };
+  return { snapshot: null, source: null };
+}
+
+export function buildCreateGuestAdoptionPayload(input: {
+  snapshot: CreatePrimaryIntakeSnapshot;
+  locale: string;
+  createMode: CreateMode;
+}) {
+  const text = input.snapshot.intakeText.trim();
+  const operationId = input.snapshot.guestOperationId?.trim() ?? "";
+  if (
+    !text ||
+    !operationId ||
+    !input.snapshot.intelligentFollowup ||
+    (!hasValidatedCreateSemanticOutput(input.snapshot.intelligentFollowup) &&
+      !hasCreatePendingLinkSource(input.snapshot.intelligentFollowup))
+  ) {
+    return null;
+  }
+  return {
+    locale: input.locale,
+    source: "create_guest_resume",
+    createMode: input.createMode,
+    ...(input.snapshot.confirmedJurisdictionKey
+      ? { confirmedJurisdictionKey: input.snapshot.confirmedJurisdictionKey }
+      : {}),
+    analysis: {
+      guestResume: {
+        operationId,
+        noAutoPublish: true,
+      },
+    },
+  };
 }
 
 function deriveGate(entitlements: CreateEntitlements): GateState {
@@ -630,12 +776,9 @@ function buildCreateScopeNotice(scope: RequestScopeSummary | null): {
       tone: "neutral",
     };
   }
-  return {
-    title: membershipStatusLabel(scope.membershipStatus),
-    body:
-      "Du kannst den Arbeitsstand vorbereiten, aber noch ohne bestätigten Organisationsbereich. Nichts wird automatisch veröffentlicht.",
-    tone: "limited",
-  };
+  // A personal citizen contribution does not require an organization scope.
+  // Organization/operator gates remain enforced by their server mutations.
+  return null;
 }
 
 export function hasPrimaryIntakeText(value?: string | null): boolean {
@@ -774,6 +917,7 @@ export default function CreateClient({
   initialNextActionParam,
   initialRequestScope,
   initialRundenCreateHandoff,
+  initialResumeGuestWorkspace = false,
 }: CreateClientProps) {
   const privacyGate = usePrivacyGate();
   const router = useRouter();
@@ -783,9 +927,9 @@ export default function CreateClient({
     () =>
       getCreateVoxyCopy(
         surfaceLocale as CreateVoxyLocale,
-        overview.displayName,
+        overview?.displayName ?? null,
       ),
-    [overview.displayName, surfaceLocale],
+    [overview?.displayName, surfaceLocale],
   );
   const surfaceTexts = React.useMemo(() => getCreateSurfaceTexts(surfaceLocale), [surfaceLocale]);
   const surfaceComposerTexts = React.useMemo(
@@ -831,10 +975,23 @@ export default function CreateClient({
     if (normalizeAnlassraumId(initialAnlassraumId)) return null;
     return text.selectionInfoInvalidContext;
   });
-  const intakeStorageKey = React.useMemo(
-    () => buildCreatePrimaryIntakeStorageKey(overview.userId),
-    [overview.userId],
+  const ownedIntakeStorageKey = React.useMemo(
+    () => buildCreatePrimaryIntakeStorageKey(overview?.userId),
+    [overview?.userId],
   );
+  const [guestStorageContext, setGuestStorageContext] =
+    React.useState<CreateAnonymousStorageContext | null>(() =>
+      readCreateAnonymousStorageContext(),
+    );
+  const [guestStorageContextResolved, setGuestStorageContextResolved] =
+    React.useState(false);
+  const guestIntakeStorageKey = React.useMemo(
+    () => buildCreateGuestPrimaryIntakeStorageKey(guestStorageContext),
+    [guestStorageContext],
+  );
+  const intakeStorageKey = entitlements.isAuthenticated
+    ? ownedIntakeStorageKey
+    : guestIntakeStorageKey;
   const intakeRestoreInfoText =
     surfaceLocale === "en"
       ? "Your draft was restored from local browser storage."
@@ -865,6 +1022,10 @@ export default function CreateClient({
   const [understandingConfirmed, setUnderstandingConfirmed] = React.useState<boolean>(false);
   const [activeTopicLabel, setActiveTopicLabel] = React.useState<string | null>(null);
   const [selectedPrimaryTopic, setSelectedPrimaryTopic] = React.useState<string | null>(null);
+  const [confirmedJurisdictionKey, setConfirmedJurisdictionKey] =
+    React.useState<string | null>(null);
+  const lastJurisdictionResultAtRef = React.useRef<string | null>(null);
+  const hasSeenJurisdictionResultRef = React.useRef(false);
   const [groupedTopicLabels, setGroupedTopicLabels] = React.useState<string[]>([]);
   const [parkedTopicLabels, setParkedTopicLabels] = React.useState<string[]>([]);
   const [documentTopicOverviewOpened, setDocumentTopicOverviewOpened] = React.useState(false);
@@ -876,6 +1037,9 @@ export default function CreateClient({
     "default" | "edit" | "source" | "manual_topic"
   >("default");
   const [savedDraftId, setSavedDraftId] = React.useState<string | null>(null);
+  const [guestOperationId, setGuestOperationId] = React.useState<string | null>(null);
+  const [guestResumePending, setGuestResumePending] = React.useState(false);
+  const guestAdoptionInFlightRef = React.useRef(false);
   const [persistedCandidateDossierReviewRecord, setPersistedCandidateDossierReviewRecord] =
     React.useState<PersistedCandidateDossierReviewRecordState | null>(null);
   const [reviewRequestState, setReviewRequestState] = React.useState<CreateReviewRequestState>("idle");
@@ -884,6 +1048,7 @@ export default function CreateClient({
   const [actionNotice, setActionNotice] = React.useState<string | null>(null);
   const [isRetryPlannerPending, setIsRetryPlannerPending] = React.useState(false);
   const analysisRunInFlightRef = React.useRef(false);
+  const plannerDeadlineRef = React.useRef<CreateIntelligentFollowupDeadline | null>(null);
   const [chatContinuationText, setChatContinuationText] = React.useState("");
   const [showFollowupCorrectionComposer, setShowFollowupCorrectionComposer] = React.useState(false);
   const [workspaceTransparencyOpen, setWorkspaceTransparencyOpen] = React.useState(false);
@@ -893,9 +1058,40 @@ export default function CreateClient({
   const lastFocusedDynamicStatusRef = React.useRef<string | null>(null);
   const analysisSceneRef = React.useRef<HTMLDivElement | null>(null);
   const [analysisSceneMode, setAnalysisSceneMode] = React.useState<CreateProductMode | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void primeCreateSecuritySession().finally(() => {
+      if (cancelled) return;
+      setGuestStorageContext(readCreateAnonymousStorageContext());
+      setGuestStorageContextResolved(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const readStoredPrimaryIntake = React.useCallback(
-    () => parseCreatePrimaryIntakeSnapshot(window.localStorage.getItem(intakeStorageKey)),
-    [intakeStorageKey],
+    () => {
+      return resolveCreatePrimaryIntakeResumeSnapshot({
+        ownedRaw: ownedIntakeStorageKey
+          ? window.localStorage.getItem(ownedIntakeStorageKey)
+          : null,
+        guestRaw: guestIntakeStorageKey
+          ? window.localStorage.getItem(guestIntakeStorageKey)
+          : null,
+        isAuthenticated: entitlements.isAuthenticated,
+        preferGuest: initialResumeGuestWorkspace,
+        guestContextExpiresAt: guestStorageContext?.expiresAt,
+      }).snapshot;
+    },
+    [
+      entitlements.isAuthenticated,
+      guestIntakeStorageKey,
+      guestStorageContext?.expiresAt,
+      initialResumeGuestWorkspace,
+      ownedIntakeStorageKey,
+    ],
   );
 
   const startDraftRestore = useCreateStartDraftRestore({
@@ -910,10 +1106,32 @@ export default function CreateClient({
 
   React.useEffect(() => {
     if (intakeHydratedRef.current) return;
+    if (
+      (!entitlements.isAuthenticated || initialResumeGuestWorkspace) &&
+      !guestStorageContextResolved
+    ) {
+      return;
+    }
     intakeHydratedRef.current = true;
     try {
-      const snapshot = parseCreatePrimaryIntakeSnapshot(window.localStorage.getItem(intakeStorageKey));
+      const resume = resolveCreatePrimaryIntakeResumeSnapshot({
+        ownedRaw: ownedIntakeStorageKey
+          ? window.localStorage.getItem(ownedIntakeStorageKey)
+          : null,
+        guestRaw: guestIntakeStorageKey
+          ? window.localStorage.getItem(guestIntakeStorageKey)
+          : null,
+        isAuthenticated: entitlements.isAuthenticated,
+        preferGuest: initialResumeGuestWorkspace,
+        guestContextExpiresAt: guestStorageContext?.expiresAt,
+      });
+      const snapshot = resume.snapshot;
       if (!snapshot) return;
+      setGuestResumePending(
+        resume.source === "guest" &&
+          entitlements.isAuthenticated &&
+          initialResumeGuestWorkspace,
+      );
 
       const hasServerPrefill = hasPrimaryIntakeText(initialText);
       if (hasServerPrefill) return;
@@ -922,12 +1140,51 @@ export default function CreateClient({
         setIntakeText(snapshot.intakeText);
         setIntakeRestoreInfo(intakeRestoreInfoText);
       }
-      // Do not auto-open follow-up surfaces from local restore.
-      // We restore text only; activation stays explicit via CTA.
+      if (snapshot.intelligentFollowup && snapshot.hasStarted) {
+        setHasStarted(true);
+        setIntelligentFollowup(snapshot.intelligentFollowup);
+        setPlannerTrace(snapshot.plannerTrace ?? null);
+        setGuestOperationId(snapshot.guestOperationId ?? null);
+        setSavedDraftId(snapshot.serverDraftId ?? null);
+        setConfirmedJurisdictionKey(snapshot.confirmedJurisdictionKey ?? null);
+        if (snapshot.productMode) setProductMode(snapshot.productMode);
+        setFollowupSnapshot(
+          buildCreateLightweightFollowupSnapshot({
+            intakeText: snapshot.intakeText,
+            modeLabel: resolveCreateProductModeConfig(
+              snapshot.productMode ?? productMode,
+              surfaceLocale,
+            ).label,
+            surfaceTexts,
+          }),
+        );
+        setFollowupSurface(
+          entitlements.isAuthenticated
+            ? resolveFollowupSurfaceOnStart(snapshot.productMode ?? productMode)
+            : "lightweight",
+        );
+        setIntakeRestoreInfo(
+          surfaceLocale === "en"
+            ? "Your guest classification was restored. Sign in only when you want to save or continue it."
+            : "Deine Gast-Einordnung wurde wiederhergestellt. Melde dich erst an, wenn du sie speichern oder weiterführen möchtest.",
+        );
+      }
     } catch {
       // ignore local restore issues
     }
-  }, [initialText, intakeRestoreInfoText, intakeStorageKey]);
+  }, [
+    entitlements.isAuthenticated,
+    guestIntakeStorageKey,
+    guestStorageContext?.expiresAt,
+    guestStorageContextResolved,
+    initialText,
+    initialResumeGuestWorkspace,
+    intakeRestoreInfoText,
+    ownedIntakeStorageKey,
+    productMode,
+    surfaceLocale,
+    surfaceTexts,
+  ]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -983,6 +1240,7 @@ export default function CreateClient({
 
   React.useEffect(() => {
     try {
+      if (!intakeStorageKey || guestResumePending) return;
       if (!hasPrimaryIntakeText(intakeText) && !hasStarted) {
         window.localStorage.removeItem(intakeStorageKey);
         return;
@@ -992,12 +1250,35 @@ export default function CreateClient({
         intakeText,
         hasStarted,
         updatedAt: new Date().toISOString(),
+        intelligentFollowup,
+        plannerTrace,
+        productMode,
+        guestOperationId,
+        serverDraftId: savedDraftId,
+        guestContextExpiresAt: entitlements.isAuthenticated
+          ? null
+          : guestStorageContext?.expiresAt ?? null,
+        confirmedJurisdictionKey,
       };
       window.localStorage.setItem(intakeStorageKey, JSON.stringify(snapshot));
     } catch {
       // ignore local draft persistence errors
     }
-  }, [hasStarted, intakeStorageKey, intakeText]);
+  }, [
+    confirmedJurisdictionKey,
+    entitlements.isAuthenticated,
+    guestOperationId,
+    guestResumePending,
+    guestStorageContext?.expiresAt,
+    hasStarted,
+    intakeStorageKey,
+    intakeText,
+    intelligentFollowup,
+    plannerTrace,
+    ownedIntakeStorageKey,
+    productMode,
+    savedDraftId,
+  ]);
 
   React.useEffect(() => {
     let ignore = false;
@@ -1104,6 +1385,96 @@ export default function CreateClient({
       : createOrchestration.createMode);
   const pickerEnabled = canonicalIntent === "contribution";
 
+  React.useEffect(() => {
+    if (
+      !guestResumePending ||
+      !entitlements.isAuthenticated ||
+      !ownedIntakeStorageKey ||
+      !guestIntakeStorageKey ||
+      savedDraftId ||
+      guestAdoptionInFlightRef.current
+    ) {
+      return;
+    }
+    const snapshot: CreatePrimaryIntakeSnapshot = {
+      intakeText,
+      hasStarted,
+      updatedAt: new Date().toISOString(),
+      intelligentFollowup,
+      plannerTrace,
+      productMode,
+      guestOperationId,
+      serverDraftId: null,
+      guestContextExpiresAt: guestStorageContext?.expiresAt ?? null,
+      confirmedJurisdictionKey,
+    };
+    const payload = buildCreateGuestAdoptionPayload({
+      snapshot,
+      locale: surfaceLocale,
+      createMode: canonicalCreateMode,
+    });
+    if (!payload) return;
+
+    guestAdoptionInFlightRef.current = true;
+    async function adoptGuestWorkspace() {
+      try {
+        const response = await fetch("/api/create/save", {
+          method: "POST",
+          headers: createMutationRequestHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body?.ok || typeof body?.draftId !== "string") {
+          throw new Error("create_guest_adoption_failed");
+        }
+        const draftId = body.draftId as string;
+        setSavedDraftId(draftId);
+        setGuestResumePending(false);
+        const adoptedSnapshot: CreatePrimaryIntakeSnapshot = {
+          ...snapshot,
+          updatedAt: new Date().toISOString(),
+          serverDraftId: draftId,
+          guestContextExpiresAt: null,
+        };
+        window.localStorage.setItem(
+          ownedIntakeStorageKey,
+          JSON.stringify(adoptedSnapshot),
+        );
+        window.localStorage.removeItem(guestIntakeStorageKey);
+        setIntakeRestoreInfo(
+          surfaceLocale === "en"
+            ? "Your guest classification was adopted without another AI run."
+            : "Deine Gast-Einordnung wurde ohne weiteren KI-Lauf übernommen.",
+        );
+      } catch {
+        setActionNotice(
+          surfaceLocale === "en"
+            ? "Your guest workspace remains in this browser. The account copy can be retried safely."
+            : "Dein Gast-Arbeitsstand bleibt in diesem Browser. Die Konto-Übernahme kann sicher erneut versucht werden.",
+        );
+      } finally {
+        guestAdoptionInFlightRef.current = false;
+      }
+    }
+    void adoptGuestWorkspace();
+  }, [
+    canonicalCreateMode,
+    confirmedJurisdictionKey,
+    entitlements.isAuthenticated,
+    guestIntakeStorageKey,
+    guestOperationId,
+    guestResumePending,
+    guestStorageContext?.expiresAt,
+    hasStarted,
+    intakeText,
+    intelligentFollowup,
+    plannerTrace,
+    ownedIntakeStorageKey,
+    productMode,
+    savedDraftId,
+    surfaceLocale,
+  ]);
+
   const loadContextItems = React.useCallback(async () => {
     setContextLoadState("loading");
     setContextLoadError(null);
@@ -1152,6 +1523,14 @@ export default function CreateClient({
     intelligentFollowupResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [hasStarted, intelligentFollowup]);
 
+  React.useEffect(
+    () => () => {
+      plannerDeadlineRef.current?.cancel();
+      plannerDeadlineRef.current = null;
+    },
+    [],
+  );
+
   const startCreateFlow = React.useCallback(async (rawText: string) => {
     if (isStarting || analysisRunInFlightRef.current) return;
     const normalizedText = rawText.trim();
@@ -1170,7 +1549,12 @@ export default function CreateClient({
       return;
     }
     analysisRunInFlightRef.current = true;
+    const anonymousRun = !entitlements.isAuthenticated;
     let draftSavedForRun = false;
+    const submitStartedAt = performance.now();
+    let saveMs: number | null = null;
+    let plannerCorrelationId: string | null = null;
+    let plannerDeadline: CreateIntelligentFollowupDeadline | null = null;
     try {
       setIntakeRestoreInfo(null);
       setIntakeError(null);
@@ -1219,9 +1603,78 @@ export default function CreateClient({
           : null,
       );
 
+      if (anonymousRun) {
+        const sessionReady = await primeCreateSecuritySession();
+        if (!sessionReady) throw new Error("create_anonymous_session_failed");
+
+        const correlationId = createClientCorrelationId();
+        plannerCorrelationId = correlationId;
+        setGuestOperationId(correlationId);
+        if (!linkDetection.hasLink) {
+          const intakeTiming = resolveCreateIntakeTiming(normalizedText);
+          plannerDeadline = startCreateIntelligentFollowupDeadline(
+            intakeTiming.clientTimeoutMs,
+          );
+          plannerDeadlineRef.current = plannerDeadline;
+        }
+        const response = await fetch("/api/create/intake", {
+          method: "POST",
+          headers: createMutationRequestHeaders(),
+          signal: plannerDeadline?.signal,
+          body: JSON.stringify({
+            text: normalizedText,
+            locale: surfaceLocale,
+            intent: activeIntent,
+            correlationId,
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body?.ok || !body?.result) {
+          throw new Error(
+            typeof body?.errorCode === "string"
+              ? body.errorCode
+              : "create_anonymous_intake_failed",
+          );
+        }
+
+        const nextIntelligentFollowup = body.result as CreateIntelligentFollowupResult;
+        setIntelligentFollowup(nextIntelligentFollowup);
+        setSupportHandoff(null);
+        setPlannerTrace(null);
+        setAnalyzeTrace(null);
+        setUnderstandingConfirmed(false);
+        setActiveTopicLabel(null);
+        setSelectedPrimaryTopic(null);
+        setGroupedTopicLabels([]);
+        setDocumentTopicOverviewOpened(false);
+        setShowExpandedTopicPreview(false);
+        setTopicExpansionDecision("idle");
+        setParkedTopicLabels([]);
+        const nextFollowupSurface: CreateFollowupSurface = "lightweight";
+        setFollowupSurface(nextFollowupSurface);
+        setAnalysisSceneMode(null);
+        setActionNotice(
+          hasCreatePendingLinkSource(nextIntelligentFollowup)
+            ? surfaceLocale === "en"
+              ? "The source is preserved in this guest workspace. Sign in to load and analyze it."
+              : "Die Quelle bleibt in diesem Gast-Arbeitsstand erhalten. Melde dich an, um sie zu laden und zu analysieren."
+            : hasValidatedCreateSemanticOutput(nextIntelligentFollowup)
+            ? surfaceLocale === "en"
+              ? "Your first classification is available as a guest. Sign in only when you want to save or continue it."
+              : "Deine erste Einordnung ist als Gast verfügbar. Melde dich erst an, wenn du sie speichern oder weiterführen möchtest."
+            : surfaceLocale === "en"
+              ? "The classification is currently unavailable. Your text remains in this browser and can be retried."
+              : "Die Einordnung ist gerade nicht verfügbar. Dein Text bleibt in diesem Browser und kann erneut geprüft werden.",
+        );
+        return;
+      }
+
+      const saveStartedAt = performance.now();
       const saveResponse = await fetch("/api/create/save", {
         method: "POST",
         headers: createMutationRequestHeaders(),
+        // Save remains non-abortable so the UX deadline cannot break resume safety.
+        // The same deadline only cancels analysis after a durable draft exists.
         body: JSON.stringify({
           draftId: savedDraftId ?? undefined,
           text: normalizedText,
@@ -1243,6 +1696,7 @@ export default function CreateClient({
           },
         }),
       });
+      saveMs = performance.now() - saveStartedAt;
       const saveBody = await saveResponse.json().catch(() => ({}));
       if (!saveResponse.ok || !saveBody?.ok || typeof saveBody?.draftId !== "string") {
         throw new Error("create_auto_save_failed");
@@ -1253,16 +1707,11 @@ export default function CreateClient({
 
       if (linkDetection.hasLink && linkDetection.primaryUrl) {
         setIntelligentFollowup(
-          buildCreateTechnicalFollowup({
+          buildCreateUnloadedLinkFollowup({
             text: normalizedText,
-            analysisState: "link_detected",
-            sourceType: "link",
             sourceUrl: linkDetection.primaryUrl,
-            sourceLoaded: false,
-            userMessage:
-              surfaceLocale === "en"
-                ? "I need to load the linked content in full and analyze it with the AI orchestrator first. No topics are derived before that."
-                : "Ich muss den verlinkten Inhalt zuerst vollständig laden und mit dem KI-Orchester analysieren. Vorher leite ich keine Themen ab.",
+            remainingText: linkDetection.remainingText,
+            locale: surfaceLocale,
           }),
         );
         setPlannerTrace(null);
@@ -1274,9 +1723,14 @@ export default function CreateClient({
       let nextIntelligentFollowup: CreateIntelligentFollowupResult | null = null;
       let nextPlannerTrace: CreatePlannerRuntimeTrace | null = null;
       const correlationId = createClientCorrelationId();
+      plannerCorrelationId = correlationId;
+      const intakeTiming = resolveCreateIntakeTiming(normalizedText);
+      plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
+      plannerDeadlineRef.current = plannerDeadline;
       const response = await fetch("/api/create/intelligent-followup", {
         method: "POST",
         headers: createMutationRequestHeaders(),
+        signal: plannerDeadline.signal,
         body: JSON.stringify({
           text: normalizedText,
           locale: surfaceLocale,
@@ -1294,7 +1748,18 @@ export default function CreateClient({
         throw new Error("create_intelligent_followup_failed");
       }
       nextIntelligentFollowup = body.result as CreateIntelligentFollowupResult;
-      nextPlannerTrace = body.trace ?? null;
+      nextPlannerTrace = body.trace
+        ? {
+            ...body.trace,
+            timings: body.trace.timings
+              ? {
+                  ...body.trace.timings,
+                  saveMs,
+                  submitToResultMs: performance.now() - submitStartedAt,
+                }
+              : undefined,
+          }
+        : null;
 
       setIntelligentFollowup(nextIntelligentFollowup);
       setSupportHandoff(body.supportHandoff ?? null);
@@ -1315,23 +1780,68 @@ export default function CreateClient({
         setAnalysisAutoRunToken((current) => current + 1);
       }
       setIsStarting(false);
-    } catch {
-      if (!draftSavedForRun) {
+    } catch (error: unknown) {
+      const plannerTimedOut =
+        (draftSavedForRun || anonymousRun) &&
+        plannerDeadline?.didTimeout() === true &&
+        isCreateIntelligentFollowupAbortError(error);
+      if (anonymousRun) {
+        const failedHandoff: CreateSupportHandoffPublic | null = plannerCorrelationId
+          ? {
+              status: "failed",
+              technicalReference: plannerCorrelationId,
+              safeUserMessage:
+                surfaceLocale === "en"
+                  ? "The classification is currently unavailable. Your contribution remains in this browser."
+                  : "Die Einordnung ist gerade nicht verfügbar. Dein Beitrag bleibt in diesem Browser erhalten.",
+            }
+          : null;
+        setSupportHandoff(failedHandoff);
+        setIntelligentFollowup(
+          buildCreateTechnicalFollowup({
+            text: normalizedText,
+            analysisState: "ai_failed",
+            sourceType: "text",
+            sourceLoaded: true,
+            userMessage:
+              surfaceLocale === "en"
+                ? "I couldn’t complete the classification just now. Your text remains in this browser so you can try again."
+                : "Ich konnte die Einordnung gerade nicht abschließen. Dein Text bleibt in diesem Browser und du kannst es erneut versuchen.",
+            citizenContext: resolveCreateCitizenIntakeContext({
+              text: normalizedText,
+              locale: surfaceLocale,
+            }),
+          }),
+        );
+        setActionNotice(
+          plannerTimedOut
+            ? surfaceLocale === "en"
+              ? "The classification took longer than expected. Your contribution remains in this browser."
+              : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt in diesem Browser."
+            : null,
+        );
+        setIntakeError(null);
+      } else if (!draftSavedForRun) {
         setIntakeError(
           surfaceLocale === "en"
             ? "Your contribution could not be saved securely. Please try again."
             : "Dein Beitrag konnte nicht sicher gespeichert werden. Bitte versuche es erneut.",
         );
       } else {
-        const technicalReference = createClientCorrelationId();
-        const failedHandoff: CreateSupportHandoffPublic = {
-          status: "failed",
-          technicalReference,
-          safeUserMessage:
-            surfaceLocale === "en"
-              ? "The support handoff could not be confirmed."
-              : "Die technische Übergabe konnte nicht bestätigt werden.",
-        };
+        const failedHandoff: CreateSupportHandoffPublic | null =
+          plannerCorrelationId
+            ? {
+                status: "failed",
+                technicalReference: plannerCorrelationId,
+                safeUserMessage: plannerTimedOut
+                  ? surfaceLocale === "en"
+                    ? "The classification took longer than expected. Your contribution remains saved."
+                    : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt gespeichert."
+                  : surfaceLocale === "en"
+                    ? "The support handoff could not be confirmed."
+                    : "Die technische Übergabe konnte nicht bestätigt werden.",
+              }
+            : null;
         setSupportHandoff(failedHandoff);
         setIntelligentFollowup(
           buildCreateTechnicalFollowup({
@@ -1343,10 +1853,21 @@ export default function CreateClient({
               locale: surfaceLocale as CreateVoxyLocale,
               handoff: failedHandoff,
             }).paragraphs.join(" "),
+            citizenContext: resolveCreateCitizenIntakeContext({
+              text: normalizedText,
+              locale: surfaceLocale,
+            }),
           }),
         );
       }
-      if (draftSavedForRun && productMode === "analyze") {
+      if (plannerTimedOut) {
+        setActionNotice(
+          surfaceLocale === "en"
+            ? "The classification took longer than expected. Your contribution is saved; you can try the classification again."
+            : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag ist gespeichert; du kannst die Einordnung erneut versuchen.",
+        );
+        setIntakeError(null);
+      } else if (draftSavedForRun && productMode === "analyze") {
         setActionNotice(
           surfaceLocale === "en"
             ? "I could not complete the automatic classification. You can refine the statement or review details again later."
@@ -1358,9 +1879,13 @@ export default function CreateClient({
             : "Die Systemprüfung ist gerade nicht verfügbar. Dein Text bleibt erhalten.",
         );
       } else if (draftSavedForRun) {
-        setIntakeError(surfaceTexts.startFailedError);
+        setIntakeError(null);
       }
     } finally {
+      plannerDeadline?.clear();
+      if (plannerDeadlineRef.current === plannerDeadline) {
+        plannerDeadlineRef.current = null;
+      }
       analysisRunInFlightRef.current = false;
       setIsStarting(false);
     }
@@ -1369,6 +1894,7 @@ export default function CreateClient({
     activeIntent,
     composerAttachmentMaterialItems,
     dossierId,
+    entitlements.isAuthenticated,
     isStarting,
     canonicalCreateMode,
     canonicalIntent,
@@ -1506,6 +2032,66 @@ export default function CreateClient({
       : surfaceTexts.startBusyStatus;
   const showStartChatPreview =
     Boolean(followupSnapshot) && hasStarted && !showIntelligentFollowup && !showLinkClarification;
+  const citizenContext = React.useMemo(() => {
+    const detected = intelligentFollowup?.meta?.citizenContext ?? null;
+    if (!detected) return null;
+    const profileRegion =
+      overview?.profile?.publicLocation?.city ??
+      overview?.profile?.publicLocation?.region ??
+      null;
+    const confirmedRegion =
+      initialIntakeContext?.reviewState === "confirmed"
+        ? initialIntakeContext.region
+        : null;
+    const prioritized = applyCreateRegionPriority(detected, {
+      confirmedRegion,
+      profileRegion,
+    });
+    return applyCreateJurisdictionConfirmation(
+      prioritized,
+      confirmedJurisdictionKey,
+    );
+  }, [
+    confirmedJurisdictionKey,
+    initialIntakeContext,
+    intelligentFollowup?.meta?.citizenContext,
+    overview?.profile,
+  ]);
+
+  React.useEffect(() => {
+    const generatedAt = intelligentFollowup?.generatedAt ?? null;
+    if (!hasSeenJurisdictionResultRef.current) {
+      if (generatedAt) {
+        hasSeenJurisdictionResultRef.current = true;
+        lastJurisdictionResultAtRef.current = generatedAt;
+      }
+      return;
+    }
+    if (generatedAt !== lastJurisdictionResultAtRef.current) {
+      lastJurisdictionResultAtRef.current = generatedAt;
+      setConfirmedJurisdictionKey(null);
+    }
+  }, [intelligentFollowup?.generatedAt]);
+
+  const updateCitizenJurisdictionConfirmation = React.useCallback(
+    (candidateKey: string | null) => {
+      setConfirmedJurisdictionKey(candidateKey);
+      setIntelligentFollowup((current) => {
+        if (!current || !current.meta || !citizenContext) return current;
+        return {
+          ...current,
+          meta: {
+            ...current.meta,
+            citizenContext: applyCreateJurisdictionConfirmation(
+              citizenContext,
+              candidateKey,
+            ),
+          },
+        };
+      });
+    },
+    [citizenContext],
+  );
   const startChatAssistantTitle = isStarting
     ? surfaceLocale === "en"
       ? "I’m organizing this briefly"
@@ -1645,15 +2231,11 @@ export default function CreateClient({
     : intakePlaceholder;
   const workspaceComposerStartLabel = hasStarted
     ? surfaceLocale === "en"
-      ? "Continue"
-      : "Weiter"
-    : productMode === "guided"
-      ? surfaceLocale === "en"
-        ? "Prepare draft"
-        : "Entwurf vorbereiten"
-      : surfaceLocale === "en"
-        ? "Review"
-        : "Prüfen";
+      ? "Send reply"
+      : "Antwort senden"
+    : surfaceLocale === "en"
+      ? "Organize concern"
+      : "Anliegen einordnen";
   const workspaceComposerStartBusyLabel = hasStarted
     ? surfaceLocale === "en"
       ? "I’m organizing your addition …"
@@ -1683,7 +2265,7 @@ export default function CreateClient({
   };
   const renderWorkspaceThread = () =>
     showLinkClarification && linkClarificationState ? (
-      <div className="create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))]">
+      <div className="min-w-0 space-y-5">
         <CreateSubmittedContributionBubble
           text={followupSnapshot?.originalText ?? normalizedIntakeText}
           locale={surfaceLocale}
@@ -1897,7 +2479,7 @@ export default function CreateClient({
     ) : showStartChatPreview && followupSnapshot ? (
       <div
         data-create-loading-thread={isStarting ? "true" : undefined}
-        className="create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))]"
+        className="min-w-0 space-y-5"
       >
         <CreateSubmittedContributionBubble
           text={followupSnapshot.originalText}
@@ -1926,18 +2508,12 @@ export default function CreateClient({
     ) : (
       <div
         data-create-initial-thread="true"
-        className="create-chat-spine relative flex min-h-[18rem] min-w-0 items-start pt-1 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))] md:min-h-[22rem] md:pt-2"
+        className="relative flex min-h-[10rem] min-w-0 items-start pt-1 md:min-h-[12rem] md:pt-2"
       >
         <CreateAssistantStatusBubble
           title={voxyCopy.greeting}
           body={voxyCopy.intro}
-          chips={
-            surfaceLocale === "en"
-              ? ["Organize topics", "Sharpen questions", "Check sources"]
-              : ["Thema ordnen", "Frage schärfen", "Quellen prüfen"]
-          }
           notice={localizedActionNotice}
-          largeAvatar
         />
       </div>
     );
@@ -2053,7 +2629,7 @@ export default function CreateClient({
     }
     const semanticTopicCount = Math.max(
       intelligentFollowup.understanding.topics.length,
-      intelligentFollowup.meta?.planner?.plannerClusters.length ?? 0,
+      documentTopicLabels.length,
     );
     const fullBranchLabels = buildCreateStructureBranches(
       intelligentFollowup,
@@ -2128,6 +2704,19 @@ export default function CreateClient({
     ],
   );
 
+  const requireAuthenticatedOwnership = React.useCallback(() => {
+    if (entitlements.isAuthenticated) return true;
+    setActionNotice(
+      surfaceLocale === "en"
+        ? "Your guest workspace stays in this browser. Sign in to save or continue it."
+        : "Dein Gast-Arbeitsstand bleibt in diesem Browser. Melde dich an, um ihn zu speichern oder weiterzuführen.",
+    );
+    router.push(
+      "/login?next=%2Fcreate%3Fresume%3Dguest" as Parameters<typeof router.push>[0],
+    );
+    return false;
+  }, [entitlements.isAuthenticated, router, surfaceLocale]);
+
   const persistSavedWorkstate = React.useCallback(
     async (params: {
       type:
@@ -2151,6 +2740,7 @@ export default function CreateClient({
       sourceUrl?: string | null;
       metadata?: Record<string, unknown>;
     }) => {
+      if (!requireAuthenticatedOwnership()) return false;
       if (!intelligentFollowup) {
         setActionNotice("Bitte beschreibe zuerst deinen Beitrag.");
         return false;
@@ -2228,11 +2818,13 @@ export default function CreateClient({
       currentMaterialRouting.sourceUrls,
       entitlements.maxVisibleAiProposals,
       intelligentFollowup,
+      requireAuthenticatedOwnership,
       selectedPrimaryTopic,
     ],
   );
 
   const persistFollowupWorkstate = React.useCallback(async (manualReviewRequested: boolean) => {
+    if (!requireAuthenticatedOwnership()) return;
     if (!showIntelligentFollowup) {
       setReviewRequestState("error");
       setReviewRequestMessage("Dieser Schritt ist in diesem Arbeitsstand noch nicht verfügbar.");
@@ -2318,10 +2910,12 @@ export default function CreateClient({
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
     linkClarificationState,
+    requireAuthenticatedOwnership,
   ]);
 
   const navigateWithCreateHandoff = React.useCallback(
     async (selectedAction: CreateHandoffAction, baseHref: string) => {
+      if (!requireAuthenticatedOwnership()) return;
       if (!privacyGate.ensureActiveProcessingAllowed(`create-handoff:${selectedAction}`)) return;
       if (!hasValidatedCreateSemanticOutput(intelligentFollowup)) {
         setActionNotice("Dieser Schritt braucht zuerst einen bestätigbaren Arbeitsstand.");
@@ -2418,6 +3012,7 @@ export default function CreateClient({
       effectiveSelectedAnlassraumId,
       intelligentFollowup,
       privacyGate,
+      requireAuthenticatedOwnership,
       router,
     ],
   );
@@ -2438,22 +3033,44 @@ export default function CreateClient({
     analysisRunInFlightRef.current = true;
     setIsRetryPlannerPending(true);
     setSupportHandoff(null);
+    const correlationId = createClientCorrelationId();
+    if (!entitlements.isAuthenticated) setGuestOperationId(correlationId);
+    const intakeTiming = resolveCreateIntakeTiming(sourceText);
+    const plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
+    plannerDeadlineRef.current = plannerDeadline;
     try {
-      const correlationId = createClientCorrelationId();
-      const response = await fetch("/api/create/intelligent-followup", {
+      if (!entitlements.isAuthenticated) {
+        const sessionReady = await primeCreateSecuritySession();
+        if (!sessionReady) throw new Error("create_anonymous_session_failed");
+      }
+      const response = await fetch(
+        entitlements.isAuthenticated
+          ? "/api/create/intelligent-followup"
+          : "/api/create/intake",
+        {
         method: "POST",
         headers: createMutationRequestHeaders(),
-        body: JSON.stringify({
-          text: sourceText,
-          locale: surfaceLocale,
-          anlassraumId: selectedAnlassraumId,
-          dossierId: dossierId ?? null,
-          intent: activeIntent,
-          sourceUrls: currentMaterialRouting.sourceUrls,
-          materialItems: currentMaterialRouting.materialItems,
-          correlationId,
-          draftId: savedDraftId,
-        }),
+        signal: plannerDeadline.signal,
+        body: JSON.stringify(
+          entitlements.isAuthenticated
+            ? {
+                text: sourceText,
+                locale: surfaceLocale,
+                anlassraumId: selectedAnlassraumId,
+                dossierId: dossierId ?? null,
+                intent: activeIntent,
+                sourceUrls: currentMaterialRouting.sourceUrls,
+                materialItems: currentMaterialRouting.materialItems,
+                correlationId,
+                draftId: savedDraftId,
+              }
+            : {
+                text: sourceText,
+                locale: surfaceLocale,
+                intent: activeIntent,
+                correlationId,
+              },
+        ),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body?.ok || !body?.result) {
@@ -2482,17 +3099,33 @@ export default function CreateClient({
             ? "The classification remains pending. You can continue manually and choose the next step yourself."
             : "Die Einordnung bleibt noch offen. Du kannst jetzt manuell fortfahren und den nächsten Schritt selbst wählen.",
       );
-    } catch {
+    } catch (error: unknown) {
+      const plannerTimedOut =
+        plannerDeadline.didTimeout() &&
+        isCreateIntelligentFollowupAbortError(error);
       setSupportHandoff({
         status: "failed",
-        technicalReference: createClientCorrelationId(),
-        safeUserMessage:
-          surfaceLocale === "en"
+        technicalReference: correlationId,
+        safeUserMessage: plannerTimedOut
+          ? surfaceLocale === "en"
+            ? "The classification took longer than expected. Your contribution remains saved."
+            : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt gespeichert."
+          : surfaceLocale === "en"
             ? "The support handoff could not be confirmed."
             : "Die technische Übergabe konnte nicht bestätigt werden.",
       });
-      setActionNotice(null);
+      setActionNotice(
+        plannerTimedOut
+          ? surfaceLocale === "en"
+            ? "The classification took longer than expected. Your contribution is saved; you can try again."
+            : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag ist gespeichert; du kannst es erneut versuchen."
+          : null,
+      );
     } finally {
+      plannerDeadline.clear();
+      if (plannerDeadlineRef.current === plannerDeadline) {
+        plannerDeadlineRef.current = null;
+      }
       analysisRunInFlightRef.current = false;
       setIsRetryPlannerPending(false);
     }
@@ -2501,6 +3134,7 @@ export default function CreateClient({
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
     dossierId,
+    entitlements.isAuthenticated,
     followupSnapshot?.originalText,
     intelligentFollowup?.sourceText,
     isRetryPlannerPending,
@@ -2533,6 +3167,7 @@ export default function CreateClient({
   }, [intelligentFollowup, navigateWithCreateHandoff, selectedPrimaryTopic]);
 
   const handleOpenExistingAnlassraum = React.useCallback(() => {
+    if (!requireAuthenticatedOwnership()) return;
     const prefill = normalizedIntakeText.trim();
     if (prefill) {
       setActionNotice("Dein Beitrag ist vorbereitet. Wähle jetzt einen Anlassraum oder starte einen neuen.");
@@ -2540,7 +3175,7 @@ export default function CreateClient({
       setActionNotice(null);
     }
     router.push(buildCreateToRundenHref(prefill) as Parameters<typeof router.push>[0]);
-  }, [normalizedIntakeText, router]);
+  }, [normalizedIntakeText, requireAuthenticatedOwnership, router]);
 
   const handleOpenDossierAppend = React.useCallback(() => {
     if (!intelligentFollowup) {
@@ -2669,6 +3304,15 @@ export default function CreateClient({
       );
       return;
     }
+    if (!requireAuthenticatedOwnership()) return;
+    if (!savedDraftId) {
+      setActionNotice(
+        surfaceLocale === "en"
+          ? "Your guest source is being adopted securely. Start the link analysis once the saved draft is ready."
+          : "Deine Gast-Quelle wird sicher übernommen. Starte die Link-Analyse, sobald der gespeicherte Entwurf bereit ist.",
+      );
+      return;
+    }
     const currentState = intelligentFollowup?.meta?.analysis?.state ?? "link_detected";
     if (currentState === "link_detected") {
       setIntelligentFollowup(
@@ -2682,6 +3326,10 @@ export default function CreateClient({
             surfaceLocale === "en"
               ? "The full link and document analysis uses your available analysis or research allowance."
               : "Die vollständige Link- und Dokumentanalyse nutzt dein verfügbares Analyse-/Recherche-Kontingent.",
+          citizenContext: resolveCreateCitizenIntakeContext({
+            text: normalizedIntakeText,
+            locale: surfaceLocale,
+          }),
         }),
       );
       setActionNotice(null);
@@ -2706,6 +3354,10 @@ export default function CreateClient({
           surfaceLocale === "en"
             ? "I’m loading the linked content and preparing the analysis. No topics are derived before that."
             : "Ich lade den Linkinhalt und bereite die Analyse vor. Vorher leite ich keine Themen ab.",
+        citizenContext: resolveCreateCitizenIntakeContext({
+          text: normalizedIntakeText,
+          locale: surfaceLocale,
+        }),
       }),
     );
 
@@ -2754,6 +3406,10 @@ export default function CreateClient({
             locale: surfaceLocale as CreateVoxyLocale,
             handoff: failedHandoff,
           }).paragraphs.join(" "),
+          citizenContext: resolveCreateCitizenIntakeContext({
+            text: normalizedIntakeText,
+            locale: surfaceLocale,
+          }),
         }),
       );
     } finally {
@@ -2767,6 +3423,7 @@ export default function CreateClient({
     linkClarificationState?.additionalContext,
     normalizedIntakeText,
     privacyGate,
+    requireAuthenticatedOwnership,
     savedDraftId,
     surfaceLocale,
   ]);
@@ -2778,6 +3435,7 @@ export default function CreateClient({
   }, []);
 
   const handleContinueInAccount = React.useCallback(() => {
+    if (!requireAuthenticatedOwnership()) return;
     if (!intelligentFollowup) {
       setActionNotice("Bitte beschreibe zuerst deinen Beitrag.");
       return;
@@ -2795,7 +3453,7 @@ export default function CreateClient({
       }),
     );
     router.push("/account");
-  }, [intelligentFollowup, router]);
+  }, [intelligentFollowup, requireAuthenticatedOwnership, router]);
 
   const handleSaveQuestion = React.useCallback(async () => {
     const branches = intelligentFollowup
@@ -3018,13 +3676,6 @@ export default function CreateClient({
       </main>
     );
   }
-  if (gate.status === "anon") {
-    return (
-      <main className="mx-auto max-w-4xl px-4 py-12 text-center text-[rgb(var(--muted))]">
-        {text.loginRequired}
-      </main>
-    );
-  }
   if (gate.status === "blocked") {
     return (
       <main className="mx-auto max-w-4xl px-4 py-12 text-center text-[rgb(var(--muted))]">
@@ -3105,8 +3756,36 @@ export default function CreateClient({
                 subline={surfaceTexts.sublineCanonical}
                 texts={surfaceComposerTexts}
                 topMeta={
-                  !hasStarted || intakeRestoreInfo || scopeNotice ? (
+                  !hasStarted || intakeRestoreInfo || scopeNotice || gate.status === "anon" ? (
                     <div className="space-y-2">
+                      {gate.status === "anon" ? (
+                        <div
+                          className="rounded-2xl border border-cyan-300/50 bg-cyan-50/70 px-3 py-3 text-sm text-cyan-950 dark:border-cyan-300/25 dark:bg-cyan-950/25 dark:text-cyan-50"
+                          data-create-guest-ownership="browser-workstate"
+                        >
+                          <p className="font-semibold">
+                            {surfaceLocale === "en"
+                              ? "Start without an account"
+                              : "Ohne Konto starten"}
+                          </p>
+                          <p className="mt-1 leading-relaxed">
+                            {surfaceLocale === "en"
+                              ? "Your first AI-assisted classification stays in this browser. Sign in only when you want to save or continue it."
+                              : "Deine erste KI-gestützte Einordnung bleibt in diesem Browser. Melde dich erst an, wenn du sie speichern oder weiterführen möchtest."}
+                          </p>
+                          {hasStarted ? (
+                            <button
+                              type="button"
+                              className="mt-2 inline-flex min-h-[44px] items-center rounded-full border border-cyan-500 px-4 py-2 font-semibold"
+                              onClick={requireAuthenticatedOwnership}
+                            >
+                              {surfaceLocale === "en"
+                                ? "Sign in and continue"
+                                : "Anmelden und weiterführen"}
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {startDraftRestore.draft ? (
                         <>
                           <CreateStartDraftHandoff
@@ -3189,7 +3868,10 @@ export default function CreateClient({
                 inputValue={workspaceComposerValue}
                 inputPlaceholder={workspaceComposerPlaceholder}
                 onInputChange={handleWorkspaceComposerChange}
-                onAttachmentsChange={setComposerAttachments}
+                onAttachmentsChange={
+                  entitlements.isAuthenticated ? setComposerAttachments : undefined
+                }
+                allowAttachments={entitlements.isAuthenticated}
                 onStart={hasStarted ? handleContinueConversation : handleStart}
                 startLabel={workspaceComposerStartLabel}
                 startDisabled={workspaceComposerStartDisabled}
@@ -3240,6 +3922,32 @@ export default function CreateClient({
                     </div>
                   ) : null
                 }
+                citizenContext={citizenContext}
+                confirmedJurisdictionKey={confirmedJurisdictionKey}
+                onConfirmCitizenJurisdiction={(candidateKey) => {
+                  if (
+                    !citizenContext?.jurisdictionCandidates.some(
+                      (candidate) =>
+                        candidate.level !== "unknown" &&
+                        buildCreateJurisdictionCandidateKey(candidate) === candidateKey,
+                    )
+                  ) {
+                    return;
+                  }
+                  updateCitizenJurisdictionConfirmation(candidateKey);
+                  setActionNotice("Zuständigkeit als Vorschlag bestätigt.");
+                }}
+                onEditCitizenJurisdiction={() => {
+                  updateCitizenJurisdictionConfirmation(null);
+                  setWorkspaceActionMode("edit");
+                  setActionNotice(
+                    "Beschreibe die passende Zuständigkeit direkt in deinem Beitrag.",
+                  );
+                }}
+                onEditCitizenRegion={() => {
+                  setWorkspaceActionMode("edit");
+                  setActionNotice("Du kannst Ort oder Region direkt in deinem Beitrag ändern.");
+                }}
                 minRows={7}
                 collapseModeSelector
                 embeddedWorkspace

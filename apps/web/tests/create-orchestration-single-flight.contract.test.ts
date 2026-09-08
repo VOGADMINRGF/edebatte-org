@@ -29,8 +29,10 @@ vi.mock("@/features/create/createRouteSecurity", () => ({
 
 import { POST } from "@/app/api/create/intelligent-followup/route";
 import {
+  adoptCompletedCreateOrchestrationClaim,
   createInMemoryCreateOrchestrationClaimRepo,
   createOrchestrationClaimKeyForTests,
+  readCompletedCreateOrchestrationClaim,
   runCreateOrchestrationSingleFlight,
   setCreateOrchestrationClaimRepoForTests,
 } from "@/features/create/createOrchestrationSingleFlight";
@@ -296,5 +298,92 @@ describe("persistent create orchestration single-flight", () => {
         run: async () => ({ state: "must_not_run" }),
       }),
     ).rejects.toThrow("create_single_flight_input_mismatch");
+  });
+
+  it("atomically adopts a completed anonymous claim once and only for its bound session", async () => {
+    const keyInput = {
+      actorKey: "anonymous:guest-session-a",
+      draftId: "anonymous:guest-session-a",
+      correlationId: "guest-operation-12345678",
+      operationType: OPERATION_TYPE,
+    };
+    const result = successfulFollowup();
+    await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "guest-input-hash",
+      run: async () => result,
+    });
+
+    await expect(readCompletedCreateOrchestrationClaim(keyInput)).resolves.toMatchObject({
+      inputHash: "guest-input-hash",
+      result,
+    });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-a",
+      }),
+    ).resolves.toEqual({ kind: "adopted", result });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-a",
+      }),
+    ).resolves.toEqual({ kind: "reused", result });
+    await expect(
+      adoptCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        consumerKey: "user:account-b",
+      }),
+    ).resolves.toEqual({ kind: "conflict" });
+    await expect(
+      readCompletedCreateOrchestrationClaim({
+        ...keyInput,
+        actorKey: "anonymous:guest-session-b",
+        draftId: "anonymous:guest-session-b",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("stores and reuses a pending anonymous link source without external execution", async () => {
+    const keyInput = {
+      actorKey: "anonymous:guest-link-session",
+      draftId: "anonymous:guest-link-session",
+      correlationId: "guest-link-operation-12345678",
+      operationType: OPERATION_TYPE,
+    };
+    const result = {
+      sourceText: "https://example.com/source",
+      meta: {
+        planner: null,
+        analysis: {
+          state: "link_detected",
+          sourceType: "link",
+          sourceUrl: "https://example.com/source",
+          sourceLoaded: false,
+          validationStatus: "not_started",
+        },
+      },
+    };
+    const run = vi.fn(async () => result);
+
+    const first = await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "pending-link-input-hash",
+      run,
+    });
+    const second = await runCreateOrchestrationSingleFlight({
+      ...keyInput,
+      inputHash: "pending-link-input-hash",
+      run,
+    });
+
+    expect(first).toMatchObject({ result, reused: false });
+    expect(second).toMatchObject({ result, reused: true });
+    expect(run).toHaveBeenCalledTimes(1);
+    await expect(readCompletedCreateOrchestrationClaim(keyInput)).resolves.toMatchObject({
+      inputHash: "pending-link-input-hash",
+      result,
+    });
   });
 });

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createHandoffDraftFromDialogOutcome } from "@/features/create/createHandoffDrafts";
+import {
+  createHandoffDraftFromDialogOutcome,
+  createHandoffDraftFromExistingTopicMatch,
+} from "@/features/create/createHandoffDrafts";
 import {
   createReviewQueueItemFromHandoffDraft,
   markReviewQueueItemApprovedForSetup,
@@ -14,6 +17,7 @@ import {
 import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
 import { createTopicDeduplicationReviewQueueItem } from "@/features/create/topicDeduplicationReview";
 import { DIALOG_INTELLIGENCE_PREVIEW_FIXTURES } from "@/features/dialog/dialogIntelligenceFixtures";
+import { EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES } from "@/features/create/existingTopicMatchesFixtures";
 
 function buildFollowup(): CreateIntelligentFollowupResult {
   return {
@@ -128,6 +132,59 @@ function buildFollowup(): CreateIntelligentFollowupResult {
 }
 
 describe("create handoff review queue runtime bridge", () => {
+  it("keeps every explicit existing-match decision in the canonical runtime draft", () => {
+    const result = buildFollowup();
+    const cases = [
+      ["count_my_position", "Unterstützt die bestehende Position"],
+      ["count_as_opposition", "Widerspricht der bestehenden Position"],
+      ["add_as_nuance", "alternative oder differenzierende Position"],
+      ["keep_separate", "eigenständige neue Position"],
+    ] as const;
+
+    for (const [decision, standpoint] of cases) {
+      const item = createReviewQueueItemFromHandoffDraft(
+        createHandoffDraftFromExistingTopicMatch(
+          EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+          decision === "keep_separate"
+            ? "new_branch"
+            : "existing_branch_connection",
+          decision,
+        ),
+      );
+      const input = mapCreateHandoffReviewQueueItemToExistingReviewQueueInput(
+        item,
+        { result },
+      );
+
+      expect(input.draft.existingMatchDecision).toBe(decision);
+      expect(input.draft.authorStandpoint).toContain(standpoint);
+      expect(input.draft.relatedMatchId).toBe(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.id,
+      );
+      expect(input.draft.relatedMatchTitle).toBe(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.title,
+      );
+    }
+  });
+
+  it("keeps an undecided match stance unknown", () => {
+    const item = createReviewQueueItemFromHandoffDraft(
+      createHandoffDraftFromExistingTopicMatch(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+        "existing_branch_connection",
+      ),
+    );
+    const input = mapCreateHandoffReviewQueueItemToExistingReviewQueueInput(
+      item,
+      { result: buildFollowup() },
+    );
+
+    expect(input.draft.existingMatchDecision).toBeNull();
+    expect(input.draft.authorStandpoint).toBeNull();
+    expect(input.draft.relatedMatchId).toBeNull();
+    expect(input.draft.relatedMatchTitle).toBeNull();
+  });
+
   it("maps review-first queue items onto the existing create handoff runtime input", () => {
     const result = buildFollowup();
     const dossierItem = createReviewQueueItemFromHandoffDraft(

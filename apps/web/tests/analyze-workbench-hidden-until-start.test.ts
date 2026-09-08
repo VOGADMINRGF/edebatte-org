@@ -4,10 +4,13 @@ import { resolve } from "node:path";
 import {
   CREATE_INTELLIGENT_FOLLOWUP_SECTION_LABELS,
   buildCreateLightweightFollowupSnapshot,
+  buildCreateGuestAdoptionPayload,
+  buildCreateGuestPrimaryIntakeStorageKey,
   buildCreatePrimaryIntakeStorageKey,
   buildGuidedWorkspaceText,
   hasPrimaryIntakeText,
   parseCreatePrimaryIntakeSnapshot,
+  resolveCreatePrimaryIntakeResumeSnapshot,
   resolveCreatePostStartSectionOrder,
   resolveFollowupSurfaceOnStart,
   shouldShowCreateFollowupQuestionCard,
@@ -17,6 +20,7 @@ import {
 } from "@/app/create/CreateClient";
 import { CREATE_VISUAL_FOLLOWUP_COPY } from "@/features/create/CreateVisualFollowup";
 import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import { buildCreateUnloadedLinkFollowup } from "@/features/create/intelligentFollowupResults";
 
 describe("analyze workbench progressive disclosure", () => {
   it("keeps post-input modules hidden before explicit start", () => {
@@ -58,6 +62,12 @@ describe("analyze workbench progressive disclosure", () => {
     );
     expect(linkWithContext.hasLink).toBe(true);
     expect(linkWithContext.mostlyLinkOnly).toBe(false);
+
+    const markdownLink = detectCreateLinkIntake(
+      "[https://example.com/source](https://example.com/source)",
+    );
+    expect(markdownLink.primaryUrl).toBe("https://example.com/source");
+    expect(markdownLink.urls).toEqual(["https://example.com/source"]);
   });
 
   it("keeps guided analyze workspace hidden until guided bridge is confirmed", () => {
@@ -105,13 +115,19 @@ describe("analyze workbench progressive disclosure", () => {
     ).toContain("Guided focus");
   });
 
-  it("uses stable per-user local draft keys for primary intake persistence", () => {
-    expect(buildCreatePrimaryIntakeStorageKey("user-1")).toBe("vog_create_primary_intake_v1:user-1");
-    expect(() => buildCreatePrimaryIntakeStorageKey("")).toThrow(
-      "authenticated_create_user_required",
+  it("separates account storage from opaque, expiring guest-session storage", () => {
+    expect(buildCreatePrimaryIntakeStorageKey("user-1")).toBe(
+      "vog_create_primary_intake_v1:account:user-1",
     );
-    expect(() => buildCreatePrimaryIntakeStorageKey(null)).toThrow(
-      "authenticated_create_user_required",
+    expect(buildCreatePrimaryIntakeStorageKey("")).toBeNull();
+    expect(buildCreatePrimaryIntakeStorageKey(null)).toBeNull();
+    expect(
+      buildCreateGuestPrimaryIntakeStorageKey({
+        namespace: "g1_opaque-session-scope-12345678901234567890",
+        expiresAt: "2099-09-06T10:30:00.000Z",
+      }),
+    ).toBe(
+      "vog_create_primary_intake_v1:guest:g1_opaque-session-scope-12345678901234567890",
     );
   });
 
@@ -136,6 +152,253 @@ describe("analyze workbench progressive disclosure", () => {
       }),
     );
     expect(ignored).toBeNull();
+  });
+
+  it("drops an unverified jurisdiction key from a malformed browser snapshot", () => {
+    const parsed = parseCreatePrimaryIntakeSnapshot(
+      JSON.stringify({
+        intakeText: "Beitrag bleibt erhalten",
+        hasStarted: true,
+        confirmedJurisdictionKey: "municipality:invented",
+        intelligentFollowup: {
+          sourceText: "Beitrag bleibt erhalten",
+          generatedAt: "2026-04-22T10:00:00.000Z",
+          understanding: {
+            summary: "Zusammenfassung",
+            categories: [],
+            topics: [],
+            statements: [],
+            scopes: [],
+          },
+          suggestions: [],
+          meta: { citizenContext: {} },
+        },
+      }),
+    );
+
+    expect(parsed?.confirmedJurisdictionKey).toBeNull();
+  });
+
+  it("resumes the guest AI workstate after login without requiring another planner run", () => {
+    const guestRaw = JSON.stringify({
+      intakeText: "Tempo 30 vor der Schule prüfen.",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      productMode: "analyze",
+      guestOperationId: "guest-operation-12345678",
+      confirmedJurisdictionKey:
+        "municipality:kommunale straßenverkehrsbehörde für wuppertal (wahrscheinlich)",
+      intelligentFollowup: {
+        sourceText: "Tempo 30 vor der Schule prüfen.",
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Sicherer Schulweg",
+          categories: [],
+          topics: [{ id: "topic-1", label: "Schulwegsicherheit", confidence: "high" }],
+          aspects: ["Tempo 30", "Querung"],
+          statements: [{
+            id: "statement-1",
+            text: "Tempo 30 vor der Schule prüfen.",
+            kind: "demand",
+            stance: "pro",
+            confidence: "high",
+          }],
+          scopes: ["municipal"],
+          openQuestion: null,
+          confidence: "medium",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            plannerSource: "openai",
+            plannerProvider: "openai",
+            providerPlan: { plannerProvider: "openai" },
+            providerCallSucceeded: true,
+            providerAttemptCount: 1,
+            providerAttempts: [{
+              attempt: 1,
+              provider: "openai",
+              model: "test-model",
+              status: "succeeded",
+              resultCode: "ok",
+              responseLength: 120,
+              responseHash: null,
+            }],
+            plannerDebug: {
+              attemptedProvider: "openai",
+              usedProvider: "openai",
+              attemptedModel: "test-model",
+              usedModel: "test-model",
+              attemptNumber: 1,
+            },
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: {
+            state: "result_ready",
+            validationStatus: "validated",
+          },
+          citizenContext: {
+            regionStatus: "resolved",
+            regionSource: "contribution_text",
+            regionChipLabel: "Wuppertal · aus deinem Text",
+            jurisdictionCandidates: [
+              {
+                level: "municipality",
+                label:
+                  "Kommunale Straßenverkehrsbehörde für Wuppertal (wahrscheinlich)",
+              },
+            ],
+            jurisdictionConfirmation: {
+              status: "confirmed",
+              candidateKey:
+                "municipality:kommunale straßenverkehrsbehörde für wuppertal (wahrscheinlich)",
+            },
+          },
+        },
+      },
+    });
+
+    const resume = resolveCreatePrimaryIntakeResumeSnapshot({
+      ownedRaw: JSON.stringify({
+        intakeText: "Älterer Kontoentwurf",
+        hasStarted: false,
+        updatedAt: "2026-09-05T10:00:00.000Z",
+      }),
+      guestRaw,
+      isAuthenticated: true,
+      preferGuest: true,
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      nowMs: Date.parse("2026-09-06T10:05:00.000Z"),
+    });
+
+    expect(resume.source).toBe("guest");
+    expect(resume.snapshot).toMatchObject({
+      intakeText: "Tempo 30 vor der Schule prüfen.",
+      hasStarted: true,
+      productMode: "analyze",
+      guestOperationId: "guest-operation-12345678",
+      intelligentFollowup: {
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          aspects: ["Tempo 30", "Querung"],
+          statements: [expect.objectContaining({ stance: "pro" })],
+        },
+        meta: {
+          citizenContext: expect.objectContaining({
+            regionSource: "contribution_text",
+          }),
+        },
+      },
+    });
+
+    const payload = buildCreateGuestAdoptionPayload({
+      snapshot: resume.snapshot!,
+      locale: "de",
+      createMode: "source",
+    });
+    expect(payload).toMatchObject({
+      source: "create_guest_resume",
+      confirmedJurisdictionKey: resume.snapshot!.confirmedJurisdictionKey,
+      analysis: {
+        guestResume: {
+          operationId: "guest-operation-12345678",
+          noAutoPublish: true,
+        },
+      },
+    });
+    expect(payload).not.toHaveProperty("textPrepared");
+    expect(payload?.analysis).not.toHaveProperty("intelligentFollowup");
+  });
+
+  it("builds an adoption request for a server-bound pending guest link", () => {
+    const sourceText = "https://example.com/mindestlohn-behindertenwerkstatt";
+    const pendingLink = buildCreateUnloadedLinkFollowup({
+      text: sourceText,
+      sourceUrl: sourceText,
+      remainingText: "",
+      locale: "de",
+    });
+
+    const payload = buildCreateGuestAdoptionPayload({
+      snapshot: {
+        intakeText: sourceText,
+        hasStarted: true,
+        updatedAt: "2026-09-08T08:00:00.000Z",
+        guestOperationId: "guest-link-operation-12345678",
+        intelligentFollowup: pendingLink,
+      },
+      locale: "de",
+      createMode: "source",
+    });
+
+    expect(payload).toEqual({
+      locale: "de",
+      source: "create_guest_resume",
+      createMode: "source",
+      analysis: {
+        guestResume: {
+          operationId: "guest-link-operation-12345678",
+          noAutoPublish: true,
+        },
+      },
+    });
+  });
+
+  it("does not expose a guest snapshot across sessions, expiry, or implicit login resume", () => {
+    const guestRaw = JSON.stringify({
+      intakeText: "Sessiongebundener Gast-Arbeitsstand",
+      hasStarted: true,
+      updatedAt: "2026-09-06T10:00:00.000Z",
+      guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+    });
+    const ownedRaw = JSON.stringify({
+      intakeText: "Konto-Arbeitsstand",
+      hasStarted: true,
+      updatedAt: "2026-09-06T09:00:00.000Z",
+    });
+    const base = {
+      ownedRaw,
+      guestRaw,
+      nowMs: Date.parse("2026-09-06T10:05:00.000Z"),
+    };
+
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: false,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      }).source,
+    ).toBe("guest");
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: false,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T11:00:00.000Z",
+      }).snapshot,
+    ).toBeNull();
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: true,
+        preferGuest: false,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+      }).source,
+    ).toBe("owned");
+    expect(
+      resolveCreatePrimaryIntakeResumeSnapshot({
+        ...base,
+        isAuthenticated: true,
+        preferGuest: true,
+        guestContextExpiresAt: "2026-09-06T10:30:00.000Z",
+        nowMs: Date.parse("2026-09-06T10:31:00.000Z"),
+      }).source,
+    ).toBe("owned");
   });
 
   it("keeps analyze workspace hidden until follow-up explicitly activates review", () => {
@@ -307,7 +570,6 @@ describe("analyze workbench progressive disclosure", () => {
     expect(source).toContain("StructureProposalPanel");
     expect(source).toContain("NextStepPanel");
     expect(source).toContain("create-chat-workspace");
-    expect(source).toContain("create-chat-spine");
     expect(source).toContain("create-chat-message");
     expect(source).toContain("Du");
     expect(source).toContain("Voxy");
@@ -315,7 +577,6 @@ describe("analyze workbench progressive disclosure", () => {
     expect(source).toContain("Eigenes Hauptthema benennen");
     expect(source).toContain("Aussage schärfen");
     expect(source).toContain("Quellenmodus geöffnet");
-    expect(source).toContain("Entwurf kann weitergeführt werden");
     expect(source).toContain("Redaktionell prüfen lassen");
     expect(source).toContain("Deine Struktur auf einen Blick");
     expect(source).toContain("data-structure-overview-grid");

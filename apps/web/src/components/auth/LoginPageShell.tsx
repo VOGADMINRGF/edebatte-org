@@ -88,7 +88,7 @@ export function LoginPageShell({
             Bei eDebatte anmelden
           </span>
         </h1>
-        <p className="text-sm text-[rgb(var(--muted))]">E-Mail &amp; Passwort, optional mit 2FA.</p>
+        <p className="text-sm text-[rgb(var(--muted))]">E-Mail &amp; Passwort · Anmeldung mit 2FA.</p>
       </div>
 
       {forceTwoFactor && step === "twofactor" && (

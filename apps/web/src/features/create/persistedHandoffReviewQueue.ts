@@ -15,6 +15,7 @@ import {
 } from "@/features/create/createHandoffPersistenceContract";
 import type { CreateInputClassification } from "@/features/create/inputClassification";
 import type { CreateGraphMatchResult } from "@/features/create/intelligentFollowupContract";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
 
 export {
   PERSISTED_CREATE_HANDOFF_SCHEMA_VERSION,
@@ -275,6 +276,16 @@ export async function persistCreateHandoffForReview(input: {
   requestScope?: PersistedCreateHandoffRecord["requestScope"];
   accessDecision?: PersistedCreateHandoffRecord["accessDecision"];
 }) {
+  if (
+    input.draft.jurisdictionConfirmation &&
+    (!input.draft.jurisdictionConfirmation.serverValidated ||
+      !input.draft.jurisdictionConfirmation.candidate ||
+      buildCreateJurisdictionCandidateKey(
+        input.draft.jurisdictionConfirmation.candidate,
+      ) !== input.draft.jurisdictionConfirmation.candidateKey)
+  ) {
+    throw new Error("invalid_create_handoff_jurisdiction_confirmation");
+  }
   const timestamp = nowIso();
   const existing = await getRepo().get(input.draft.id);
   const record: PersistedCreateHandoffRecord = {
@@ -290,6 +301,13 @@ export async function persistCreateHandoffForReview(input: {
     openQuestions: clone(input.draft.openQuestions),
     sourceGrounding: clone(input.draft.sourceGrounding),
     topicSeed: clone(input.draft.topicSeed),
+    authorStandpoint: input.draft.authorStandpoint,
+    existingMatchDecision: input.draft.existingMatchDecision,
+    relatedMatchId: input.draft.relatedMatchId,
+    relatedMatchTitle: input.draft.relatedMatchTitle,
+    jurisdictionConfirmation: input.draft.jurisdictionConfirmation
+      ? clone(input.draft.jurisdictionConfirmation)
+      : null,
     resumeHref: input.draft.resumeHref,
     reviewState: input.draft.reviewState,
     visibilityState: input.draft.visibilityState ?? "internal_review",
@@ -335,6 +353,13 @@ export function toCreateHandoffDraft(record: PersistedCreateHandoffRecord): Crea
     openQuestions: clone(record.openQuestions),
     sourceGrounding: clone(record.sourceGrounding),
     topicSeed: clone(record.topicSeed),
+    authorStandpoint: record.authorStandpoint ?? null,
+    existingMatchDecision: record.existingMatchDecision ?? null,
+    relatedMatchId: record.relatedMatchId ?? null,
+    relatedMatchTitle: record.relatedMatchTitle ?? null,
+    jurisdictionConfirmation: record.jurisdictionConfirmation
+      ? clone(record.jurisdictionConfirmation)
+      : null,
     resumeHref: record.resumeHref,
     reviewState: record.reviewState,
     visibilityState: record.visibilityState,

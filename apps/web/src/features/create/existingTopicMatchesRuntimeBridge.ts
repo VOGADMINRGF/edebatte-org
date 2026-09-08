@@ -170,6 +170,67 @@ function textSimilarity(left: string, right: string): number {
   );
 }
 
+const RELATION_POLICY_SIGNALS = [
+  "tempo",
+  "wahlalter",
+  "mindestlohn",
+  "steuer",
+  "quote",
+] as const;
+
+function hasExplicitPolicyOpposition(
+  text: string,
+  sharedPolicySignals: string[],
+): boolean {
+  if (sharedPolicySignals.length === 0) return false;
+  const policyObject = sharedPolicySignals.join("|");
+  return (
+    new RegExp(
+      `\\bgegen\\s+(?:(?:den|die|das|ein|eine|einen|einem|einer)\\s+)?(?:${policyObject})\\b`,
+      "u",
+    ).test(text) ||
+    new RegExp(`\\bkein(?:e|en|er|es)?\\s+(?:${policyObject})\\b`, "u").test(text) ||
+    new RegExp(
+      `\\b(?:ich|wir)\\s+lehn(?:e|en)\\b[^.!?]{0,60}\\b(?:${policyObject})\\b[^.!?]{0,30}\\bab\\b`,
+      "u",
+    ).test(text) ||
+    new RegExp(
+      `^(?:(?:den|die|das|ein|eine|einen|einem|einer)\\s+)?(?:${policyObject})\\b[^.!?]{0,60}\\b(?:ablehnen|abschaffen|verhindern)\\b`,
+      "u",
+    ).test(text) ||
+    new RegExp(
+      `\\b(?:${policyObject})\\b(?:(?!\\b(?:damit|sodass|um)\\b)[^.!?]){0,60}\\b(?:soll(?:te|ten)?|darf|dürfen|muss|müssen)\\b(?:(?!\\b(?:damit|sodass|um)\\b)[^.!?]){0,40}\\bnicht\\b`,
+      "u",
+    ).test(text)
+  );
+}
+
+export function inferExistingTopicMatchRelation(
+  sourceText: string,
+  matchText: string,
+): ExistingTopicMatch["relation"] {
+  const source = normalizeText(sourceText);
+  const candidate = normalizeText(matchText);
+  if (!source || !candidate) return "unclear";
+
+  const sourceNumbers = new Set(source.match(/\b\d{1,4}\b/g) ?? []);
+  const candidateNumbers = new Set(candidate.match(/\b\d{1,4}\b/g) ?? []);
+  const hasConflictingNumbers =
+    sourceNumbers.size > 0 &&
+    candidateNumbers.size > 0 &&
+    Array.from(sourceNumbers).every((number) => !candidateNumbers.has(number));
+  const sharedPolicySignals = RELATION_POLICY_SIGNALS
+    .filter((signal) => source.includes(signal) && candidate.includes(signal));
+  const sharedPolicySignal = sharedPolicySignals.length > 0;
+  const sourceOpposition = hasExplicitPolicyOpposition(source, sharedPolicySignals);
+  const candidateOpposition = hasExplicitPolicyOpposition(candidate, sharedPolicySignals);
+
+  if (sourceOpposition !== candidateOpposition || (sharedPolicySignal && hasConflictingNumbers)) {
+    return "opposing";
+  }
+  return "related";
+}
+
 function strengthFromScore(score: number): ExistingTopicMatch["strength"] {
   if (score >= 0.82) return "strong";
   if (score >= 0.58) return "medium";
@@ -565,7 +626,16 @@ export async function resolveExistingTopicMatchesFromRuntime(
     ...mapTopicsToRuntimeEntities(topics, signals),
   ];
   const runtimeMatches = dedupeMatches(
-    runtimeEntities.map(mapRuntimeEntityToExistingTopicMatch),
+    runtimeEntities.map((entity) => {
+      const match = mapRuntimeEntityToExistingTopicMatch(entity);
+      return {
+        ...match,
+        relation: inferExistingTopicMatchRelation(
+          context.result.sourceText,
+          `${match.title} ${match.summary}`,
+        ),
+      };
+    }),
   ).sort((left, right) => rankMatch(right) - rankMatch(left));
 
   const previewOnlyMatches = maybeBuildPreviewSourceQuestionEntity(previewModel).map(

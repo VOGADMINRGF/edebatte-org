@@ -129,7 +129,9 @@ describe("create planner routing contract", () => {
     expect(result.meta?.analysis?.validationStatus).toBe("validated");
     expect(result.meta?.graphMatch.stage).toBe("after_structure");
     expect(result.meta?.graphMatch.requiresConfirmation).toBe(true);
-    expect(result.meta?.graphMatch.searchTerms).toEqual(expect.arrayContaining(["Tierwohl"]));
+    expect(result.meta?.graphMatch.prepared).toBe(false);
+    expect(result.meta?.graphMatch.searchTerms).toEqual([]);
+    expect(result.meta?.planner.graphSearchTerms).toEqual(expect.arrayContaining(["Tierwohl"]));
     expect(result.degraded).toBe(false);
     expect(result.understanding.topics[0]?.label).toBe("Tierschutz, Tierhaltung und Agrarstandards");
     expect(result.understanding.statements[0]?.text).toBe("Forderung nach besseren Tierschutz- und Tierhaltungsstandards");
@@ -285,7 +287,7 @@ describe("create planner routing contract", () => {
     });
 
     const result = await buildCreateIntelligentFollowup({
-      text: "Ein längerer Mehrthemenbeitrag ohne brauchbaren Planner-Vertrag.",
+      text: "Feuer in der Schule, bitte 112 wählen.",
       locale: "de",
       intent: "contribute",
     });
@@ -302,6 +304,7 @@ describe("create planner routing contract", () => {
     expect(result.understanding.topics).toEqual([]);
     expect(result.understanding.statements).toEqual([]);
     expect(result.suggestions).toEqual([]);
+    expect(result.meta?.citizenContext?.safety.emergencyNoticeRequired).toBe(true);
   });
 
   it("keeps timed-out planner runs on the same technical fallback path", async () => {

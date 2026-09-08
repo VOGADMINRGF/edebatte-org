@@ -123,17 +123,26 @@ describe("/create start surface", () => {
     mocks.analyzeWorkspaceCalls.length = 0;
   });
 
-  it("redirects a guest to login without rendering the create workspace", async () => {
+  it("renders the canonical create workspace for a guest and defers login to ownership", async () => {
     mocks.getCreateEntitlementsForRequest.mockResolvedValue({
       ...AUTH_ENTITLEMENTS,
       userId: null,
       isAuthenticated: false,
+      canSubmitStatement: false,
+      canSubmitContribution: false,
     });
 
-    await expect(
-      CreatePage({ searchParams: Promise.resolve({}) }),
-    ).rejects.toThrow("redirect:/login?next=%2Fcreate");
+    const tree = await CreatePage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(tree);
+
+    expect(html).toContain('data-create-workspace-shell="true"');
+    expect(html).toContain('data-create-guest-ownership="browser-workstate"');
+    expect(html).toContain("Ohne Konto starten");
+    expect(html).toContain("Melde dich erst an, wenn du sie speichern oder weiterführen möchtest.");
+    expect(html).not.toContain("Anmelden und weiterführen");
+    expect(html).not.toContain("Anhang hinzufügen");
     expect(mocks.getAccountOverview).not.toHaveBeenCalled();
+    expect(mocks.resolveCurrentRequestScopeContext).not.toHaveBeenCalled();
   });
 
   it("renders only the primary start surface on first load", async () => {
@@ -143,22 +152,19 @@ describe("/create start surface", () => {
     const html = renderToStaticMarkup(tree);
 
     expect(html).toContain("Hallo");
-    expect(html).toContain("Was möchtest du einbringen?");
+    expect(html).toContain("Sag mir, was dich beschäftigt");
     expect(html).toContain(
-      "Ich ordne deinen Beitrag, erkenne die wichtigsten Themen und zeige dir passende nächste Schritte.",
+      "Ich ordne es kurz ein. Danach bestätigst oder präzisierst du, was ich verstanden habe.",
     );
-    expect(html).toContain("Thema ordnen");
-    expect(html).toContain("Frage schärfen");
     expect(html).toContain("Anhang");
-    expect(html).toContain("Sprache");
     expect(html).toContain("Details &amp; Transparenz");
     expect(html).toContain("create-primary-intake");
     expect(html).toContain('data-create-workspace-shell="true"');
     expect(html).toContain('data-create-shell-layout="wide"');
     expect(html).toContain('data-create-shell-thread="true"');
-    expect(html).toContain('data-create-debattenstand-statusbar="true"');
+    expect(html).not.toContain('data-create-debattenstand-statusbar="true"');
     expect(html).toContain('data-create-composer-bar="true"');
-    expect(html).toContain("Prüfen");
+    expect(html).toContain("Anliegen einordnen");
     expect(html).toContain(
       "Auf /create erklärt Voxy Anliegenordnung, Format, Quellen- und Claims-Schritte als sichere Vorschläge",
     );
@@ -175,7 +181,7 @@ describe("/create start surface", () => {
     expect(html).not.toContain("Beitrag sortieren");
     expect(html).not.toContain("Warum sehe ich das?");
     expect(html).not.toContain("Welche KI im aktuellen Schritt sichtbar arbeitet");
-    expect(html).toContain('data-voxy-appearance="panel"');
+    expect(html).toContain('data-voxy-appearance="compact"');
     expect(html).not.toContain("Kurzer Einstieg");
     expect(html).not.toContain("create-start-chat-preview");
 
@@ -237,7 +243,7 @@ describe("/create start surface", () => {
     expect(html).toContain('data-create-workspace-shell="true"');
     expect(html).toContain('data-create-stage-shell="true"');
     expect(html).toContain("Aus laufendem Anlass gestartet");
-    expect(html).toContain('data-voxy-appearance="panel"');
+    expect(html).toContain('data-voxy-appearance="compact"');
     expect(html).not.toContain("autoAnalyze");
     expect(mocks.analyzeWorkspaceCalls.length).toBe(0);
   });

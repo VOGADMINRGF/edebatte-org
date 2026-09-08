@@ -10,6 +10,7 @@ import {
 } from "@/features/create/roleSpecificReviewContract";
 import type { UserContributionLifecycleStatus } from "@/features/create/userContributionLifecycleContract";
 import type { GovernanceActorRole } from "@features/trust/types";
+import type { ExistingMatchUserDecision } from "@/features/create/createContributionPackageContract";
 
 export const CREATE_HANDOFF_REVIEW_QUEUE_ITEM_STATUSES = [
   "draft",
@@ -57,7 +58,9 @@ export type CreateHandoffReviewQueueItem = {
   title: string;
   summary: string;
   authorStandpoint?: string | null;
+  existingMatchDecision?: ExistingMatchUserDecision | null;
   topicTitle?: string | null;
+  relatedMatchId?: string | null;
   target: CreateHandoffDraftTarget;
   requiresEditorialReview: boolean;
   requiresFactcheck: boolean;
@@ -174,7 +177,9 @@ export function createReviewQueueItemFromHandoffDraft(
     title: draft.title,
     summary: draft.summary,
     authorStandpoint: draft.authorStandpoint ?? null,
+    existingMatchDecision: draft.existingMatchDecision ?? null,
     topicTitle: draft.topicTitle ?? null,
+    relatedMatchId: draft.relatedMatchId ?? null,
     target: draft.target,
     requiresEditorialReview: draft.requiresEditorialReview,
     requiresFactcheck: draft.requiresFactcheck,

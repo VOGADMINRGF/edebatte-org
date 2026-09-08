@@ -11,9 +11,16 @@ import type {
 } from "@/utils/persistentRateLimit";
 import { getCreateContributionDraftForResumeRecord } from "@/server/serverDrafts";
 import {
+  CREATE_CLIENT_SESSION_HEADER,
+  CREATE_HONEYPOT_HEADER,
   CREATE_MUTATION_CSRF_HEADER,
   CREATE_MUTATION_CSRF_VALUE,
 } from "@/features/create/createMutationSecurityContract";
+import {
+  CREATE_ANON_SESSION_COOKIE,
+  verifyAnonymousSession,
+} from "@/features/create/createAnonymousSession";
+import { evaluateCreateAbusePayload } from "@/features/create/createAbuseGuard";
 
 export type CreateMutationScope =
   | "create_save"
@@ -25,27 +32,41 @@ const RATE_LIMITS: Record<
   {
     userLimit: number;
     ipLimit: number;
+    anonymousIpLimit?: number;
+    anonymousLimit: number;
+    clientLimit: number;
     windowMs: number;
   }
 > = {
   create_save: {
     userLimit: 60,
     ipLimit: 120,
+    anonymousLimit: 90,
+    clientLimit: 90,
     windowMs: 15 * 60 * 1000,
   },
   create_intelligent_followup: {
     userLimit: 12,
     ipLimit: 30,
+    anonymousIpLimit: 12,
+    anonymousLimit: 18,
+    clientLimit: 18,
     windowMs: 10 * 60 * 1000,
   },
   create_link_analysis: {
     userLimit: 12,
     ipLimit: 30,
+    anonymousLimit: 18,
+    clientLimit: 18,
     windowMs: 10 * 60 * 1000,
   },
 };
 
 const MAX_CREATE_MUTATION_BYTES = 64 * 1024;
+const DUPLICATE_ACTOR_LIMIT = 4;
+const DUPLICATE_IP_LIMIT = 12;
+const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
+const SUSPICIOUS_REPEAT_WINDOW_MS = 60 * 1000;
 
 type CreateRateLimiter = (
   input: PersistentRateLimitInput,
@@ -76,6 +97,11 @@ function expectedRequestOrigin(req: NextRequest) {
   return new URL(req.url).origin;
 }
 
+function readClientSession(req: NextRequest) {
+  const value = req.headers.get(CREATE_CLIENT_SESSION_HEADER)?.trim() ?? "";
+  return /^[a-z0-9-]{8,120}$/i.test(value) ? value : null;
+}
+
 function genericSecurityFailure(
   status: 403 | 413 | 429 | 503,
   errorCode:
@@ -89,7 +115,10 @@ function genericSecurityFailure(
     {
       ok: false,
       errorCode,
-      message: "Die Anfrage konnte nicht verarbeitet werden.",
+      message:
+        status === 429
+          ? "Das waren gerade sehr viele Anfragen. Bitte versuche es in einem Moment noch einmal."
+          : "Die Anfrage konnte nicht verarbeitet werden.",
     },
     { status },
   );
@@ -97,6 +126,20 @@ function genericSecurityFailure(
     response.headers.set("Retry-After", String(retryAfterSeconds));
   }
   return response;
+}
+
+async function readAbuseEvaluation(req: NextRequest, scope: CreateMutationScope) {
+  if (scope === "create_save") return null;
+  try {
+    const payload = await req.clone().json();
+    return evaluateCreateAbusePayload(payload);
+  } catch {
+    return null;
+  }
+}
+
+function firstLimited(results: PersistentRateLimitResult[]) {
+  return results.find((result) => !result.ok) ?? null;
 }
 
 export async function enforceCreateMutationSecurity(input: {
@@ -116,6 +159,10 @@ export async function enforceCreateMutationSecurity(input: {
     return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
   }
 
+  if ((input.req.headers.get(CREATE_HONEYPOT_HEADER)?.trim() ?? "").length > 0) {
+    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
+  }
+
   const contentLength = Number(input.req.headers.get("content-length") ?? "0");
   if (
     !Number.isFinite(contentLength) ||
@@ -125,15 +172,27 @@ export async function enforceCreateMutationSecurity(input: {
     return genericSecurityFailure(413, "CREATE_REQUEST_TOO_LARGE");
   }
 
+  const abuse = await readAbuseEvaluation(input.req, input.scope);
+  if (abuse?.risk === "block") {
+    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
+  }
+
   const policy = RATE_LIMITS[input.scope];
   try {
     const limiter = await loadCreateRateLimiter();
     if (!limiter) {
       return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
     }
+
+    const ip = getClientIp(input.req);
     const actorHash = digest(`${input.scope}:actor:${input.actorKey}`);
-    const ipHash = digest(`${input.scope}:ip:${getClientIp(input.req)}`);
-    const [userLimit, ipLimit] = await Promise.all([
+    const ipHash = digest(`${input.scope}:ip:${ip}`);
+    const anonymousSession = verifyAnonymousSession(
+      input.req.cookies.get(CREATE_ANON_SESSION_COOKIE)?.value,
+    );
+    const clientSession = readClientSession(input.req);
+
+    const baseChecks: Array<Promise<PersistentRateLimitResult>> = [
       limiter({
         namespace: `create:${input.scope}:actor`,
         subjectHash: actorHash,
@@ -146,14 +205,103 @@ export async function enforceCreateMutationSecurity(input: {
         limit: policy.ipLimit,
         windowMs: policy.windowMs,
       }),
-    ]);
-    const limited = !userLimit.ok ? userLimit : !ipLimit.ok ? ipLimit : null;
-    if (limited) {
+    ];
+
+    if (anonymousSession) {
+      baseChecks.push(
+        limiter({
+          namespace: `create:${input.scope}:anonymous`,
+          subjectHash: digest(`${input.scope}:anonymous:${anonymousSession.id}`),
+          limit: policy.anonymousLimit,
+          windowMs: policy.windowMs,
+        }),
+      );
+    }
+
+    if (
+      anonymousSession &&
+      input.scope === "create_intelligent_followup" &&
+      input.actorKey.startsWith("anonymous:") &&
+      policy.anonymousIpLimit
+    ) {
+      baseChecks.push(
+        limiter({
+          namespace: `create:${input.scope}:anonymous-ip`,
+          subjectHash: ipHash,
+          limit: policy.anonymousIpLimit,
+          windowMs: policy.windowMs,
+        }),
+      );
+    }
+
+    if (clientSession) {
+      baseChecks.push(
+        limiter({
+          namespace: `create:${input.scope}:client`,
+          subjectHash: digest(`${input.scope}:client:${clientSession}`),
+          limit: policy.clientLimit,
+          windowMs: policy.windowMs,
+        }),
+      );
+    }
+
+    const baseResults = await Promise.all(baseChecks);
+    const baseLimited = firstLimited(baseResults);
+    if (baseLimited) {
       return genericSecurityFailure(
         429,
         "CREATE_RATE_LIMITED",
-        Math.ceil(limited.retryIn / 1000),
+        Math.ceil(baseLimited.retryIn / 1000),
       );
+    }
+
+    if (abuse?.fingerprint) {
+      const duplicateResults = await Promise.all([
+        limiter({
+          namespace: `create:${input.scope}:duplicate:actor`,
+          subjectHash: digest(
+            `${input.scope}:duplicate:actor:${input.actorKey}:${abuse.fingerprint}`,
+          ),
+          limit: DUPLICATE_ACTOR_LIMIT,
+          windowMs: DUPLICATE_WINDOW_MS,
+        }),
+        limiter({
+          namespace: `create:${input.scope}:duplicate:ip`,
+          subjectHash: digest(
+            `${input.scope}:duplicate:ip:${ip}:${abuse.fingerprint}`,
+          ),
+          limit: DUPLICATE_IP_LIMIT,
+          windowMs: DUPLICATE_WINDOW_MS,
+        }),
+      ]);
+      const duplicateLimited = firstLimited(duplicateResults);
+      if (duplicateLimited) {
+        return genericSecurityFailure(
+          429,
+          "CREATE_RATE_LIMITED",
+          Math.ceil(duplicateLimited.retryIn / 1000),
+        );
+      }
+    }
+
+    if (abuse?.risk === "cooldown" && abuse.fingerprint) {
+      const riskSubject =
+        clientSession ?? anonymousSession?.id ?? input.actorKey;
+      const suspicious = await limiter({
+        namespace: `create:${input.scope}:suspicious-repeat`,
+        subjectHash: digest(
+          `${input.scope}:suspicious:${riskSubject}:${abuse.fingerprint}`,
+        ),
+        limit: 1,
+        windowMs: SUSPICIOUS_REPEAT_WINDOW_MS,
+      });
+      if (!suspicious.ok) {
+        return genericSecurityFailure(
+          429,
+          "CREATE_RATE_LIMITED",
+          Math.ceil(suspicious.retryIn / 1000),
+        );
+      }
     }
   } catch {
     return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");

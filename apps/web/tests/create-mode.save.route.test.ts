@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
+import {
+  applyCreateRegionPriority,
+  buildCreateJurisdictionCandidateKey,
+} from "@/features/create/createCitizenIntakeContext";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
+import { buildCreateUnloadedLinkFollowup } from "@/features/create/intelligentFollowupResults";
+import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import { redactCreateSafetySensitiveText } from "@/features/create/safety/createSafetyLexicon";
 
 const mocks = vi.hoisted(() => {
   type AnyDoc = Record<string, any>;
@@ -152,6 +160,10 @@ const mocks = vi.hoisted(() => {
       confidence: "high",
     })),
     summarizeRequestScopeContext: vi.fn((scope) => scope),
+    enforceCreateMutationSecurity: vi.fn(async () => null),
+    verifyAnonymousSession: vi.fn(),
+    readCompletedCreateOrchestrationClaim: vi.fn(),
+    adoptCompletedCreateOrchestrationClaim: vi.fn(),
   };
 });
 
@@ -171,6 +183,28 @@ vi.mock("@/lib/server/auth/requestScope", () => ({
 
 vi.mock("@/lib/server/auth/sessionUser", () => ({
   getSessionUser: (...args: unknown[]) => mocks.getSessionUser(...args),
+}));
+
+vi.mock("@/features/create/createRouteSecurity", () => ({
+  enforceCreateMutationSecurity: (...args: unknown[]) =>
+    mocks.enforceCreateMutationSecurity(...args),
+}));
+
+vi.mock("@/features/create/createAnonymousSession", () => ({
+  CREATE_ANON_SESSION_COOKIE: "edebatte_create_session",
+  verifyAnonymousSession: (...args: unknown[]) =>
+    mocks.verifyAnonymousSession(...args),
+}));
+
+vi.mock("@/features/create/createOrchestrationSingleFlight", () => ({
+  readCompletedCreateOrchestrationClaim: (...args: unknown[]) =>
+    mocks.readCompletedCreateOrchestrationClaim(...args),
+  adoptCompletedCreateOrchestrationClaim: (...args: unknown[]) =>
+    mocks.adoptCompletedCreateOrchestrationClaim(...args),
+}));
+
+vi.mock("@/features/create/createCandidatePreview", () => ({
+  hasValidatedCreateSemanticOutput: () => true,
 }));
 
 vi.mock("@/server/draftStore", () => ({
@@ -197,6 +231,46 @@ describe("create mode split - save route", () => {
     vi.clearAllMocks();
     mocks.reset();
     mocks.getDraft.mockResolvedValue(null);
+    mocks.verifyAnonymousSession.mockReturnValue({
+      id: "guest-session-a",
+      issuedAtMs: Date.parse("2026-09-06T10:00:00.000Z"),
+      expiresAtMs: Date.parse("2026-09-06T10:30:00.000Z"),
+    });
+    const guestCitizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({
+        text: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
+      });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-input-hash",
+      result: {
+        sourceText: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Serverseitig validierte Einordnung",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: [],
+          openQuestion: null,
+          confidence: "medium",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: { state: "result_ready", validationStatus: "validated" },
+          citizenContext: guestCitizenContext,
+        },
+      },
+    });
+    mocks.adoptCompletedCreateOrchestrationClaim
+      .mockResolvedValueOnce({ kind: "adopted", result: {} })
+      .mockResolvedValue({ kind: "reused", result: {} });
   });
 
   it("rejects a guest before parsing the body and never emits a cookie or draft", async () => {
@@ -231,6 +305,12 @@ describe("create mode split - save route", () => {
     expect(body).toMatchObject({
       ok: true,
       createMode: "manual",
+      timings: {
+        accessMs: expect.any(Number),
+        contextMs: expect.any(Number),
+        saveMs: expect.any(Number),
+        totalMs: expect.any(Number),
+      },
       requestScope: {
         organizationId: "org-1",
         membershipStatus: "organization_verified",
@@ -421,11 +501,108 @@ describe("create mode split - save route", () => {
     expect(reviewSaved[0].noAutoVote).toBe(true);
   });
 
-  it("deduplicates an identical retry without creating a second draft", async () => {
+  it("adopts the same guest planner workstate into exactly one account draft", async () => {
     const payload = {
-      textPrepared: "Identischer Retry für denselben Arbeitsstand.",
-      source: "create_followup",
+      text: "Manipulierter Client-Text.",
+      textOriginal: "Manipulierter Originaltext.",
+      textPrepared: "Manipulierter vorbereiteter Text.",
+      sourceUrls: ["https://attacker.example/source"],
+      uploadIds: ["client-controlled-upload"],
+      source: "create_guest_resume",
       createMode: "source",
+      analysis: {
+        intelligentFollowup: { sourceText: "Manipulierte Client-Analyse." },
+        guestResume: {
+          operationId: "guest-operation-12345678",
+          providerRunReused: true,
+          noAutoPublish: true,
+        },
+      },
+    };
+
+    const first = await savePOST(req(payload));
+    const firstBody = await first.json();
+    const second = await savePOST(req(payload));
+    const secondBody = await second.json();
+    const alteredReplay = await savePOST(
+      req({
+        ...payload,
+        locale: "en",
+        packageId: "client-selected-second-package",
+        authorName: "Manipulierter Name",
+        manualReviewRequested: true,
+      }),
+    );
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(alteredReplay.status).toBe(409);
+    expect(secondBody.draftId).toBe(firstBody.draftId);
+    expect(mocks.readAll()).toHaveLength(1);
+    const saved = mocks.readAll()[0];
+    expect(saved.text).toBe("In Wuppertal sollte vor der Grundschule Tempo 30 gelten.");
+    expect(saved.textOriginal).toBe("In Wuppertal sollte vor der Grundschule Tempo 30 gelten.");
+    expect(saved.textPrepared).toBe("In Wuppertal sollte vor der Grundschule Tempo 30 gelten.");
+    expect(saved.analysis?.intelligentFollowup?.understanding?.summary).toBe(
+      "Serverseitig validierte Einordnung",
+    );
+    expect(saved.analysis?.inputContext).toBeUndefined();
+    expect(saved.analysis?.guestResume).toMatchObject({
+      operationId: "guest-operation-12345678",
+      providerRunReused: true,
+      serverValidated: true,
+      noAutoPublish: true,
+    });
+    expect(mocks.readCompletedCreateOrchestrationClaim).toHaveBeenCalledWith({
+      actorKey: "anonymous:guest-session-a",
+      draftId: "anonymous:guest-session-a",
+      correlationId: "guest-operation-12345678",
+      operationType: "create_intelligent_followup_planner",
+    });
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).toHaveBeenCalledTimes(3);
+  });
+
+  it("adopts a server-bound pending link into exactly one account draft", async () => {
+    const sourceUrl =
+      "https://example.com/mindestlohn-behindertenwerkstatt";
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-pending-link-input-hash",
+      result: {
+        sourceText: sourceUrl,
+        generatedAt: "2026-09-08T08:00:00.000Z",
+        understanding: {
+          summary: "Quelle muss vor der Auswertung geladen werden.",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: ["unclear"],
+          openQuestion: null,
+          confidence: "low",
+        },
+        suggestions: [],
+        degraded: true,
+        degradedReason: null,
+        meta: {
+          planner: null,
+          graphMatch: {},
+          analysis: {
+            state: "link_detected",
+            sourceType: "link",
+            sourceUrl,
+            sourceLoaded: false,
+            validationStatus: "not_started",
+          },
+        },
+      },
+    });
+    const payload = {
+      source: "create_guest_resume",
+      createMode: "source",
+      sourceUrls: ["https://attacker.example/forged"],
+      analysis: {
+        guestResume: { operationId: "guest-operation-12345678" },
+      },
     };
 
     const first = await savePOST(req(payload));
@@ -437,6 +614,453 @@ describe("create mode split - save route", () => {
     expect(second.status).toBe(200);
     expect(secondBody.draftId).toBe(firstBody.draftId);
     expect(mocks.readAll()).toHaveLength(1);
+    expect(mocks.readAll()[0]).toMatchObject({
+      text: sourceUrl,
+      createMode: "source",
+      analysis: {
+        intelligentFollowup: {
+          sourceText: sourceUrl,
+          meta: {
+            planner: null,
+            analysis: {
+              state: "link_detected",
+              sourceType: "link",
+              sourceUrl,
+              sourceLoaded: false,
+              validationStatus: "not_started",
+            },
+          },
+        },
+        inputContext: {
+          sourceUrls: [sourceUrl],
+          uploadIds: [],
+          materialItems: [],
+        },
+        guestResume: {
+          operationId: "guest-operation-12345678",
+          serverValidated: true,
+          noAutoPublish: true,
+        },
+      },
+    });
+    expect(JSON.stringify(mocks.readAll()[0])).not.toContain(
+      "attacker.example",
+    );
+  });
+
+  it("keeps the adopted pending-link draft recursively free of raw guest PII", async () => {
+    const sourceUrl = "https://example.org/foo";
+    const rawText =
+      `Bitte prüfen: [${sourceUrl}](${sourceUrl})\n` +
+      "Kontakt: max@example.org, 0171 1234567";
+    const redactedText = redactCreateSafetySensitiveText(rawText);
+    const safeContext = detectCreateLinkIntake(redactedText).remainingText;
+    const safeClaimText = `${sourceUrl}\n${safeContext}`;
+    const safeClaim = buildCreateUnloadedLinkFollowup({
+      text: safeClaimText,
+      sourceUrl,
+      remainingText: safeContext,
+      locale: "de",
+    });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-pending-link-pii-safe-hash",
+      result: safeClaim,
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        text: rawText,
+        textOriginal: rawText,
+        textPrepared: rawText,
+        sourceUrls: ["https://attacker.example/forged"],
+        analysis: {
+          guestResume: { operationId: "guest-operation-abcdefgh" },
+          clientEcho: rawText,
+        },
+      }),
+    );
+    const serializedDraft = JSON.stringify(mocks.readAll()[0]);
+
+    expect(response.status).toBe(200);
+    expect(serializedDraft).toContain(sourceUrl);
+    expect(serializedDraft).toContain("[E-MAIL ENTFERNT]");
+    expect(serializedDraft).toContain("[TELEFON ENTFERNT]");
+    expect(serializedDraft).not.toContain("max@example.org");
+    expect(serializedDraft).not.toContain("0171");
+    expect(serializedDraft).not.toContain("1234567");
+    expect(serializedDraft).not.toContain("attacker.example");
+    expect(mocks.readAll()[0]?.analysis?.intelligentFollowup).toMatchObject({
+      sourceText: safeClaimText,
+      meta: {
+        analysis: {
+          sourceUrl,
+          state: "link_detected",
+          sourceLoaded: false,
+        },
+      },
+    });
+  });
+
+  it.each([
+    "https://example.org/?email=max@example.org",
+    "https://example.org/?phone=01711234567",
+    "https://max@example.org:secret@example.org/foo",
+    "https://example.org/max@example.org/foo",
+    "https://example.org/foo#max@example.org",
+  ])("rejects an unsafe legacy guest source before adoption or draft persistence: %s", async (
+    sourceUrl,
+  ) => {
+    const unsafeClaim = buildCreateUnloadedLinkFollowup({
+      text: sourceUrl,
+      sourceUrl,
+      remainingText: "",
+      locale: "de",
+    });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-pending-link-unsafe-url-hash",
+      result: unsafeClaim,
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        analysis: {
+          guestResume: { operationId: "guest-operation-unsafe-url" },
+        },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      ok: false,
+      error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED",
+    });
+    expect(JSON.stringify(body)).not.toContain(sourceUrl);
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("adopts a later jurisdiction confirmation from the trusted guest result", async () => {
+    const citizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({
+        text: "In Wuppertal sollte vor der Grundschule Tempo 30 gelten.",
+      });
+    const candidate = citizenContext.jurisdictionCandidates[0];
+    expect(candidate).toBeDefined();
+    if (!candidate) return;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: candidateKey,
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const saved = mocks.readAll()[0];
+    expect(
+      saved.analysis?.intelligentFollowup?.meta?.citizenContext
+        ?.jurisdictionConfirmation,
+    ).toEqual({ status: "confirmed", candidateKey });
+    expect(saved.analysis?.guestResume).toMatchObject({
+      serverValidated: true,
+      jurisdictionServerValidated: true,
+    });
+  });
+
+  it("preserves a server-owned county level during guest adoption", async () => {
+    const sourceText =
+      "In Dithmarschen muss der Busverkehr besser werden.";
+    const citizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const candidate = citizenContext.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValueOnce({
+      inputHash: "server-input-hash-dithmarschen",
+      result: {
+        sourceText,
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Serverseitig validierte Einordnung",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: [],
+          openQuestion: null,
+          confidence: "medium",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: { state: "result_ready", validationStatus: "validated" },
+          citizenContext,
+        },
+      },
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: candidateKey,
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      mocks.readAll()[0]?.analysis?.intelligentFollowup?.meta?.citizenContext,
+    ).toMatchObject({
+      jurisdictionConfirmation: { status: "confirmed", candidateKey },
+      jurisdictionCandidates: [
+        expect.objectContaining({
+          level: "district",
+          authorityName: "Heide",
+          administrativeUnitType: "kreis",
+        }),
+      ],
+    });
+  });
+
+  it("rejects adopting a URL-derived guest planner result before source validation", async () => {
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValueOnce({
+      inputHash: "server-input-hash-unloaded-link",
+      result: {
+        sourceText:
+          "Schau dir das an: https://example.com/mindestlohn-behindertenwerkstatt",
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Unzulässige Ableitung aus dem URL-Slug",
+          categories: [],
+          topics: [{ id: "topic-1", label: "Mindestlohn" }],
+          aspects: [],
+          statements: [],
+          scopes: [],
+          openQuestion: null,
+          confidence: "high",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: {
+            state: "result_ready",
+            sourceType: "text",
+            sourceLoaded: true,
+            validationStatus: "validated",
+          },
+        },
+      },
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED",
+    });
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("rejects a pending source whose URL is not bound to the guest claim text", async () => {
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValueOnce({
+      inputHash: "server-input-hash-mismatched-link",
+      result: {
+        sourceText: "https://example.com/original-source",
+        generatedAt: "2026-09-08T08:00:00.000Z",
+        understanding: {
+          summary: "Quelle noch nicht geladen.",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: ["unclear"],
+          openQuestion: null,
+          confidence: "low",
+        },
+        suggestions: [],
+        meta: {
+          planner: null,
+          graphMatch: {},
+          analysis: {
+            state: "link_detected",
+            sourceType: "link",
+            sourceUrl: "https://attacker.example/forged-source",
+            sourceLoaded: false,
+            validationStatus: "not_started",
+          },
+        },
+      },
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("binds a later guest confirmation to the authenticated server profile", async () => {
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const guestCitizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const profileContext = applyCreateRegionPriority(guestCitizenContext, {
+      profileRegion: "Wuppertal",
+    });
+    const candidateKey = buildCreateJurisdictionCandidateKey(
+      profileContext.jurisdictionCandidates[0]!,
+    );
+    mocks.getSessionUser.mockResolvedValueOnce({
+      _id: { toHexString: () => "user-1" },
+      roles: ["user"],
+      sessionValid: true,
+      profile: { publicLocation: { city: "Wuppertal" } },
+    });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValueOnce({
+      inputHash: "server-input-hash-profile",
+      result: {
+        sourceText,
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Serverseitig validierte Einordnung",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: [],
+          openQuestion: null,
+          confidence: "medium",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: { state: "result_ready", validationStatus: "validated" },
+          citizenContext: guestCitizenContext,
+        },
+      },
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: candidateKey,
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      mocks.readAll()[0]?.analysis?.intelligentFollowup?.meta?.citizenContext,
+    ).toMatchObject({
+      selectedRegionLabel: "Wuppertal",
+      placeResolution: {
+        selectedCandidate: { id: "region-official-05124000" },
+      },
+      jurisdictionConfirmation: { status: "confirmed", candidateKey },
+    });
+  });
+
+  it("rejects an invented jurisdiction key before consuming guest adoption", async () => {
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: "municipality:frei erfundene behörde",
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "CREATE_GUEST_JURISDICTION_NOT_ALLOWED",
+    });
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("rejects guest provenance when the signed anonymous session is missing", async () => {
+    mocks.verifyAnonymousSession.mockReturnValue(null);
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        analysis: { guestResume: { operationId: "guest-operation-12345678" } },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.readCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("fails closed when a completed guest operation was adopted by another account", async () => {
+    mocks.adoptCompletedCreateOrchestrationClaim.mockReset();
+    mocks.adoptCompletedCreateOrchestrationClaim.mockResolvedValue({ kind: "conflict" });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        analysis: { guestResume: { operationId: "guest-operation-12345678" } },
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "CREATE_GUEST_ADOPTION_ALREADY_CLAIMED",
+    });
+    expect(mocks.readAll()).toHaveLength(0);
   });
 
   it("deduplicates identical parallel retries into the same canonical draft", async () => {

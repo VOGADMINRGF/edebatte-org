@@ -1,9 +1,14 @@
 import crypto from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
-import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
+import {
+  buildCreateTechnicalFollowup,
+  buildCreateUnloadedLinkFollowup,
+} from "@/features/create/intelligentFollowupResults";
+import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { parseCreateIntent } from "@/features/create/intentFlows";
 import { runCreateOrchestrationSingleFlight } from "@/features/create/createOrchestrationSingleFlight";
 import {
@@ -105,6 +110,7 @@ async function createSupportHandoff(input: {
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartedAt = Date.now();
   const fallbackRequestId = crypto.randomUUID();
   const sessionUser = await getSessionUser(req).catch(() => null);
   const userId = sessionUser?._id?.toString() ?? null;
@@ -177,6 +183,7 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
+    const accessMs = Date.now() - requestStartedAt;
     const requestId = body.correlationId;
     const normalizedIntent = parseCreateIntent(body.intent ?? undefined);
     const operationType = "create_intelligent_followup_planner" as const;
@@ -186,6 +193,32 @@ export async function POST(req: NextRequest) {
       actorKey: `user:${userId}`,
       affectedUserId: userId,
     };
+    const linkDetection = detectCreateLinkIntake(body.text);
+    if (linkDetection.hasLink && linkDetection.primaryUrl) {
+      return NextResponse.json({
+        ok: true,
+        result: buildCreateUnloadedLinkFollowup({
+          text: body.text,
+          sourceUrl: linkDetection.primaryUrl,
+          remainingText: linkDetection.remainingText,
+          locale,
+        }),
+        supportHandoff: null,
+        trace: {
+          requestId,
+          operationId,
+          operationType,
+          userScope: "present",
+          sourceValidationRequired: true,
+          timings: {
+            accessMs,
+            plannerMs: 0,
+            contextMs: 0,
+            totalMs: Date.now() - requestStartedAt,
+          },
+        },
+      });
+    }
     const singleFlight = await runCreateOrchestrationSingleFlight({
       actorKey: verifiedActor.actorKey,
       draftId: draftBinding.draftId,
@@ -224,6 +257,11 @@ export async function POST(req: NextRequest) {
                 supportHandoff.status === "created"
                   ? supportHandoff.ticket.safeUserMessage
                   : supportHandoff.safeUserMessage,
+              citizenContext:
+                resolveCreateCitizenIntakeContextFromOfficialDirectory({
+                  text: body.text,
+                  locale,
+                }),
             }),
             supportHandoff,
             trace: {
@@ -231,12 +269,19 @@ export async function POST(req: NextRequest) {
               operationId,
               operationType,
               userScope: "present" as const,
+              timings: {
+                accessMs,
+                plannerMs: 0,
+                contextMs: 0,
+                totalMs: Date.now() - requestStartedAt,
+              },
             },
           };
         }
 
         try {
           await markExternalExecutionStarted();
+          const orchestrationStartedAt = Date.now();
           const result = await buildCreateIntelligentFollowup({
             text: body.text,
             locale,
@@ -248,7 +293,10 @@ export async function POST(req: NextRequest) {
             dossierId: body.dossierId ?? null,
             intent: normalizedIntent,
             maxSuggestions: 6,
+            schedulePostResponseTask: after,
           });
+          const orchestrationMs = Date.now() - orchestrationStartedAt;
+          const plannerMs = result.meta?.planner?.runtimeMs ?? null;
           const analysisState = result.meta?.analysis?.state ?? null;
           const supportHandoff =
             analysisState === "ai_failed" || analysisState === "fetch_failed"
@@ -271,6 +319,27 @@ export async function POST(req: NextRequest) {
               operationId,
               operationType,
               userScope: "present" as const,
+              intake: result.meta?.planner
+                ? {
+                    selectedTimingLane: result.meta.planner.timingLane ?? "standard",
+                    inputLength: result.meta.planner.inputLength ?? body.text.trim().length,
+                    canonicalTopicCount: result.understanding.topics.length,
+                    issueMode:
+                      result.meta.planner.issueMode ??
+                      (result.understanding.topics.length >= 3
+                        ? "multi_issue"
+                        : "single_issue"),
+                  }
+                : undefined,
+              timings: {
+                accessMs,
+                plannerMs,
+                contextMs:
+                  plannerMs === null
+                    ? null
+                    : Math.max(0, orchestrationMs - plannerMs),
+                totalMs: Date.now() - requestStartedAt,
+              },
             },
           };
         } catch {
@@ -295,6 +364,11 @@ export async function POST(req: NextRequest) {
                 supportHandoff.status === "created"
                   ? supportHandoff.ticket.safeUserMessage
                   : supportHandoff.safeUserMessage,
+              citizenContext:
+                resolveCreateCitizenIntakeContextFromOfficialDirectory({
+                  text: body.text,
+                  locale,
+                }),
             }),
             supportHandoff,
             trace: {
@@ -302,6 +376,12 @@ export async function POST(req: NextRequest) {
               operationId,
               operationType,
               userScope: "present" as const,
+              timings: {
+                accessMs,
+                plannerMs: null,
+                contextMs: null,
+                totalMs: Date.now() - requestStartedAt,
+              },
             },
           };
         }
@@ -316,6 +396,10 @@ export async function POST(req: NextRequest) {
           : singleFlight.recovered
             ? "recovered"
             : "owner",
+        timings: {
+          ...singleFlight.result.trace.timings,
+          totalMs: Date.now() - requestStartedAt,
+        },
       },
     });
     return response;
@@ -345,6 +429,10 @@ export async function POST(req: NextRequest) {
         sourceType: "text",
         sourceLoaded: true,
         userMessage: supportHandoff.safeUserMessage,
+        citizenContext: resolveCreateCitizenIntakeContextFromOfficialDirectory({
+          text: sourceText,
+          locale,
+        }),
       }),
       supportHandoff,
       trace: {
@@ -353,6 +441,12 @@ export async function POST(req: NextRequest) {
         operationType: "create_intelligent_followup_planner",
         userScope: "present",
         singleFlight: "unavailable",
+        timings: {
+          accessMs: Date.now() - requestStartedAt,
+          plannerMs: null,
+          contextMs: null,
+          totalMs: Date.now() - requestStartedAt,
+        },
       },
     });
     return response;

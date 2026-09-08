@@ -19,6 +19,8 @@ import type {
   CreateUnderstandingResult,
   FollowupConfidence,
 } from "@/features/create/intelligentFollowupContract";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 
 type BuildCreateIntelligentFollowupInput = {
   text: string;
@@ -32,9 +34,54 @@ type BuildCreateIntelligentFollowupInput = {
   anlassraumId?: string | null;
   dossierId?: string | null;
   maxSuggestions?: number;
+  schedulePostResponseTask?: (task: () => Promise<void>) => void;
 };
 
 const MAX_UNDERSTANDING_TOPICS = 14;
+
+function reconcilePlannerJurisdictionScope(
+  planner: CreatePlannerResult,
+  citizenContext: CreateCitizenIntakeContext,
+): CreatePlannerResult {
+  const evidenceScopes = citizenContext.jurisdictionCandidates
+    .map((candidate): CreatePlannerScope | null => {
+      if (candidate.level === "municipality") return "municipal";
+      if (candidate.level === "state") return "state";
+      if (candidate.level === "federal") return "federal";
+      if (candidate.level === "eu") return "eu";
+      return null;
+    })
+    .filter((scope): scope is CreatePlannerScope => Boolean(scope));
+  if (evidenceScopes.length === 0) return planner;
+
+  const scopes = Array.from(
+    new Set([
+      ...planner.plannerScope.filter((scope) => scope !== "unclear"),
+      ...evidenceScopes,
+    ]),
+  ).slice(0, 4);
+  const qualityIssues = planner.qualityIssues.filter(
+    (issue) => issue !== "scope_too_unclear_for_explicit_jurisdiction",
+  );
+  const recoveredQuality =
+    planner.providerCallSucceeded &&
+    planner.degradedReason === "quality_gate_failed" &&
+    qualityIssues.length === 0;
+
+  return {
+    ...planner,
+    plannerScope: scopes,
+    scopeCandidates: scopes,
+    plannerDegraded: recoveredQuality ? false : planner.plannerDegraded,
+    degradedReason: recoveredQuality ? null : planner.degradedReason,
+    plannerDegradedReason: recoveredQuality ? null : planner.plannerDegradedReason,
+    qualityStatus: recoveredQuality ? "specific" : planner.qualityStatus,
+    qualityIssues,
+    plannerDebug: recoveredQuality
+      ? { ...planner.plannerDebug, qualityGatePassed: true }
+      : planner.plannerDebug,
+  };
+}
 
 function normalizeConfidence(score: number): FollowupConfidence {
   if (score >= 0.74) return "high";
@@ -79,7 +126,7 @@ function mapPlannerStanceToUnderstanding(
   if (stance === "pro") return "pro";
   if (stance === "contra") return "contra";
   if (stance === "mixed") return "mixed";
-  if (stance === "reform_oriented") return "mixed";
+  if (stance === "reform_oriented") return "pro";
   if (stance === "open") return "open";
   return "unclear";
 }
@@ -99,17 +146,17 @@ function dedupeLabels(labels: string[]): string[] {
 }
 
 function buildUnderstandingFromPlanner(planner: CreatePlannerResult): CreateUnderstandingResult {
-  const detailedTopicLabels = dedupeLabels([
-    ...planner.topicCandidates,
+  const providerTopicLabels = dedupeLabels(planner.topicCandidates);
+  const topicLabels = providerTopicLabels.length > 0
+    ? providerTopicLabels
+    : [planner.plannerTopic];
+  const normalizedTopicLabels = new Set(
+    topicLabels.map((label) => label.trim().toLowerCase()),
+  );
+  const aspects = dedupeLabels([
     ...planner.plannerClusters,
-  ]);
-  const topicLabels =
-    detailedTopicLabels.length >= MAX_UNDERSTANDING_TOPICS
-      ? detailedTopicLabels
-      : dedupeLabels([
-          planner.plannerTopic,
-          ...detailedTopicLabels,
-        ]);
+    ...planner.clusterCandidates,
+  ]).filter((label) => !normalizedTopicLabels.has(label.trim().toLowerCase()));
   const scopes = dedupeLabels([
     ...planner.plannerScope,
     ...planner.scopeCandidates,
@@ -148,6 +195,7 @@ function buildUnderstandingFromPlanner(planner: CreatePlannerResult): CreateUnde
       label,
       confidence: index === 0 ? "high" : "medium",
     })),
+    aspects,
     statements: statementText
       ? [
           {
@@ -188,16 +236,10 @@ function buildGraphMatchPlan(planner?: CreatePlannerResult | null): CreateFollow
 
   return {
     stage: "after_structure",
-    prepared: planner.graphSearchTerms.length > 0,
+    prepared: false,
     requiresConfirmation: true,
-    searchTerms: planner.graphSearchTerms,
-    matches: planner.graphSearchTerms.slice(0, 5).map((term, index) => ({
-      id: `graph-match-${index + 1}`,
-      kind: index === 0 ? "topic" : "claim",
-      label: term,
-      relation: index === 0 ? "new" : "related",
-      requiresConfirmation: true,
-    })),
+    searchTerms: [],
+    matches: [],
     matchedTopics: [],
     matchedDossiers: [],
     matchedClaims: [],
@@ -227,7 +269,7 @@ export async function buildCreateIntelligentFollowup(
 ): Promise<CreateIntelligentFollowupResult> {
   const text = input.text.trim();
   const generatedAt = new Date().toISOString();
-  const planner = await buildCreatePlanner({
+  const plannerPromise = buildCreatePlanner({
     text,
     locale: input.locale,
     requestId: input.requestId ?? null,
@@ -236,7 +278,19 @@ export async function buildCreateIntelligentFollowup(
     dossierId: input.dossierId ?? null,
     userId: input.userId ?? null,
     organizationId: input.organizationId ?? null,
+    schedulePostResponseTask: input.schedulePostResponseTask,
   });
+  // Directory startup work is normally completed by instrumentation. Starting
+  // the provider first also overlaps the guarded fallback initialization with
+  // provider I/O if a runtime does not execute instrumentation.
+  const citizenContext = resolveCreateCitizenIntakeContextFromOfficialDirectory({
+    text,
+    locale: input.locale,
+  });
+  const planner = reconcilePlannerJurisdictionScope(
+    await plannerPromise,
+    citizenContext,
+  );
 
   if (
     !hasValidatedCreatePlannerProviderIdentity(planner) ||
@@ -251,10 +305,20 @@ export async function buildCreateIntelligentFollowup(
       userMessage: resolveTextAnalysisFailureMessage(planner, input.locale),
       generatedAt,
       planner,
+      citizenContext,
     });
   }
 
-  const understanding = buildUnderstandingFromPlanner(planner);
+  // The bounded AI planner remains the first semantic pass. Deterministic
+  // directory/jurisdiction logic validates its successful result afterwards;
+  // provider failure must not masquerade as a precise heuristic assignment.
+  const plannerUnderstanding = buildUnderstandingFromPlanner(planner);
+  const understanding = citizenContext.clarificationQuestion
+    ? {
+        ...plannerUnderstanding,
+        openQuestion: citizenContext.clarificationQuestion,
+      }
+    : plannerUnderstanding;
   const suggestions = buildCreateConnectionSuggestions({
     text,
     intent: input.intent,
@@ -272,6 +336,7 @@ export async function buildCreateIntelligentFollowup(
     generatedAt,
     meta: {
       planner,
+      citizenContext,
       graphMatch: buildGraphMatchPlan(planner),
       researchUsed: "none",
       researchProvider: null,

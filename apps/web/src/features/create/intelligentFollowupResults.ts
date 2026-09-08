@@ -12,6 +12,8 @@ import type {
   FollowupConfidence,
 } from "@/features/create/intelligentFollowupContract";
 import { normalizeDocumentAnalysisSummary } from "@/features/create/intelligentFollowupContract";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
+import { resolveCreateCitizenIntakeContext } from "@/features/create/createCitizenIntakeContext";
 
 export type BuildCreateTechnicalFollowupInput = {
   text: string;
@@ -22,6 +24,7 @@ export type BuildCreateTechnicalFollowupInput = {
   userMessage: string;
   generatedAt?: string;
   planner?: CreatePlannerResult | null;
+  citizenContext?: CreateCitizenIntakeContext | null;
   documentAnalysis?: DocumentAnalysisSummary | null;
 };
 
@@ -30,6 +33,13 @@ export type BuildCreateValidatedDocumentFollowupInput = {
   sourceUrl: string;
   documentAnalysis: DocumentAnalysisSummary;
   generatedAt?: string;
+};
+
+export type BuildCreateUnloadedLinkFollowupInput = {
+  text: string;
+  sourceUrl: string;
+  remainingText: string;
+  locale?: string | null;
 };
 
 function normalizeConfidence(score: number): FollowupConfidence {
@@ -172,6 +182,7 @@ export function buildCreateTechnicalFollowup(
     generatedAt,
     meta: {
       planner,
+      citizenContext: input.citizenContext ?? null,
       graphMatch: buildGraphMatchPlan(planner),
       researchUsed: "none",
       researchProvider: null,
@@ -208,6 +219,26 @@ export function buildCreateTechnicalFollowup(
           ? "ai_failed"
           : null,
   };
+}
+
+export function buildCreateUnloadedLinkFollowup(
+  input: BuildCreateUnloadedLinkFollowupInput,
+): CreateIntelligentFollowupResult {
+  const english = String(input.locale ?? "de").toLowerCase().startsWith("en");
+  return buildCreateTechnicalFollowup({
+    text: input.text,
+    analysisState: "link_detected",
+    sourceType: "link",
+    sourceUrl: input.sourceUrl,
+    sourceLoaded: false,
+    userMessage: english
+      ? "I need to load the linked content in full and analyze it with the AI orchestrator first. No topics are derived before that."
+      : "Ich muss den verlinkten Inhalt zuerst vollständig laden und mit dem KI-Orchester analysieren. Vorher leite ich keine Themen ab.",
+    citizenContext: resolveCreateCitizenIntakeContext({
+      text: input.remainingText,
+      locale: input.locale,
+    }),
+  });
 }
 
 export function buildCreateValidatedDocumentFollowup(

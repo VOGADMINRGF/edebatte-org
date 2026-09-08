@@ -19,9 +19,9 @@ const BodySchema = z
     visibility: z.enum(CREATE_SAVED_WORKSTATE_VISIBILITIES),
     type: z.enum(CREATE_SAVED_WORKSTATE_TYPES),
     status: z.enum(CREATE_SAVED_WORKSTATE_STATUSES),
-    sourceUrl: z.string().trim().optional(),
-    sourceAnalysisId: z.string().trim().optional(),
-    parentTopicId: z.string().trim().optional(),
+    sourceUrl: z.string().trim().nullable().optional(),
+    sourceAnalysisId: z.string().trim().nullable().optional(),
+    parentTopicId: z.string().trim().nullable().optional(),
     title: z.string().trim().min(1).max(160),
     content: z.string().trim().min(1).max(4000),
     metadata: z

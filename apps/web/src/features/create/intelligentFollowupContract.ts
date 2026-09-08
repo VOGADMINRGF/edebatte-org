@@ -4,6 +4,7 @@ import {
 } from "@/features/create/part06TopicMapping";
 import type { CreatePlannerResult } from "@/features/create/createPlanner";
 import { hasValidatedCreatePlannerProviderIdentity } from "@/features/create/createPlannerProviderContract";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 
 export type FollowupConfidence = "low" | "medium" | "high";
 
@@ -35,6 +36,7 @@ export type CreateUnderstandingResult = {
     label: string;
     confidence: FollowupConfidence;
   }>;
+  aspects?: string[];
   statements: Array<{
     id: string;
     text: string;
@@ -192,6 +194,7 @@ export type CreateAnalysisRecord = {
 
 export type CreateIntelligentFollowupMeta = {
   planner?: CreatePlannerResult | null;
+  citizenContext?: CreateCitizenIntakeContext | null;
   graphMatch: CreateFollowupGraphMatchPlan;
   researchUsed: "none";
   researchProvider: null;
@@ -463,8 +466,12 @@ function dedupeStrings(values: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const value of values) {
-    const normalized = String(value ?? "").trim();
-    if (!normalized) continue;
+    if (typeof value !== "string") continue;
+    const normalized = value.trim();
+    if (
+      !normalized ||
+      /\[object\s+(?:Object|Array)\]|^(?:undefined|null|nan|infinity)$/i.test(normalized)
+    ) continue;
     const key = normalizeText(normalized);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -686,20 +693,22 @@ function buildPlannerStructureBranches(
   }
   const positionClusters = selectPositionClusters(result.understanding);
   const topicLabels = result.understanding.topics.map((topic) => topic.label);
+  const aspects = dedupeStrings(result.understanding.aspects ?? planner.plannerClusters);
   const branchLimit = Math.max(1, maxBranches);
 
-  return planner.plannerClusters.slice(0, branchLimit).map((cluster, index) => {
+  return result.understanding.topics.slice(0, branchLimit).map((topic, index) => {
     const voteQuestion =
       planner.plannerOpenQuestions[index] ??
       planner.openQuestions[index] ??
       "Welche Leitfrage soll zuerst geklärt werden?";
     const plannerClaim = index === 0 ? planner.plannerCore : planner.openQuestions[index - 1] ?? planner.plannerCore;
-    const relatedTopics = dedupeStrings([
-      cluster,
-      planner.plannerTopic,
-      ...topicLabels.filter((topic) => normalizeText(topic).includes(normalizeText(cluster))),
-    ]);
-    const topicTags = dedupeStrings([cluster, ...relatedTopics]).slice(0, 6);
+    const relatedAspects = topicLabels.length === 1
+      ? aspects
+      : aspects.filter((aspect) => {
+          const topicWords = new Set(normalizeText(topic.label).split(" ").filter((word) => word.length >= 5));
+          return normalizeText(aspect).split(" ").some((word) => topicWords.has(word));
+        });
+    const topicTags = dedupeStrings([topic.label, ...relatedAspects]).slice(0, 6);
     const claims = dedupeStrings([plannerClaim, result.understanding.statements[index]?.text]).slice(0, 2);
     const openReviewPoints = dedupeStrings([
       planner.plannerOpenQuestions[index] ?? planner.openQuestions[index] ?? "",
@@ -710,31 +719,29 @@ function buildPlannerStructureBranches(
     return {
       id: `planner-branch-${index + 1}`,
       topicId: `planner-branch-${index + 1}`,
-      title: cluster,
+      title: topic.label,
       summary: buildBranchSummary({
-        title: cluster,
-        need: `${cluster} ist als eigener Themenstrang erkannt worden.`,
+        title: topic.label,
+        need: `${topic.label} ist als eigenständiges Hauptanliegen erkannt worden.`,
         claims,
       }),
-      topics: relatedTopics.length > 0 ? relatedTopics : [cluster],
+      topics: [topic.label],
       topicTags,
       evidenceSnippets: claims,
       subtopics: buildBranchSubtopics({
-        topicTags,
+        topicTags: relatedAspects,
         openReviewPoints,
         voteQuestions: [voteQuestion],
       }),
       sourceSection: result.understanding.summary ?? null,
       confidence:
-        result.understanding.topics[index]?.confidence ?? result.understanding.confidence,
+        topic.confidence ?? result.understanding.confidence,
       parentTopicId: null,
-      relatedTopicIds: result.understanding.topics
-        .filter((topic) => relatedTopics.includes(topic.label))
-        .map((topic) => topic.id),
+      relatedTopicIds: [],
       suggestedQuestions: [voteQuestion],
       part06CategoryKeys: ["local_community"],
       part06CategoryLabels: resolvePart06CategoryLabels(["local_community"]),
-      need: `${cluster} ist als eigener Themenstrang erkannt worden.`,
+      need: `${topic.label} ist als eigenständiges Hauptanliegen erkannt worden.`,
       claims,
       voteQuestions: [voteQuestion],
       openReviewPoints,
