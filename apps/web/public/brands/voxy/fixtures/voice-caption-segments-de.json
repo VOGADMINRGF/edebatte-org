@@ -1,0 +1,9 @@
+{
+  "locale": "de-DE",
+  "segments": [
+    { "id": "caption-opening", "text": "Guten Abend. Hier ist Voxy mit einem kurzen, quellengebundenen Update." },
+    { "id": "caption-structure", "text": "Wir trennen Ausgangslage, Gegenposition und offene Frage sichtbar voneinander." },
+    { "id": "caption-timeline", "text": "Untertitel und Audio folgen derselben geprüften Zeitleiste." },
+    { "id": "caption-review", "text": "Vor einer Veröffentlichung bleibt die menschliche Freigabe erforderlich." }
+  ]
+}

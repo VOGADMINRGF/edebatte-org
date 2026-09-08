@@ -1,0 +1,9 @@
+{
+  "locale": "en-US",
+  "segments": [
+    { "id": "caption-opening", "text": "Good evening. This is Voxy with a short, source-bound update." },
+    { "id": "caption-structure", "text": "We keep the starting point, counterposition, and open question visibly separate." },
+    { "id": "caption-timeline", "text": "Captions and audio follow the same reviewed timeline." },
+    { "id": "caption-review", "text": "Human approval remains required before publication." }
+  ]
+}
