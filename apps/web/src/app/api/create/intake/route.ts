@@ -6,7 +6,10 @@ import {
   buildCreateTechnicalFollowup,
   buildCreateUnloadedLinkFollowup,
 } from "@/features/create/intelligentFollowupResults";
-import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import {
+  detectCreateLinkIntake,
+  validateCreateSourceUrlForPersistence,
+} from "@/features/create/linkIntake";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { runCreateOrchestrationSingleFlight } from "@/features/create/createOrchestrationSingleFlight";
 import { evaluateCreateInputSafety } from "@/features/create/safety/createInputSafety";
@@ -168,9 +171,37 @@ export async function POST(req: NextRequest) {
   }
 
   if (linkDetection.hasLink && linkDetection.primaryUrl) {
-    const sourceUrl = linkDetection.primaryUrl;
+    const sourceUrls: string[] = [];
+    for (const detectedUrl of linkDetection.urls) {
+      const decision = validateCreateSourceUrlForPersistence(detectedUrl);
+      if (!decision.ok) {
+        return json(
+          {
+            ok: false,
+            errorCode: "SOURCE_URL_REVIEW_REQUIRED",
+            message: locale.startsWith("en")
+              ? "This source link contains information that cannot be retained safely. Please provide a link without personal data, credentials, or fragments."
+              : "Dieser Quellenlink enthält Angaben, die nicht sicher gespeichert werden können. Bitte verwende einen Link ohne Personendaten, Zugangsdaten oder Fragment.",
+            retryable: false,
+            meta: {
+              mode: "anonymous_unloaded_source",
+              persisted: false,
+              sourceValidationRequired: true,
+              noAutoPublish: true,
+              noSilentMerge: true,
+            },
+          },
+          422,
+        );
+      }
+      sourceUrls.push(decision.canonicalUrl);
+    }
+    const sourceUrl = sourceUrls[0];
+    if (!sourceUrl) {
+      return json({ ok: false, errorCode: "SOURCE_URL_REVIEW_REQUIRED" }, 422);
+    }
     const safeLinkContext = detectCreateLinkIntake(modelText).remainingText;
-    const claimSourceText = [...linkDetection.urls, safeLinkContext]
+    const claimSourceText = [...sourceUrls, safeLinkContext]
       .filter(Boolean)
       .join("\n");
     try {

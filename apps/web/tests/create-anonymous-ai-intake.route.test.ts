@@ -286,6 +286,102 @@ describe("POST /api/create/intake", () => {
     expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      label: "email query value",
+      sourceUrl: "https://example.org/?email=max@example.org",
+      forbidden: ["max@example.org"],
+    },
+    {
+      label: "phone query value",
+      sourceUrl: "https://example.org/?phone=01711234567",
+      forbidden: ["01711234567"],
+    },
+    {
+      label: "credentials",
+      sourceUrl: "https://max@example.org:secret@example.org/foo",
+      forbidden: ["max@example.org", "secret"],
+    },
+    {
+      label: "email path",
+      sourceUrl: "https://example.org/max@example.org/foo",
+      forbidden: ["max@example.org"],
+    },
+    {
+      label: "email fragment",
+      sourceUrl: "https://example.org/foo#max@example.org",
+      forbidden: ["max@example.org"],
+    },
+  ])("rejects a guest source URL containing $label before claim persistence", async ({
+    sourceUrl,
+    forbidden,
+  }) => {
+    const text = `Bitte prüfen: ${sourceUrl}`;
+    mocks.evaluateCreateInputSafety.mockReturnValue(
+      allowedSafety({
+        decision: "revise_required",
+        redactedText: redactCreateSafetySensitiveText(text),
+        requiresHumanReview: true,
+      }),
+    );
+
+    const response = await POST(request({
+      text,
+      locale: "de",
+      intent: "contribute",
+      correlationId: "request-link-component-pii",
+    }));
+    const body = await response.json();
+    const serializedResponse = JSON.stringify(body);
+
+    expect(response.status).toBe(422);
+    expect(body).toMatchObject({
+      ok: false,
+      errorCode: "SOURCE_URL_REVIEW_REQUIRED",
+      retryable: false,
+      meta: {
+        mode: "anonymous_unloaded_source",
+        persisted: false,
+        sourceValidationRequired: true,
+      },
+    });
+    for (const fragment of forbidden) {
+      expect(serializedResponse).not.toContain(fragment);
+    }
+    expect(serializedResponse).not.toContain(sourceUrl);
+    expect(mocks.runCreateOrchestrationSingleFlight).not.toHaveBeenCalled();
+    expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
+  });
+
+  it("keeps the canonical PII-free guest URL in the pending-source claim", async () => {
+    const sourceUrl = "https://example.org/article?id=123";
+    mocks.evaluateCreateInputSafety.mockReturnValue(
+      allowedSafety({ redactedText: sourceUrl }),
+    );
+
+    const response = await POST(request({
+      text: sourceUrl,
+      locale: "de",
+      intent: "contribute",
+      correlationId: "request-link-safe-canonical",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.result).toMatchObject({
+      sourceText: sourceUrl,
+      meta: {
+        analysis: {
+          sourceUrl,
+          evidenceReferences: [sourceUrl],
+          state: "link_detected",
+        },
+      },
+    });
+    expect(mocks.runCreateOrchestrationSingleFlight).toHaveBeenCalledTimes(1);
+    expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
+  });
+
   it("redacts avoidable PII before the AI call while keeping the route read-only", async () => {
     mocks.evaluateCreateInputSafety.mockReturnValue(
       allowedSafety({

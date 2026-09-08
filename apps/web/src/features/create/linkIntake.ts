@@ -7,6 +7,7 @@
  * does not scrape, summarize or auto-evaluate linked content.
  */
 import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
+import { redactCreateSafetySensitiveText } from "@/features/create/safety/createSafetyLexicon";
 
 export type CreateLinkKind = "youtube" | "video" | "article" | "web" | "multiple" | "unknown";
 
@@ -122,6 +123,66 @@ const CREATE_LINK_INTENT_E150_MAPPING: Record<
 
 const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`\])]+|\bwww\.[^\s<>"'`\])]+/gi;
 const TRAILING_PUNCTUATION_PATTERN = /[),.;:!?]+$/;
+const SENSITIVE_QUERY_KEY_PATTERN =
+  /^(?:api[_-]?key|key|token|access[_-]?token|authorization|auth|session|cookie|password|passcode|secret|username|email|e[_-]?mail|phone|telephone|mobile)$/i;
+
+export type CreateSourceUrlPersistenceDecision =
+  | { ok: true; canonicalUrl: string }
+  | { ok: false };
+
+function containsCreateSafetySensitiveText(value: string): boolean {
+  return redactCreateSafetySensitiveText(value) !== value;
+}
+
+function decodeCreateSourceUrlPath(pathname: string): string | null {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Canonical persistence gate for source URLs.
+ *
+ * The URL is itself a PII boundary. Unsafe components are rejected instead of
+ * being rewritten because a rewritten URL would no longer identify the source
+ * the citizen submitted and must never become a fetch target.
+ */
+export function validateCreateSourceUrlForPersistence(
+  rawUrl: string,
+): CreateSourceUrlPersistenceDecision {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return { ok: false };
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false };
+  }
+  if (parsed.username || parsed.password || parsed.hash) {
+    return { ok: false };
+  }
+
+  const decodedPath = decodeCreateSourceUrlPath(parsed.pathname);
+  if (decodedPath === null || containsCreateSafetySensitiveText(decodedPath)) {
+    return { ok: false };
+  }
+
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (
+      containsCreateSafetySensitiveText(key) ||
+      containsCreateSafetySensitiveText(value) ||
+      (value.length > 0 && SENSITIVE_QUERY_KEY_PATTERN.test(key))
+    ) {
+      return { ok: false };
+    }
+  }
+
+  return { ok: true, canonicalUrl: parsed.toString() };
+}
 
 function normalizeDetectedUrl(raw: string): string {
   const normalized = raw.trim().replace(TRAILING_PUNCTUATION_PATTERN, "");

@@ -52,6 +52,7 @@ import {
   detectCreateLinkIntake,
   hasCreatePendingLinkSource,
   readCreateBoundLinkSourceUrl,
+  validateCreateSourceUrlForPersistence,
 } from "@/features/create/linkIntake";
 
 function hasValidatedGuestSource(
@@ -478,9 +479,19 @@ export async function POST(req: NextRequest) {
   const pendingGuestSource = guestClaim
     ? hasCreatePendingLinkSource(guestClaim.result)
     : false;
+  const guestClaimHasLink = guestClaim
+    ? detectCreateLinkIntake(guestClaim.result.sourceText).hasLink
+    : false;
+  const boundGuestSourceUrl = guestClaim
+    ? readCreateBoundLinkSourceUrl(guestClaim.result)
+    : null;
+  const serverBoundGuestSourceUrlDecision = boundGuestSourceUrl
+    ? validateCreateSourceUrlForPersistence(boundGuestSourceUrl)
+    : null;
   if (
     isGuestAdoption &&
     (!guestClaim ||
+      (guestClaimHasLink && !serverBoundGuestSourceUrlDecision?.ok) ||
       (!pendingGuestSource &&
         (!hasValidatedCreateSemanticOutput(guestClaim.result) ||
           !hasValidatedGuestSource(guestClaim.result))))
@@ -634,8 +645,8 @@ export async function POST(req: NextRequest) {
         },
       }
     : body.analysis ?? existingDraft?.analysis;
-  const serverBoundGuestSourceUrl = guestClaim
-    ? readCreateBoundLinkSourceUrl(guestClaim.result)
+  const serverBoundGuestSourceUrl = serverBoundGuestSourceUrlDecision?.ok
+    ? serverBoundGuestSourceUrlDecision.canonicalUrl
     : null;
   const effectiveSourceUrls = isGuestAdoption
     ? serverBoundGuestSourceUrl

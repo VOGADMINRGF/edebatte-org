@@ -703,6 +703,47 @@ describe("create mode split - save route", () => {
     });
   });
 
+  it.each([
+    "https://example.org/?email=max@example.org",
+    "https://example.org/?phone=01711234567",
+    "https://max@example.org:secret@example.org/foo",
+    "https://example.org/max@example.org/foo",
+    "https://example.org/foo#max@example.org",
+  ])("rejects an unsafe legacy guest source before adoption or draft persistence: %s", async (
+    sourceUrl,
+  ) => {
+    const unsafeClaim = buildCreateUnloadedLinkFollowup({
+      text: sourceUrl,
+      sourceUrl,
+      remainingText: "",
+      locale: "de",
+    });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-pending-link-unsafe-url-hash",
+      result: unsafeClaim,
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        analysis: {
+          guestResume: { operationId: "guest-operation-unsafe-url" },
+        },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      ok: false,
+      error: "CREATE_GUEST_ADOPTION_NOT_ALLOWED",
+    });
+    expect(JSON.stringify(body)).not.toContain(sourceUrl);
+    expect(mocks.adoptCompletedCreateOrchestrationClaim).not.toHaveBeenCalled();
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
   it("adopts a later jurisdiction confirmation from the trusted guest result", async () => {
     const citizenContext =
       resolveCreateCitizenIntakeContextFromOfficialDirectory({
