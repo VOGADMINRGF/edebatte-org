@@ -6,6 +6,9 @@ import {
   buildCreateJurisdictionCandidateKey,
 } from "@/features/create/createCitizenIntakeContext";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
+import { buildCreateUnloadedLinkFollowup } from "@/features/create/intelligentFollowupResults";
+import { detectCreateLinkIntake } from "@/features/create/linkIntake";
+import { redactCreateSafetySensitiveText } from "@/features/create/safety/createSafetyLexicon";
 
 const mocks = vi.hoisted(() => {
   type AnyDoc = Record<string, any>;
@@ -643,6 +646,61 @@ describe("create mode split - save route", () => {
     expect(JSON.stringify(mocks.readAll()[0])).not.toContain(
       "attacker.example",
     );
+  });
+
+  it("keeps the adopted pending-link draft recursively free of raw guest PII", async () => {
+    const sourceUrl = "https://example.org/foo";
+    const rawText =
+      `Bitte prüfen: [${sourceUrl}](${sourceUrl})\n` +
+      "Kontakt: max@example.org, 0171 1234567";
+    const redactedText = redactCreateSafetySensitiveText(rawText);
+    const safeContext = detectCreateLinkIntake(redactedText).remainingText;
+    const safeClaimText = `${sourceUrl}\n${safeContext}`;
+    const safeClaim = buildCreateUnloadedLinkFollowup({
+      text: safeClaimText,
+      sourceUrl,
+      remainingText: safeContext,
+      locale: "de",
+    });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValue({
+      inputHash: "server-pending-link-pii-safe-hash",
+      result: safeClaim,
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        text: rawText,
+        textOriginal: rawText,
+        textPrepared: rawText,
+        sourceUrls: ["https://attacker.example/forged"],
+        analysis: {
+          guestResume: { operationId: "guest-operation-abcdefgh" },
+          clientEcho: rawText,
+        },
+      }),
+    );
+    const serializedDraft = JSON.stringify(mocks.readAll()[0]);
+
+    expect(response.status).toBe(200);
+    expect(serializedDraft).toContain(sourceUrl);
+    expect(serializedDraft).toContain("[E-MAIL ENTFERNT]");
+    expect(serializedDraft).toContain("[TELEFON ENTFERNT]");
+    expect(serializedDraft).not.toContain("max@example.org");
+    expect(serializedDraft).not.toContain("0171");
+    expect(serializedDraft).not.toContain("1234567");
+    expect(serializedDraft).not.toContain("attacker.example");
+    expect(mocks.readAll()[0]?.analysis?.intelligentFollowup).toMatchObject({
+      sourceText: safeClaimText,
+      meta: {
+        analysis: {
+          sourceUrl,
+          state: "link_detected",
+          sourceLoaded: false,
+        },
+      },
+    });
   });
 
   it("adopts a later jurisdiction confirmation from the trusted guest result", async () => {

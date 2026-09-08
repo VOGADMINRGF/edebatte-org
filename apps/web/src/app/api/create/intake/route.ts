@@ -169,6 +169,10 @@ export async function POST(req: NextRequest) {
 
   if (linkDetection.hasLink && linkDetection.primaryUrl) {
     const sourceUrl = linkDetection.primaryUrl;
+    const safeLinkContext = detectCreateLinkIntake(modelText).remainingText;
+    const claimSourceText = [...linkDetection.urls, safeLinkContext]
+      .filter(Boolean)
+      .join("\n");
     try {
       const singleFlight = await runCreateOrchestrationSingleFlight({
         actorKey: `anonymous:${anonymousSession.id}`,
@@ -176,7 +180,7 @@ export async function POST(req: NextRequest) {
         correlationId: requestId,
         operationType: "create_intelligent_followup_planner",
         inputHash: stableHash({
-          text,
+          text: claimSourceText,
           locale,
           intent,
           sourceUrl,
@@ -185,9 +189,9 @@ export async function POST(req: NextRequest) {
         waitMs: 25_000,
         run: async () =>
           buildCreateUnloadedLinkFollowup({
-            text,
+            text: claimSourceText,
             sourceUrl,
-            remainingText: linkDetection.remainingText,
+            remainingText: safeLinkContext,
             locale,
           }),
       });

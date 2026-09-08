@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { redactCreateSafetySensitiveText } from "@/features/create/safety/createSafetyLexicon";
 
 const mocks = vi.hoisted(() => ({
   buildCreateIntelligentFollowup: vi.fn(),
@@ -166,6 +167,9 @@ describe("POST /api/create/intake", () => {
   ])(
     "routes an anonymous unloaded link to source review without a planner call: %s",
     async (text) => {
+      mocks.evaluateCreateInputSafety.mockReturnValue(
+        allowedSafety({ redactedText: text }),
+      );
       const response = await POST(request({
         text,
         locale: "de",
@@ -217,6 +221,70 @@ describe("POST /api/create/intake", () => {
       ).toEqual(expect.any(Function));
     },
   );
+
+  it.each([
+    {
+      label: "email",
+      contact: "Kontakt: max@example.org",
+      forbidden: ["max@example.org"],
+      markers: ["[E-MAIL ENTFERNT]"],
+    },
+    {
+      label: "phone number",
+      contact: "Kontakt: 0171 1234567",
+      forbidden: ["0171", "1234567"],
+      markers: ["[TELEFON ENTFERNT]"],
+    },
+    {
+      label: "email and phone number",
+      contact: "Kontakt: max@example.org, 0171 1234567",
+      forbidden: ["max@example.org", "0171", "1234567"],
+      markers: ["[E-MAIL ENTFERNT]", "[TELEFON ENTFERNT]"],
+    },
+  ])("keeps the complete pending-link claim recursively PII-free for $label", async ({
+    contact,
+    forbidden,
+    markers,
+  }) => {
+    const sourceUrl = "https://example.org/foo";
+    const text = `Bitte prüfen: [${sourceUrl}](${sourceUrl})\n${contact}`;
+    mocks.evaluateCreateInputSafety.mockReturnValue(
+      allowedSafety({
+        decision: "revise_required",
+        redactedText: redactCreateSafetySensitiveText(text),
+        requiresHumanReview: true,
+      }),
+    );
+
+    const response = await POST(request({
+      text,
+      locale: "de",
+      intent: "contribute",
+      correlationId: "request-link-pii-abcdefgh",
+    }));
+    const body = await response.json();
+    const serializedClaim = JSON.stringify(body.result);
+    const serializedClaimMetadata = JSON.stringify(
+      mocks.runCreateOrchestrationSingleFlight.mock.calls[0]?.[0],
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.result.sourceText).toContain(sourceUrl);
+    for (const marker of markers) {
+      expect(body.result.sourceText).toContain(marker);
+    }
+    expect(body.result.meta.analysis).toMatchObject({
+      sourceUrl,
+      evidenceReferences: [sourceUrl],
+      state: "link_detected",
+      sourceLoaded: false,
+    });
+    for (const fragment of forbidden) {
+      expect(serializedClaim).not.toContain(fragment);
+      expect(serializedClaimMetadata).not.toContain(fragment);
+    }
+    expect(mocks.buildCreateIntelligentFollowup).not.toHaveBeenCalled();
+  });
 
   it("redacts avoidable PII before the AI call while keeping the route read-only", async () => {
     mocks.evaluateCreateInputSafety.mockReturnValue(
