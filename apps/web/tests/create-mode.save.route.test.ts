@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 import {
+  applyCreateRegionPriority,
   buildCreateJurisdictionCandidateKey,
 } from "@/features/create/createCitizenIntakeContext";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
@@ -588,6 +589,74 @@ describe("create mode split - save route", () => {
     expect(saved.analysis?.guestResume).toMatchObject({
       serverValidated: true,
       jurisdictionServerValidated: true,
+    });
+  });
+
+  it("binds a later guest confirmation to the authenticated server profile", async () => {
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const guestCitizenContext =
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText });
+    const profileContext = applyCreateRegionPriority(guestCitizenContext, {
+      profileRegion: "Wuppertal",
+    });
+    const candidateKey = buildCreateJurisdictionCandidateKey(
+      profileContext.jurisdictionCandidates[0]!,
+    );
+    mocks.getSessionUser.mockResolvedValueOnce({
+      _id: { toHexString: () => "user-1" },
+      roles: ["user"],
+      sessionValid: true,
+      profile: { publicLocation: { city: "Wuppertal" } },
+    });
+    mocks.readCompletedCreateOrchestrationClaim.mockResolvedValueOnce({
+      inputHash: "server-input-hash-profile",
+      result: {
+        sourceText,
+        generatedAt: "2026-09-06T10:00:00.000Z",
+        understanding: {
+          summary: "Serverseitig validierte Einordnung",
+          categories: [],
+          topics: [],
+          aspects: [],
+          statements: [],
+          scopes: [],
+          openQuestion: null,
+          confidence: "medium",
+        },
+        suggestions: [],
+        meta: {
+          planner: {
+            source: "openai",
+            qualityStatus: "specific",
+            plannerDegraded: false,
+          },
+          graphMatch: {},
+          analysis: { state: "result_ready", validationStatus: "validated" },
+          citizenContext: guestCitizenContext,
+        },
+      },
+    });
+
+    const response = await savePOST(
+      req({
+        source: "create_guest_resume",
+        createMode: "source",
+        confirmedJurisdictionKey: candidateKey,
+        analysis: {
+          guestResume: { operationId: "guest-operation-12345678" },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      mocks.readAll()[0]?.analysis?.intelligentFollowup?.meta?.citizenContext,
+    ).toMatchObject({
+      selectedRegionLabel: "Wuppertal",
+      placeResolution: {
+        selectedCandidate: { id: "region-official-05124000" },
+      },
+      jurisdictionConfirmation: { status: "confirmed", candidateKey },
     });
   });
 

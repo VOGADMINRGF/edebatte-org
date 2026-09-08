@@ -25,6 +25,7 @@ import {
 } from "@features/region";
 import { setPricingOrderContractsRuntimeRepoForTests } from "@features/pricing/orderContractsRuntime";
 import {
+  applyCreateRegionPriority,
   buildCreateJurisdictionCandidateKey,
 } from "@/features/create/createCitizenIntakeContext";
 import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
@@ -444,6 +445,76 @@ describe("/api/create/handoffs", () => {
         candidateKey,
         candidate,
         regionId: citizenContext.placeResolution.selectedCandidate?.id,
+        regionLabel: "Wuppertal",
+        serverValidated: true,
+      },
+    });
+  });
+
+  it("rejects an official jurisdiction candidate that was not offered by server context", async () => {
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const profileContext = applyCreateRegionPriority(
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText }),
+      { profileRegion: "Wuppertal" },
+    );
+    const candidate = profileContext.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            id: "create-handoff-route-unoffered-jurisdiction",
+            sourceText,
+            jurisdictionConfirmation: { candidateKey, candidate },
+          },
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "invalid_create_handoff_jurisdiction_confirmation",
+    });
+  });
+
+  it("accepts a jurisdiction candidate offered by the authenticated profile", async () => {
+    mocks.getSessionUser.mockResolvedValue({
+      _id: { toHexString: () => "user-1" },
+      roles: ["organization_member"],
+      sessionValid: true,
+      profile: { publicLocation: { city: "Wuppertal" } },
+    });
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const profileContext = applyCreateRegionPriority(
+      resolveCreateCitizenIntakeContextFromOfficialDirectory({ text: sourceText }),
+      { profileRegion: "Wuppertal" },
+    );
+    const candidate = profileContext.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+    const id = "create-handoff-route-profile-jurisdiction";
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            id,
+            sourceText,
+            jurisdictionConfirmation: { candidateKey, candidate },
+          },
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(getPersistedCreateHandoffRecord(id)).resolves.toMatchObject({
+      jurisdictionConfirmation: {
+        candidateKey,
+        regionId: "region-official-05124000",
         regionLabel: "Wuppertal",
         serverValidated: true,
       },

@@ -17,8 +17,14 @@ import {
   buildCreateExistingMatchAuthorStandpoint,
   normalizeCreateExistingMatchDecision,
 } from "@/features/create/createExistingMatchDecision";
-import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
-import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
+import {
+  applyCreateRegionPriority,
+  buildCreateJurisdictionCandidateKey,
+} from "@/features/create/createCitizenIntakeContext";
+import {
+  resolveCreateCitizenIntakeContextFromOfficialDirectory,
+  validateCreateJurisdictionConfirmation,
+} from "@/features/create/createCitizenIntakeContextServer";
 import {
   resolveCreateProductionAccessDecision,
   type CreateProductionAccessDecision,
@@ -316,9 +322,20 @@ export async function POST(req: NextRequest) {
     const userId = scopeContext?.actorId ?? null;
     if (!scopeContext || !userId) return unauthorized();
     if (draft.jurisdictionConfirmation) {
+      const profileRegion =
+        scopeContext.user.profile?.publicLocation?.city?.trim() ||
+        scopeContext.user.profile?.publicLocation?.region?.trim() ||
+        null;
+      const trustedContext = applyCreateRegionPriority(
+        resolveCreateCitizenIntakeContextFromOfficialDirectory({
+          text: draft.sourceText,
+        }),
+        { profileRegion },
+      );
       const validatedContext = validateCreateJurisdictionConfirmation({
         sourceText: draft.sourceText,
         candidateKey: draft.jurisdictionConfirmation.candidateKey,
+        trustedContext,
       });
       const candidate = validatedContext?.jurisdictionCandidates.find(
         (entry) =>

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
 import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { parseCreateIntent } from "@/features/create/intentFlows";
 import { runCreateOrchestrationSingleFlight } from "@/features/create/createOrchestrationSingleFlight";
 import {
@@ -226,6 +227,11 @@ export async function POST(req: NextRequest) {
                 supportHandoff.status === "created"
                   ? supportHandoff.ticket.safeUserMessage
                   : supportHandoff.safeUserMessage,
+              citizenContext:
+                resolveCreateCitizenIntakeContextFromOfficialDirectory({
+                  text: body.text,
+                  locale,
+                }),
             }),
             supportHandoff,
             trace: {
@@ -328,6 +334,11 @@ export async function POST(req: NextRequest) {
                 supportHandoff.status === "created"
                   ? supportHandoff.ticket.safeUserMessage
                   : supportHandoff.safeUserMessage,
+              citizenContext:
+                resolveCreateCitizenIntakeContextFromOfficialDirectory({
+                  text: body.text,
+                  locale,
+                }),
             }),
             supportHandoff,
             trace: {
@@ -388,6 +399,10 @@ export async function POST(req: NextRequest) {
         sourceType: "text",
         sourceLoaded: true,
         userMessage: supportHandoff.safeUserMessage,
+        citizenContext: resolveCreateCitizenIntakeContextFromOfficialDirectory({
+          text: sourceText,
+          locale,
+        }),
       }),
       supportHandoff,
       trace: {

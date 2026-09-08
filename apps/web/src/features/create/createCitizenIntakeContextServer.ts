@@ -3,7 +3,6 @@ import type { CreateRegionDirectoryEntry } from "@/features/create/createCitizen
 import officialMunicipalityIndex from "@/features/create/generatedOfficialMunicipalityIndex.json";
 import {
   applyCreateJurisdictionConfirmation,
-  applyCreateRegionPriority,
   buildCreateMunicipalJurisdictionCandidate,
   buildCreateJurisdictionCandidateKey,
   normalizeCreateMunicipalityLabel,
@@ -233,7 +232,16 @@ export function validateCreateJurisdictionConfirmation(input: {
   if (!candidateKey || candidateKey.length > 240) return null;
 
   if (input.trustedContext) {
-    return confirmFromContext(input.trustedContext, candidateKey);
+    const confirmed = confirmFromContext(input.trustedContext, candidateKey);
+    if (!confirmed) return null;
+    const candidate = confirmed.jurisdictionCandidates.find(
+      (entry) => buildCreateJurisdictionCandidateKey(entry) === candidateKey,
+    );
+    if (candidate?.level !== "municipality") return confirmed;
+    const indexedEntries = officialCandidateIndex().get(candidateKey) ?? [];
+    return indexedEntries.length === 1
+      ? attachOfficialRegionIdentity(confirmed, indexedEntries[0]!)
+      : null;
   }
 
   const base = resolveCreateCitizenIntakeContext({
@@ -244,9 +252,6 @@ export function validateCreateJurisdictionConfirmation(input: {
   const directMatch = confirmFromContext(base, candidateKey);
   if (directMatch) return directMatch;
 
-  const indexedEntries = officialCandidateIndex().get(candidateKey) ?? [];
-  if (indexedEntries.length !== 1) return null;
-  const officialEntry = indexedEntries[0]!;
   const contributionContext = resolveCreateCitizenIntakeContext({
     text: input.sourceText,
     locale: input.locale,
@@ -257,28 +262,7 @@ export function validateCreateJurisdictionConfirmation(input: {
     candidateKey,
   );
   if (contributionMatch) return contributionMatch;
-
-  // An explicit place, federal scope, EU scope or ambiguous place in the
-  // contribution always outranks any later profile-derived suggestion.
-  if (
-    contributionContext.regionSource === "contribution_text" ||
-    base.regionStatus === "not_location_bound" ||
-    contributionContext.detectedRegionLabels.length > 0
-  ) {
-    return null;
-  }
-
-  const confirmed = confirmFromContext(
-    applyCreateRegionPriority(base, {
-      confirmedRegion: normalizeCreateMunicipalityLabel(
-        officialEntry.municipalityName,
-      ),
-    }),
-    candidateKey,
-  );
-  return confirmed
-    ? attachOfficialRegionIdentity(confirmed, officialEntry)
-    : null;
+  return null;
 }
 
 // This module is imported while the Node route bundle initializes. The index

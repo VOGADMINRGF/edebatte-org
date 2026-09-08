@@ -46,6 +46,7 @@ import {
 } from "@/features/create/createOrchestrationSingleFlight";
 import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
 import { hasValidatedCreateSemanticOutput } from "@/features/create/createCandidatePreview";
+import { applyCreateRegionPriority } from "@/features/create/createCitizenIntakeContext";
 import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
 
 const DraftSaveSchema = z.object({
@@ -515,7 +516,17 @@ export async function POST(req: NextRequest) {
           sourceText: guestClaim.result.sourceText,
           candidateKey: body.confirmedJurisdictionKey,
           locale: normalizedLocale,
-          trustedContext: guestClaim.result.meta?.citizenContext ?? null,
+          trustedContext: guestClaim.result.meta?.citizenContext
+            ? applyCreateRegionPriority(
+                guestClaim.result.meta.citizenContext,
+                {
+                  profileRegion:
+                    sessionUser.profile?.publicLocation?.city?.trim() ||
+                    sessionUser.profile?.publicLocation?.region?.trim() ||
+                    null,
+                },
+              )
+            : null,
         })
       : null;
   if (

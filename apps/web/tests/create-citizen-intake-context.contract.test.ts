@@ -329,10 +329,11 @@ describe("citizen-first Create intake context", () => {
     const validated = validateCreateJurisdictionConfirmation({
       sourceText,
       candidateKey,
+      trustedContext: profileContext,
     });
 
     expect(validated).toMatchObject({
-      regionSource: "confirmed_context",
+      regionSource: "profile_suggestion",
       selectedRegionLabel: "Wuppertal",
       placeResolution: {
         selectedCandidate: {
@@ -342,6 +343,24 @@ describe("citizen-first Create intake context", () => {
       },
       jurisdictionConfirmation: { status: "confirmed", candidateKey },
     });
+  });
+
+  it("rejects an official candidate that was not offered by server-owned context", () => {
+    const sourceText = "Der Schulweg sollte sicherer werden.";
+    const untrustedProfileContext = applyCreateRegionPriority(
+      resolveCreateCitizenIntakeContext({
+        text: sourceText,
+        directoryEntries: [],
+      }),
+      { profileRegion: "Wuppertal" },
+    );
+    const candidateKey = buildCreateJurisdictionCandidateKey(
+      untrustedProfileContext.jurisdictionCandidates[0]!,
+    );
+
+    expect(
+      validateCreateJurisdictionConfirmation({ sourceText, candidateKey }),
+    ).toBeNull();
   });
 
   it("preserves explicit federal and EU scope during server validation", () => {

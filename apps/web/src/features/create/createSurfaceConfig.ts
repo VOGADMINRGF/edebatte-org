@@ -76,6 +76,7 @@ export type CreateComposerTexts = {
   attachmentFileTooLarge: (name: string) => string;
   voiceUnsupported: string;
   voiceFailed: string;
+  emergencyNotice: string;
 };
 
 export type CreateSurfaceTexts = {
@@ -331,6 +332,8 @@ const CREATE_SURFACE_BUNDLES: Record<CreateSurfaceLocale, CreateSurfaceLocaleBun
       attachmentFileTooLarge: (name) => `Datei zu groß: ${name} (max. 8 MB).`,
       voiceUnsupported: "Sprachaufnahme wird in diesem Browser nicht unterstützt.",
       voiceFailed: "Sprachaufnahme ist fehlgeschlagen. Bitte erneut versuchen.",
+      emergencyNotice:
+        "Bei akuter Gefahr ist eDebatte nicht der richtige Notfallkanal. Ruf 112 oder wende dich direkt an Polizei beziehungsweise Rettungsdienst.",
     },
     texts: {
       badgeCanonical: "EINFACH STARTEN",
@@ -581,6 +584,8 @@ const CREATE_SURFACE_BUNDLES: Record<CreateSurfaceLocale, CreateSurfaceLocaleBun
       attachmentFileTooLarge: (name) => `File too large: ${name} (max 8 MB).`,
       voiceUnsupported: "Voice input is not supported in this browser.",
       voiceFailed: "Voice input failed. Please try again.",
+      emergencyNotice:
+        "If there is immediate danger, eDebatte is not the right emergency channel. Call 112 or contact the police or emergency services directly.",
     },
     texts: {
       badgeCanonical: "Canonical entry",

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
 import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
+import { resolveCreateCitizenIntakeContextFromOfficialDirectory } from "@/features/create/createCitizenIntakeContextServer";
 import { runCreateOrchestrationSingleFlight } from "@/features/create/createOrchestrationSingleFlight";
 import { evaluateCreateInputSafety } from "@/features/create/safety/createInputSafety";
 import { CREATE_MAX_TEXT_LENGTH } from "@/features/create/createMutationSecurityContract";
@@ -179,6 +180,10 @@ export async function POST(req: NextRequest) {
               locale.startsWith("en")
                 ? "The earlier classification attempt could not be resumed safely. Your text remains in this browser; please retry."
                 : "Der frühere Einordnungsversuch konnte nicht sicher fortgesetzt werden. Dein Text bleibt in diesem Browser; bitte versuche es erneut.",
+            citizenContext: resolveCreateCitizenIntakeContextFromOfficialDirectory({
+              text: modelText,
+              locale,
+            }),
           });
         }
         await markExternalExecutionStarted();

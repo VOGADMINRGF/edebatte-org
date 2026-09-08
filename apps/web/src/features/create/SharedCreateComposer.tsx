@@ -525,7 +525,7 @@ export default function SharedCreateComposer({
               className="rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-300/30 dark:bg-red-950/30 dark:text-red-50"
               data-create-emergency-notice
             >
-              Bei akuter Gefahr ist eDebatte nicht der richtige Notfallkanal. Ruf 112 oder wende dich direkt an Polizei beziehungsweise Rettungsdienst.
+              {texts.emergencyNotice}
             </div>
           ) : null}
 

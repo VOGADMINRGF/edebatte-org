@@ -122,6 +122,7 @@ import {
   applyCreateJurisdictionConfirmation,
   applyCreateRegionPriority,
   buildCreateJurisdictionCandidateKey,
+  resolveCreateCitizenIntakeContext,
 } from "@/features/create/createCitizenIntakeContext";
 import {
   isCreateIntelligentFollowupAbortError,
@@ -1703,6 +1704,10 @@ export default function CreateClient({
               surfaceLocale === "en"
                 ? "I need to load the linked content in full and analyze it with the AI orchestrator first. No topics are derived before that."
                 : "Ich muss den verlinkten Inhalt zuerst vollständig laden und mit dem KI-Orchester analysieren. Vorher leite ich keine Themen ab.",
+            citizenContext: resolveCreateCitizenIntakeContext({
+              text: normalizedText,
+              locale: surfaceLocale,
+            }),
           }),
         );
         setPlannerTrace(null);
@@ -1798,6 +1803,10 @@ export default function CreateClient({
               surfaceLocale === "en"
                 ? "I couldn’t complete the classification just now. Your text remains in this browser so you can try again."
                 : "Ich konnte die Einordnung gerade nicht abschließen. Dein Text bleibt in diesem Browser und du kannst es erneut versuchen.",
+            citizenContext: resolveCreateCitizenIntakeContext({
+              text: normalizedText,
+              locale: surfaceLocale,
+            }),
           }),
         );
         setActionNotice(
@@ -1840,6 +1849,10 @@ export default function CreateClient({
               locale: surfaceLocale as CreateVoxyLocale,
               handoff: failedHandoff,
             }).paragraphs.join(" "),
+            citizenContext: resolveCreateCitizenIntakeContext({
+              text: normalizedText,
+              locale: surfaceLocale,
+            }),
           }),
         );
       }
@@ -3300,6 +3313,10 @@ export default function CreateClient({
             surfaceLocale === "en"
               ? "The full link and document analysis uses your available analysis or research allowance."
               : "Die vollständige Link- und Dokumentanalyse nutzt dein verfügbares Analyse-/Recherche-Kontingent.",
+          citizenContext: resolveCreateCitizenIntakeContext({
+            text: normalizedIntakeText,
+            locale: surfaceLocale,
+          }),
         }),
       );
       setActionNotice(null);
@@ -3324,6 +3341,10 @@ export default function CreateClient({
           surfaceLocale === "en"
             ? "I’m loading the linked content and preparing the analysis. No topics are derived before that."
             : "Ich lade den Linkinhalt und bereite die Analyse vor. Vorher leite ich keine Themen ab.",
+        citizenContext: resolveCreateCitizenIntakeContext({
+          text: normalizedIntakeText,
+          locale: surfaceLocale,
+        }),
       }),
     );
 
@@ -3372,6 +3393,10 @@ export default function CreateClient({
             locale: surfaceLocale as CreateVoxyLocale,
             handoff: failedHandoff,
           }).paragraphs.join(" "),
+          citizenContext: resolveCreateCitizenIntakeContext({
+            text: normalizedIntakeText,
+            locale: surfaceLocale,
+          }),
         }),
       );
     } finally {

@@ -287,7 +287,7 @@ describe("create planner routing contract", () => {
     });
 
     const result = await buildCreateIntelligentFollowup({
-      text: "Ein längerer Mehrthemenbeitrag ohne brauchbaren Planner-Vertrag.",
+      text: "Feuer in der Schule, bitte 112 wählen.",
       locale: "de",
       intent: "contribute",
     });
@@ -304,6 +304,7 @@ describe("create planner routing contract", () => {
     expect(result.understanding.topics).toEqual([]);
     expect(result.understanding.statements).toEqual([]);
     expect(result.suggestions).toEqual([]);
+    expect(result.meta?.citizenContext?.safety.emergencyNoticeRequired).toBe(true);
   });
 
   it("keeps timed-out planner runs on the same technical fallback path", async () => {

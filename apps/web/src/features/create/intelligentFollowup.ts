@@ -305,6 +305,7 @@ export async function buildCreateIntelligentFollowup(
       userMessage: resolveTextAnalysisFailureMessage(planner, input.locale),
       generatedAt,
       planner,
+      citizenContext,
     });
   }
 
