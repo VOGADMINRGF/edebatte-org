@@ -2,9 +2,9 @@
 
 Stand: 2026-09-09
 
-Status: Governance- und Extraktionsplan; C1 ist über PR `#734` gemergt, ausschließlich C2 ist im operativen Kopf als nächster Preflight-Slice autorisiert
+Status: Governance- und Extraktionsplan; C1 und C2 sind über PRs `#734` und `#736` gemergt, ausschließlich C3 ist im operativen Kopf als nächster Preflight-Slice autorisiert
 
-Zielbasis: `main@cc42c0f73490833b0bf999d177672ebf342f9880` (enthält C1, PR `#734`, Implementation Head `26670c7b171c6ae59c45fd33fabcf40947c1936a`)
+Zielbasis: `main@7896cd41ba366b3b7de5725872675170e8f3b86b` (enthält C1 über PR `#734` und C2 über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`)
 
 ## 1. Zweck und verbindliche Grenzen
 
@@ -19,17 +19,17 @@ Es gilt für jeden Slice:
 - ein späterer Slice darf dieselbe Integrationsdatei erneut ändern, aber keinen bereits übernommenen Hunk duplizieren;
 - kein Auto-Publish, kein Silent Merge, keine zweite Create-, Planner-, Session-, Resolver-, Source-, Review- oder Progress-Runtime;
 - Quellen, Unsicherheit, Nutzerentscheidung, Auth-Grenze und PII-Grenze bleiben nachvollziehbar;
-- C3–C12 und G1–G5 sind durch dieses Dokument weiterhin nicht `codex_ready`.
+- C4–C12 und G1–G5 sind durch dieses Dokument weiterhin nicht `codex_ready`; ausschließlich C3 ist als nächster Preflight-Slice autorisiert.
 
-`CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) ist über PR `#734` als `main@cc42c0f73490833b0bf999d177672ebf342f9880` gemergt. Ausschließlich `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) ist über `docs/E150/OpenTasks.md` als nächster Slice für einen eigenen Preflight autorisiert. C3–C12 und G1–G5 bleiben unautorisiert; jeder spätere Slice braucht nach Merge seines Vorgängers einen eigenen operativen Task, einen positiven Preflight und einen frischen Branch vom dann aktuellen `main`.
+`CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) ist über PR `#734` gemergt. `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) ist über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`, als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` gemergt. Ausschließlich `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01` (C3) ist über `docs/E150/OpenTasks.md` als nächster Slice für einen eigenen Task- sowie PII-/Security-Preflight autorisiert. C4–C12 und G1–G5 bleiben unautorisiert; jeder spätere Slice braucht nach Merge seines Vorgängers einen eigenen operativen Task, einen positiven Preflight und einen frischen Branch vom dann aktuellen `main`.
 
 ## 2. Exakte Extraktionsreihenfolge
 
 | Slice | Eindeutiger fachlicher Owner | Primäre Quelle | Startbedingung |
 | --- | --- | --- | --- |
 | C1 | Authenticated Create Planner / Timing Foundation | `#713`, korrigierende Evidence `#682`, Vergleich `#627` | gemergt über PR `#734` als `main@cc42c0f73490833b0bf999d177672ebf342f9880` |
-| C2 | Authenticated Create Workspace / Mobile Presentation | `#713` | jetzt `codex_ready`; eigener positiver Preflight vor Implementierung |
-| C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | C2 gemergt; PII-Red-Team vor Code |
+| C2 | Authenticated Create Workspace / Mobile Presentation | `#713` | gemergt über PR `#736` als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` |
+| C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | jetzt `codex_ready`; eigener positiver Task- sowie PII-/Security-Preflight vor Implementierung |
 | C4 | Browser Resume, explizite Adoption und Draft Binding | `#682` | C3 gemergt; Session-/Actor-Vertrag stabil |
 | C5 | Citizen Context und Place Resolution | `#682` | C4 gemergt; keine zweite Resolver-Wahrheit |
 | C6 | Existing-Topic Match und explizite Stance | `#682` | C5 gemergt; kanonische Match-IDs verfügbar |
@@ -317,15 +317,14 @@ Von den aufgeführten Create-/Guard-Quell-PRs ist keiner auf aktuellem `main` si
 ## 10. Blocking Dependencies und Ziel-Branchgraph
 
 ```text
-main@cc42c0f (C1 über PR #734 gemergt)
-  └─ C2 Auth Workspace/Mobile
+main@7896cd41 (C1 und C2 gemergt; C2 über PR #736)
+  └─ C3 Anonymous Security/Guest Claim
        └─ merge → refreshed main
-            └─ C3 Anonymous Security/Guest Claim
-                 └─ C4 Resume/Adoption/Draft Binding
-                      └─ C5 Citizen Context/Place
-                           └─ C6 Existing Topic/Stance
-                                └─ C7 Jurisdiction
-                                     └─ C8 Source/Link Analysis
+            └─ C4 Resume/Adoption/Draft Binding
+                 └─ C5 Citizen Context/Place
+                      └─ C6 Existing Topic/Stance
+                           └─ C7 Jurisdiction
+                                └─ C8 Source/Link Analysis
 
 current/refreshed main
   └─ G1 Shared Public Question Guard
@@ -346,4 +345,4 @@ Jede Kante `merge → refreshed main` bedeutet: kein abhängiger Branch wird auf
 
 ## 11. Nicht autorisiert
 
-Dieses Runbook autorisiert weder C3–C12 noch G1–G5 zur Implementierung. Es autorisiert keinen Merge der Quell-PRs, kein Deployment, keine Production-DB-Arbeit, keine Secret-/Provideraktivierung, keine neue Runtime und keine Änderung an `#590`, `#682` oder `#727`. C1 ist über PR `#734` gemergt; der einzige nächste Extraction-Task ist C2 unter `CREATE-WORKSPACE-MOBILE-PRESENTATION-01`, und auch C2 darf erst nach seinem eigenen positiven Preflight und den bestehenden Stop-Loss-Gates implementiert werden.
+Dieses Runbook autorisiert weder C4–C12 noch G1–G5 zur Implementierung. Es autorisiert keinen Merge der Quell-PRs, kein Deployment, keine Production-DB-Arbeit, keine Secret-/Provideraktivierung, keine neue Runtime und keine Änderung an `#590`, `#682` oder `#727`. C1 und C2 sind über PRs `#734` und `#736` gemergt; der einzige nächste Extraction-Task ist C3 unter `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01`, und auch C3 darf erst nach seinem eigenen positiven Task- sowie PII-/Security-Preflight und den bestehenden Stop-Loss-Gates implementiert werden.
