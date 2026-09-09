@@ -1,0 +1,107 @@
+name: Voxy Voice Caption Contract
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/features/voxyVideo/voiceCaptionFixture.ts"
+      - "apps/web/scripts/generate-voxy-voice-caption-evidence.ts"
+      - "apps/web/tests/voxy-voice-caption-fixture.contract.test.ts"
+      - "apps/web/public/brands/voxy/fixtures/voice-caption-*"
+      - "docs/E150/VOXY-VOICE-AND-CAPTION-FIXTURE-01_2026-08-05.md"
+      - ".github/workflows/voxy-voice-caption-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VOXY_EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  contract-audio-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VOXY_EXACT_HEAD_SHA }}
+          fetch-depth: 1
+      - name: Verify checked out exact head
+        run: test "$(git rev-parse HEAD)" = "$VOXY_EXACT_HEAD_SHA"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install local audio tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg espeak-ng
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+          espeak-ng --version | head -n 1
+      - name: Run focused contracts
+        run: pnpm -C apps/web exec vitest run tests/voxy-voice-caption-fixture.contract.test.ts
+      - name: Generate real local DE and EN source speech fixtures
+        run: |
+          mkdir -p artifacts/voxy-voice-caption/de artifacts/voxy-voice-caption/en
+          espeak-ng -v de -s 148 -p 48 -a 165 \
+            -f apps/web/public/brands/voxy/fixtures/voice-caption-source-de.txt \
+            -w artifacts/voxy-voice-caption/de/source-voice-de.wav
+          espeak-ng -v en-us -s 148 -p 48 -a 165 \
+            -f apps/web/public/brands/voxy/fixtures/voice-caption-source-en.txt \
+            -w artifacts/voxy-voice-caption/en/source-voice-en.wav
+          test -s artifacts/voxy-voice-caption/de/source-voice-de.wav
+          test -s artifacts/voxy-voice-caption/en/source-voice-en.wav
+      - name: Inspect normalize and generate DE evidence
+        env:
+          VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_EXACT_HEAD_SHA }}
+        run: |
+          pnpm -w exec tsx apps/web/scripts/generate-voxy-voice-caption-evidence.ts \
+            --source=artifacts/voxy-voice-caption/de/source-voice-de.wav \
+            --transcript=apps/web/public/brands/voxy/fixtures/voice-caption-source-de.txt \
+            --segments=apps/web/public/brands/voxy/fixtures/voice-caption-segments-de.json \
+            --output=artifacts/voxy-voice-caption/de
+      - name: Inspect normalize and generate EN evidence
+        env:
+          VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_EXACT_HEAD_SHA }}
+        run: |
+          pnpm -w exec tsx apps/web/scripts/generate-voxy-voice-caption-evidence.ts \
+            --source=artifacts/voxy-voice-caption/en/source-voice-en.wav \
+            --transcript=apps/web/public/brands/voxy/fixtures/voice-caption-source-en.txt \
+            --segments=apps/web/public/brands/voxy/fixtures/voice-caption-segments-en.json \
+            --output=artifacts/voxy-voice-caption/en
+      - name: Verify exact-head DE and EN audio evidence
+        env:
+          VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_EXACT_HEAD_SHA }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const language of ['de', 'en']) {
+            const manifest = JSON.parse(fs.readFileSync(`artifacts/voxy-voice-caption/${language}/evidence-manifest-${language}.json`, 'utf8'));
+            if (manifest.commitSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error(`${language}:evidence_head_mismatch`);
+            if (manifest.transcript?.matchesCaptions !== true || !manifest.transcript.sha256) throw new Error(`${language}:transcript_caption_binding_missing`);
+            if (!manifest.source.sha256 || !manifest.normalized.sha256 || !manifest.captions.webVtt.sha256 || !manifest.captions.srt.sha256) throw new Error(`${language}:artifact_hash_missing`);
+            if (manifest.normalized.integratedLufs < -17 || manifest.normalized.integratedLufs > -15) throw new Error(`${language}:normalized_lufs_out_of_target`);
+            if (manifest.normalized.truePeakDbfs > -1) throw new Error(`${language}:normalized_true_peak_too_high`);
+            if (manifest.humanReview.status !== 'pending') throw new Error(`${language}:human_review_must_remain_pending`);
+            const srt = fs.readFileSync(`artifacts/voxy-voice-caption/${language}/voice-caption-${language}.srt`, 'utf8');
+            if (/^caption-/m.test(srt)) throw new Error(`${language}:segment_id_leaked_into_srt`);
+          }
+          NODE
+      - name: Typecheck
+        run: pnpm -C apps/web run typecheck
+      - name: Diff check
+        run: git diff --check
+      - name: Upload revision-bound audio/caption evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-voice-caption-${{ env.VOXY_EXACT_HEAD_SHA }}
+          path: artifacts/voxy-voice-caption/**
+          if-no-files-found: error
+          retention-days: 14
