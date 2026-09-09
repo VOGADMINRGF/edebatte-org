@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { buildCreatePlanner } from "@/features/create/createPlanner";
 
 describe("create planner no domain heuristic expansion contract", () => {
-  it("keeps the documented quota fallback degraded and explicitly non-canonical", async () => {
+  it("fails closed without inventing a quota structure when no provider is configured", async () => {
     const originalOpenAiKey = process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
 
@@ -15,24 +15,19 @@ describe("create planner no domain heuristic expansion contract", () => {
         locale: "de",
       });
 
-      expect(planner.source).toBe("heuristic_fallback");
-      expect(planner.plannerSource).toBe("heuristic_fallback");
+      expect(planner.source).toBe("technical_fallback");
+      expect(planner.plannerSource).toBe("technical_fallback");
       expect(planner.plannerProvider).toBe("local_fallback");
       expect(planner.providerPlan.plannerProvider).toBe("local_fallback");
       expect(planner.plannerDegraded).toBe(true);
       expect(planner.degradedReason).toBe("missing_provider_key");
       expect(planner.providerCallAttempted).toBe(false);
       expect(planner.providerCallSucceeded).toBe(false);
-      expect(planner.qualityStatus).toBe("needs_confirmation");
+      expect(planner.qualityStatus).toBe("failed");
       expect(planner.qualityIssues).toContain("technical_fallback_only");
-      expect(planner.plannerTopic).toBe("Gleichberechtigung, Antidiskriminierung und Quotenregelungen");
-      expect(planner.plannerClusters).toEqual([
-        "Gleichberechtigung",
-        "Frauenquote",
-        "Minderheitenförderung",
-        "wirtschaftliche Auswirkungen für Unternehmen",
-      ]);
-      expect(planner.topicCandidates).toContain("Gleichberechtigung");
+      expect(planner.plannerTopic).toBe("Analyse noch nicht validiert");
+      expect(planner.plannerClusters).toEqual([]);
+      expect(planner.topicCandidates).toEqual([]);
       expect(planner.permissions.canPublish).toBe(false);
       expect(planner.permissions.canSave).toBe(false);
       expect(planner.permissions.canMerge).toBe(false);

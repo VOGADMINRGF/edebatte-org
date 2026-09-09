@@ -32,6 +32,7 @@ type BuildCreateIntelligentFollowupInput = {
   anlassraumId?: string | null;
   dossierId?: string | null;
   maxSuggestions?: number;
+  schedulePostResponseTask?: (task: () => Promise<void>) => void;
 };
 
 const MAX_UNDERSTANDING_TOPICS = 14;
@@ -79,7 +80,7 @@ function mapPlannerStanceToUnderstanding(
   if (stance === "pro") return "pro";
   if (stance === "contra") return "contra";
   if (stance === "mixed") return "mixed";
-  if (stance === "reform_oriented") return "mixed";
+  if (stance === "reform_oriented") return "pro";
   if (stance === "open") return "open";
   return "unclear";
 }
@@ -99,17 +100,17 @@ function dedupeLabels(labels: string[]): string[] {
 }
 
 function buildUnderstandingFromPlanner(planner: CreatePlannerResult): CreateUnderstandingResult {
-  const detailedTopicLabels = dedupeLabels([
-    ...planner.topicCandidates,
+  const providerTopicLabels = dedupeLabels(planner.topicCandidates);
+  const topicLabels = providerTopicLabels.length > 0
+    ? providerTopicLabels
+    : [planner.plannerTopic];
+  const normalizedTopicLabels = new Set(
+    topicLabels.map((label) => label.trim().toLowerCase()),
+  );
+  const aspects = dedupeLabels([
     ...planner.plannerClusters,
-  ]);
-  const topicLabels =
-    detailedTopicLabels.length >= MAX_UNDERSTANDING_TOPICS
-      ? detailedTopicLabels
-      : dedupeLabels([
-          planner.plannerTopic,
-          ...detailedTopicLabels,
-        ]);
+    ...planner.clusterCandidates,
+  ]).filter((label) => !normalizedTopicLabels.has(label.trim().toLowerCase()));
   const scopes = dedupeLabels([
     ...planner.plannerScope,
     ...planner.scopeCandidates,
@@ -148,6 +149,7 @@ function buildUnderstandingFromPlanner(planner: CreatePlannerResult): CreateUnde
       label,
       confidence: index === 0 ? "high" : "medium",
     })),
+    aspects,
     statements: statementText
       ? [
           {
@@ -236,6 +238,7 @@ export async function buildCreateIntelligentFollowup(
     dossierId: input.dossierId ?? null,
     userId: input.userId ?? null,
     organizationId: input.organizationId ?? null,
+    schedulePostResponseTask: input.schedulePostResponseTask,
   });
 
   if (
