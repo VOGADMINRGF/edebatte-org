@@ -333,7 +333,7 @@ export default function SharedCreateComposer({
 
     setVoiceError(null);
     const recognizer = new Ctor();
-    recognizer.lang = "de-DE";
+    recognizer.lang = locale === "en" ? "en-US" : "de-DE";
     recognizer.interimResults = true;
     recognizer.continuous = false;
 
@@ -381,7 +381,7 @@ export default function SharedCreateComposer({
       setVoiceActive(false);
       speechRef.current = null;
     }
-  }, [inputValue, onInputChange, speechSupported, stopVoice, texts.voiceFailed, texts.voiceUnsupported, voiceActive]);
+  }, [inputValue, locale, onInputChange, speechSupported, stopVoice, texts.voiceFailed, texts.voiceUnsupported, voiceActive]);
 
   React.useEffect(() => {
     return () => {
@@ -441,11 +441,14 @@ export default function SharedCreateComposer({
               onChange={(event) => onInputChange(event.target.value)}
               rows={isWorkspaceContinuation ? 3 : Math.max(5, minRows - 2)}
               autoFocus={inputAutoFocus}
-              className={`w-full resize-none border-0 bg-transparent px-5 py-4 text-[15px] leading-relaxed text-[rgb(var(--fg))] outline-none placeholder:text-[rgb(var(--muted))] focus-visible:ring-2 focus-visible:ring-[rgb(var(--grad-from))] md:px-6 md:text-base ${isWorkspaceContinuation ? "min-h-[96px]" : "min-h-[124px]"}`}
+              className={`w-full resize-y border-0 bg-transparent px-5 py-4 text-[15px] leading-relaxed text-[rgb(var(--fg))] outline-none placeholder:text-[rgb(var(--muted))] focus-visible:ring-2 focus-visible:ring-[rgb(var(--grad-from))] md:px-6 md:text-base ${isWorkspaceContinuation ? "min-h-[96px]" : "min-h-[124px]"}`}
               placeholder={resolvedPlaceholder}
             />
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgb(var(--border))] px-5 py-3 text-[13px] text-[rgb(var(--muted))] md:px-6">
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5" data-create-input-methods="shared-intake">
+                <span className="text-[12px] font-medium text-[rgb(var(--muted))]">
+                  {locale === "en" ? "Write or speak" : "Schreiben oder sprechen"}
+                </span>
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3.5 py-1.5 text-[13px] font-medium text-[rgb(var(--muted))] transition hover:text-[rgb(var(--fg))]"

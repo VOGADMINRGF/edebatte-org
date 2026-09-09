@@ -159,81 +159,11 @@ export function buildCreateWorkspaceStages(params: {
   }));
 }
 
-function ProgressPipeline(props: {
-  stages: CreateWorkspaceStage[];
-}) {
-  return (
-    <div
-      data-create-shell-pipeline
-      data-create-pipeline-rail
-      className="overflow-x-auto rounded-[1.6rem] border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%)] px-3 py-3 md:px-4"
-    >
-      <div className="flex min-w-max items-center gap-2.5">
-        {props.stages.map((stage, index) => {
-          const isActive = stage.status === "active";
-          const isDone = stage.status === "done";
-          const isError = stage.status === "error";
-          const isLocked = stage.status === "locked";
-          return (
-            <React.Fragment key={stage.id}>
-              <article
-                data-create-pipeline-stage={stage.id}
-                data-create-pipeline-state={stage.status}
-                className={`min-w-[10rem] rounded-full border px-3 py-2.5 transition ${
-                  isActive
-                    ? "border-cyan-300/60 bg-cyan-500/[0.1]"
-                    : isDone
-                      ? "border-emerald-300/45 bg-emerald-500/[0.08]"
-                      : isError
-                        ? "border-rose-300/45 bg-rose-500/[0.08]"
-                        : isLocked
-                          ? "border-slate-200/80 bg-slate-100/70 dark:border-[rgb(var(--border))] dark:bg-slate-900/20"
-                          : "border-[rgb(var(--border))] bg-[rgb(var(--bg))]"
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                      isActive
-                        ? "border-cyan-300/45 text-cyan-900 dark:text-cyan-100"
-                        : isDone
-                          ? "border-emerald-300/45 text-emerald-900 dark:text-emerald-100"
-                          : isError
-                            ? "border-rose-300/45 text-rose-900 dark:text-rose-100"
-                            : "border-[rgb(var(--border))] text-[rgb(var(--muted))]"
-                    }`}
-                  >
-                    {isDone ? "✓" : isError ? "!" : index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-[rgb(var(--fg))]">{stage.title}</p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-[rgb(var(--muted))]">{stage.lead}</p>
-                  </div>
-                </div>
-              </article>
-              {index < props.stages.length - 1 ? (
-                <span
-                  className="h-px w-4 shrink-0 bg-[linear-gradient(90deg,transparent,color-mix(in_oklab,rgb(var(--border))_72%,rgb(var(--muted))_28%),transparent)]"
-                  aria-hidden="true"
-                />
-              ) : null}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-type DesktopSidecarMode = "collapsed" | "compact" | "expanded";
-type MobileSidecarMode = "compact" | "expanded";
+type DesktopSidecarMode = "collapsed" | "compact";
 
 export default function CreateWorkspaceShell({
   locale,
-  activeStage,
-  stages,
   phase = "initial",
-  isBusy = false,
   notice,
   chatThread,
   composer,
@@ -241,15 +171,9 @@ export default function CreateWorkspaceShell({
   renderSidecar,
   renderMobileSidecarSummary,
 }: CreateWorkspaceShellProps) {
-  const resolvedStages = React.useMemo(
-    () => stages ?? buildCreateWorkspaceStages({ activeStage, isBusy, locale }),
-    [activeStage, isBusy, locale, stages],
-  );
   const [desktopSidecarMode, setDesktopSidecarMode] =
     React.useState<DesktopSidecarMode>("compact");
   const [mobileSidecarOpen, setMobileSidecarOpen] = React.useState(false);
-  const [mobileSidecarMode, setMobileSidecarMode] =
-    React.useState<MobileSidecarMode>("compact");
   const mobileDialogCloseRef = React.useRef<React.ElementRef<"button"> | null>(null);
   const mobileDialogRef = React.useRef<React.ElementRef<"div"> | null>(null);
   const mobileDialogTriggerRef = React.useRef<HTMLElement | null>(null);
@@ -272,7 +196,7 @@ export default function CreateWorkspaceShell({
     : isLoadingPhase
       ? "flex min-h-[24rem] flex-1 flex-col overflow-y-auto px-5 py-5 md:min-h-[32rem] md:px-7 xl:px-8"
       : "flex min-h-[26rem] flex-1 flex-col overflow-y-auto px-5 py-5 md:min-h-[40rem] md:px-7 xl:px-8";
-  const showDesktopSidecar = Boolean(renderSidecar);
+  const showDebattenstand = Boolean(renderSidecar) && !isInitialPhase;
 
   React.useEffect(() => {
     if (!mobileSidecarOpen) return undefined;
@@ -352,17 +276,20 @@ export default function CreateWorkspaceShell({
       data-create-shell-layout="wide"
       data-create-workspace-size="wide-screen"
       data-create-workspace-phase={phase}
-      className="mx-auto flex min-h-[calc(100vh-7.5rem)] w-full max-w-[min(92vw,96rem)] flex-col rounded-[2.4rem] border border-[rgb(var(--border))] bg-[linear-gradient(180deg,color-mix(in_oklab,rgb(var(--card))_96%,white_4%),color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%))] px-3 py-3 shadow-[0_36px_96px_rgba(2,6,23,0.18)] sm:px-4 md:min-h-[calc(100vh-6rem)] md:px-5 md:py-5 xl:px-7"
+      className={`mx-auto flex w-full max-w-[min(92vw,96rem)] flex-col rounded-[2.4rem] border border-[rgb(var(--border))] bg-[linear-gradient(180deg,color-mix(in_oklab,rgb(var(--card))_96%,white_4%),color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%))] px-3 py-3 shadow-[0_36px_96px_rgba(2,6,23,0.18)] sm:px-4 md:px-5 md:py-5 xl:px-7 ${
+        isInitialPhase
+          ? "min-h-0"
+          : "min-h-[calc(100vh-7.5rem)] md:min-h-[calc(100vh-6rem)]"
+      }`}
     >
       <div
         ref={workspaceContentRef}
         className={`flex min-h-0 flex-1 flex-col ${isInitialPhase ? "gap-3 md:gap-3.5" : "gap-4"}`}
       >
-        {!isInitialPhase ? <ProgressPipeline stages={resolvedStages} /> : null}
-        {renderMobileSidecarSummary
+        {showDebattenstand && renderMobileSidecarSummary
           ? renderMobileSidecarSummary(openMobileSidecar)
           : null}
-        <div className={`flex min-h-0 flex-1 gap-4 ${showDesktopSidecar ? "xl:grid xl:grid-cols-[minmax(0,1fr)_clamp(18rem,24vw,24rem)]" : ""}`}>
+        <div className={`flex min-h-0 flex-1 gap-4 ${showDebattenstand ? "xl:grid xl:grid-cols-[minmax(0,1fr)_19rem]" : ""}`}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-[rgb(var(--border))] bg-[rgb(var(--bg))]">
             <div
               data-create-shell-thread
@@ -395,7 +322,7 @@ export default function CreateWorkspaceShell({
               {footer}
             </div>
           </div>
-          {showDesktopSidecar ? (
+          {showDebattenstand ? (
             <aside
               data-create-shell-sidecar
               data-create-shell-sidecar-mode={desktopSidecarMode}
@@ -405,27 +332,9 @@ export default function CreateWorkspaceShell({
             >
               <div className="flex items-center justify-between gap-2 border-b border-[rgb(var(--border))] px-4 py-3">
                 <div className={`${desktopSidecarMode === "collapsed" ? "sr-only" : "min-w-0"}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-                    Debattenstand
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">
-                    Status & Themen
-                  </p>
+                  <p className="text-sm font-semibold text-[rgb(var(--fg))]">Dein Überblick</p>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
-                  {desktopSidecarMode !== "collapsed" ? (
-                    <button
-                      type="button"
-                      className="rounded-full border border-[rgb(var(--border))] px-2.5 py-1 text-[11px] font-medium text-[rgb(var(--muted))]"
-                      onClick={() =>
-                        setDesktopSidecarMode((current) =>
-                          current === "compact" ? "expanded" : "compact",
-                        )
-                      }
-                    >
-                      {desktopSidecarMode === "compact" ? "Erweitern" : "Kompakt"}
-                    </button>
-                  ) : null}
                   <button
                     type="button"
                     className="rounded-full border border-[rgb(var(--border))] px-2.5 py-1 text-[11px] font-medium text-[rgb(var(--muted))]"
@@ -457,14 +366,14 @@ export default function CreateWorkspaceShell({
                     </button>
                   </div>
                 ) : (
-                  renderSidecar?.(desktopSidecarMode === "expanded" ? "expanded" : "compact")
+                  renderSidecar?.("compact")
                 )}
               </div>
             </aside>
           ) : null}
         </div>
       </div>
-      {renderSidecar && mobileSidecarOpen ? (
+      {showDebattenstand && renderSidecar && mobileSidecarOpen ? (
         <div
           className="fixed inset-0 z-40 xl:hidden"
           aria-hidden={false}
@@ -483,7 +392,7 @@ export default function CreateWorkspaceShell({
             aria-modal="true"
             aria-labelledby="create-debattenstand-sheet-title"
             data-create-debattenstand-sheet
-            data-create-debattenstand-sheet-mode={mobileSidecarMode}
+            data-create-debattenstand-sheet-mode="expanded"
             className="absolute inset-x-0 bottom-0 max-h-[78vh] overflow-hidden rounded-t-[1.9rem] border border-b-0 border-[rgb(var(--border))] bg-[rgb(var(--card))] shadow-[0_-18px_48px_rgba(15,23,42,0.22)]"
           >
             <div className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] px-4 py-3">
@@ -495,21 +404,10 @@ export default function CreateWorkspaceShell({
                   Debattenstand
                 </p>
                 <p className="text-[12px] text-[rgb(var(--muted))]">
-                  Kompakte Statusleiste mit Details im Bottom Sheet
+                  Entscheidung, Themen und Details
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-[rgb(var(--border))] px-3 py-1.5 text-[11px] font-medium text-[rgb(var(--muted))]"
-                  onClick={() =>
-                    setMobileSidecarMode((current) =>
-                      current === "compact" ? "expanded" : "compact",
-                    )
-                  }
-                >
-                  {mobileSidecarMode === "compact" ? "Erweitern" : "Kompakt"}
-                </button>
                 <button
                   ref={mobileDialogCloseRef}
                   type="button"
@@ -521,7 +419,7 @@ export default function CreateWorkspaceShell({
               </div>
             </div>
             <div className="max-h-[calc(78vh-4.25rem)] overflow-y-auto p-4">
-              {renderSidecar(mobileSidecarMode)}
+              {renderSidecar("expanded")}
             </div>
           </div>
         </div>
