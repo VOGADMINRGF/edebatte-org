@@ -35,8 +35,11 @@ const ENV_KEYS = [
   "AI_PROVIDER_ORDER",
 ] as const;
 
-const SOURCE_TEXT =
-  "Vor mehreren Schulen fehlen sichere Querungen. Eltern fordern außerdem verlässliche kommunale Verkehrskontrollen.";
+const SOURCE_TEXT = Array.from(
+  { length: 12 },
+  () =>
+    "Vor mehreren Schulen fehlen sichere Querungen. Eltern fordern außerdem verlässliche kommunale Verkehrskontrollen und beschreiben eigenständige Standorte mit unterschiedlichen Zuständigkeiten.",
+).join(" ");
 
 function buildValidPlannerPayload() {
   return {

@@ -81,6 +81,67 @@ describe("openai-provider.reasoning.contract", () => {
     expect(body.text?.format?.type).toBe("json_schema");
   });
 
+  it("passes a strict schema to the provider and does not silently downgrade when fallback is disabled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        requestBodies.push(JSON.parse(String(init?.body ?? "{}")));
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "json_schema not supported",
+              param: "text.format",
+              code: "json_schema_not_supported",
+            },
+          }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      callOpenAI({
+        prompt: "return planner json",
+        asJson: true,
+        model: "gpt-4.1-mini",
+        allowJsonFormatFallback: false,
+        jsonSchema: {
+          name: "create_planner_result",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["plannerClusters"],
+            properties: {
+              plannerClusters: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+          },
+        },
+      }),
+    ).rejects.toThrow(/json_schema not supported/);
+
+    expect(requestBodies).toHaveLength(1);
+    expect(requestBodies[0]?.text?.format).toMatchObject({
+      type: "json_schema",
+      name: "create_planner_result",
+      strict: true,
+      schema: expect.objectContaining({
+        properties: {
+          plannerClusters: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+      }),
+    });
+  });
+
   it("aborts the underlying fetch when timeoutMs is reached", async () => {
     vi.useFakeTimers();
     let aborted = false;
