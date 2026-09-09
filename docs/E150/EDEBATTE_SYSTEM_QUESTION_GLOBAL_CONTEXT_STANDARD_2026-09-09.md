@@ -63,7 +63,12 @@ Die Großschreibung oben ist eine normative Klassifikation, kein Auftrag für so
 
 ## 5. Decision-Readiness-Gate
 
-`decision_ready` darf nur wahr werden, wenn jede materielle Pflichtdimension entweder ausreichend belegt und reviewed oder ausdrücklich als ungelöste materielle Evidenzlücke markiert ist. Eine solche Lücke bleibt sichtbar und blockiert die Aktivierung der Entscheidung. Fehlende Inhalte dürfen nie durch erfundene Prosa, Defaultwerte oder fingierte Kennzahlen ersetzt werden.
+Zwei Reifestufen sind strikt getrennt:
+
+- `ready_for_human_deliberation` darf wahr sein, wenn offene materielle Lücken vollständig sichtbar, korrekt klassifiziert und für die menschliche Beratung verständlich sind. Das erlaubt Beratung, aber keine Aktivierung.
+- `activation_ready` beziehungsweise `decision_ready` darf nur wahr sein, wenn **jede materielle Pflichtdimension `SUFFICIENTLY_EVIDENCED_AND_REVIEWED`** ist. Jede ungelöste materielle Lücke erzwingt `activation_ready=false` und `decision_ready=false`.
+
+Eine sichtbare Lücke ist somit kein alternativer Erfüllungsweg für Entscheidungsreife. Fehlende Inhalte dürfen nie durch erfundene Prosa, Defaultwerte oder fingierte Kennzahlen ersetzt werden. Ein menschlicher Override darf eine Lücke zur Beratung anerkennen, aber keinen harten Aktivierungsblocker unsichtbar überstimmen.
 
 Pflichtdimensionen sind:
 
@@ -75,7 +80,22 @@ Pflichtdimensionen sind:
 - Stresstests, Integrität der Scenario-Revisionen und Bindung von Ballot/Entscheidung an freigegebene Revisionen;
 - Erfolgsmetriken und Review-Horizont.
 
-Das Gate speichert pro Dimension mindestens Materialität, Status, Evidenzreferenzen, Reviewzustand, offene Lücke, Frische und Revision. Eine markierte Lücke verbessert nicht künstlich die Completeness; sie schafft Nachvollziehbarkeit und verhindert stille Aktivierung.
+Nicht übersteuerbare Aktivierungsblocker sind mindestens:
+
+- fehlende oder stale materielle Baseline;
+- fehlende materielle No-change-Trajektorie, wo anwendbar;
+- fehlende materiell betroffene Gruppe;
+- ungelöste materielle rechtliche oder verfassungsrechtliche Grenze;
+- nicht reviewte quantitativ hochwirksame Aussage;
+- materiell asymmetrische Evidenzauswahl oder materiell verzerrtes ScenarioSet;
+- unterdrückter materieller wissenschaftlicher oder professioneller Dissens;
+- Projektion ohne Provenienz oder nicht offengelegte Schlüsselannahme;
+- stale materielle Dossier-, Evidence-, ScenarioSet- oder Scenario-Revision;
+- gebrochenes `DecisionBinding`.
+
+Das Gate speichert pro Dimension mindestens Materialität, Status, Evidenzreferenzen, Reviewzustand, offene Lücke, Frische und Revision. Die Materialitätsentscheidung selbst ist auditierbar und bindet mindestens Actor, Rationale, Revision, Reviewstatus und – wo die kanonischen Konventionen es verlangen – Timestamp. Es gibt keinen unsichtbaren Override. Materialität darf nur mit reviewter Begründung geändert werden; eine faktische Lücke wird nur durch Hinzufügen und Review der erforderlichen Evidenz geschlossen.
+
+Verbindliche False-positive-Fixtures beweisen `decision_ready=false` bei jedem einzelnen materiellen Fall: fehlender Comparator oder betroffene Gruppe, stale Projektion oder Revision, ungelöste Rechtsgrenze, nicht reviewte zentrale quantitative Aussage, materiell unterbelegtes Szenario, fehlender Status quo oder anwendbare No-change-Baseline, politisch beziehungsweise anderweitig verzerrt unvollständiges ScenarioSet, ausgelassener materieller Dissens sowie fälschlich als nicht materiell klassifiziertes `UNKNOWN`.
 
 ## 6. Evidenzstandard
 
@@ -91,7 +111,15 @@ Kontextabhängig gilt folgende bevorzugte Quellenhierarchie:
 8. nachvollziehbare Experteninterpretation;
 9. Community-/Social-Signale ausschließlich als Signal oder Kontext, nicht standardmäßig als Evidenz.
 
-Die Hierarchie ist kein blinder Score. Unabhängigkeit, Frische, Methodik, Jurisdiktion, Interessenkonflikte, Widersprüche und Quellenbeziehungen bleiben explizit. Abweichende Quellen werden nicht durch Mittelung oder Mehrheitszählung unsichtbar gemacht. Generierte Medien und abgeleitete Outputs sind keine Primärbelege für ihre eigenen Aussagen.
+Die Hierarchie ist kein blinder Score. Die folgenden Dimensionen sind reviewbare Qualitätsmerkmale, keine automatische Scoring- oder Wahrheitsmaschine:
+
+- **Research-Plan-Qualität:** systematischer Such-/Research-Plan, begründete Ein- und Ausschlüsse, Primary-/Secondary-Source-Mix, Quellenunabhängigkeit, widersprechende Evidenz, wissenschaftlicher Konsens und legitimer Dissens sowie Frische;
+- **Methodenqualität:** Selection Bias, Publication Bias, Stichprobenqualität, Methodik, statistische Unsicherheit, Robustheit/Sensitivität, Replikation soweit relevant, Korrelation versus Kausalität, Confounding und Grenzen kausaler Inferenz;
+- **Modellqualität:** Annahmen, Modellprovenienz, Unsicherheitsbandbreiten, Kalibrierung soweit relevant und Sensitivität gegenüber Annahmen;
+- **Expert-/Institutionsqualität:** Interessenkonflikte, Funding-/Conflict-Provenienz, Status rechtlicher Interpretation und Jurisdiktionsfit;
+- **globale Qualität:** Übersetzungstreue, Terminologieäquivalenz, Datenvergleichbarkeit, unterschiedliche Messdefinitionen und Grenzen internationaler Vergleichbarkeit.
+
+Unabhängigkeit, Frische, Methodik, Jurisdiktion, Interessenkonflikte, Widersprüche und Quellenbeziehungen bleiben explizit. Abweichende Quellen werden nicht durch Mittelung oder Mehrheitszählung unsichtbar gemacht. Generierte Medien und abgeleitete Outputs sind keine Primärbelege für ihre eigenen Aussagen.
 
 ## 7. Vergleich, Szenarien und Transferabilität
 

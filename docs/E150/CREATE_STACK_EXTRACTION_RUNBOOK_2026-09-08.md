@@ -84,12 +84,16 @@ Die Reihenfolge bezeichnet Merge-Reihenfolge, nicht Branch-Stacking. Jeder Branc
 
 Die einzig zulässige spätere Reihenfolge ist:
 
-1. C3A `CREATE-ANONYMOUS-SESSION-FOUNDATION-01` — signierte HttpOnly-SameSite-Session, serverseitige UUID/Expiry, minimaler Session-Endpunkt und begrenzte Issuance; keine Intake-/Planner-/Resume-/Browser-Rohdaten-Verantwortung.
+1. C3A `CREATE-ANONYMOUS-SESSION-FOUNDATION-01` — signierte HttpOnly-SameSite-Session, serverseitige UUID/Expiry, minimaler Session-Endpunkt und begrenzte Issuance; keine Intake-/Planner-/Resume-/Browser-Rohdaten-Verantwortung. Jede temporäre Session besitzt explizite TTL, Retention Policy, Cleanup Owner, Expiry-/Orphan-Cleanup und Crash-/Restart-Recovery samt verifizierbarer Bereinigung.
 2. C3B `CREATE-ANONYMOUS-ABUSE-ROUTE-SECURITY-01` — Same-Origin/Fetch Metadata/CSRF, Honeypot, persistente Limits/Cooldown, Content-Type, gemessene Body-Grenze und fail-closed Parser-/Limiter-Grenzen; keine fachliche Planner-/Intake-Semantik.
-3. C3C `CREATE-GUEST-CLAIM-PII-SINGLE-FLIGHT-01` — server-authoritative Claim/Correlation, rekursive PII-/Secret-/Signed-URL-Prüfung, non-retaining `source_pending`, allowlisted Failures und Single Flight/Replay/Lease Recovery; keine Adoption und niemals Fetch einer redigierten/sensitiven URL.
+3. C3C `CREATE-GUEST-CLAIM-PII-SINGLE-FLIGHT-01` — Claim-Identität und kanonischer Single-Flight-Key verwenden ausschließlich servergenerierte Correlation; Client-Correlation ist niemals Claim-Identität, Key-Einfluss, Replay-Namespace oder freie persistierte Metadaten. Kompatibilitätseingaben werden abgewiesen oder ausschließlich als sicher begrenzter, nicht autoritativer Hinweis behandelt. Rekursive PII-/Secret-/Signed-URL-Prüfung, non-retaining `source_pending`, allowlisted Failures und Single Flight/Replay/Lease Recovery bleiben Pflicht; keine Adoption und niemals Fetch einer redigierten/sensitiven URL.
 4. C3D `CREATE-GUEST-EPHEMERAL-UI-01` — minimale Guest-UI mit ephemerem React-State; keine Rohdaten-/Trace-/Result-Persistenz, kein Resume, keine Adoption und kein Account Draft.
 
 Alle vier Tasks bleiben bis zu Architektur-/Security-Review und eigenem positivem Preflight `blocked`. C4 hängt vom Abschluss aller vier ab. Die folgende Source-/Owner-Evidence beschreibt den historischen Parent-Scope und ist keine Copy-, Merge- oder Implementierungsfreigabe.
+
+C3C definiert getrennte minimale Allowlist-Schemas für (A) den persistierten Claim/das persistierte Result und (B) die API-Response. Beide schließen rohen Guest-Text, Source-Input, sensitive URL, Planner-Prompt/-Trace, rohe Providerantwort, Token, Credential, Secret, beliebige Fehlerstrings und beliebige Metadatenblobs aus. Rekursive PII-/Secret-Validierung erfolgt sowohl vor Persistenz als auch vor API-Return. Ein Fehler stoppt ohne unsichere Persistenz und ohne unsicheren Response-Payload; ausschließlich feste allowlistete Failure-Codes dürfen eine servereigene menschenlesbare Diagnose ableiten.
+
+Für Anonymous Session, Guest Operation, Single-Flight Claim, Lease und sicheres gespeichertes Result sind jeweils TTL, Retention, Cleanup Owner, Expiry-Verhalten, Orphan- und stale-Lease-Cleanup, Crash-/Restart-Recovery und Cleanup-Verifikation explizit. Es entsteht kein zweites Persistenzsystem. Dieselbe PII-/Secret-Policy gilt für Datenbank, API-Response, Log, Structured Log, Trace, Analytics, Error Payload, Audit Metadata und Provider Diagnostics; rohe Guest-/Source-Secrets dürfen Observability nie erreichen.
 
 **Source:** `#724`: `3011d46a`, `c05be10d`, `a8f227cf`; `#682`: `bb72c178`, `52baa748`, `0added0a`, `04dd1f49`, `0b258560`. Merge-/Konvergenzcommits sind keine Extraktionseinheit.
 
@@ -115,9 +119,9 @@ Alle vier Tasks bleiben bis zu Architektur-/Security-Review und eigenem positive
 
 **Nicht enthalten:** neue Intake-/PII-Policy (C3), Jurisdiction-/Match-/Handoff-Fachpayload, Link-Fetch (C8), Planner-Replay oder implizite Adoption.
 
-**Grenzen:** Login ist sichtbare Auth-Grenze; der Server validiert Guest Session, Operation, Browserbindung und bisherigen Verbrauch; Persistenzobjekte sind Claim, Adoption Receipt und genau ein Account-Draft; Client darf Operation-ID plus Payload nicht erfinden; Wiederholung liefert denselben Draft und Cross-Account-/Cross-Session-Adoption bleibt verboten.
+**Grenzen:** Login ist sichtbare Auth-Grenze; Guest → Login → Adoption rotiert beziehungsweise authentifiziert den Security Context. Die anonyme Session bleibt nach Login kein wiederverwendbares Auth-Credential. Account-Identität ist ausschließlich server-authoritative; eine clientseitige ID allein autorisiert keine Adoption. Der Server validiert Guest Session, Operation, Browserbindung und bisherigen Verbrauch; alte anonyme Bindings sind nicht cross-account wiederverwendbar. Persistenzobjekte sind Claim, idempotentes Adoption Receipt und genau ein Account-Draft; Client darf Operation-ID plus Payload nicht erfinden; Wiederholung liefert denselben Draft und Cross-Account-/Cross-Session-Adoption bleibt fail-closed.
 
-**Tests/Human/Merge:** Reload/Resume, Login-Grenze, erfolgreiche explizite Adoption, zweite Adoption idempotent, fremder Actor abgewiesen, genau ein Draft, kein Planner-Replay und kein `draftId:null`. C3A–C3D müssen abgeschlossen und gemergt sein; authentifizierter und Guest-Browser-Smoke erforderlich.
+**Tests/Human/Merge:** Reload/Resume, Login-Grenze, erfolgreiche explizite Adoption, zweite Adoption idempotent, fremder Actor abgewiesen, genau ein Draft, kein Planner-Replay und kein `draftId:null`; zusätzlich Session-Rotation/Rebinding, alte anonyme Credential-Wiederverwendung und Cross-Account-Adoption. C3A–C3D müssen abgeschlossen und gemergt sein; authentifizierter und Guest-Browser-Smoke erforderlich.
 
 ### C5 — Citizen Context und Place Resolution
 

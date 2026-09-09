@@ -15,12 +15,23 @@ Diese kompakte Sicht gilt für die globale Produkt- und Public-Launch-Aussage au
 | Topic Intelligence | NOT_STARTED | T0–T3 sind ausschließlich als blockierte Contract-/Qualification-/Research-/Context-Roadmap dispositioniert; keine Runtime oder Migration ist freigegeben. |
 | Decision Dossier | PARTIAL | Kanonische Dossier-, Topic-, Claim-, Evidence-, Poll- und TopicRound-Grundlagen existieren; der neue T0–T7-Systemfrage-, Szenario-, Comparator-, Readiness- und Revision-Binding-Endstate ist nicht umgesetzt und bleibt blockiert. |
 | Alpha2 Control Plane | IN_PROGRESS | Run Contract und persistenter Ledger sind belegt; Registry steht auf `review`, während State Adapter, Single Writer, Orchestrator, Dispatch, Repair, Mission Control und Learning/Evals ihre vorhandenen offenen Status behalten. |
-| DB/Brownfield Production | MANUAL_GATE | `DB-MIGRATION-BASELINE-01` / PR `#731` bleibt unverändert; Fresh-DB-Evidence ersetzt weder Brownfield-/Drift- noch Backup-/Restore-/Dry-Run-/Preview-/Approval-/Rollback-Evidence. |
-| Voxy/QR Output | PARTIAL | Reale Assets, Preview- und Readmodel-Bausteine existieren; die revisionssichere, barrierefreie Review-/Approval-/Distribution-Kette bleibt unvollständig und besitzt kein Auto-Publish. |
-| Golden Case Acceptance | NOT_STARTED | Rente und Bildung/Sachsen-Anhalt sind auf T7 blockiert; beide supervised Acceptances sind harte T8-Gates. |
-| Global Production / Public Launch | BLOCKED | Nur bei geschlossenen anwendbaren P0-/P1-Gates und erfüllter globaler Production Definition of Done darf der Gate-Status `GREEN` werden. |
+| DB/Brownfield Production | MANUAL_GATE | `DB-MIGRATION-BASELINE-01` / PR `#731` bleibt unverändert; Fresh-DB-Evidence ersetzt weder Brownfield-/Drift- noch Backup-/Restore-/Dry-Run-/Preview-/Approval-/Rollback-Evidence. Expand/Contract, destructive Change, Compatibility Window, Downgrade-/Rollback-Grenze, Observability, Partial Failure, Orphan Cleanup und TTL/Index bleiben zusätzliche Acceptance-Gates. |
+| Voxy/QR Output | PARTIAL | Reale Assets, Preview- und Readmodel-Bausteine existieren; `VOXY-QR-MARKETING-OUTPUT-LIFECYCLE-ACCEPTANCE-01` bleibt für die revisionssichere, barrierefreie Review-/Approval-/Receipt-/Correction-Kette `BLOCKED`; kein Auto-Publish. |
+| Golden Case Acceptance | NOT_STARTED | Pension, Education/Sachsen-Anhalt und Fast-change/Low-data sind auf T7 blockiert; alle drei supervised/adversarial Acceptances sind harte T8-Gates. |
+| Global Production / Public Launch | BLOCKED | `PROD-OBSERVABILITY-INCIDENT-SLO-01`, `PROD-DATA-RECOVERY-PRIVACY-LIFECYCLE-01` und `PROD-SECURITY-SUPPLY-CONFIG-01` sind `BLOCKED`. Nur bei geschlossenen anwendbaren P0-/P1-Gates und erfüllter globaler Production Definition of Done darf der Gate-Status `GREEN` werden. |
 
-Normative Details, harte versus parallel-sichere Lanes und die globale Definition of Done stehen in `EDEBATTE_MASTER_PRODUCTION_ROADMAP_2026-09-09.md`; der Systemfrage-, Decision-Readiness- und Evidenzvertrag steht in `EDEBATTE_SYSTEM_QUESTION_GLOBAL_CONTEXT_STANDARD_2026-09-09.md`.
+### Sechsstufige Launch-Leiter
+
+| Stufe | Exit-Gate / aktuelle Lesart |
+| --- | --- |
+| 1. DEVELOPMENT COMPLETE | Scope, Contracts, Tests und Reviews geschlossen; keine Production-Aussage. |
+| 2. INTERNAL ALPHA | Interne Nutzer und synthetische/kontrollierte Daten; Observability, sichere Fehler, Kill Switch. |
+| 3. CONTROLLED BETA | Benannte Kohorte, Operator Support, sichere Data-/Review-/Publish-Grenzen, dokumentierter Rollback. |
+| 4. PUBLIC BETA | Der angebotene Core Scope schließt Security, Privacy/Legal, Auth/Session, Review/Publish, Incident Readiness und Human Publish Gates. T8, volle autonome Operations und volle Voxy-/QR-Automation dürfen ausgeschlossen bleiben, wenn sie nicht behauptet werden. |
+| 5. PUBLIC PRODUCTION | Soweit anwendbar SLO/Monitoring, On-call/Incident, DR/RTO/RPO, Data Lifecycle, Backup/Restore, Production-Migration-Proof, Load/Concurrency, Browser Compatibility, manuelle Accessibility, Rollback und Security/Supply/Config. Aktuell `BLOCKED`. |
+| 6. AUTONOMOUS OPERATIONS READY | Zusätzlich `ALPHA2-AUTONOMOUS-E2E-RECOVERY-ACCEPTANCE-01`, Single Writer, Orchestrator, Dispatch, Repair, Mission Control, Evals/Drift, Budgets, Kill Switch, Human Escalation sowie Human Publish/Decision Gates. Aktuell `BLOCKED`. |
+
+Normative Details, harte versus parallel-sichere Lanes und die globale Definition of Done stehen in `EDEBATTE_MASTER_PRODUCTION_ROADMAP_2026-09-09.md`; der Systemfrage-, Decision-Readiness- und Evidenzvertrag steht in `EDEBATTE_SYSTEM_QUESTION_GLOBAL_CONTEXT_STANDARD_2026-09-09.md`. Die sechs Stufen werden nicht zu einem generischen „Launch“ zusammengezogen.
 
 ## Status-Legende
 
