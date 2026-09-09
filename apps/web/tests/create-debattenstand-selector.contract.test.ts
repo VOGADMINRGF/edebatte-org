@@ -36,7 +36,7 @@ describe("create debattenstand selector contract", () => {
     expect(model.nextStepLabel).toBe("Themenstruktur bestätigen");
   });
 
-  it("marks failed analysis honestly without inventing semantic topics", () => {
+  it("keeps failed automatic analysis honest, calm and recoverable without inventing topics", () => {
     const model = deriveCreateDebattenstandModel({
       hasStarted: true,
       isStarting: false,
@@ -51,10 +51,11 @@ describe("create debattenstand selector contract", () => {
       compactTopicCount: 4,
     });
 
-    expect(model.analysisStatusLabel).toBe("Analyse blockiert");
-    expect(model.errorLabel).toBe("Retry nötig");
-    expect(model.topicSummaryLabel).toBe("Noch keine validierten Themen");
+    expect(model.analysisStatusLabel).toBe("Einordnung noch offen");
+    expect(model.errorLabel).toBeNull();
+    expect(model.topicSummaryLabel).toBe("Themen werden noch eingeordnet");
+    expect(model.nextStepLabel).toBe("Erneut einordnen oder später fortsetzen");
     expect(model.visibleTopics).toHaveLength(0);
-    expect(model.statusTone).toBe("danger");
+    expect(model.statusTone).toBe("warning");
   });
 });

@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
+import "./create-mobile-polish.css";
 import { BRAND } from "@/lib/brand";
 import { LocaleProvider } from "@/context/LocaleContext";
 import { DEFAULT_LOCALE, getDir, type SupportedLocale, isSupportedLocale } from "@/config/locales";

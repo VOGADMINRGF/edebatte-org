@@ -460,9 +460,8 @@ function CreateSubmittedContributionBubble(props: {
   locale: CreateVoxyLocale;
 }) {
   return (
-    <div className="create-chat-message flex min-w-0 gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[rgb(var(--muted))] ring-4 ring-[rgb(var(--card))]" />
-      <div className="w-full min-w-0 max-w-full sm:max-w-[78%]">
+    <div className="create-chat-message flex min-w-0 justify-end">
+      <div className="w-full min-w-0 max-w-[46rem] sm:w-auto sm:min-w-[42%]">
         <p className="text-sm font-semibold text-[rgb(var(--muted))]">
           {props.locale === "en" ? "You" : "Du"}
         </p>
@@ -481,55 +480,33 @@ function CreateAssistantStatusBubble(props: {
   title: string;
   body: string;
   notice?: string | null;
-  chips?: string[];
-  largeAvatar?: boolean;
   announce?: boolean;
 }) {
   return (
     <div
-      className={`create-chat-message flex gap-3 ${
-        props.largeAvatar ? "flex-col sm:flex-row sm:gap-5" : ""
-      }`}
-      data-create-voxy-intro={props.largeAvatar ? "large-aura" : undefined}
+      className="create-chat-message flex items-start gap-3"
+      data-create-voxy-intro="dialog"
       role={props.announce ? "status" : undefined}
       aria-live={props.announce ? "polite" : undefined}
       aria-atomic={props.announce ? "true" : undefined}
     >
       <div className="mt-1 shrink-0">
         <VoxyAvatar
-          appearance={props.largeAvatar ? "panel" : "inline"}
-          compact={!props.largeAvatar}
-          priority={props.largeAvatar}
+          appearance="inline"
+          compact
           variant="presenting"
         />
       </div>
-      <div
-        className={`w-full min-w-0 flex-1 break-words [overflow-wrap:anywhere] ${
-          props.largeAvatar ? "max-w-4xl" : "max-w-full sm:max-w-[78%]"
-        }`}
-      >
+      <div className="w-full min-w-0 max-w-[46rem] flex-1 break-words [overflow-wrap:anywhere]">
         <p className="text-sm font-semibold text-[rgb(var(--muted))]">Voxy</p>
-        <div className="mt-2 rounded-2xl rounded-tl-sm border border-[rgb(var(--grad-from))]/25 bg-[linear-gradient(180deg,color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--grad-from))_10%),color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%))] px-4 py-4 md:px-5 md:py-5">
+        <div className="mt-2 rounded-2xl rounded-tl-sm border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-4 py-3.5 md:px-5 md:py-4">
           {props.eyebrow ? (
             <p className="text-sm font-medium text-[rgb(var(--muted))]">
               {props.eyebrow}
             </p>
           ) : null}
-          <p className="mt-1 text-lg font-semibold text-[rgb(var(--fg))] md:text-[1.35rem]">{props.title}</p>
-          <p className="mt-3 text-base leading-relaxed text-[rgb(var(--fg))] md:text-[17px]">{props.body}</p>
-          {props.chips?.length ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {props.chips.map((chip) => (
-                <span
-                  key={chip}
-                  data-create-thread-prompt-chip
-                  className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-1.5 text-sm font-medium text-[rgb(var(--muted))]"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <p className="mt-1 text-base font-semibold text-[rgb(var(--fg))] md:text-lg">{props.title}</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-[rgb(var(--fg))] md:text-base">{props.body}</p>
           {props.notice ? (
             <p className="mt-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-sm text-[rgb(var(--fg))]">
               {props.notice}
@@ -1707,15 +1684,11 @@ export default function CreateClient({
     : intakePlaceholder;
   const workspaceComposerStartLabel = hasStarted
     ? surfaceLocale === "en"
-      ? "Continue"
-      : "Weiter"
-    : productMode === "guided"
-      ? surfaceLocale === "en"
-        ? "Prepare draft"
-        : "Entwurf vorbereiten"
-      : surfaceLocale === "en"
-        ? "Review"
-        : "Prüfen";
+      ? "Send reply"
+      : "Antwort senden"
+    : surfaceLocale === "en"
+      ? "Organize concern"
+      : "Anliegen einordnen";
   const workspaceComposerStartBusyLabel = hasStarted
     ? surfaceLocale === "en"
       ? "I’m organizing your addition …"
@@ -1745,7 +1718,7 @@ export default function CreateClient({
   };
   const renderWorkspaceThread = () =>
     showLinkClarification && linkClarificationState ? (
-      <div className="create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))]">
+      <div className="min-w-0 space-y-5">
         <CreateSubmittedContributionBubble
           text={followupSnapshot?.originalText ?? normalizedIntakeText}
           locale={surfaceLocale}
@@ -1959,7 +1932,7 @@ export default function CreateClient({
     ) : showStartChatPreview && followupSnapshot ? (
       <div
         data-create-loading-thread={isStarting ? "true" : undefined}
-        className="create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))]"
+        className="min-w-0 space-y-5"
       >
         <CreateSubmittedContributionBubble
           text={followupSnapshot.originalText}
@@ -1988,18 +1961,12 @@ export default function CreateClient({
     ) : (
       <div
         data-create-initial-thread="true"
-        className="create-chat-spine relative flex min-h-[18rem] min-w-0 items-start pt-1 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))] md:min-h-[22rem] md:pt-2"
+        className="relative flex min-h-[10rem] min-w-0 items-start pt-1 md:min-h-[12rem] md:pt-2"
       >
         <CreateAssistantStatusBubble
           title={voxyCopy.greeting}
           body={voxyCopy.intro}
-          chips={
-            surfaceLocale === "en"
-              ? ["Organize topics", "Sharpen questions", "Check sources"]
-              : ["Thema ordnen", "Frage schärfen", "Quellen prüfen"]
-          }
           notice={localizedActionNotice}
-          largeAvatar
         />
       </div>
     );
