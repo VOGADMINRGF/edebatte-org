@@ -131,7 +131,7 @@ ALPHA2-ORCHESTRATOR-LOOP-01 + ALPHA2-MISSION-CONTROL-01
 State Adapter + Mission Control + Continuous Dispatch + Repair
 → ALPHA2-MISSION-CONTROL-TRANSPARENCY-02 (blocked)
 
-ALPHA2-BUILD-TO-OPERATE-TRANSITION-01 (done)
+ALPHA2-BUILD-TO-OPERATE-TRANSITION-01 (review; completion remains a hard gate)
 + Orchestrator Loop + Continuous Dispatch + Repair
 + ALPHA2-MISSION-CONTROL-TRANSPARENCY-02
 + relevant Observability/Production Gates
