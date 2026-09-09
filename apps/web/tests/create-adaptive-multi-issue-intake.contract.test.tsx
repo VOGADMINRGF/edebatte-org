@@ -12,6 +12,7 @@ vi.mock("@features/ai/providers/mistral", () => ({ callMistral: vi.fn() }));
 vi.mock("@core/telemetry/aiUsage", () => ({ logAiUsage: vi.fn() }));
 
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
+import { deriveDominantUnderstandingStance } from "@/features/create/intelligentFollowupContract";
 
 const SHORT_TEXT =
   "Ich bin für Mindestlohn für behinderte Menschen in Behindertenwerkstätten, aber ich bin auch für stärkere Kontrollen/Transparenz der Vorstände.";
@@ -91,6 +92,9 @@ describe("create adaptive single-/multi-issue intake", () => {
       "Kontrolle / Governance der Träger bzw. Vorstände",
     ]);
     expect(result.understanding.topics).toHaveLength(1);
+    expect(result.understanding.statements[0]?.stance).toBe("mixed");
+    expect(deriveDominantUnderstandingStance(result.understanding)).toBe("offen/unklar");
+    expect(deriveDominantUnderstandingStance(result.understanding)).not.toBe("eher dafür");
     expect(mocks.callOpenAIJson).toHaveBeenCalledWith(
       expect.objectContaining({ timeoutMs: 6_500, max_tokens: 400 }),
     );

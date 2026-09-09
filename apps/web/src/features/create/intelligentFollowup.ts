@@ -80,7 +80,7 @@ function mapPlannerStanceToUnderstanding(
   if (stance === "pro") return "pro";
   if (stance === "contra") return "contra";
   if (stance === "mixed") return "mixed";
-  if (stance === "reform_oriented") return "pro";
+  if (stance === "reform_oriented") return "mixed";
   if (stance === "open") return "open";
   return "unclear";
 }
