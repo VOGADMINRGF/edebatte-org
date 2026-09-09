@@ -1731,7 +1731,13 @@ function AnalysisStateBubble(props: {
         <VoxyAvatar appearance="inline" variant="presenting" />
       </div>
       <div className="w-full min-w-0 max-w-full flex-1 sm:max-w-[78%]">
-        <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">Voxy</p>
+        <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">
+          {analysisFailed
+            ? props.locale === "en"
+              ? "Analysis blocked"
+              : "Analyse blockiert"
+            : "Voxy"}
+        </p>
         <div className="mt-2 rounded-[1.6rem] rounded-tl-sm border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%)] px-5 py-5 md:px-6 dark:bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)]">
           <p className="text-[14px] font-medium text-cyan-900 dark:text-cyan-200">
             {props.state === "link_detected" || props.state === "entitlement_required"

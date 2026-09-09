@@ -78,7 +78,7 @@ describe("/create Voxy and support recovery contract", () => {
     expect(html).toContain("[overflow-wrap:anywhere]");
     expect(html).toContain(">Du<");
     expect(html).toContain("Dein Beitrag ist angekommen.");
-    expect(html).not.toContain("Analyse blockiert");
+    expect(html).toContain("Analyse blockiert");
     expect(html).not.toContain("Analysis blocked");
     expect(html).not.toContain(">You<");
     expect(html).not.toContain("Eingabe speichern");
@@ -124,7 +124,7 @@ describe("/create Voxy and support recovery contract", () => {
 
     expect(html).toContain(">You<");
     expect(html).not.toContain("1 · Contribution received");
-    expect(html).not.toContain("Analysis blocked");
+    expect(html).toContain("Analysis blocked");
     expect(html).toContain("I couldn’t complete the automatic classification just now.");
     expect(html).toContain("I created a technical case for this incident.");
     expect(html).toContain(longFailureMessage.trim());

@@ -351,7 +351,7 @@ describe("create chat-first mobile dialog experience contract", () => {
     expect(html).toContain("Dein Beitrag ist angekommen.");
     expect(html).toContain("Du kannst die Einordnung erneut versuchen oder später fortsetzen.");
     expect(html).toContain("Es wurden keine Themen abgeleitet.");
-    expect(html).not.toContain("Analyse blockiert");
+    expect(html).toContain("Analyse blockiert");
     expect(html).not.toContain("Eingabe speichern");
     expect(html).not.toContain("Themenstruktur bestätigen");
     expect(html).not.toContain("Aussage schärfen");
