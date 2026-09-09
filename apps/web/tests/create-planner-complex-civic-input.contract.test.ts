@@ -13,7 +13,7 @@ describe("create planner complex civic input contract", () => {
     else process.env.OPENAI_API_KEY = originalOpenAiKey;
   });
 
-  it("builds a concrete multi-cluster first-understanding result for complex civic texts", async () => {
+  it("does not invent a multi-cluster result when no provider is configured", async () => {
     process.env.OPENAI_API_KEY = "";
 
     const planner = await buildCreatePlanner({
@@ -22,36 +22,11 @@ describe("create planner complex civic input contract", () => {
     });
 
     expect(planner.plannerRole).toBe("planner_only");
-    expect(planner.qualityStatus).toBe("specific");
-    expect(planner.plannerCore).toContain("Menschenwürde");
-    expect(planner.plannerCore).toContain("Migration");
-    expect(planner.plannerCore).toContain("Budget");
-    expect(planner.plannerTopic).toContain("Grundrechte");
-    expect(planner.plannerTopic).toContain("demokratische Priorisierung");
-    expect(planner.plannerClusters).toEqual(
-      expect.arrayContaining([
-        "Menschenwürde, Grundrechte und Verantwortung",
-        "Migration, offene Grenzen und gesellschaftliche Regeln",
-        "Europäische Energie- und Industriepolitik",
-        "Regionale Abstimmungen und Bürgerbeteiligung",
-        "Budgetverteilung und öffentliche Prioritäten",
-      ]),
-    );
-    expect(planner.plannerScope).toEqual(expect.arrayContaining(["federal", "eu", "local"]));
-    expect(["mixed", "reform_oriented", "unclear"]).toContain(planner.plannerStance);
-    expect(planner.plannerOpenQuestions[0]).toContain("Welcher Teil soll zuerst bearbeitet werden");
-    expect(planner.graphSearchTerms).toEqual(
-      expect.arrayContaining([
-        "Menschenwürde",
-        "Grundrechte",
-        "Migration",
-        "offene Grenzen",
-        "EU Energiepolitik",
-        "Industriepolitik Europa",
-        "regionale Abstimmungen",
-        "Bürgerbeteiligung",
-        "Budgetpriorisierung",
-      ]),
-    );
+    expect(planner.qualityStatus).toBe("failed");
+    expect(planner.source).toBe("technical_fallback");
+    expect(planner.degradedReason).toBe("missing_provider_key");
+    expect(planner.plannerClusters).toEqual([]);
+    expect(planner.topicCandidates).toEqual([]);
+    expect(planner.graphSearchTerms).toEqual([]);
   });
 });

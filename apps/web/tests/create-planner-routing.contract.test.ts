@@ -129,7 +129,9 @@ describe("create planner routing contract", () => {
     expect(result.meta?.analysis?.validationStatus).toBe("validated");
     expect(result.meta?.graphMatch.stage).toBe("after_structure");
     expect(result.meta?.graphMatch.requiresConfirmation).toBe(true);
-    expect(result.meta?.graphMatch.searchTerms).toEqual(expect.arrayContaining(["Tierwohl"]));
+    expect(result.meta?.graphMatch.prepared).toBe(false);
+    expect(result.meta?.graphMatch.searchTerms).toEqual([]);
+    expect(result.meta?.planner.graphSearchTerms).toEqual(expect.arrayContaining(["Tierwohl"]));
     expect(result.degraded).toBe(false);
     expect(result.understanding.topics[0]?.label).toBe("Tierschutz, Tierhaltung und Agrarstandards");
     expect(result.understanding.statements[0]?.text).toBe("Forderung nach besseren Tierschutz- und Tierhaltungsstandards");

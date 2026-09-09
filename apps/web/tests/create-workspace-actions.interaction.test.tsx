@@ -488,7 +488,7 @@ describe("create workspace actions interaction", () => {
     expect(screen.queryByText("Wohnen und Genehmigungen")).toBeNull();
   });
 
-  it("keeps failed analysis pipeline states blocked, preserves the original user text and avoids duplicate failure messages", () => {
+  it("keeps failed analysis recoverable, preserves the original text and hides internal pipeline states", () => {
     const failedText =
       "Bei uns im Bezirk fährt der Bus abends nur noch alle 30 Minuten. Dadurch verpassen viele Beschäftigte den Anschluss an die S-Bahn.";
     const { container } = render(
@@ -505,29 +505,13 @@ describe("create workspace actions interaction", () => {
     );
 
     expect(screen.getAllByText(failedText)).toHaveLength(1);
-    expect(screen.getAllByText("Analyse blockiert")).toHaveLength(1);
+    expect(screen.getAllByText("Dein Beitrag ist angekommen.")).toHaveLength(1);
     expect(screen.getAllByText(/Es wurden deshalb keine Themen abgeleitet/)).toHaveLength(1);
     expect(screen.queryByText("2 · Themen erkannt")).toBeNull();
     expect(screen.getByTestId("composer-placeholder").textContent).toBe(
       "Du kannst den Beitrag ergänzen oder später fortsetzen.",
     );
-    expect(
-      container.querySelector('[data-create-pipeline-stage="input"]')?.getAttribute("data-create-pipeline-state"),
-    ).toBe("done");
-    expect(
-      container
-        .querySelector('[data-create-pipeline-stage="understanding"]')
-        ?.getAttribute("data-create-pipeline-state"),
-    ).toBe("error");
-    expect(
-      container.querySelector('[data-create-pipeline-stage="topics"]')?.getAttribute("data-create-pipeline-state"),
-    ).toBe("locked");
-    expect(
-      container.querySelector('[data-create-pipeline-stage="sources"]')?.getAttribute("data-create-pipeline-state"),
-    ).toBe("locked");
-    expect(
-      container.querySelector('[data-create-pipeline-stage="draft"]')?.getAttribute("data-create-pipeline-state"),
-    ).toBe("locked");
+    expect(container.querySelectorAll("[data-create-pipeline-stage]")).toHaveLength(0);
     expect(screen.queryByPlaceholderText("Ort, Bezirk oder Kommune ergänzen")).toBeNull();
   });
 
@@ -551,7 +535,7 @@ describe("create workspace actions interaction", () => {
     expect(container.textContent ?? "").not.toContain("3 davon sind gerade sichtbar");
   });
 
-  it("opens all validated document topics and keeps diagnosis, rail and cards on the same count", async () => {
+  it("opens all validated document topics and keeps diagnosis and cards on the same count", async () => {
     const user = userEvent.setup();
     const { container } = render(
       <Harness
@@ -562,7 +546,7 @@ describe("create workspace actions interaction", () => {
 
     expect(screen.getByText("78 Seiten · 12 Themen · 18 Unterthemen")).toBeTruthy();
     expect(container.querySelectorAll("[data-create-topic-branch-card]")).toHaveLength(0);
-    expect(container.textContent ?? "").toMatch(/Themen\s*12/);
+    expect(container.textContent ?? "").toContain("12 Themen");
 
     await user.click(screen.getByRole("button", { name: "Themenübersicht öffnen" }));
 
@@ -602,7 +586,7 @@ describe("create workspace actions interaction", () => {
     const user = userEvent.setup();
     const { container } = render(<Harness initialResult={buildValidatedOverflowTopicResult()} previewAllTopics />);
 
-    expect(container.querySelectorAll("[data-create-pipeline-rail]")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-create-pipeline-rail]")).toHaveLength(0);
     expect(screen.getAllByRole("button", { name: "Details & Transparenz" })).toHaveLength(1);
     expect(screen.getAllByText("ÖPNV und Mobilität").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Straßenraum und Radverkehr").length).toBeGreaterThan(0);

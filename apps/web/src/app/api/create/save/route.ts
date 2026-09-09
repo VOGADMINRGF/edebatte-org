@@ -353,6 +353,7 @@ async function resolveExistingCreateDraftForSave(input: {
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartedAt = Date.now();
   const sessionUser = await getSessionUser(req).catch(() => null);
   const userId = sessionUser?._id?.toHexString?.() ?? null;
   if (!sessionUser || !sessionUser.sessionValid || !userId) {
@@ -364,6 +365,7 @@ export async function POST(req: NextRequest) {
     actorKey: `user:${userId}`,
   });
   if (securityFailure) return securityFailure;
+  const accessMs = Date.now() - requestStartedAt;
 
   let body: z.infer<typeof DraftSaveSchema>;
   try {
@@ -397,9 +399,11 @@ export async function POST(req: NextRequest) {
     );
   }
   const existingDraft = existingDraftState.draft;
+  const contextStartedAt = Date.now();
   const requestScope = summarizeRequestScopeContext(
     await resolveRequestScopeContext(req).catch(() => null),
   );
+  const contextMs = Date.now() - contextStartedAt;
   const normalizedText =
     body.textPrepared?.trim() ||
     body.textOriginal?.trim() ||
@@ -477,6 +481,7 @@ export async function POST(req: NextRequest) {
     manualReviewRequested: body.manualReviewRequested === true,
   });
 
+  const saveStartedAt = Date.now();
   const initialSave = await saveUserScopedServerDraft({
     userId,
     route: "/api/create/save",
@@ -578,6 +583,12 @@ export async function POST(req: NextRequest) {
     updatedAt: finalSave.updatedAt.toISOString(),
     safety,
     requestScope,
+    timings: {
+      accessMs,
+      contextMs,
+      saveMs: Date.now() - saveStartedAt,
+      totalMs: Date.now() - requestStartedAt,
+    },
   };
 
   if (body.manualReviewRequested) {

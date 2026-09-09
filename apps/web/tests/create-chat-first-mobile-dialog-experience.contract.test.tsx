@@ -309,7 +309,7 @@ describe("create chat-first mobile dialog experience contract", () => {
     const html = renderVisualFollowup();
 
     expect(html).toContain("Chat-Arbeitsstand für deinen Beitrag");
-    expect(html).toContain("1 · Beitrag aufgenommen");
+    expect(html).not.toContain("1 · Beitrag aufgenommen");
     expect(html).toContain("Themenstruktur bestätigen");
     expect(html).toContain("Themen ändern");
     expect(html).not.toContain("Aussage schärfen");
@@ -332,11 +332,11 @@ describe("create chat-first mobile dialog experience contract", () => {
     expect(html).toContain("data-create-chat-thread");
     expect(html).toContain("data-create-structure-rail");
     expect(html).toContain("data-mobile-inline-create-actions");
-    expect(html).toContain("data-create-pipeline-rail");
+    expect(html).not.toContain("data-create-pipeline-rail");
     expect(html).toContain("data-create-inline-structure-summary");
     expect(html).toContain("data-create-topic-branches");
-    expect(html).toContain("1 · Beitrag aufgenommen");
-    expect(html).toContain("3 · Entscheidung offen");
+    expect(html).not.toContain("1 · Beitrag aufgenommen");
+    expect(html).not.toContain("3 · Entscheidung offen");
     expect(html).toContain("Was du jetzt tun kannst");
     expect(html).toContain("Themenstruktur bestätigen");
     expect(html).not.toContain("Themenzweig");
@@ -348,8 +348,10 @@ describe("create chat-first mobile dialog experience contract", () => {
   it("keeps the technical planner fallback in a clearly degraded clarification state", () => {
     const html = renderProvisionalQuotaFollowup();
 
-    expect(html).toContain("Analyse blockiert");
+    expect(html).toContain("Dein Beitrag ist angekommen.");
+    expect(html).toContain("Du kannst die Einordnung erneut versuchen oder später fortsetzen.");
     expect(html).toContain("Es wurden keine Themen abgeleitet.");
+    expect(html).not.toContain("Analyse blockiert");
     expect(html).not.toContain("Eingabe speichern");
     expect(html).not.toContain("Themenstruktur bestätigen");
     expect(html).not.toContain("Aussage schärfen");
@@ -461,7 +463,8 @@ describe("create chat-first mobile dialog experience contract", () => {
     expect(html).not.toContain("Um welchen Ort geht es?");
     expect(html).not.toContain("Ort ergänzen");
     expect(html).not.toContain("Ort später ergänzen");
-    expect(html).toContain("Offene Fragen");
+    expect(html).not.toContain("Offene Fragen");
+    expect(html).toContain("Details &amp; Transparenz");
   });
 
   it("shows the correction composer only after the user chooses edit", () => {

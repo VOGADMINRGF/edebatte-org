@@ -83,10 +83,10 @@ describe("create curated dialog workspace contract", () => {
     expect(clientSource).toContain("renderSidecar");
     expect(clientSource).toContain("renderMobileSidecarSummary");
     expect(clientSource).toContain("showSceneRail={false}");
-    expect(clientSource).toContain("data-create-thread-prompt-chip");
+    expect(clientSource).not.toContain("data-create-thread-prompt-chip");
     expect(clientSource).toContain("voxyCopy.greeting");
     expect(clientSource).toContain("voxyCopy.intro");
-    expect(clientSource).toContain("largeAvatar");
+    expect(clientSource).not.toContain("largeAvatar");
     expect(clientSource).toContain("selectedPrimaryTopic");
     expect(clientSource).toContain("workspaceActionMode");
     expect(clientSource).not.toContain("startLabel={productModeConfig.ctaLabel}");
@@ -115,8 +115,8 @@ describe("create curated dialog workspace contract", () => {
     expect(followupSource).toContain("PlaceClarificationPanel");
     expect(followupSource).toContain("StructureProposalPanel");
     expect(followupSource).toContain("NextStepPanel");
-    expect(followupSource).toContain("WorkspaceStageRail");
-    expect(followupSource).toContain("WorkspaceMetricRail");
+    expect(followupSource).not.toContain("WorkspaceStageRail");
+    expect(followupSource).not.toContain("WorkspaceMetricRail");
     expect(followupSource).toContain("TopicBranchPreviewGrid");
     expect(followupSource).toContain("ManualTopicChooser");
     expect(followupSource).toContain("WorkspaceActionThreadNote");
@@ -127,12 +127,12 @@ describe("create curated dialog workspace contract", () => {
     expect(followupSource).toContain("data-create-embedded-followup");
     expect(followupSource).toContain("Deine Struktur auf einen Blick");
     expect(followupSource).toContain("data-structure-overview-grid");
-    expect(followupSource).toContain("data-create-pipeline-rail");
-    expect(followupSource).toContain("data-create-workspace-kpis");
+    expect(followupSource).not.toContain("data-create-pipeline-rail");
+    expect(followupSource).not.toContain("data-create-workspace-kpis");
     expect(followupSource).toContain("data-create-topic-branches");
     expect(followupSource).toContain("data-create-topic-branch-card");
     expect(followupSource).toContain("data-mobile-inline-create-actions");
-    expect(readFileSync(resolve(process.cwd(), "src/features/create/CreateWorkspaceShell.tsx"), "utf8")).toContain(
+    expect(readFileSync(resolve(process.cwd(), "src/features/create/CreateWorkspaceShell.tsx"), "utf8")).not.toContain(
       "data-create-shell-pipeline",
     );
     expect(readFileSync(resolve(process.cwd(), "src/features/create/CreateWorkspaceShell.tsx"), "utf8")).toContain(
@@ -309,7 +309,8 @@ describe("create curated dialog workspace contract", () => {
     expect(clientSource).not.toContain("create-start-chat-preview");
     expect(clientSource).not.toContain("public-dialog-area");
     expect(composerSource).not.toContain(">Composer<");
-    expect(composerSource).toContain("resize-none");
+    expect(composerSource).toContain("resize-y");
+    expect(composerSource).toContain('data-create-input-methods="shared-intake"');
   });
 
   it("keeps tab controls aligned with persistent tabpanels", () => {

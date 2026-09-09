@@ -169,6 +169,15 @@ describe("/api/create/intelligent-followup route", () => {
       ],
       sourceText: "Input",
       generatedAt: "2026-05-05T10:00:00.000Z",
+      meta: {
+        analysis: { state: "result_ready" },
+        planner: {
+          runtimeMs: 1_234,
+          issueMode: "single_issue",
+          timingLane: "fast",
+          inputLength: 5,
+        },
+      },
       degraded: false,
       degradedReason: null,
     });
@@ -191,6 +200,18 @@ describe("/api/create/intelligent-followup route", () => {
       operationType: "create_intelligent_followup_planner",
       userScope: "present",
       singleFlight: "owner",
+      intake: {
+        selectedTimingLane: "fast",
+        inputLength: 5,
+        canonicalTopicCount: 1,
+        issueMode: "single_issue",
+      },
+      timings: {
+        accessMs: expect.any(Number),
+        plannerMs: 1_234,
+        contextMs: expect.any(Number),
+        totalMs: expect.any(Number),
+      },
     });
     expect(mocks.buildCreateIntelligentFollowup).toHaveBeenCalledTimes(1);
     expect(mocks.buildCreateIntelligentFollowup).toHaveBeenCalledWith(

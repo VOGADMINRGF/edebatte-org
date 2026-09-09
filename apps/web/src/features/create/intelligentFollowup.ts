@@ -79,7 +79,7 @@ function mapPlannerStanceToUnderstanding(
   if (stance === "pro") return "pro";
   if (stance === "contra") return "contra";
   if (stance === "mixed") return "mixed";
-  if (stance === "reform_oriented") return "mixed";
+  if (stance === "reform_oriented") return "pro";
   if (stance === "open") return "open";
   return "unclear";
 }
@@ -99,17 +99,17 @@ function dedupeLabels(labels: string[]): string[] {
 }
 
 function buildUnderstandingFromPlanner(planner: CreatePlannerResult): CreateUnderstandingResult {
-  const detailedTopicLabels = dedupeLabels([
-    ...planner.topicCandidates,
+  const providerTopicLabels = dedupeLabels(planner.topicCandidates);
+  const topicLabels = providerTopicLabels.length > 0
+    ? providerTopicLabels
+    : [planner.plannerTopic];
+  const normalizedTopicLabels = new Set(
+    topicLabels.map((label) => label.trim().toLowerCase()),
+  );
+  const aspects = dedupeLabels([
     ...planner.plannerClusters,
-  ]);
-  const topicLabels =
-    detailedTopicLabels.length >= MAX_UNDERSTANDING_TOPICS
-      ? detailedTopicLabels
-      : dedupeLabels([
-          planner.plannerTopic,
-          ...detailedTopicLabels,
-        ]);
+    ...planner.clusterCandidates,
+  ]).filter((label) => !normalizedTopicLabels.has(label.trim().toLowerCase()));
   const scopes = dedupeLabels([
     ...planner.plannerScope,
     ...planner.scopeCandidates,
@@ -148,6 +148,7 @@ function buildUnderstandingFromPlanner(planner: CreatePlannerResult): CreateUnde
       label,
       confidence: index === 0 ? "high" : "medium",
     })),
+    aspects,
     statements: statementText
       ? [
           {
@@ -188,16 +189,10 @@ function buildGraphMatchPlan(planner?: CreatePlannerResult | null): CreateFollow
 
   return {
     stage: "after_structure",
-    prepared: planner.graphSearchTerms.length > 0,
+    prepared: false,
     requiresConfirmation: true,
-    searchTerms: planner.graphSearchTerms,
-    matches: planner.graphSearchTerms.slice(0, 5).map((term, index) => ({
-      id: `graph-match-${index + 1}`,
-      kind: index === 0 ? "topic" : "claim",
-      label: term,
-      relation: index === 0 ? "new" : "related",
-      requiresConfirmation: true,
-    })),
+    searchTerms: [],
+    matches: [],
     matchedTopics: [],
     matchedDossiers: [],
     matchedClaims: [],

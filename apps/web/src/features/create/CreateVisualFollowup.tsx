@@ -178,16 +178,6 @@ type NextStepChecklistItem = {
   done: boolean;
 };
 
-type FollowupStageId = "input" | "understanding" | "topics" | "sources" | "draft";
-type FollowupStageStatus = "done" | "active" | "planned" | "error" | "locked";
-
-type FollowupStage = {
-  id: FollowupStageId;
-  title: string;
-  lead: string;
-  status: FollowupStageStatus;
-};
-
 type ContentModuleTone = "source" | "vote" | "topic" | "context" | "stats";
 
 type CreateFollowupContentModule = {
@@ -547,7 +537,8 @@ function extractDegradedStartPoints(result: CreateIntelligentFollowupResult): st
     ...(planner?.topicCandidates ?? []),
     ...(result.understanding.topics ?? []).map((topic) => topic.label),
   ]
-    .map((value) => String(value ?? "").trim())
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
     .filter((value) => value.length > 0 && !isGenericPlannerLabel(value));
   const seen = new Set<string>();
   const startPoints: string[] = [];
@@ -760,137 +751,6 @@ function buildNextStepChecklist(params: {
   ];
 }
 
-function buildWorkflowStages(params: {
-  isConfirmed: boolean;
-  analysisState: NonNullable<CreateIntelligentFollowupResult["meta"]>["analysis"]["state"];
-  hasValidatedTopics: boolean;
-  locale: CreateVoxyLocale;
-  composerMode?: "default" | "edit" | "source" | "manual_topic";
-  activeTopicLabel?: string | null;
-  selectedPrimaryTopic?: string | null;
-  groupedTopicLabels?: string[];
-}): FollowupStage[] {
-  const isEnglish = params.locale === "en";
-  const analysisFailed =
-    params.analysisState === "fetch_failed" || params.analysisState === "ai_failed";
-  if (analysisFailed) {
-    return [
-      {
-        id: "input",
-        title: isEnglish ? "1 · Contribution received" : "1 · Beitrag aufgenommen",
-        lead: isEnglish
-          ? "Your contribution is available in the workspace."
-          : "Dein Beitrag liegt im Workspace.",
-        status: "done",
-      },
-      {
-        id: "understanding",
-        title: isEnglish ? "2 · Analysis blocked" : "2 · Analyse blockiert",
-        lead: isEnglish
-          ? "No validated topics are available yet."
-          : "Es liegen noch keine validierten Themen vor.",
-        status: "error",
-      },
-      {
-        id: "topics",
-        title: isEnglish ? "3 · Decision pending" : "3 · Entscheidung offen",
-        lead: isEnglish
-          ? "Available after a successful analysis."
-          : "Wird nach erfolgreicher Analyse freigeschaltet.",
-        status: "locked",
-      },
-      {
-        id: "sources",
-        title: isEnglish ? "4 · Sources optional" : "4 · Quellen optional",
-        lead: isEnglish
-          ? "Locked until the analysis has been validated."
-          : "Bleibt bis zur validierten Analyse gesperrt.",
-        status: "locked",
-      },
-      {
-        id: "draft",
-        title: isEnglish ? "5 · Draft" : "5 · Entwurf",
-        lead: isEnglish
-          ? "Available only after a successful analysis."
-          : "Wird erst nach erfolgreicher Analyse freigeschaltet.",
-        status: "locked",
-      },
-    ];
-  }
-  const sourceActive = params.composerMode === "source";
-  const draftActive =
-    params.composerMode === "edit" || Boolean(params.selectedPrimaryTopic) || params.isConfirmed;
-  const topicsChosen =
-    params.groupedTopicLabels && params.groupedTopicLabels.length > 1
-      ? true
-      : Boolean(params.activeTopicLabel || params.selectedPrimaryTopic);
-
-  return [
-    {
-      id: "input",
-      title: isEnglish ? "1 · Contribution received" : "1 · Beitrag aufgenommen",
-      lead: isEnglish
-        ? "Your contribution is available in the workspace."
-        : "Dein Beitrag liegt im Workspace.",
-      status: "done",
-    },
-    {
-      id: "understanding",
-      title: params.hasValidatedTopics
-        ? isEnglish
-          ? "2 · Topics detected"
-          : "2 · Themen erkannt"
-        : isEnglish
-          ? "2 · Analysis in progress"
-          : "2 · Analyse läuft",
-      lead: params.hasValidatedTopics
-        ? isEnglish
-          ? "Initial topics are visible."
-          : "Die ersten Themen sind sichtbar."
-        : isEnglish
-          ? "Classification is being prepared."
-          : "Die Einordnung wird vorbereitet.",
-      status: params.hasValidatedTopics ? "done" : "active",
-    },
-    {
-      id: "topics",
-      title: isEnglish ? "3 · Decision pending" : "3 · Entscheidung offen",
-      lead: topicsChosen
-        ? isEnglish
-          ? "The focus or structure has been selected."
-          : "Fokus oder Struktur ist gewählt."
-        : isEnglish
-          ? "You choose the focus or structure."
-          : "Du wählst Fokus oder Struktur.",
-      status: sourceActive || draftActive ? "done" : "active",
-    },
-    {
-      id: "sources",
-      title: isEnglish ? "4 · Sources optional" : "4 · Quellen optional",
-      lead: sourceActive
-        ? isEnglish
-          ? "Source mode is open."
-          : "Quellenmodus ist geöffnet."
-        : isEnglish
-          ? "Sources remain optional."
-          : "Quellen bleiben optional.",
-      status: sourceActive ? "active" : draftActive ? "done" : "planned",
-    },
-    {
-      id: "draft",
-      title: isEnglish ? "5 · Draft" : "5 · Entwurf",
-      lead: draftActive
-        ? isEnglish
-          ? "The draft can be continued."
-          : "Entwurf kann weitergeführt werden."
-        : isEnglish
-          ? "Then refine or save it."
-          : "Danach schärfen oder speichern.",
-      status: draftActive ? "active" : "planned",
-    },
-  ];
-}
-
 function resolveContentModuleToneClass(tone: ContentModuleTone): string {
   if (tone === "source") {
     return "border-cyan-300/35 bg-cyan-500/[0.08] text-cyan-50";
@@ -1094,19 +954,11 @@ function UserContributionBubble(props: {
   locale: CreateVoxyLocale;
 }) {
   return (
-    <div className="create-chat-message flex gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400 ring-4 ring-white dark:bg-slate-500 dark:ring-[rgb(var(--bg))]" />
-      <div className="w-full max-w-[78%] min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            {props.locale === "en"
-              ? "1 · Contribution received"
-              : "1 · Beitrag aufgenommen"}
-          </p>
-          <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">
-            {props.locale === "en" ? "You" : "Du"}
-          </p>
-        </div>
+    <div className="create-chat-message flex justify-end">
+      <div className="w-full max-w-[46rem] min-w-0 sm:w-auto sm:min-w-[42%]">
+        <p className="text-right text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">
+          {props.locale === "en" ? "You" : "Du"}
+        </p>
         <div className="mt-2 rounded-[1.5rem] rounded-tl-sm border border-slate-200/90 bg-[color-mix(in_oklab,white_76%,rgb(var(--card))_24%)] px-5 py-4 shadow-sm shadow-slate-950/5 dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))] dark:shadow-none">
           <p className="text-[15px] leading-relaxed text-slate-900 md:text-base dark:text-[rgb(var(--fg))]">{props.text}</p>
         </div>
@@ -1118,7 +970,6 @@ function UserContributionBubble(props: {
 function AssistantUnderstandingBubble(props: {
   eyebrow: string;
   headline: string;
-  stepLabel: string;
   summary: string;
   assistantLead: string;
   coreClaim: string;
@@ -1133,14 +984,11 @@ function AssistantUnderstandingBubble(props: {
       <div className="mt-1 shrink-0">
         <VoxyAvatar appearance="inline" variant="presenting" />
       </div>
-      <div className="w-full max-w-[78%] min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">{props.stepLabel}</p>
-          <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">Voxy</p>
-        </div>
-        <div className="mt-2 rounded-[1.9rem] rounded-tl-sm border border-cyan-500/18 bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)] px-5 py-5 shadow-[0_22px_52px_rgba(2,6,23,0.06)] md:px-7 md:py-6 dark:border-cyan-300/20 dark:bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)] dark:shadow-none">
-          <p className="text-[14px] font-medium text-cyan-900 dark:text-cyan-200">{props.eyebrow}</p>
-          <p className="mt-1.5 text-[1.35rem] font-semibold tracking-[-0.01em] text-cyan-950 md:text-[1.6rem] dark:text-cyan-50">{props.headline}</p>
+      <div className="w-full max-w-[54rem] min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">Voxy</p>
+        <div className="mt-2 rounded-[1.6rem] rounded-tl-sm border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%)] px-5 py-5 md:px-6 dark:bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)]">
+          <p className="text-[13px] font-medium text-cyan-900 dark:text-cyan-200">{props.eyebrow}</p>
+          <p className="mt-1.5 text-xl font-semibold tracking-[-0.01em] text-[rgb(var(--fg))] md:text-[1.35rem]">{props.headline}</p>
           <p className="mt-4 text-[15px] leading-relaxed text-cyan-950 md:text-base dark:text-cyan-100">{props.summary || props.assistantLead}</p>
           {props.showAssistantLead ? (
             <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-cyan-900/80 dark:text-cyan-100/80">{props.assistantLead}</p>
@@ -1196,7 +1044,11 @@ function TopicFieldList(props: { labels: string[]; onPick: (label: string) => vo
 function resolveFollowupChatHeadline(params: {
   plannerClarificationRequired: boolean;
   branchCount: number;
+  issueMode?: "single_issue" | "multi_issue";
 }): string {
+  if (params.issueMode === "multi_issue") {
+    return "Das ist kein einzelnes Anliegen, sondern ein Vorschlagspaket.";
+  }
   if (params.plannerClarificationRequired) {
     return "Ich habe diese Themen erkannt.";
   }
@@ -1637,6 +1489,10 @@ function InlineStructureSummary(props: {
     props.hiddenTopicCount === 1
       ? "+1 weiteres Thema"
       : `+${props.hiddenTopicCount} weitere Themen`;
+  const visibleTopicLabel =
+    props.visibleTopicCount === 1
+      ? "1 Thema sichtbar"
+      : `${props.visibleTopicCount} Themen sichtbar`;
 
   return (
     <section data-create-inline-structure-summary data-create-structure-rail className="mt-4 space-y-3">
@@ -1648,7 +1504,7 @@ function InlineStructureSummary(props: {
       </div>
       <div className="flex flex-wrap gap-2.5">
         <span className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-[13px] text-[rgb(var(--fg))]">
-          {props.visibleTopicCount} Themen sichtbar
+          {visibleTopicLabel}
         </span>
         {props.hiddenTopicCount > 0 ? (
           <span className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-[13px] text-[rgb(var(--fg))]">
@@ -1739,8 +1595,8 @@ function DocumentAnalysisBubble(props: {
       </div>
       <div className="w-full max-w-[78%] min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            2 · Dokument analysiert
+          <p className="text-[12px] font-semibold text-[rgb(var(--muted))]">
+            Dokument eingeordnet
           </p>
           <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">
             Voxy
@@ -1884,21 +1740,8 @@ function AnalysisStateBubble(props: {
         <VoxyAvatar appearance="inline" variant="presenting" />
       </div>
       <div className="w-full min-w-0 max-w-full flex-1 sm:max-w-[78%]">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            {analysisFailed
-              ? props.locale === "en"
-                ? "Analysis blocked"
-                : "Analyse blockiert"
-              : props.locale === "en"
-                ? "2 · Analysis pending"
-                : "2 · Analyse offen"}
-          </p>
-          <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">
-            Voxy
-          </p>
-        </div>
-        <div className="mt-2 rounded-[1.9rem] rounded-tl-sm border border-cyan-500/18 bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)] px-5 py-5 shadow-[0_22px_52px_rgba(2,6,23,0.06)] md:px-7 md:py-6 dark:border-cyan-300/20 dark:bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)] dark:shadow-none">
+        <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">Voxy</p>
+        <div className="mt-2 rounded-[1.6rem] rounded-tl-sm border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%)] px-5 py-5 md:px-6 dark:bg-[color-mix(in_oklab,rgb(var(--card))_95%,rgb(var(--bg))_5%)]">
           <p className="text-[14px] font-medium text-cyan-900 dark:text-cyan-200">
             {props.state === "link_detected" || props.state === "entitlement_required"
               ? props.locale === "en"
@@ -1999,10 +1842,12 @@ function TopicExpansionPrompt(props: {
 
   return (
     <div className="create-chat-message flex gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 ring-4 ring-cyan-500/10" />
+      <div className="mt-1 shrink-0">
+        <VoxyAvatar appearance="inline" variant="presenting" />
+      </div>
       <div className="max-w-5xl min-w-0 flex-1 rounded-[24px] rounded-tl-sm border border-cyan-300/35 bg-cyan-500/[0.06] px-4 py-4 dark:border-cyan-300/20 dark:bg-cyan-500/[0.1]">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-900 dark:text-cyan-100">3 · Entscheidung offen</p>
+          <p className="text-[12px] font-semibold text-cyan-900 dark:text-cyan-100">Deine Entscheidung</p>
           <p className="text-[13px] font-semibold text-cyan-900 dark:text-cyan-100">Voxy</p>
         </div>
         <p className="mt-2 text-base font-semibold text-cyan-950 dark:text-cyan-50">{intro}</p>
@@ -2204,178 +2049,6 @@ function SummarySnapshotCard(props: {
   );
 }
 
-function WorkflowStageStrip(props: { stages: FollowupStage[] }) {
-  return (
-    <div className="rounded-[30px] border border-slate-200/75 bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-4 py-4 dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))]">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Status</p>
-          <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">Wo du gerade bist</p>
-        </div>
-        <span className="rounded-full border border-slate-200/80 px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--muted))] dark:border-[rgb(var(--border))]">
-          Geführter Ablauf
-        </span>
-      </div>
-      <div className="mt-4 space-y-2">
-        {props.stages.map((stage, index) => {
-          const isActive = stage.status === "active";
-          const isDone = stage.status === "done";
-          const isError = stage.status === "error";
-          return (
-            <div
-              key={stage.id}
-              className={`rounded-2xl border px-3 py-3 transition-all duration-300 ease-out ${
-                isActive
-                  ? "border-cyan-300/45 bg-cyan-500/[0.08]"
-                  : isDone
-                    ? "border-emerald-300/30 bg-emerald-500/[0.08]"
-                    : isError
-                      ? "border-rose-300/35 bg-rose-500/[0.08]"
-                      : "border-slate-200/70 bg-[color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--bg))_10%)] dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--bg))]"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
-                    isActive
-                      ? "border-cyan-300/60 text-cyan-100"
-                      : isDone
-                        ? "border-emerald-300/60 text-emerald-100"
-                        : isError
-                          ? "border-rose-300/60 text-rose-100"
-                          : "border-slate-300/50 text-slate-300"
-                  }`}
-                >
-                  {isDone ? "✓" : isError ? "!" : index + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[rgb(var(--fg))]">{stage.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-[rgb(var(--muted))]">{stage.lead}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceStageRail(props: {
-  stages: FollowupStage[];
-  locale: CreateVoxyLocale;
-}) {
-  const isEnglish = props.locale === "en";
-  return (
-    <div
-      data-create-pipeline-rail
-      className="overflow-x-auto rounded-[24px] border border-slate-200/80 bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-3 py-3 dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))]"
-    >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            {isEnglish ? "Assistance path" : "Assistenzpfad"}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">
-            {isEnglish
-              ? "From intake to a deliberate next action"
-              : "Vom Eingang bis zur bewussten nächsten Aktion"}
-          </p>
-        </div>
-        <span className="rounded-full border border-[rgb(var(--border))] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--muted))]">
-          review-first
-        </span>
-      </div>
-      <div className="flex min-w-max items-stretch gap-2">
-        {props.stages.map((stage) => {
-          const toneClass =
-            stage.status === "done"
-              ? "border-emerald-300/35 bg-emerald-500/[0.08]"
-              : stage.status === "active"
-                ? "border-cyan-300/45 bg-cyan-500/[0.08]"
-                : stage.status === "error"
-                  ? "border-rose-300/35 bg-rose-500/[0.08]"
-                  : stage.status === "locked"
-                    ? "border-slate-200/80 bg-slate-100/70 dark:border-[rgb(var(--border))] dark:bg-slate-900/20"
-                    : "border-slate-200/75 bg-[rgb(var(--bg))] dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--bg))]";
-          const badge =
-            stage.status === "done"
-              ? isEnglish
-                ? "ready"
-                : "bereit"
-              : stage.status === "active"
-                ? isEnglish
-                  ? "now"
-                  : "jetzt"
-                : stage.status === "error"
-                  ? isEnglish
-                    ? "blocked"
-                    : "blockiert"
-                  : stage.status === "locked"
-                    ? isEnglish
-                      ? "locked"
-                      : "gesperrt"
-                    : isEnglish
-                      ? "next"
-                      : "danach";
-
-          return (
-            <article
-              key={stage.id}
-              data-create-pipeline-stage={stage.id}
-              data-create-pipeline-state={stage.status}
-              className={`min-w-[9.75rem] rounded-[20px] border px-3 py-3 transition-all duration-300 ease-out ${toneClass}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-[rgb(var(--fg))]">{stage.title}</p>
-                <span className="rounded-full border border-[rgb(var(--border))] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
-                  {badge}
-                </span>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-[rgb(var(--muted))]">{stage.lead}</p>
-            </article>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceMetricRail(props: {
-  items: Array<{
-    label: string;
-    value: string;
-    detail: string;
-  }>;
-}) {
-  return (
-    <div
-      data-create-structure-rail
-      data-create-workspace-kpis
-      className="overflow-x-auto rounded-[24px] border border-slate-200/80 bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-3 py-3 dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))]"
-    >
-      <div className="flex min-w-max flex-wrap items-center gap-2">
-        {props.items.map((item, index) => (
-          <React.Fragment key={item.label}>
-            <article className="rounded-full border border-slate-200/75 bg-[rgb(var(--bg))] px-3 py-2 dark:border-[rgb(var(--border))]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">
-                {item.label}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">{item.value}</p>
-              <p className="text-[11px] leading-relaxed text-[rgb(var(--muted))]">{item.detail}</p>
-            </article>
-            {index < props.items.length - 1 ? (
-              <span className="text-sm text-[rgb(var(--muted))]" aria-hidden="true">
-                ·
-              </span>
-            ) : null}
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function TopicBranchPreviewGrid(props: {
   rootTopic: string;
   branches: CreateStructureBranch[];
@@ -2394,17 +2067,24 @@ function TopicBranchPreviewGrid(props: {
   if (props.branches.length === 0) return null;
   const isDocumentSource = props.sourceKind === "document";
   const showsAllTopics = props.branches.length >= props.totalTopicCount;
+  const hasSingleTopic = props.totalTopicCount === 1;
   const leadText = isDocumentSource
     ? `Die Analyse hat ${props.totalTopicCount} Themenbereiche erkannt. ${showsAllTopics ? `Alle ${props.totalTopicCount} Themen sind geöffnet.` : `${props.branches.length} von ${props.totalTopicCount} Themen sichtbar.`}`
-    : `Aus „${props.rootTopic}“ erkenne ich ${props.totalTopicCount} Themen. ${props.branches.length} davon sind gerade sichtbar. Ein Klick öffnet den Fokus direkt im Chat.`;
+    : hasSingleTopic
+      ? `Aus „${props.rootTopic}“ erkenne ich ein gemeinsames Anliegen. Prüfe kurz, ob diese Einordnung passt.`
+    : `Aus „${props.rootTopic}“ erkenne ich ${props.totalTopicCount} Themen. ${props.branches.length} davon sind gerade sichtbar. Prüfe kurz, ob diese Einordnung passt.`;
 
   return (
     <div data-create-topic-branches className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">3 · Themenstruktur</p>
+          <p className="text-[12px] font-semibold text-[rgb(var(--muted))]">Voxys Einordnung</p>
           <p className="mt-1 text-[1.02rem] font-semibold text-[rgb(var(--fg))]">
-            {isDocumentSource ? "Im Dokument erkannt" : "Erkannte Themen"}
+            {isDocumentSource
+              ? "Im Dokument erkannt"
+              : hasSingleTopic
+                ? "Erkanntes Anliegen"
+                : "Erkannte Themen"}
           </p>
           <p className="mt-1 max-w-3xl text-[15px] leading-relaxed text-[rgb(var(--muted))]">
             {leadText}
@@ -2415,11 +2095,51 @@ function TopicBranchPreviewGrid(props: {
         </span>
       </div>
       <div
+        data-create-topic-list-mobile
+        className="space-y-2 md:hidden"
+      >
+        {props.branches.map((branch, index) => {
+          const isActive = props.activeTopicLabel === branch.title;
+          return (
+            <div
+              key={`mobile-${branch.id}`}
+              className={`rounded-[1.25rem] border px-3.5 py-3 ${
+                isActive
+                  ? "border-cyan-400/70 bg-cyan-500/[0.1]"
+                  : "border-cyan-200/40 bg-cyan-500/[0.04] dark:border-cyan-300/20"
+              }`}
+            >
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 text-left"
+                onClick={() => props.onFocusTopic?.(branch.title)}
+                aria-pressed={isActive}
+              >
+                <span className="text-[15px] font-semibold leading-snug text-[rgb(var(--fg))]">
+                  {branch.title}
+                </span>
+                <span className="shrink-0 text-xs font-medium text-[rgb(var(--muted))]">
+                  Thema {index + 1}
+                </span>
+              </button>
+              <details className="mt-2 border-t border-[rgb(var(--border))] pt-2">
+                <summary className="cursor-pointer text-xs font-medium text-[rgb(var(--muted))]">
+                  Einordnung ansehen
+                </summary>
+                <p className="mt-2 text-[13px] leading-relaxed text-[rgb(var(--muted))]">
+                  {branch.need || branch.claims[0] || "Dieses Thema bleibt als eigener Arbeitsstrang sichtbar."}
+                </p>
+              </details>
+            </div>
+          );
+        })}
+      </div>
+      <div
         data-create-topic-grid
         data-grid-mobile-columns="1"
         data-grid-tablet-columns="2"
         data-grid-desktop-columns="3"
-        className="grid gap-3 md:grid-cols-2 lg:grid-cols-3"
+        className="hidden gap-3 md:grid md:grid-cols-2 lg:grid-cols-3"
       >
         {props.branches.map((branch, index) => (
           <article
@@ -2486,45 +2206,43 @@ function TopicBranchPreviewGrid(props: {
                       {branch.need || branch.claims[0] || "Dieses Thema bleibt als eigenständiger Arbeitsstrang sichtbar."}
                     </p>
                   </button>
-                  {referencePoints.length > 0 ? (
-                    <div className="mt-4 space-y-2.5">
-                      <p className="text-sm font-medium text-[rgb(var(--fg))]">
-                        Äste / Bezugspunkte
+                  <details className="mt-3 border-t border-[rgb(var(--border))] pt-3">
+                    <summary className="cursor-pointer text-sm font-medium text-[rgb(var(--muted))]">
+                      Details zum Thema
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      {referencePoints.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-[rgb(var(--fg))]">Bezugspunkte</p>
+                          <div className="flex flex-wrap gap-2">
+                            {referencePoints.map((topic) => (
+                              <span
+                                key={`${branch.id}-${topic}`}
+                                className={`rounded-full border px-3 py-1.5 text-[13px] ${resolveNodeTone("topic")}`}
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      <p className="text-[14px] leading-relaxed text-[rgb(var(--muted))]">{recommendedAction}</p>
+                      <p className="text-xs text-[rgb(var(--muted))]">
+                        {visibleMetrics.length > 0
+                          ? visibleMetrics.join(" · ")
+                          : `${branch.evidenceSnippets.length} Belegstellen`}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {referencePoints.map((topic) => (
-                          <span
-                            key={`${branch.id}-${topic}`}
-                            className={`rounded-full border px-3 py-1.5 text-[13px] ${resolveNodeTone("topic")}`}
-                          >
-                            {topic}
-                          </span>
-                        ))}
-                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-[rgb(var(--border))] px-4 py-1.5 text-sm font-semibold text-[rgb(var(--muted))] transition hover:border-cyan-300/55 hover:text-[rgb(var(--fg))]"
+                        onClick={() => props.onParkTopic?.(branch.title)}
+                        aria-pressed={isParked}
+                        aria-label={`Thema ${branch.title} als Zweig parken`}
+                      >
+                        {isParked ? "Als Zweig geparkt" : "Thema parken"}
+                      </button>
                     </div>
-                  ) : null}
-                  <div className="mt-4 space-y-2">
-                    <p className="text-sm font-medium text-[rgb(var(--fg))]">
-                      Sichtbarer Fokus
-                    </p>
-                    <p className="text-[15px] leading-relaxed text-[rgb(var(--muted))]">{recommendedAction}</p>
-                    <p className="text-xs text-[rgb(var(--muted))]">
-                      {visibleMetrics.length > 0
-                        ? visibleMetrics.join(" · ")
-                        : `${branch.evidenceSnippets.length} Belegstellen`}
-                    </p>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2.5">
-                    <button
-                      type="button"
-                      className="inline-flex min-h-[42px] items-center justify-center rounded-full border border-[rgb(var(--border))] px-4 py-1.5 text-sm font-semibold text-[rgb(var(--muted))] transition hover:border-cyan-300/55 hover:text-[rgb(var(--fg))]"
-                      onClick={() => props.onParkTopic?.(branch.title)}
-                      aria-pressed={isParked}
-                      aria-label={`Thema ${branch.title} als Zweig parken`}
-                    >
-                      {isParked ? "Als Zweig geparkt" : "Thema parken"}
-                    </button>
-                  </div>
+                  </details>
                 </>
               );
             })()}
@@ -2547,10 +2265,12 @@ function TopicFocusPanel(props: {
 
   return (
     <div className="create-chat-message flex gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 ring-4 ring-cyan-500/10" />
+      <div className="mt-1 shrink-0">
+        <VoxyAvatar appearance="inline" variant="presenting" />
+      </div>
       <div className="max-w-5xl min-w-0 flex-1 rounded-[24px] rounded-tl-sm border border-cyan-300/35 bg-cyan-500/[0.06] px-4 py-4 dark:border-cyan-300/20 dark:bg-cyan-500/[0.1]">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-900 dark:text-cyan-100">4 · Deine Entscheidung</p>
+          <p className="text-[12px] font-semibold text-cyan-900 dark:text-cyan-100">Deine Entscheidung</p>
           <p className="text-[13px] font-semibold text-cyan-900 dark:text-cyan-100">Voxy</p>
         </div>
         <p className="mt-2 text-base font-semibold text-cyan-950 dark:text-cyan-50">
@@ -2920,16 +2640,6 @@ function StructuredWorkstateBlock(props: {
 }) {
   const initialFocusArea: FocusAreaId = props.structureBranches.length > 0 ? "clusters" : "priorities";
   const [activeFocusArea, setActiveFocusArea] = React.useState<FocusAreaId>(initialFocusArea);
-  const stages = React.useMemo(
-    () =>
-      buildWorkflowStages({
-        isConfirmed: props.isConfirmed,
-        analysisState: "result_ready",
-        hasValidatedTopics: props.topicLabels.length > 0,
-        locale: props.locale,
-      }),
-    [props.isConfirmed, props.locale, props.topicLabels.length],
-  );
   const overviewCards = React.useMemo<FocusOverviewCard[]>(
     () => {
       const checklist = buildNextStepChecklist({
@@ -3007,7 +2717,6 @@ function StructuredWorkstateBlock(props: {
             voteQuestionCount={props.voteQuestions.length}
             sectionCount={props.sections.length}
           />
-          <WorkflowStageStrip stages={stages} />
           <StructureOverviewRail cards={overviewCards} activeCardId={activeFocusArea} onSelect={setActiveFocusArea} />
         </div>
 
@@ -3092,39 +2801,46 @@ function PlaceClarificationPanel(props: {
   submitDisabled: boolean;
 }) {
   return (
-    <div className="rounded-[24px] border border-amber-300/55 bg-amber-500/[0.09] px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-900 dark:text-amber-100">Ortsklärung</p>
-      <p className="mt-2 text-lg font-semibold text-amber-950 dark:text-amber-50">Um welchen Ort geht es?</p>
-      <p className="mt-2 text-sm leading-relaxed text-amber-950/90 dark:text-amber-100/90">{props.question}</p>
-      {props.privacyHint ? (
-        <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/80">{props.privacyHint}</p>
-      ) : null}
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input
-          value={props.value}
-          onChange={(event) => props.onChange(event.target.value)}
-          placeholder="Ort, Bezirk oder Kommune ergänzen"
-          className="min-w-0 flex-1 rounded-xl border border-amber-300/60 bg-white/80 px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 dark:bg-slate-950/50 dark:text-white"
-        />
-        <button
-          type="button"
-          className="btn-primary min-h-[42px] px-4 py-2 text-sm"
-          onClick={props.onSubmit}
-          disabled={props.submitDisabled}
-          aria-disabled={props.submitDisabled}
-        >
-          Ort ergänzen
-        </button>
+    <div className="create-chat-message flex items-start gap-3">
+      <div className="mt-1 shrink-0">
+        <VoxyAvatar appearance="inline" compact variant="presenting" />
       </div>
-      {props.onSkip ? (
-        <button
-          type="button"
-          className="mt-3 text-sm font-medium text-amber-900 underline-offset-4 hover:underline dark:text-amber-100"
-          onClick={props.onSkip}
-        >
-          Ort später ergänzen
-        </button>
-      ) : null}
+      <div className="w-full max-w-[46rem] min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-slate-700 dark:text-[rgb(var(--muted))]">Voxy</p>
+        <div className="mt-2 rounded-[1.6rem] rounded-tl-sm border border-amber-300/45 bg-amber-500/[0.07] px-4 py-4">
+          <p className="text-base font-semibold text-amber-950 dark:text-amber-50">Um welchen Ort geht es?</p>
+          <p className="mt-2 text-sm leading-relaxed text-amber-950/90 dark:text-amber-100/90">{props.question}</p>
+          {props.privacyHint ? (
+            <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/80">{props.privacyHint}</p>
+          ) : null}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              value={props.value}
+              onChange={(event) => props.onChange(event.target.value)}
+              placeholder="Ort, Bezirk oder Kommune ergänzen"
+              className="min-w-0 flex-1 rounded-xl border border-amber-300/60 bg-white/80 px-3 py-2 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 dark:bg-slate-950/50 dark:text-white"
+            />
+            <button
+              type="button"
+              className="btn-primary min-h-[42px] px-4 py-2 text-sm"
+              onClick={props.onSubmit}
+              disabled={props.submitDisabled}
+              aria-disabled={props.submitDisabled}
+            >
+              Ort ergänzen
+            </button>
+          </div>
+          {props.onSkip ? (
+            <button
+              type="button"
+              className="mt-3 text-sm font-medium text-amber-900 underline-offset-4 hover:underline dark:text-amber-100"
+              onClick={props.onSkip}
+            >
+              Ort später ergänzen
+            </button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -3132,24 +2848,38 @@ function PlaceClarificationPanel(props: {
 function StructureProposalPanel(props: {
   onConfirm: () => void;
   onOpenManualTopicChooser: () => void;
+  onEdit: () => void;
+  onContinuePackage: () => void;
+  multiIssue: boolean;
 }) {
   return (
     <div data-mobile-inline-create-actions className="space-y-3 border-t border-slate-200/80 pt-4 dark:border-[rgb(var(--border))]">
       <div className="space-y-3">
         <div className="max-w-2xl space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">4 · Deine Entscheidung</p>
+          <p className="text-[12px] font-semibold text-[rgb(var(--muted))]">Deine Entscheidung</p>
           <p className="text-sm font-semibold text-[rgb(var(--fg))]">Was du jetzt tun kannst</p>
           <p className="text-[15px] leading-relaxed text-[rgb(var(--muted))]">
-            Bestätige zuerst die Themenstruktur. Alles Weitere bleibt bewusst nachgeordnet.
+            {props.multiIssue
+              ? "Du kannst das Paket gemeinsam weiterführen oder zunächst einen Themenbereich auswählen."
+              : "Bestätige zuerst die Themenstruktur. Alles Weitere bleibt bewusst nachgeordnet."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5 xl:max-w-4xl">
-          <button type="button" className="btn-primary min-h-[46px] px-4 py-2 text-sm" onClick={props.onConfirm}>
-            Themenstruktur bestätigen
+          <button
+            type="button"
+            className="btn-primary min-h-[46px] px-4 py-2 text-sm"
+            onClick={props.multiIssue ? props.onContinuePackage : props.onConfirm}
+          >
+            {props.multiIssue ? "Als Gesamtkonzept weiterarbeiten" : "Themenstruktur bestätigen"}
           </button>
           <button type="button" className="btn-secondary min-h-[42px] px-3 py-2 text-sm" onClick={props.onOpenManualTopicChooser}>
-            Themen ändern
+            {props.multiIssue ? "Ein Thema auswählen" : "Themen ändern"}
           </button>
+          {props.multiIssue ? (
+            <button type="button" className="btn-secondary min-h-[42px] px-3 py-2 text-sm" onClick={props.onEdit}>
+              Struktur ändern
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -3165,7 +2895,7 @@ function PlannerClarificationPanel(props: {
   return (
     <div className="space-y-3 rounded-[28px] border border-slate-200/75 bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-4 py-4 dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))]">
       <div className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">4 · Deine Entscheidung</p>
+        <p className="text-[12px] font-semibold text-[rgb(var(--muted))]">Deine Entscheidung</p>
         <p className="text-sm font-semibold text-[rgb(var(--fg))]">
           Was du jetzt tun kannst
         </p>
@@ -3225,10 +2955,9 @@ function WorkspaceActionThreadNote(props: {
           };
 
   return (
-    <div className="create-chat-message flex gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400 ring-4 ring-white dark:bg-slate-500 dark:ring-[rgb(var(--bg))]" />
-      <div className="max-w-5xl min-w-0 flex-1 rounded-[24px] rounded-tl-sm border border-slate-200/75 bg-[color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--bg))_10%)] px-4 py-4 shadow-sm dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))] dark:shadow-none">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">5 · Nächster Schritt</p>
+    <div className="create-chat-message flex justify-end">
+      <div className="w-full max-w-[46rem] min-w-0 rounded-[24px] rounded-tr-sm border border-slate-200/75 bg-[color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--bg))_10%)] px-4 py-4 shadow-sm dark:border-[rgb(var(--border))] dark:bg-[rgb(var(--card))] dark:shadow-none">
+        <p className="text-[12px] font-semibold text-[rgb(var(--muted))]">Deine Präzisierung</p>
         <p className="mt-1 text-base font-semibold text-[rgb(var(--fg))]">{copy.title}</p>
         <p className="mt-1 text-sm leading-relaxed text-[rgb(var(--muted))]">{copy.body}</p>
       </div>
@@ -3307,7 +3036,7 @@ function NextStepPanel(props: {
   return (
     <div className="space-y-3 rounded-[28px] border border-cyan-300/28 bg-[linear-gradient(180deg,rgba(9,20,42,0.98),rgba(11,24,46,0.95))] px-4 py-4 shadow-[0_18px_42px_rgba(8,145,178,0.12)]">
       <div className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">5 · Nächster Schritt</p>
+        <p className="text-[12px] font-semibold text-slate-400">Nächster Schritt</p>
         <p className="text-sm font-semibold text-white">Was du jetzt tun kannst</p>
         <p className="text-[15px] leading-relaxed text-slate-300">
           Du entscheidest, wie wir mit dem gewählten Thema weiterarbeiten.
@@ -3485,7 +3214,6 @@ export default function CreateVisualFollowup({
   const analysisMessage = result.meta?.analysis?.userMessage ?? "";
   const hasValidatedAnalysis =
     analysisState === "analysis_validated" || analysisState === "result_ready";
-  const hasValidatedTopics = hasValidatedAnalysis && result.understanding.topics.length > 0;
   const broadTopicFields = React.useMemo(
     () => (hasValidatedAnalysis ? deriveBroadTopicFields(topicLabels) : []),
     [hasValidatedAnalysis, topicLabels],
@@ -3514,7 +3242,7 @@ export default function CreateVisualFollowup({
   );
   const semanticTopicCount = Math.max(
     result.understanding.topics.length,
-    result.meta?.planner?.plannerClusters.length ?? 0,
+    documentTopicCount,
   );
   const fullStructureBranchLimit = documentAnalysis
     ? Math.max(1, documentTopicCount)
@@ -3535,6 +3263,19 @@ export default function CreateVisualFollowup({
       : fullStructureBranches.length > 0
       ? fullStructureBranches.map((branch) => branch.title)
       : topicLabels;
+  const visibleUnderstandingAspects = React.useMemo(
+    () =>
+      dedupeLabelsCaseInsensitive(
+        (result.understanding.aspects ?? []).filter(
+          (aspect) =>
+            typeof aspect === "string" &&
+            !/\[object\s+(?:Object|Array)\]|^(?:undefined|null|nan|infinity)$/i.test(
+              aspect.trim(),
+            ),
+        ),
+      ).slice(0, 4),
+    [result.understanding.aspects],
+  );
   const multiTopicActionTopics = React.useMemo(() => buildMultiTopicActionTopics(result), [result]);
   const showMultiTopicActionPanel = shouldShowMultiTopicActionPanel(multiTopicActionTopics);
   const contentModules = React.useMemo(
@@ -3559,6 +3300,7 @@ export default function CreateVisualFollowup({
     [broadTopicFields, hasValidatedAnalysis, result.understanding.dossierContext, sortedSuggestions, topicLabels],
   );
   const scopeChip = result.understanding.scopes[0] ?? "unclear";
+  const multiIssueMode = result.meta?.planner?.issueMode === "multi_issue";
   const plannerClarificationRequired = hasValidatedAnalysis ? needsPlannerClarification(result) : false;
   const plannerClarificationReason = hasValidatedAnalysis ? resolvePlannerClarificationReason(result) : "";
   const plannerClarificationDetails = hasValidatedAnalysis ? resolvePlannerClarificationDetails(result) : null;
@@ -3645,6 +3387,7 @@ export default function CreateVisualFollowup({
   const plannerClarificationLeadText = displayedBranches.length === 3
     ? "Ich sehe drei Themenstränge. Du kannst sie zusammen lassen oder einzeln weiterführen."
     : "Aus deinem Beitrag ergeben sich mehrere Stränge. Du entscheidest, wie wir weiterarbeiten.";
+  const multiIssueLeadText = `Ich erkenne ${totalStructureTopicCount} Themenbereiche. Du entscheidest, wie wir weiterarbeiten.`;
   const assistantLead = resolveAssistantLead({
     topicLabels: semanticTopicLabels,
     summary: hasValidatedAnalysis ? result.understanding.summary : "",
@@ -3701,20 +3444,6 @@ export default function CreateVisualFollowup({
   const activeTopicIndex = activeBranch
     ? displayedBranches.findIndex((branch) => branch.title === activeBranch.title)
     : -1;
-  const followupStages = React.useMemo(
-    () =>
-      buildWorkflowStages({
-        isConfirmed: hasValidatedAnalysis && isConfirmed,
-        analysisState,
-        hasValidatedTopics,
-        locale,
-        composerMode,
-        activeTopicLabel: hasValidatedAnalysis ? activeTopicLabel : null,
-        selectedPrimaryTopic: hasValidatedAnalysis ? selectedPrimaryTopic : null,
-        groupedTopicLabels: hasValidatedAnalysis ? groupedTopicLabels : [],
-      }),
-    [activeTopicLabel, analysisState, composerMode, groupedTopicLabels, hasValidatedAnalysis, hasValidatedTopics, isConfirmed, locale, selectedPrimaryTopic],
-  );
   const workspaceMetrics = React.useMemo(
     () => [
         {
@@ -3845,6 +3574,12 @@ export default function CreateVisualFollowup({
       model: existingTopicMatchesPreview,
     });
 
+    if (!isConfirmed) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void resolveExistingTopicMatchesFromRuntime({ result }).then((resolved) => {
       if (cancelled) return;
       setExistingTopicMatchesRuntimeResult(resolved);
@@ -3861,7 +3596,7 @@ export default function CreateVisualFollowup({
     return () => {
       cancelled = true;
     };
-  }, [existingTopicMatchesPreview, result]);
+  }, [existingTopicMatchesPreview, isConfirmed, result]);
 
   const prepareDialogHandoffDraft = React.useCallback(
     (target: DialogHandoffTarget) => {
@@ -4035,16 +3770,17 @@ export default function CreateVisualFollowup({
                   </span>
                 </div>
 
-                <div className="mt-4 space-y-4">
-                  <WorkspaceStageRail stages={followupStages} locale={locale} />
-                  <WorkspaceMetricRail items={workspaceMetrics} />
-                </div>
+                <p className="mt-4 text-sm leading-relaxed text-[rgb(var(--muted))]">
+                  {locale === "en"
+                    ? "You decide what to confirm or clarify next."
+                    : "Du entscheidest als Nächstes, was stimmt oder präzisiert werden soll."}
+                </p>
               </>
             ) : null}
 
             <div
               data-create-chat-thread
-              className={`create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))] ${embedInWorkspaceShell ? "" : "mt-5"}`}
+              className={`relative min-w-0 space-y-5 ${embedInWorkspaceShell ? "" : "mt-5"}`}
             >
               <UserContributionBubble text={result.sourceText} locale={locale} />
               {!hasValidatedAnalysis ? (
@@ -4074,12 +3810,16 @@ export default function CreateVisualFollowup({
               {hasValidatedAnalysis && showDocumentTopicOverview ? (
                 <AssistantUnderstandingBubble
                   eyebrow={plannerClarificationRequired ? "Einordnung offen" : "Verstanden"}
-                  stepLabel={documentAnalysis ? "3 · Themenübersicht" : "2 · Themen erkannt"}
                   headline={resolveFollowupChatHeadline({
                     plannerClarificationRequired,
                     branchCount: structureBranches.length,
+                    issueMode: result.meta?.planner?.issueMode,
                   })}
-                  summary={plannerClarificationRequired ? plannerClarificationLeadText : dedupedCopy.prominentSummary}
+                  summary={multiIssueMode
+                    ? multiIssueLeadText
+                    : plannerClarificationRequired
+                      ? plannerClarificationLeadText
+                      : dedupedCopy.prominentSummary}
                   assistantLead={assistantLead}
                   coreClaim={dedupedCopy.prominentCoreClaim}
                   showCoreBlock={showCoreBlock && !plannerClarificationRequired}
@@ -4104,6 +3844,26 @@ export default function CreateVisualFollowup({
                           : "kompakt"
                     }
                   />
+                  {visibleUnderstandingAspects.length > 0 ? (
+                    <div
+                      data-create-understanding-aspects
+                      className="mt-4 rounded-[1.25rem] border border-cyan-200/40 bg-cyan-500/[0.05] px-4 py-3 dark:border-cyan-300/20"
+                    >
+                      <p className="text-[12px] font-semibold text-cyan-900 dark:text-cyan-100">
+                        Aspekte
+                      </p>
+                      <ul className="mt-2 flex flex-wrap gap-2">
+                        {visibleUnderstandingAspects.map((aspect) => (
+                          <li
+                            key={aspect}
+                            className="rounded-full border border-cyan-300/40 bg-[rgb(var(--bg))] px-3 py-1.5 text-[13px] text-[rgb(var(--fg))]"
+                          >
+                            {aspect}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {plannerClarificationRequired ? (
                     <div className="mt-4">
                       <TopicBranchPreviewGrid
@@ -4185,13 +3945,16 @@ export default function CreateVisualFollowup({
             {hasValidatedAnalysis &&
             showDocumentTopicOverview &&
             !isConfirmed &&
-            !placeClarification &&
+            (!placeClarification || multiIssueMode) &&
             !plannerClarificationRequired &&
             (!activeBranch || activeTopicIndex < 0) ? (
               <div className="mt-4">
                 <StructureProposalPanel
                   onConfirm={onConfirm}
                   onOpenManualTopicChooser={onOpenManualTopicChooser}
+                  onEdit={onEdit}
+                  onContinuePackage={onDeepenAllTopics}
+                  multiIssue={multiIssueMode}
                 />
               </div>
             ) : null}

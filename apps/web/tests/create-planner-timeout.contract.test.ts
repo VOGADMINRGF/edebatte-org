@@ -40,7 +40,7 @@ describe("create planner timeout contract", () => {
     else process.env.OPENAI_PLANNER_MODEL = originalOpenAiPlannerModel;
   });
 
-  it("uses the 10000ms production default and classifies provider aborts as TIMEOUT", async () => {
+  it("uses the 6500ms fast-intake ceiling and classifies provider aborts as TIMEOUT", async () => {
     const timeoutError = Object.assign(new Error("The operation was aborted."), {
       name: "AbortError",
       meta: { code: "TIMEOUT" },
@@ -59,7 +59,7 @@ describe("create planner timeout contract", () => {
     expect(mocks.callOpenAIJson).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-4.1-mini",
-        timeoutMs: 10_000,
+        timeoutMs: 6_500,
       }),
     );
     expect(planner.source).toBe("technical_fallback");

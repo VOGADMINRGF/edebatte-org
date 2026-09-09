@@ -317,7 +317,7 @@ const CREATE_SURFACE_BUNDLES: Record<CreateSurfaceLocale, CreateSurfaceLocaleBun
       attachAria: "Anhang hinzufügen",
       voiceStartAria: "Sprachaufnahme starten",
       voiceStopAria: "Sprachaufnahme stoppen",
-      voiceStartLabel: "Sprache",
+      voiceStartLabel: "Sprechen",
       voiceStopLabel: "Stoppen",
       contextEntryTitle: "Kontext (optional)",
       orientationTitle: "Hilfebereich",

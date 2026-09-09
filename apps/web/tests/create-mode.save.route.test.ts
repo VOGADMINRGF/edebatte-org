@@ -152,6 +152,7 @@ const mocks = vi.hoisted(() => {
       confidence: "high",
     })),
     summarizeRequestScopeContext: vi.fn((scope) => scope),
+    enforceCreateMutationSecurity: vi.fn(async () => null),
   };
 });
 
@@ -171,6 +172,11 @@ vi.mock("@/lib/server/auth/requestScope", () => ({
 
 vi.mock("@/lib/server/auth/sessionUser", () => ({
   getSessionUser: (...args: unknown[]) => mocks.getSessionUser(...args),
+}));
+
+vi.mock("@/features/create/createRouteSecurity", () => ({
+  enforceCreateMutationSecurity: (...args: unknown[]) =>
+    mocks.enforceCreateMutationSecurity(...args),
 }));
 
 vi.mock("@/server/draftStore", () => ({
@@ -231,6 +237,12 @@ describe("create mode split - save route", () => {
     expect(body).toMatchObject({
       ok: true,
       createMode: "manual",
+      timings: {
+        accessMs: expect.any(Number),
+        contextMs: expect.any(Number),
+        saveMs: expect.any(Number),
+        totalMs: expect.any(Number),
+      },
       requestScope: {
         organizationId: "org-1",
         membershipStatus: "organization_verified",

@@ -1,6 +1,7 @@
 import { callOpenAIJson } from "@features/ai";
 import { callAnthropic } from "@features/ai/providers/anthropic";
 import { callMistral } from "@features/ai/providers/mistral";
+import { z } from "zod";
 import { logAiUsage } from "@core/telemetry/aiUsage";
 import type { AiErrorKind, AiPipelineName } from "@core/telemetry/aiUsageTypes";
 import { getAiRuntimePolicy } from "@features/ai/aiRuntimePolicy";
@@ -9,7 +10,18 @@ import type {
   CreatePlannerProviderAttemptIdentity,
   CreatePlannerValidatedProviderSource,
 } from "@/features/create/createPlannerProviderContract";
+import {
+  CREATE_STANDARD_INTAKE_TIMEOUT_MS,
+  resolveCreateIntakeTiming,
+} from "@/features/create/createFastIntakeTiming";
+import {
+  extractCreateStructuredTopicLabels,
+  isCreateFastIntakeText,
+  resolveCreateIntakeIssueMode,
+  type CreateIntakeIssueMode,
+} from "@/features/create/createIntakeClassification";
 export { isCreatePlannerProviderSource } from "@/features/create/createPlannerProviderContract";
+export { isCreateFastIntakeText } from "@/features/create/createIntakeClassification";
 
 export type CreatePlannerScope =
   | "local"
@@ -103,6 +115,9 @@ export type CreatePlannerResult = {
   graphSearchTerms: string[];
   materialSignals: string[];
   recommendedLane: CreatePlannerRecommendedLane;
+  issueMode?: CreateIntakeIssueMode;
+  timingLane?: "fast" | "standard";
+  inputLength?: number;
   providerPlan: CreatePlannerProviderPlan;
   permissions: CreatePlannerPermissions;
   plannerDegraded: boolean;
@@ -115,6 +130,7 @@ export type CreatePlannerResult = {
   providerAttemptCount: number;
   providerAttempts: CreatePlannerProviderAttemptIdentity[];
   plannerDebug: CreatePlannerDebug;
+  runtimeMs?: number;
 };
 
 type BuildCreatePlannerInput = {
@@ -137,7 +153,7 @@ export type PlannerAttempt =
     };
 
 type PlannerAttemptBudget = {
-  maxAttempts: 2;
+  maxAttempts: number;
   attempts: CreatePlannerProviderAttemptIdentity[];
 };
 
@@ -189,14 +205,7 @@ const CREATE_PLANNER_JSON_SCHEMA = {
     "plannerStance",
     "plannerClusters",
     "plannerOpenQuestions",
-    "shortSummary",
     "topicCandidates",
-    "clusterCandidates",
-    "scopeCandidates",
-    "openQuestions",
-    "graphSearchTerms",
-    "materialSignals",
-    "recommendedLane",
   ],
   properties: {
     plannerTopic: { type: "string" },
@@ -211,26 +220,52 @@ const CREATE_PLANNER_JSON_SCHEMA = {
     },
     plannerClusters: { type: "array", items: { type: "string" } },
     plannerOpenQuestions: { type: "array", items: { type: "string" } },
-    shortSummary: { type: "string" },
     topicCandidates: { type: "array", items: { type: "string" } },
-    clusterCandidates: { type: "array", items: { type: "string" } },
-    scopeCandidates: {
-      type: "array",
-      items: { type: "string", enum: ["local", "district", "municipal", "state", "federal", "eu", "international", "unclear"] },
-    },
-    stance: {
-      type: "string",
-      enum: ["pro", "contra", "mixed", "open", "reform_oriented", "unclear"],
-    },
-    openQuestions: { type: "array", items: { type: "string" } },
-    graphSearchTerms: { type: "array", items: { type: "string" } },
-    materialSignals: { type: "array", items: { type: "string" } },
-    recommendedLane: {
-      type: "string",
-      enum: ["standard", "create_fast_followup"],
-    },
   },
 } as const;
+
+const PlannerPublicTextSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(isPublicPlannerText, "technical_public_value");
+const PlannerScopeSchema = z.enum([
+  "local",
+  "district",
+  "municipal",
+  "state",
+  "federal",
+  "eu",
+  "international",
+  "unclear",
+]);
+const PlannerStanceSchema = z.enum([
+  "pro",
+  "contra",
+  "mixed",
+  "open",
+  "reform_oriented",
+  "unclear",
+]);
+const CreatePlannerProviderPayloadSchema = z
+  .object({
+    plannerTopic: PlannerPublicTextSchema,
+    plannerCore: PlannerPublicTextSchema,
+    plannerScope: z.array(PlannerScopeSchema),
+    plannerStance: PlannerStanceSchema,
+    plannerClusters: z.array(PlannerPublicTextSchema),
+    plannerOpenQuestions: z.array(PlannerPublicTextSchema),
+    shortSummary: PlannerPublicTextSchema.optional(),
+    topicCandidates: z.array(PlannerPublicTextSchema),
+    clusterCandidates: z.array(PlannerPublicTextSchema).optional(),
+    scopeCandidates: z.array(PlannerScopeSchema).optional(),
+    stance: PlannerStanceSchema.optional(),
+    openQuestions: z.array(PlannerPublicTextSchema).optional(),
+    graphSearchTerms: z.array(PlannerPublicTextSchema).optional(),
+    materialSignals: z.array(PlannerPublicTextSchema).optional(),
+    recommendedLane: z.enum(["standard", "create_fast_followup"]).optional(),
+  })
+  .strict();
 
 const GENERIC_CORE_PATTERNS = [
   /^aussage$/i,
@@ -340,11 +375,39 @@ const QUOTA_EQUALITY_CLUSTER_RULES = [
   { label: "Antidiskriminierung", pattern: /diskriminierung|gleichbehandlung|benachteiligung/i },
 ] as const;
 
+const WORKSHOP_PARTICIPATION_TOPIC =
+  "Arbeitsbedingungen und Teilhabe in Behindertenwerkstätten";
+function resolveCitizenFirstSharedCore(text: string): {
+  topic: string;
+  aspects: string[];
+} | null {
+  const hasWorkshop = /behindertenwerkst(?:ä|ae)tt/i.test(text);
+  const hasWage = /\bmindestlohn\b|\bentlohnung\b|\bvergütung\b|\bverguetung\b/i.test(text);
+  const hasIntegration = /\bintegration\b|allgemeinen arbeitsmarkt/i.test(text);
+  const hasGovernance =
+    /\bkontroll|\btransparenz/i.test(text) &&
+    /vorst(?:ä|ae)nd|tr(?:ä|ae)ger/i.test(text);
+  if (!hasWorkshop || [hasWage, hasIntegration, hasGovernance].filter(Boolean).length < 2) return null;
+  const aspects = dedupeStrings([
+    hasWage ? "Faire Entlohnung / Mindestlohn" : null,
+    hasIntegration ? "Integration in den allgemeinen Arbeitsmarkt" : null,
+    hasGovernance ? "Kontrolle / Governance der Träger bzw. Vorstände" : null,
+  ]);
+  return {
+    topic:
+      hasWage && hasGovernance && !hasIntegration
+        ? "Mindestlohn und Kontrolle in Behindertenwerkstätten"
+        : WORKSHOP_PARTICIPATION_TOPIC,
+    aspects,
+  };
+}
+
 function dedupeStrings(values: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const value of values) {
-    const trimmed = String(value ?? "").trim();
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
     if (!trimmed) continue;
     const key = trimmed.toLowerCase();
     if (seen.has(key)) continue;
@@ -369,8 +432,16 @@ function isRecommendedLane(value: string): value is CreatePlannerRecommendedLane
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => String(entry ?? "").trim())
-    .filter((entry) => entry.length > 0);
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && isPublicPlannerText(entry));
+}
+
+const TECHNICAL_PUBLIC_VALUE_PATTERN = /\[object\s+(?:Object|Array)\]|^(?:undefined|null|nan|infinity)$/i;
+
+function isPublicPlannerText(value: string): boolean {
+  const normalized = value.trim();
+  return normalized.length > 0 && !TECHNICAL_PUBLIC_VALUE_PATTERN.test(normalized);
 }
 
 function countPatternHits(text: string, patterns: readonly RegExp[]): number {
@@ -389,8 +460,21 @@ function hasAnyPattern(text: string, patterns: readonly RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
 
-export function resolveCreatePlannerTimeoutMs(): number {
-  return getAiRuntimePolicy().plannerTimeoutMs;
+const CREATE_FAST_INTAKE_MAX_OUTPUT_TOKENS = 400;
+
+export function resolveCreatePlannerTimeoutMs(text?: string): number {
+  const configured = getAiRuntimePolicy().plannerTimeoutMs;
+  const selectedLimit = text
+    ? resolveCreateIntakeTiming(text).serverTimeoutMs
+    : CREATE_STANDARD_INTAKE_TIMEOUT_MS;
+  return Math.min(configured, selectedLimit);
+}
+
+export function resolveCreatePlannerMaxOutputTokens(text: string): number {
+  const configured = getAiRuntimePolicy().plannerMaxOutputTokens;
+  return isCreateFastIntakeText(text)
+    ? Math.min(configured, CREATE_FAST_INTAKE_MAX_OUTPUT_TOKENS)
+    : configured;
 }
 
 function detectBroadCommunalTopicFields(text: string): string[] {
@@ -528,9 +612,9 @@ function normalizePlannerErrorCode(value: unknown, fallback: string) {
   return normalized || fallback;
 }
 
-function createPlannerAttemptBudget(): PlannerAttemptBudget {
+function createPlannerAttemptBudget(text: string): PlannerAttemptBudget {
   return {
-    maxAttempts: 2,
+    maxAttempts: isCreateFastIntakeText(text) ? 1 : 2,
     attempts: [],
   };
 }
@@ -828,17 +912,28 @@ function finalizePlannerResult(params: {
   };
 }): CreatePlannerResult {
   const draft = params.draft;
-  const recommendedLane = draft.recommendedLane;
+  const structuredTopicLabels = extractCreateStructuredTopicLabels(params.text);
+  const canonicalTopicCandidates = structuredTopicLabels.length >= 3
+    ? structuredTopicLabels
+    : dedupeStrings(draft.topicCandidates);
+  const evidenceBackedScopes = inferScopesFromText(params.text);
+  const canonicalTopicCount = canonicalTopicCandidates.length;
+  const issueMode = resolveCreateIntakeIssueMode({
+    text: params.text,
+    canonicalTopicCount,
+  });
+  const timing = resolveCreateIntakeTiming(params.text);
+  const recommendedLane = timing.lane === "standard" ? "standard" : draft.recommendedLane;
   const validatedQuality = validateCreatePlannerQuality(
     {
       plannerCore: draft.plannerCore,
       plannerTopic: draft.plannerTopic,
-      plannerScope: dedupeStrings(draft.plannerScope).filter(isPlannerScope),
+      plannerScope: evidenceBackedScopes,
       plannerClusters: dedupeStrings(draft.plannerClusters),
       graphSearchTerms: dedupeStrings(draft.graphSearchTerms),
-      topicCandidates: dedupeStrings(draft.topicCandidates),
+      topicCandidates: canonicalTopicCandidates,
       clusterCandidates: dedupeStrings(draft.clusterCandidates),
-      scopeCandidates: dedupeStrings(draft.scopeCandidates).filter(isPlannerScope),
+      scopeCandidates: evidenceBackedScopes,
     },
     params.text,
   );
@@ -856,19 +951,22 @@ function finalizePlannerResult(params: {
     plannerRole: "planner_only",
     plannerTopic: draft.plannerTopic,
     plannerCore: draft.plannerCore,
-    plannerScope: dedupeStrings(draft.plannerScope).filter(isPlannerScope),
+    plannerScope: evidenceBackedScopes,
     plannerStance: draft.plannerStance,
     plannerClusters: dedupeStrings(draft.plannerClusters),
     plannerOpenQuestions: dedupeStrings(draft.plannerOpenQuestions),
     shortSummary: draft.shortSummary.trim(),
-    topicCandidates: dedupeStrings(draft.topicCandidates),
+    topicCandidates: canonicalTopicCandidates,
     clusterCandidates: dedupeStrings(draft.clusterCandidates),
-    scopeCandidates: dedupeStrings(draft.scopeCandidates).filter(isPlannerScope),
+    scopeCandidates: evidenceBackedScopes,
     stance: draft.stance,
     openQuestions: dedupeStrings(draft.openQuestions),
     graphSearchTerms: dedupeStrings(draft.graphSearchTerms),
     materialSignals: dedupeStrings(draft.materialSignals),
     recommendedLane,
+    issueMode,
+    timingLane: timing.lane,
+    inputLength: params.text.trim().length,
     providerPlan: baseProviderPlan(params.plannerProvider, recommendedLane),
     permissions: basePermissions(),
     plannerDegraded: params.plannerDegraded || quality.qualityStatus !== "specific",
@@ -1289,7 +1387,7 @@ function buildHeuristicPlanner(params: {
 }
 
 function normalizeProviderPlannerPayload(
-  payload: OpenAiPlannerPayload,
+  rawPayload: unknown,
   text: string,
   model: string,
   locale: string,
@@ -1297,9 +1395,10 @@ function normalizeProviderPlannerPayload(
   rawText?: string,
 ): PlannerAttempt {
   const metadata = responseMetadata(rawText);
-  const plannerTopic = String(payload.plannerTopic ?? "").trim();
-  const plannerCore = String(payload.plannerCore ?? "").trim();
-  if (!plannerTopic || !plannerCore) {
+  const payloadResult = CreatePlannerProviderPayloadSchema.safeParse(rawPayload);
+  if (!payloadResult.success) {
+    const firstIssue = payloadResult.error.issues[0];
+    const issuePath = firstIssue?.path.join("_") || "root";
     return {
       ok: false,
       reason: "invalid_provider_payload",
@@ -1308,9 +1407,10 @@ function normalizeProviderPlannerPayload(
         usedProvider: "local_fallback",
         attemptedModel: model,
         providerAvailable: true,
-        providerErrorCode: !plannerTopic
-          ? "planner_topic_missing"
-          : "planner_core_missing",
+        providerErrorCode: normalizePlannerErrorCode(
+          `contract_violation_${issuePath}`,
+          "invalid_provider_payload",
+        ),
         rawPayloadValid: true,
         rawTextValid: true,
         normalizedPayloadValid: false,
@@ -1319,20 +1419,40 @@ function normalizeProviderPlannerPayload(
       }),
     };
   }
+  const payload = payloadResult.data;
+  const citizenFirstSharedCore = resolveCitizenFirstSharedCore(text);
+  const structuredTopicLabels = extractCreateStructuredTopicLabels(text);
+  const hasStructuredTopicPackage = structuredTopicLabels.length >= 3;
+  const plannerTopic = citizenFirstSharedCore?.topic ?? (
+    hasStructuredTopicPackage
+      ? `Vorschlagspaket mit ${structuredTopicLabels.length} Themenbereichen`
+      : payload.plannerTopic
+  );
+  const plannerCore = payload.plannerCore;
 
-  const plannerScope = asStringArray(payload.plannerScope).filter(isPlannerScope);
-  const resolvedPlannerScope =
-    plannerScope.length > 0 ? plannerScope : inferScopesFromText(text);
-  const plannerStanceRaw = String(payload.plannerStance ?? payload.stance ?? "").trim().toLowerCase();
-  const plannerStance = isPlannerStance(plannerStanceRaw) ? plannerStanceRaw : "open";
-  const recommendedLaneRaw = String(payload.recommendedLane ?? "").trim().toLowerCase();
+  // Jurisdiction is input evidence, not a provider inference. Reliable bound
+  // context can be added at the caller later; without it, text is the authority.
+  const resolvedPlannerScope = inferScopesFromText(text);
+  const plannerStanceRaw = payload.plannerStance;
+  const explicitProStance = /\bich\s+bin\s+f(?:ü|ue)r\b|\bich\s+unterst(?:ü|ue)tze\b/i.test(text);
+  const explicitContraStance = /\bich\s+bin\s+(?:dagegen|gegen)\b|\bich\s+lehne\b/i.test(text);
+  const plannerStance =
+    (plannerStanceRaw === "open" || plannerStanceRaw === "unclear") && explicitProStance && !explicitContraStance
+      ? "pro"
+      : plannerStanceRaw;
+  const recommendedLaneRaw = payload.recommendedLane;
   const recommendedLane = isRecommendedLane(recommendedLaneRaw) ? recommendedLaneRaw : "create_fast_followup";
-  const plannerClusters = asStringArray(payload.plannerClusters);
+  const plannerClusters = citizenFirstSharedCore?.aspects ?? asStringArray(payload.plannerClusters);
   const providerTopicCandidates = dedupeStrings(asStringArray(payload.topicCandidates));
-  const topicCandidates =
-    providerTopicCandidates.length > 0 ? providerTopicCandidates : [plannerTopic];
+  const topicCandidates = hasStructuredTopicPackage
+    ? structuredTopicLabels
+    : citizenFirstSharedCore
+      ? [citizenFirstSharedCore.topic]
+      : providerTopicCandidates.length > 0
+        ? providerTopicCandidates
+        : [plannerTopic];
   const clusterCandidates = dedupeStrings([...plannerClusters, ...asStringArray(payload.clusterCandidates)]);
-  const scopeCandidates = dedupeStrings([...resolvedPlannerScope, ...asStringArray(payload.scopeCandidates)]).filter(isPlannerScope);
+  const scopeCandidates = resolvedPlannerScope;
   const locationQuestion = needsMunicipalLocationQuestion(text, scopeCandidates)
     ? municipalLocationQuestion(locale)
     : null;
@@ -1347,7 +1467,7 @@ function normalizeProviderPlannerPayload(
     plannerTopic,
   ]);
   const materialSignals = asStringArray(payload.materialSignals);
-  const shortSummary = String(payload.shortSummary ?? "").trim() || plannerCore || summarizeText(text);
+  const shortSummary = payload.shortSummary || plannerCore || summarizeText(text);
 
   const result = finalizePlannerResult({
     text,
@@ -1459,7 +1579,7 @@ async function tryOpenAiPlannerWithModel(
   const system = [
     "Du bist planner_only für den ersten nicht-mutativen /create-Follow-up-Schritt in E150.",
     "Strukturiere den Beitrag fachlich, ohne Fakten zu erfinden und ohne mutative Aktionen.",
-    "Erkenne Mehrthemenbeiträge. Bei längeren politischen Texten mit mehreren Themenfeldern musst du Cluster bilden.",
+    "Unterscheide eigenständige Hauptthemen von Aspekten, Maßnahmen oder Unterpunkten eines gemeinsamen Anliegens.",
     "Nutze keine generischen Platzhalter wie 'Aussage' oder 'Öffentliches Anliegen', wenn ein konkretes Thema erkennbar ist.",
     "Amtsträger, Qualifikation oder Sanktionen nur bei expliziten Hinweisen auf Amtsträger, Politiker, Mandatsträger, Minister, Abgeordnete oder politische Ämter.",
     "Gib strikt JSON zurück.",
@@ -1467,17 +1587,22 @@ async function tryOpenAiPlannerWithModel(
 
   const user = [
     "Analysiere den folgenden Beitrag als planner_only.",
-    "Liefere genau diese JSON-Felder:",
-    "plannerTopic, plannerCore, plannerScope, plannerStance, plannerClusters, plannerOpenQuestions, shortSummary, topicCandidates, clusterCandidates, scopeCandidates, openQuestions, graphSearchTerms, materialSignals, recommendedLane.",
+    "Liefere genau die vom JSON-Schema verlangten Felder.",
     "Regeln:",
     "- Keine Veröffentlichung, kein Speichern, kein Mergen, kein DeepSearch, kein Faktencheck, keine Quellenbehauptungen.",
     "- 'Öffentliches Anliegen' ist nur erlaubt, wenn absolut kein Thema erkennbar ist.",
     "- 'Aussage' ist nie ausreichend als plannerCore bei längeren politischen Texten.",
     "- Bei mehreren Politikfeldern müssen mindestens 3 Cluster entstehen.",
-    "- Erhalte jedes ausdrücklich genannte, fachlich eigenständige Thema als eigenen topicCandidate; niemals auf drei Themen begrenzen.",
+    "- topicCandidates enthält ausschließlich fachlich eigenständige Hauptthemen; niemals Aspekte oder Maßnahmen als zusätzliche Themen zählen.",
+    "- Wenn ein gemeinsamer Kern mehrere Aspekte verbindet, liefere genau einen topicCandidate gleich plannerTopic und führe die Aspekte in plannerClusters.",
+    "- plannerClusters enthält wenige verständliche Aspekte oder Unterpunkte des Hauptanliegens und erhöht niemals die Themenzahl.",
+    "- Nur wenn der Text tatsächlich mehrere voneinander unabhängige Anliegen enthält, darf topicCandidates mehrere Einträge enthalten; niemals auf drei Themen begrenzen.",
+    "- Nummerierte Themenblöcke, Abschnittsüberschriften und wiederholte 'Unterthemen:' sind starke Signale für mehrere eigenständige Hauptthemen.",
+    "- Bei einem strukturierten Vorschlagspaket bleibt jeder ausdrücklich benannte Themenblock ein eigener topicCandidate.",
     "- Ein nur von dir gebildeter Sammelbegriff oder ein synthetisches Oberthema darf die Zahl der topicCandidates nicht erhöhen.",
     "- Wenn plannerTopic selbst ausdrücklich als eigenständiges Thema im Text vorkommt, bleibt es dagegen als topicCandidate erhalten.",
     "- Bei kommunalem Scope ohne ausdrücklich benannte Stadt, Gemeinde oder Ortsteil muss plannerOpenQuestions eine Ortsrückfrage enthalten.",
+    "- Scope/Jurisdiktion nur aus expliziten Hinweisen im Text ableiten; ohne belastbaren Hinweis ausschließlich unclear verwenden.",
     "- Formuliere die offene Rückfrage als Auswahlfrage, wenn mehrere Themen konkurrieren.",
     "",
     `Locale: ${input.locale}`,
@@ -1487,20 +1612,49 @@ async function tryOpenAiPlannerWithModel(
   ].join("\n");
 
   try {
-    const timeoutMs = resolveCreatePlannerTimeoutMs();
-    const { text } = await callOpenAIJson({
+    const timeoutMs = resolveCreatePlannerTimeoutMs(input.text);
+    const response = await callOpenAIJson({
       system,
       user,
       model,
       temperature: 0.2,
-      max_tokens: getAiRuntimePolicy().plannerMaxOutputTokens,
+      max_tokens: resolveCreatePlannerMaxOutputTokens(input.text),
       timeoutMs,
+      allowJsonFormatFallback: false,
       response_format: {
         name: "create_planner_result",
         schema: CREATE_PLANNER_JSON_SCHEMA,
         strict: true,
       },
     });
+    const { text } = response;
+    const actualModel = response.model?.trim() || model;
+    if (
+      (response.formatUsed && response.formatUsed !== "json_schema") ||
+      response.didFallback === true
+    ) {
+      finishPlannerAttempt(budget, attemptNumber, {
+        status: "failed",
+        resultCode: "invalid_provider_payload",
+        rawText: text,
+      });
+      return attachPlannerAttemptNumber({
+        ok: false,
+        reason: "invalid_provider_payload",
+        debug: createPlannerDebug({
+          attemptedProvider: "openai",
+          usedProvider: "local_fallback",
+          attemptedModel: model,
+          providerAvailable: true,
+          providerErrorCode: "strict_schema_not_enforced",
+          rawPayloadValid: false,
+          rawTextValid: typeof text === "string" && text.length > 0,
+          normalizedPayloadValid: false,
+          qualityGatePassed: false,
+          ...responseMetadata(text),
+        }),
+      }, attemptNumber);
+    }
     let parsed: OpenAiPlannerPayload;
     try {
       parsed = JSON.parse(text) as OpenAiPlannerPayload;
@@ -1530,7 +1684,7 @@ async function tryOpenAiPlannerWithModel(
     const normalized = normalizeProviderPlannerPayload(
       parsed,
       input.text,
-      model,
+      actualModel,
       input.locale,
       "openai",
       text,
@@ -1547,6 +1701,7 @@ async function tryOpenAiPlannerWithModel(
         ? "succeeded"
         : (normalizedFailure ?? "provider_error"),
       rawText: text,
+      model: actualModel,
     });
     return attachPlannerAttemptNumber(normalized, attemptNumber);
   } catch (error) {
@@ -1728,7 +1883,10 @@ function buildFallbackPlannerPrompt(input: BuildCreatePlannerInput) {
     "Pflichtfelder:",
     "plannerTopic, plannerCore, plannerScope, plannerStance, plannerClusters, plannerOpenQuestions, shortSummary, topicCandidates, clusterCandidates, scopeCandidates, openQuestions, graphSearchTerms, materialSignals, recommendedLane.",
     "Keine Veröffentlichung, kein Speichern, kein Mergen, kein DeepSearch und keine Quellenbehauptungen.",
-    "Erhalte jedes ausdrücklich genannte, fachlich eigenständige Thema als eigenen topicCandidate.",
+    "topicCandidates enthält nur eigenständige Hauptthemen, plannerClusters nur Aspekte oder Unterpunkte.",
+    "Bei einem gemeinsamen Kern mit mehreren Maßnahmen: genau ein topicCandidate gleich plannerTopic.",
+    "Nummerierte Themenblöcke und Abschnittsüberschriften bleiben als eigenständige topicCandidates erhalten.",
+    "Scope/Jurisdiktion nur aus expliziten Texthinweisen ableiten; sonst ausschließlich unclear.",
     "Bei mehreren Politikfeldern müssen mindestens 3 Cluster entstehen.",
     "recommendedLane ist standard oder create_fast_followup.",
     `Locale: ${input.locale}`,
@@ -1748,7 +1906,7 @@ async function tryFallbackPlanner(
     provider === "anthropic" ? policy.anthropic.model : policy.mistral.model;
   const controller = new AbortController();
   const timeoutMs = Math.min(
-    policy.plannerTimeoutMs,
+    resolveCreatePlannerTimeoutMs(input.text),
     policy.providerTimeoutsMs[provider],
   );
   const attemptNumber = reservePlannerAttempt(budget, provider, model);
@@ -1776,13 +1934,13 @@ async function tryFallbackPlanner(
         ? await callAnthropic({
             prompt: buildFallbackPlannerPrompt(input),
             model,
-            maxOutputTokens: policy.plannerMaxOutputTokens,
+            maxOutputTokens: resolveCreatePlannerMaxOutputTokens(input.text),
             signal: controller.signal,
           })
         : await callMistral({
             prompt: buildFallbackPlannerPrompt(input),
             model,
-            maxOutputTokens: policy.plannerMaxOutputTokens,
+            maxOutputTokens: resolveCreatePlannerMaxOutputTokens(input.text),
             signal: controller.signal,
           });
     let parsed: OpenAiPlannerPayload;
@@ -1950,15 +2108,15 @@ async function recordCreatePlannerAiUsage(params: {
   });
 }
 
-export async function buildCreatePlanner(input: BuildCreatePlannerInput): Promise<CreatePlannerResult> {
+async function buildCreatePlannerResult(input: BuildCreatePlannerInput): Promise<CreatePlannerResult> {
   const text = input.text.trim();
-  const budget = createPlannerAttemptBudget();
+  const budget = createPlannerAttemptBudget(text);
   const startedAt = Date.now();
   const openAiResult = await tryOpenAiPlanner({
     ...input,
     text,
   }, budget);
-  await recordCreatePlannerAiUsage({
+  void recordCreatePlannerAiUsage({
     input,
     attempt: openAiResult,
     durationMs: Date.now() - startedAt,
@@ -1969,14 +2127,21 @@ export async function buildCreatePlanner(input: BuildCreatePlannerInput): Promis
   if (!openAiResult.ok) {
     const plannerFailure = openAiResult as Extract<PlannerAttempt, { ok: false }>;
     const fallbackProvider = resolveCreatePlannerFallbackProvider();
-    if (fallbackProvider && budget.attempts.length < budget.maxAttempts) {
+    const providerContractFailed =
+      plannerFailure.reason === "invalid_json" ||
+      plannerFailure.reason === "invalid_provider_payload";
+    if (
+      fallbackProvider &&
+      !providerContractFailed &&
+      budget.attempts.length < budget.maxAttempts
+    ) {
       const fallbackStartedAt = Date.now();
       const fallbackResult = await tryFallbackPlanner(
         { ...input, text },
         fallbackProvider,
         budget,
       );
-      await recordCreatePlannerAiUsage({
+      void recordCreatePlannerAiUsage({
         input,
         attempt: fallbackResult,
         durationMs: Date.now() - fallbackStartedAt,
@@ -2034,4 +2199,13 @@ export async function buildCreatePlanner(input: BuildCreatePlannerInput): Promis
       }),
     },
   }), budget);
+}
+
+export async function buildCreatePlanner(input: BuildCreatePlannerInput): Promise<CreatePlannerResult> {
+  const startedAt = Date.now();
+  const result = await buildCreatePlannerResult(input);
+  return {
+    ...result,
+    runtimeMs: Date.now() - startedAt,
+  };
 }
