@@ -2,9 +2,9 @@
 
 Stand: 2026-09-09
 
-Status: Governance- und Extraktionsplan; C1 und C2 sind über PRs `#734` und `#736` gemergt, ausschließlich C3 ist im operativen Kopf als nächster Preflight-Slice autorisiert
+Status: Governance- und Extraktionsplan; C1 und C2 sind über PRs `#734` und `#736` gemergt, der C3-PII-/Security-Preflight ist fehlgeschlagen und der Parent wurde in vier blockierte Slices zerlegt
 
-Zielbasis: `main@7896cd41ba366b3b7de5725872675170e8f3b86b` (enthält C1 über PR `#734` und C2 über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`)
+Zielbasis: `main@7b5193f6ad26befb925f1187f9f0664fa30e603b` (enthält C1 über PR `#734` und C2 über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`)
 
 ## 1. Zweck und verbindliche Grenzen
 
@@ -19,9 +19,9 @@ Es gilt für jeden Slice:
 - ein späterer Slice darf dieselbe Integrationsdatei erneut ändern, aber keinen bereits übernommenen Hunk duplizieren;
 - kein Auto-Publish, kein Silent Merge, keine zweite Create-, Planner-, Session-, Resolver-, Source-, Review- oder Progress-Runtime;
 - Quellen, Unsicherheit, Nutzerentscheidung, Auth-Grenze und PII-Grenze bleiben nachvollziehbar;
-- C4–C12 und G1–G5 sind durch dieses Dokument weiterhin nicht `codex_ready`; ausschließlich C3 ist als nächster Preflight-Slice autorisiert.
+- C3A–C3D, C4–C12 und G1–G5 sind durch dieses Dokument weiterhin nicht `codex_ready`; der fehlgeschlagene C3-Preflight autorisiert keine Implementierung.
 
-`CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) ist über PR `#734` gemergt. `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) ist über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`, als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` gemergt. Ausschließlich `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01` (C3) ist über `docs/E150/OpenTasks.md` als nächster Slice für einen eigenen Task- sowie PII-/Security-Preflight autorisiert. C4–C12 und G1–G5 bleiben unautorisiert; jeder spätere Slice braucht nach Merge seines Vorgängers einen eigenen operativen Task, einen positiven Preflight und einen frischen Branch vom dann aktuellen `main`.
+`CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) ist über PR `#734` gemergt. `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) ist über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`, als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` gemergt. Für `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01` (C3) gilt `TASK_PREFLIGHT=PASS`, `PII_SECURITY_PREFLIGHT=FAIL`, `SIZE_GATE=FAIL_SPLIT_REQUIRED`, `SECURITY_GATE=FAIL_BLOCKED`, `WORK_REQUIRED=true` und `SAFE_TO_IMPLEMENT=false`. Der Parent bleibt nicht ausführbar; C3A–C3D, C4–C12 und G1–G5 bleiben unautorisiert. Jeder spätere Slice braucht nach Abschluss aller Vorgänger einen eigenen operativen Task, einen positiven Preflight und einen frischen Branch vom dann aktuellen `main`. Die produktweite Einordnung steht in `docs/E150/EDEBATTE_MASTER_PRODUCTION_ROADMAP_2026-09-09.md`.
 
 ## 2. Exakte Extraktionsreihenfolge
 
@@ -29,8 +29,8 @@ Es gilt für jeden Slice:
 | --- | --- | --- | --- |
 | C1 | Authenticated Create Planner / Timing Foundation | `#713`, korrigierende Evidence `#682`, Vergleich `#627` | gemergt über PR `#734` als `main@cc42c0f73490833b0bf999d177672ebf342f9880` |
 | C2 | Authenticated Create Workspace / Mobile Presentation | `#713` | gemergt über PR `#736` als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` |
-| C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | jetzt `codex_ready`; eigener positiver Task- sowie PII-/Security-Preflight vor Implementierung |
-| C4 | Browser Resume, explizite Adoption und Draft Binding | `#682` | C3 gemergt; Session-/Actor-Vertrag stabil |
+| C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | Parent `blocked`; PII-/Security-Preflight und Größen-/Security-Gates fehlgeschlagen; ausschließlich seriell über C3A–C3D dispositioniert |
+| C4 | Browser Resume, explizite Adoption und Draft Binding | `#682` | C3A–C3D abgeschlossen; Session-/Actor-/Claim-Verträge stabil |
 | C5 | Citizen Context und Place Resolution | `#682` | C4 gemergt; keine zweite Resolver-Wahrheit |
 | C6 | Existing-Topic Match und explizite Stance | `#682` | C5 gemergt; kanonische Match-IDs verfügbar |
 | C7 | Official Jurisdiction Index und Confirmation | `#682` | C6 gemergt; serverauthoritative Candidate-Keys |
@@ -80,6 +80,17 @@ Die Reihenfolge bezeichnet Merge-Reihenfolge, nicht Branch-Stacking. Jeder Branc
 
 ### C3 — Anonymous Session, Abuse Gates und redacted Guest Claim
 
+**Disposition 2026-09-09:** Der Parent `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01` ist `blocked` und darf nicht implementiert werden. Der Task-Preflight war positiv, aber PII-/Security-Preflight und Größen-/Security-Gates sind fehlgeschlagen. Blocker sind rohe Guest-Daten in `localStorage`, rekursiv codierte PII, Credential-/Signed-URL-Bypass, clientseitige freie Correlation, unsichere persistierte Result-/Failure-Payloads, unzureichend abuse-begrenzte Session-Erzeugung, unvollständige Body-Size-/Content-Type-Gates sowie überschrittene Slice-/Core-Contract-/Security-Grenzen. Es ist kein P0 bekannt; die Befunde sind P1-/Security-Architekturblocker.
+
+Die einzig zulässige spätere Reihenfolge ist:
+
+1. C3A `CREATE-ANONYMOUS-SESSION-FOUNDATION-01` — signierte HttpOnly-SameSite-Session, serverseitige UUID/Expiry, minimaler Session-Endpunkt und begrenzte Issuance; keine Intake-/Planner-/Resume-/Browser-Rohdaten-Verantwortung.
+2. C3B `CREATE-ANONYMOUS-ABUSE-ROUTE-SECURITY-01` — Same-Origin/Fetch Metadata/CSRF, Honeypot, persistente Limits/Cooldown, Content-Type, gemessene Body-Grenze und fail-closed Parser-/Limiter-Grenzen; keine fachliche Planner-/Intake-Semantik.
+3. C3C `CREATE-GUEST-CLAIM-PII-SINGLE-FLIGHT-01` — server-authoritative Claim/Correlation, rekursive PII-/Secret-/Signed-URL-Prüfung, non-retaining `source_pending`, allowlisted Failures und Single Flight/Replay/Lease Recovery; keine Adoption und niemals Fetch einer redigierten/sensitiven URL.
+4. C3D `CREATE-GUEST-EPHEMERAL-UI-01` — minimale Guest-UI mit ephemerem React-State; keine Rohdaten-/Trace-/Result-Persistenz, kein Resume, keine Adoption und kein Account Draft.
+
+Alle vier Tasks bleiben bis zu Architektur-/Security-Review und eigenem positivem Preflight `blocked`. C4 hängt vom Abschluss aller vier ab. Die folgende Source-/Owner-Evidence beschreibt den historischen Parent-Scope und ist keine Copy-, Merge- oder Implementierungsfreigabe.
+
 **Source:** `#724`: `3011d46a`, `c05be10d`, `a8f227cf`; `#682`: `bb72c178`, `52baa748`, `0added0a`, `04dd1f49`, `0b258560`. Merge-/Konvergenzcommits sind keine Extraktionseinheit.
 
 **Owner-Dateien/Hunks:** `createAbuseGuard.ts`, `createAnonymousSession.ts`, `createMutationSecurityContract.ts`, `createRouteSecurity.ts`, `createOrchestrationSingleFlight.ts`, `/api/create/session`, `/api/create/intake`; Guest-Claim-Erzeugung und ausschließlich pre-planner URL-Erkennung/`source_pending` in `linkIntake.ts`; minimale Guest-Hunks in `CreateClient.tsx`, `page.tsx` und `SharedCreateComposer.tsx`; Abuse-, Anonymous-Session-, Intake-, Single-Flight-, Route-Security- und recursive-PII-Tests.
@@ -94,7 +105,7 @@ Die Reihenfolge bezeichnet Merge-Reihenfolge, nicht Branch-Stacking. Jeder Branc
 2. Credential-, Token- und signed-resource Query-Parameter, auch wenn sie keinem einfachen E-Mail-/Telefonmuster entsprechen;
 3. keine semantisch verfälschte „redigierte“ Fetch-URL erzeugen; bei sensitiver URL fail-closed und ehrlich `source_pending`/sichere Neueingabe verlangen.
 
-**Tests/Human/Merge:** Honeypot, Rate-/Risk-Gates, Cross-Session-Angriff, Single Flight, normaler Guest-Text, URL-only/URL-led ohne Planner, rekursiver Claim-Scan und mehrstufig encodierte/signed URL-Fixtures. Human Acceptance prüft sichtbare, reibungsarme Guest-Grenze ohne PII-Offenlegung. C2 und ein eigener PII-/Security-Review müssen grün sein.
+**Historische Testevidence, keine Merge-Freigabe:** Honeypot, Rate-/Risk-Gates, Cross-Session-Angriff, Single Flight, normaler Guest-Text, URL-only/URL-led ohne Planner, rekursiver Claim-Scan und mehrstufig encodierte/signed URL-Fixtures. Jeder Subslice braucht eigene fokussierte Tests und Human Acceptance; ein gemeinsamer C3-Merge ist ausgeschlossen.
 
 ### C4 — Browser Resume, explizite Adoption und Draft Binding
 
@@ -106,7 +117,7 @@ Die Reihenfolge bezeichnet Merge-Reihenfolge, nicht Branch-Stacking. Jeder Branc
 
 **Grenzen:** Login ist sichtbare Auth-Grenze; der Server validiert Guest Session, Operation, Browserbindung und bisherigen Verbrauch; Persistenzobjekte sind Claim, Adoption Receipt und genau ein Account-Draft; Client darf Operation-ID plus Payload nicht erfinden; Wiederholung liefert denselben Draft und Cross-Account-/Cross-Session-Adoption bleibt verboten.
 
-**Tests/Human/Merge:** Reload/Resume, Login-Grenze, erfolgreiche explizite Adoption, zweite Adoption idempotent, fremder Actor abgewiesen, genau ein Draft, kein Planner-Replay und kein `draftId:null`. C3 muss gemergt sein; authentifizierter und Guest-Browser-Smoke erforderlich.
+**Tests/Human/Merge:** Reload/Resume, Login-Grenze, erfolgreiche explizite Adoption, zweite Adoption idempotent, fremder Actor abgewiesen, genau ein Draft, kein Planner-Replay und kein `draftId:null`. C3A–C3D müssen abgeschlossen und gemergt sein; authentifizierter und Guest-Browser-Smoke erforderlich.
 
 ### C5 — Citizen Context und Place Resolution
 
@@ -317,14 +328,17 @@ Von den aufgeführten Create-/Guard-Quell-PRs ist keiner auf aktuellem `main` si
 ## 10. Blocking Dependencies und Ziel-Branchgraph
 
 ```text
-main@7896cd41 (C1 und C2 gemergt; C2 über PR #736)
-  └─ C3 Anonymous Security/Guest Claim
-       └─ merge → refreshed main
-            └─ C4 Resume/Adoption/Draft Binding
-                 └─ C5 Citizen Context/Place
-                      └─ C6 Existing Topic/Stance
-                           └─ C7 Jurisdiction
-                                └─ C8 Source/Link Analysis
+main (C1 und C2 gemergt; C2 über PR #736)
+  └─ C3A Anonymous Session Foundation
+       └─ C3B Anonymous Abuse/Route Security
+            └─ C3C Guest Claim/PII/Single Flight
+                 └─ C3D Guest Ephemeral UI
+                      └─ merge → refreshed main
+                           └─ C4 Resume/Adoption/Draft Binding
+                                └─ C5 Citizen Context/Place
+                                     └─ C6 Existing Topic/Stance
+                                          └─ C7 Jurisdiction
+                                               └─ C8 Source/Link Analysis
 
 current/refreshed main
   └─ G1 Shared Public Question Guard
@@ -345,4 +359,4 @@ Jede Kante `merge → refreshed main` bedeutet: kein abhängiger Branch wird auf
 
 ## 11. Nicht autorisiert
 
-Dieses Runbook autorisiert weder C4–C12 noch G1–G5 zur Implementierung. Es autorisiert keinen Merge der Quell-PRs, kein Deployment, keine Production-DB-Arbeit, keine Secret-/Provideraktivierung, keine neue Runtime und keine Änderung an `#590`, `#682` oder `#727`. C1 und C2 sind über PRs `#734` und `#736` gemergt; der einzige nächste Extraction-Task ist C3 unter `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01`, und auch C3 darf erst nach seinem eigenen positiven Task- sowie PII-/Security-Preflight und den bestehenden Stop-Loss-Gates implementiert werden.
+Dieses Runbook autorisiert weder den C3-Parent noch C3A–C3D, C4–C12 oder G1–G5 zur Implementierung. Es autorisiert keinen Merge der Quell-PRs, kein Deployment, keine Production-DB-Arbeit, keine Secret-/Provideraktivierung, keine neue Runtime und keine Änderung an `#590`, `#682` oder `#727`. C1 und C2 sind über PRs `#734` und `#736` gemergt. Jeder C3-Subslice benötigt nach Architektur-/Security-Akzeptanz einen eigenen `codex_ready`-Status und positiven Preflight; die vorhandene technische Ownership von C4–C12 und G1–G5 bleibt unverändert. Produktweite Parallel-Lanes und Production Gates werden ausschließlich im Master-Roadmap-Dokument eingeordnet.
