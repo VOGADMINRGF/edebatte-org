@@ -2,7 +2,7 @@
 
 Stand: 2026-09-09
 
-Basis: `main@18372bb530a7538c53d83df26c2ccf8e3a2188df`
+Basis: `main@52b1995706e0b69c01413171b63b4d7888dbb16b`
 
 Status: Governance- und Architekturmanifest; keine Runtime-, Schema-, Provider-, Secret-, Deploy-, Publish- oder Produktionsfreigabe
 

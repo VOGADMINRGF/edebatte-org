@@ -332,17 +332,16 @@ Von den aufgeführten Create-/Guard-Quell-PRs ist keiner auf aktuellem `main` si
 ## 10. Blocking Dependencies und Ziel-Branchgraph
 
 ```text
-main (C1 und C2 gemergt; C2 über PR #736)
-  └─ C3A Anonymous Session Foundation
-       └─ C3B Anonymous Abuse/Route Security
-            └─ C3C Guest Claim/PII/Single Flight
-                 └─ C3D Guest Ephemeral UI
-                      └─ merge → refreshed main
-                           └─ C4 Resume/Adoption/Draft Binding
-                                └─ C5 Citizen Context/Place
-                                     └─ C6 Existing Topic/Stance
-                                          └─ C7 Jurisdiction
-                                               └─ C8 Source/Link Analysis
+main (C1, C2 und C3A gemergt; C3A done über PR #740)
+  └─ C3B Anonymous Abuse/Route Security (codex_ready: ausschließlich Task-/Security-/Extraktions-/Size-Preflight; keine Implementierung)
+       └─ C3C Guest Claim/PII/Single Flight (blocked)
+            └─ C3D Guest Ephemeral UI (blocked)
+                 └─ merge → refreshed main
+                      └─ C4 Resume/Adoption/Draft Binding (C4–C12 nicht autorisiert)
+                           └─ C5 Citizen Context/Place
+                                └─ C6 Existing Topic/Stance
+                                     └─ C7 Jurisdiction
+                                          └─ C8 Source/Link Analysis
 
 current/refreshed main
   └─ G1 Shared Public Question Guard
