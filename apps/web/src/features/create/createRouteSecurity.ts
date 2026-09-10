@@ -250,18 +250,13 @@ export async function enforceCreateMutationSecurity(input: {
   if (!clientSignal.valid) {
     return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
   }
-  const boundedBody = await readBoundedJsonObject(input.req, input.scope);
-  if ("reason" in boundedBody) {
-    return boundedBody.reason === "too_large"
-      ? genericSecurityFailure(413, "CREATE_REQUEST_TOO_LARGE")
-      : genericSecurityFailure(400, "CREATE_INVALID_REQUEST");
-  }
-  const abuse = evaluateCreateAbusePayload(boundedBody.payload);
-  if (abuse.risk === "block") {
-    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
-  }
 
   const policy = RATE_LIMITS[input.scope];
+  let limiterContext: {
+    limiter: CreateRateLimiter;
+    ip: string;
+    anonymousSession: ReturnType<typeof verifyAnonymousSession>;
+  } | null = null;
   try {
     const limiter = await loadCreateRateLimiter();
     if (!limiter) {
@@ -309,7 +304,27 @@ export async function enforceCreateMutationSecurity(input: {
         Math.ceil(baseLimited.retryIn / 1000),
       );
     }
+    limiterContext = { limiter, ip, anonymousSession };
+  } catch {
+    return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
+  }
 
+  const boundedBody = await readBoundedJsonObject(input.req, input.scope);
+  if ("reason" in boundedBody) {
+    return boundedBody.reason === "too_large"
+      ? genericSecurityFailure(413, "CREATE_REQUEST_TOO_LARGE")
+      : genericSecurityFailure(400, "CREATE_INVALID_REQUEST");
+  }
+  const abuse = evaluateCreateAbusePayload(boundedBody.payload);
+  if (abuse.risk === "block") {
+    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
+  }
+  if (!limiterContext) {
+    return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
+  }
+  const { limiter, ip, anonymousSession } = limiterContext;
+
+  try {
     if (input.scope !== "create_save" && abuse.fingerprint) {
       const duplicateLimited = firstLimited(await Promise.all([
         limiter({
