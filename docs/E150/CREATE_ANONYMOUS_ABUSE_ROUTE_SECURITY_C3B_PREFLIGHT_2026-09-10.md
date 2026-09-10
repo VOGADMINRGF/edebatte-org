@@ -6,6 +6,8 @@ Task: `CREATE-ANONYMOUS-ABUSE-ROUTE-SECURITY-01`
 
 Basis: `main@967d567811b41a17014d01ec8d47676195351c2a`
 
+Ergänzende Governance-Basis für die Test-Harness-Kollision: `main@67c3fb8b6e62201587964e0226714cf3e84e9b4c`
+
 Status: kanonische Preflight-Evidence; keine Implementierung und keine Merge-, Deployment-, Production-DB-, Provider-, Secret- oder Publish-Freigabe
 
 ## 1. Ergebnis und Disposition
@@ -20,7 +22,7 @@ BLOCKERS=NONE
 IMPLEMENTATION_AUTHORIZATION_RECOMMENDATION=AUTHORIZE
 ```
 
-Die Empfehlung gilt ausschließlich für einen separaten C3B-Implementierungsslice in der unten festgelegten Acht-Dateien-Grenze. C3B bleibt `codex_ready` und ist `implementation_authorized`, aber weder implementiert noch `review`, `done` oder gemergt. Der C3-Parent bleibt `blocked`; C3C und C3D bleiben `blocked`; C4–C12, G1–G5 und T0–T8 bleiben unverändert beziehungsweise unautorisiert. Production und Output bleiben gesperrt, `AUTO_PUBLISH=false`.
+Die Empfehlung gilt ausschließlich für einen separaten C3B-Implementierungsslice in der unten festgelegten Neun-Dateien-Grenze. C3B bleibt `codex_ready` und ist `implementation_authorized`, aber weder implementiert noch `review`, `done` oder gemergt. Der C3-Parent bleibt `blocked`; C3C und C3D bleiben `blocked`; C4–C12, G1–G5 und T0–T8 bleiben unverändert beziehungsweise unautorisiert. Production und Output bleiben gesperrt, `AUTO_PUBLISH=false`.
 
 ```text
 C3_PARENT_STATUS=blocked
@@ -71,14 +73,17 @@ Nicht übernommen werden ganze Commits, Merge-/Konvergenzcommits, `req.clone().j
    - ausgeschlossen: Änderung von `SharedCreateComposer.tsx`, sichtbare UX, Autofill-sensitive Feldnamen, Telemetrie, Logs, Persistenz, Session-Erzeugung, neuer Request-Body oder zweiter Submit-Pfad
 5. `apps/web/tests/create-route-security.contract.test.ts`
    - ausschließlich um die C3B-Transport-, Session-, Limiter-, Leakage- und Failure-Verträge erweitern
+6. `apps/web/tests/create-mode.save.route.test.ts`
+   - ausschließlich den kanonischen persistenten Limiter mocken, damit die bestehende Save-Route-Suite deterministisch gegen den realen Security-Pfad läuft
+   - Default: persistenter Limiter verfügbar und Anfrage erlaubt; bestehende Assertions, Origin-/Fetch-Metadata-/CSRF-, Honeypot-, Parser- und Body-Size-Prüfungen bleiben wirksam
 
 ### Neu
 
-6. `apps/web/src/features/create/createAbuseGuard.ts`
-7. `apps/web/tests/create-abuse-guard.contract.test.ts`
-8. `apps/web/tests/create-antispam-client.contract.test.ts`
+7. `apps/web/src/features/create/createAbuseGuard.ts`
+8. `apps/web/tests/create-abuse-guard.contract.test.ts`
+9. `apps/web/tests/create-antispam-client.contract.test.ts`
 
-Weitere Runtime-Dateien sind ohne neue Collision-/Preflight-Entscheidung nicht autorisiert.
+Die neunte Datei ist ausschließlich eine bestehende Testdatei. Weitere Runtime- oder Testdateien sind ohne neue Collision-/Preflight-Entscheidung nicht autorisiert.
 
 ### Create-Form-Collision-Evidence
 
@@ -107,6 +112,7 @@ BLOCKING_COLLISION=NONE
 | `REUSE` | `apps/web/src/utils/rateLimitHelpers.ts` — `getClientIp` | Kanonischer IP-Resolver. Keine parallele Proxy-Header-Auslegung einführen. |
 | `EXTEND` | `apps/web/src/app/api/create/session/route.ts` — `requestIsSameOrigin` | Der lokale Check dupliziert den Create-Provenienzvertrag. Nur durch das gemeinsame Predicate ersetzen und alle C3A-Semantiken erhalten. |
 | `EXTEND` | `apps/web/src/app/create/CreateClient.tsx` — `CreateClient`, Composer-State und fünf `createMutationRequestHeaders()`-Callsites | Der reale Composer und alle relevanten Header-Aufrufe liegen hier. Den minimalen unsichtbaren Trap-State im bestehenden `composer`-Node ergänzen und ausschließlich durch den vorhandenen Header-Builder leiten; keinen alternativen Composer oder Submit-Pfad schaffen. |
+| `EXTEND_TEST_HARNESS` | `apps/web/tests/create-mode.save.route.test.ts` — persistente Limiter-Abhängigkeit der realen Save-Route | Ausschließlich den kanonischen Limiter-Import mit einem steuerbaren `vi.mock` versehen, dessen Default den verfügbaren, erlaubenden persistenten Limiter repräsentiert. Weder den Security-Owner mocken noch Assertions oder Security-Gates abschwächen. |
 | `REUSE` | `apps/web/src/features/create/createAnonymousSession.ts` — `verifyAnonymousSession` | Einziger Tokenverifier. Signing, Parsing und Expiry-Prüfung niemals duplizieren. |
 | `CONTROLLED_EVIDENCE_ONLY` | Draft-PRs `#682`, `#724`, `#727`; Commit `3011d46a` | Nur hunkgenaue historische Evidence. Kein Whole-PR-Merge, kein Whole-Commit-Cherry-pick und keine Übernahme der ausgeschlossenen unsicheren Hunks. |
 | `NONE` | anonyme Create-Intake-Route | Auf Main nicht vorhanden. C3B fügt keine Intake-/Planner-Fachsemantik hinzu. |
@@ -170,14 +176,14 @@ Limiter-Ausfall, fehlender Node-Limiter und Parserfehler bleiben fail-closed. Ke
 ## 8. Size-Evidence
 
 ```text
-EXPECTED_FILES_CHANGED=8
+EXPECTED_FILES_CHANGED=9
 EXPECTED_NEW_FILES=3
-EXPECTED_RUNTIME_LOC_DELTA=+280–365
-EXPECTED_TEST_LOC_DELTA=+290–390
+EXPECTED_RUNTIME_LOC_DELTA=+365
+EXPECTED_TOTAL_TEST_LOC_DELTA=+401
 SIZE_GATE=PASS
 ```
 
-Der zusätzliche `CreateClient`-Hunk bleibt bewusst klein und auf Trap-State, ein off-screen Control sowie die fünf vorhandenen Header-Builder-Aufrufe begrenzt. Der Slice bleibt damit schmal, security-fokussiert und unabhängig reviewbar. Eine Überschreitung der Acht-Dateien-Grenze oder eine weitere Runtime-Datei stoppt die Implementierung bis zu einer neuen Collision-/Preflight-Entscheidung.
+Der Runtime-Umfang bleibt bei den bereits gemessenen `+365` Zeilen. Zu den aktuell gemessenen `+388` Testzeilen kommen voraussichtlich 13 Zeilen für den minimalen hoisted Limiter-Mock und seinen erlaubenden Default hinzu; daraus folgt `EXPECTED_TOTAL_TEST_LOC_DELTA=+401`. Der zusätzliche `CreateClient`-Hunk bleibt bewusst klein und auf Trap-State, ein off-screen Control sowie die fünf vorhandenen Header-Builder-Aufrufe begrenzt. Der Slice bleibt damit schmal, security-fokussiert und unabhängig reviewbar. Eine Überschreitung der Neun-Dateien-Grenze, eine zehnte Datei oder eine weitere Runtime-Datei stoppt die Implementierung bis zu einer neuen Collision-/Preflight-Entscheidung.
 
 ## 9. Test- und Regressionsevidence
 
@@ -201,7 +207,21 @@ Die kleinste verpflichtende C3B-Acceptance-Matrix umfasst:
 - gültiges C3A-Cookie akzeptiert, malformed/manipuliertes Cookie sicher behandelt;
 - Abuse-Guard nimmt keine semantische oder politische Klassifikation vor.
 
-Zu erweitern ist ausschließlich `apps/web/tests/create-route-security.contract.test.ts`. Neu sind `apps/web/tests/create-abuse-guard.contract.test.ts` und `apps/web/tests/create-antispam-client.contract.test.ts`.
+Zu erweitern sind ausschließlich `apps/web/tests/create-route-security.contract.test.ts` um die C3B-Verträge und `apps/web/tests/create-mode.save.route.test.ts` um den minimalen persistenten Limiter-Mock. Neu sind `apps/web/tests/create-abuse-guard.contract.test.ts` und `apps/web/tests/create-antispam-client.contract.test.ts`.
+
+Die bestehende Suite `apps/web/tests/create-mode.save.route.test.ts` importiert die reale Save-Route, mockt auf der exakten Basis `main@67c3fb8b6e62201587964e0226714cf3e84e9b4c` jedoch deren persistente Limiter-Abhängigkeit nicht. Deshalb bestehen dort nur 2 von 19 Tests; 17 von 19 scheitern. Dasselbe Ergebnis — 2 von 19 bestanden, 17 von 19 fehlgeschlagen — ist auf der unverändert archivierten Implementierungsrevision `6ea58ae1f8ad1912249227d254c42bed58c43e05` reproduzierbar. Das ist eine Test-Harness-Inkompatibilität, die durch die persistente Security-Abhängigkeit sichtbar wird, und keine belegte Runtime-Regression. Autorisiert ist nur ein steuerbarer Mock des realen persistenten Limiters mit dem Default „Limiter verfügbar, Anfrage erlaubt“; weder `createRouteSecurity` noch Origin, Fetch Metadata, CSRF, Honeypot, Parser oder Body-Size dürfen weggemockt, umgangen oder in ihren Assertions abgeschwächt werden.
+
+```text
+BASELINE_MAIN_SHA=67c3fb8b6e62201587964e0226714cf3e84e9b4c
+PRESERVED_IMPLEMENTATION_BRANCH=archive/c3b-pre-nine-file-authorization
+PRESERVED_IMPLEMENTATION_SHA=6ea58ae1f8ad1912249227d254c42bed58c43e05
+BASELINE_SAVE_TEST_RESULT=2/19_PASS;17/19_FAIL
+PRESERVED_SAVE_TEST_RESULT=2/19_PASS;17/19_FAIL
+PRESERVED_RUNTIME_LOC_DELTA=+365
+PRESERVED_TEST_LOC_DELTA=+388
+```
+
+Die Archiv-Revision enthält exakt die acht vor der zusätzlichen Autorisierung bewahrten Implementierungs-/Testdateien und keine Governance-Datei. Ihre Runtime- und Test-Deltas wurden gegen die genannte Main-Basis erneut gemessen. Die Autorisierung der neunten, ausschließlich testseitigen Datei beruht auf diesem reproduzierbaren Vergleich zweier unveränderlicher Revisionen; `apps/web/tests/create-mode.save.route.test.ts` selbst ist in der Archiv-Revision unverändert.
 
 `apps/web/tests/create-antispam-client.contract.test.ts` muss zusätzlich belegen:
 
@@ -225,7 +245,7 @@ Unverändert erneut auszuführen sind mindestens:
 - `apps/web/tests/create-curated-dialog-workspace.contract.test.tsx`;
 - `apps/web/tests/create-chat-first-mobile-dialog-experience.contract.test.tsx`.
 
-Baseline des Preflights: sieben Testdateien mit insgesamt 59 Tests auf der exakten Main-Basis bestanden. Die spätere Implementierung muss zusätzlich Typecheck, Lint, `git diff --check` und die für den Slice geltenden Exact-Head-Gates bestehen.
+Baseline des ursprünglichen Preflights: sieben Testdateien mit insgesamt 59 Tests auf der damaligen exakten Main-Basis bestanden. Die ergänzende Test-Harness-Evidence auf `main@67c3fb8b6e62201587964e0226714cf3e84e9b4c` ist davon getrennt und lautet für `create-mode.save.route.test.ts` 2/19 bestanden und 17/19 wegen des fehlenden persistenten Limiter-Mocks fehlgeschlagen. Die spätere Implementierung muss nach der minimalen Testkompatibilitätsreparatur zusätzlich Typecheck, Lint, `git diff --check` und die für den Slice geltenden Exact-Head-Gates bestehen.
 
 ## 10. Dependency- und Scope-Evidence
 
