@@ -2,9 +2,9 @@
 
 Stand: 2026-09-09
 
-Status: Governance- und Extraktionsplan; C1 und C2 sind über PRs `#734` und `#736` gemergt, der C3-Parent bleibt blockiert und die fokussierte C3A-Implementierung befindet sich nach positivem eigenem Preflight in Review
+Status: Governance- und Extraktionsplan; C1, C2 und C3A sind gemergt, der C3-Parent bleibt blockiert und ausschließlich C3B ist für seinen eigenen Preflight autorisiert
 
-Zielbasis: `main@18372bb530a7538c53d83df26c2ccf8e3a2188df` (enthält C1 über PR `#734`, C2 über PR `#736`, die Master-Governance aus PR `#738` und die C3A-Preflight-Autorisierung aus PR `#739`)
+Zielbasis: `main@52b1995706e0b69c01413171b63b4d7888dbb16b` (enthält C1 über PR `#734`, C2 über PR `#736`, die Master-Governance aus PR `#738`, den C3A-Preflight aus PR `#739` und C3A über PR `#740`)
 
 ## 1. Zweck und verbindliche Grenzen
 
@@ -19,7 +19,7 @@ Es gilt für jeden Slice:
 - ein späterer Slice darf dieselbe Integrationsdatei erneut ändern, aber keinen bereits übernommenen Hunk duplizieren;
 - kein Auto-Publish, kein Silent Merge, keine zweite Create-, Planner-, Session-, Resolver-, Source-, Review- oder Progress-Runtime;
 - Quellen, Unsicherheit, Nutzerentscheidung, Auth-Grenze und PII-Grenze bleiben nachvollziehbar;
-- C3A befindet sich nach positivem eigenem Task-, Security- und Extraktions-Preflight in `review`; C3B–C3D bleiben `blocked`, C4–C12 und G1–G5 bleiben nicht autorisiert, und der fehlgeschlagene C3-Parent-Preflight autorisiert keine weitere Implementierung.
+- C3A ist über PR `#740` abgeschlossen; ausschließlich C3B ist `codex_ready` für einen eigenen Task-, Security-, Extraktions- und Size-Preflight, aber noch nicht zur Implementierung autorisiert. C3C–C3D bleiben `blocked`, C4–C12 und G1–G5 bleiben nicht autorisiert, und der fehlgeschlagene C3-Parent-Preflight autorisiert keine weitere Implementierung.
 
 `CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) ist über PR `#734` gemergt. `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) ist über PR `#736`, Implementation Head `a86d50128fed9ec86a0c7884c7f5a11a978b79e1`, als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` gemergt. Für `CREATE-ANONYMOUS-SESSION-ABUSE-GUEST-CLAIM-01` (C3) gilt `TASK_PREFLIGHT=PASS`, `PII_SECURITY_PREFLIGHT=FAIL`, `SIZE_GATE=FAIL_SPLIT_REQUIRED`, `SECURITY_GATE=FAIL_BLOCKED`, `WORK_REQUIRED=true` und `SAFE_TO_IMPLEMENT=false`. Der Parent bleibt nicht ausführbar. C3A befindet sich nach positivem eigenem Preflight als fokussierter Slice in Review; C3B–C3D, C4–C12 und G1–G5 bleiben unautorisiert. Jeder spätere Slice braucht nach Abschluss aller Vorgänger einen eigenen operativen Task, einen positiven Preflight und einen frischen Branch vom dann aktuellen `main`. Die produktweite Einordnung steht in `docs/E150/EDEBATTE_MASTER_PRODUCTION_ROADMAP_2026-09-09.md`.
 
@@ -29,7 +29,7 @@ Es gilt für jeden Slice:
 | --- | --- | --- | --- |
 | C1 | Authenticated Create Planner / Timing Foundation | `#713`, korrigierende Evidence `#682`, Vergleich `#627` | gemergt über PR `#734` als `main@cc42c0f73490833b0bf999d177672ebf342f9880` |
 | C2 | Authenticated Create Workspace / Mobile Presentation | `#713` | gemergt über PR `#736` als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` |
-| C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | Parent `blocked`; C3A nach positivem Preflight in `review`; C3B–C3D weiter seriell `blocked` |
+| C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | Parent `blocked`; C3A über PR `#740` done; nur C3B für eigenen Preflight `codex_ready`; C3C–C3D seriell `blocked` |
 | C4 | Browser Resume, explizite Adoption und Draft Binding | `#682` | C3A–C3D abgeschlossen; Session-/Actor-/Claim-Verträge stabil |
 | C5 | Citizen Context und Place Resolution | `#682` | C4 gemergt; keine zweite Resolver-Wahrheit |
 | C6 | Existing-Topic Match und explizite Stance | `#682` | C5 gemergt; kanonische Match-IDs verfügbar |
@@ -89,7 +89,7 @@ Die einzig zulässige spätere Reihenfolge ist:
 3. C3C `CREATE-GUEST-CLAIM-PII-SINGLE-FLIGHT-01` — Claim-Identität und kanonischer Single-Flight-Key verwenden ausschließlich servergenerierte Correlation; Client-Correlation ist niemals Claim-Identität, Key-Einfluss, Replay-Namespace oder freie persistierte Metadaten. Kompatibilitätseingaben werden abgewiesen oder ausschließlich als sicher begrenzter, nicht autoritativer Hinweis behandelt. Rekursive PII-/Secret-/Signed-URL-Prüfung, non-retaining `source_pending`, allowlisted Failures und Single Flight/Replay/Lease Recovery bleiben Pflicht; keine Adoption und niemals Fetch einer redigierten/sensitiven URL.
 4. C3D `CREATE-GUEST-EPHEMERAL-UI-01` — minimale Guest-UI mit ephemerem React-State; keine Rohdaten-/Trace-/Result-Persistenz, kein Resume, keine Adoption und kein Account Draft.
 
-C3A hat den Task-, Security- und Extraktions-Preflight einschließlich Source-Hunks, exakter Dateiliste, Collision State, API-Grenze, Cookie-/Session-Contract, Issuance-Abuse-Grenze, TTL/Lifecycle, Tests, Size Gate, Security Gate und C1-/C2-Regressionen bestanden und befindet sich als fokussierte Implementierung in `review`. Dies autorisiert weder Merge noch C3B. C3B–C3D bleiben bis zum Abschluss ihres jeweiligen Vorgängers und einem eigenen positiven Preflight `blocked`; C4 hängt weiterhin vom Abschluss aller vier Slices ab. Die folgende Source-/Owner-Evidence beschreibt den historischen Parent-Scope und ist keine pauschale Copy- oder Merge-Freigabe.
+C3A hat den eigenen Preflight bestanden und wurde über PR `#740`, Exact Head `39a5e2567885ec1d33c74c51b553561d7bd91637`, als `main@52b1995706e0b69c01413171b63b4d7888dbb16b` gemergt. Ausschließlich C3B ist nun `codex_ready` für einen eigenen Task-, Security-, Extraktions- und Size-Preflight. Dieser muss Source-Hunks, exakte Dateiliste, Collision State, die gemeinsame Security-Grenze zur C3A-Session, Origin-/Fetch-Metadata-/CSRF- und Honeypot-Verträge, persistente Limits/Cooldown, Content-Type, vor dem Parse gemessene Body-Grenze, fail-closed Parser/Limiter, minimierte Subjects, Tests und C3A-/C1-/C2-Regressionen belegen. Noch ist keine C3B-Implementierung autorisiert; C3C–C3D bleiben `blocked`, und C4 hängt weiterhin vom Abschluss aller vier Slices ab. Die folgende Source-/Owner-Evidence beschreibt den historischen Parent-Scope und ist keine pauschale Copy- oder Merge-Freigabe.
 
 C3C definiert getrennte minimale Allowlist-Schemas für (A) den persistierten Claim/das persistierte Result und (B) die API-Response. Beide schließen rohen Guest-Text, Source-Input, sensitive URL, Planner-Prompt/-Trace, rohe Providerantwort, Token, Credential, Secret, beliebige Fehlerstrings und beliebige Metadatenblobs aus. Rekursive PII-/Secret-Validierung erfolgt sowohl vor Persistenz als auch vor API-Return. Ein Fehler stoppt ohne unsichere Persistenz und ohne unsicheren Response-Payload; ausschließlich feste allowlistete Failure-Codes dürfen eine servereigene menschenlesbare Diagnose ableiten.
 
@@ -363,4 +363,4 @@ Jede Kante `merge → refreshed main` bedeutet: kein abhängiger Branch wird auf
 
 ## 11. Nicht autorisiert
 
-Dieses Runbook autorisiert weder den C3-Parent noch C3B–C3D, C4–C12 oder G1–G5 zur Implementierung; ausschließlich C3A wurde nach positivem eigenem Preflight als fokussierter Slice implementiert und befindet sich in Review. Es autorisiert keinen Merge der Quell-PRs, kein Deployment, keine Production-DB-Arbeit, keine Secret-/Provideraktivierung und keine Änderung an `#590`, `#682` oder `#727`. C1 und C2 sind über PRs `#734` und `#736` gemergt. C3B–C3D benötigen nach Abschluss ihres jeweiligen Vorgängers weiterhin einen eigenen `codex_ready`-Status und positiven Preflight; die vorhandene technische Ownership von C4–C12 und G1–G5 bleibt unverändert. Produktweite Parallel-Lanes und Production Gates werden ausschließlich im Master-Roadmap-Dokument eingeordnet.
+Dieses Runbook autorisiert weder den C3-Parent noch C3B–C3D, C4–C12 oder G1–G5 zur Implementierung. C3A ist über PR `#740` gemergt; ausschließlich C3B ist jetzt für seinen eigenen Preflight `codex_ready`. Es autorisiert keinen Merge der Quell-PRs, kein Deployment, keine Production-DB-Arbeit, keine Secret-/Provideraktivierung und keine Änderung an `#590`, `#682` oder `#727`. C3C–C3D benötigen nach Abschluss ihres jeweiligen Vorgängers weiterhin einen eigenen `codex_ready`-Status und positiven Preflight; die vorhandene technische Ownership von C4–C12 und G1–G5 bleibt unverändert. Produktweite Parallel-Lanes und Production Gates werden ausschließlich im Master-Roadmap-Dokument eingeordnet.
