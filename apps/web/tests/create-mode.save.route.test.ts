@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => {
   }
 
   return {
+    consumePersistentRateLimit: vi.fn(),
     setUser(next: string | null) {
       userId = next;
     },
@@ -177,6 +178,10 @@ vi.mock("@/server/draftStore", () => ({
   getDraft: (...args: unknown[]) => mocks.getDraft(...args),
 }));
 
+vi.mock("@/utils/persistentRateLimit", () => ({
+  consumePersistentRateLimit: mocks.consumePersistentRateLimit,
+}));
+
 import { POST as savePOST } from "@/app/api/create/save/route";
 
 function req(body: Record<string, unknown>) {
@@ -197,6 +202,14 @@ describe("create mode split - save route", () => {
     vi.clearAllMocks();
     mocks.reset();
     mocks.getDraft.mockResolvedValue(null);
+    mocks.consumePersistentRateLimit.mockResolvedValue({
+      ok: true,
+      remaining: 10,
+      limit: 12,
+      resetAt: Date.now() + 60_000,
+      retryIn: 0,
+    });
+    vi.doMock("@/utils/persistentRateLimit", () => ({ consumePersistentRateLimit: mocks.consumePersistentRateLimit }));
   });
 
   it("rejects a guest before parsing the body and never emits a cookie or draft", async () => {

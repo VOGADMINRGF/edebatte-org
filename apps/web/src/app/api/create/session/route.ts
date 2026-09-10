@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CREATE_MUTATION_CSRF_HEADER,
-  CREATE_MUTATION_CSRF_VALUE,
+  hasValidCreateMutationProvenance,
 } from "@/features/create/createMutationSecurityContract";
 import {
   CREATE_ANON_SESSION_COOKIE,
@@ -31,14 +31,12 @@ function noStoreJson(
 }
 
 function requestIsSameOrigin(req: NextRequest) {
-  const origin = req.headers.get("origin")?.trim() ?? "";
-  const fetchSite = req.headers.get("sec-fetch-site")?.trim().toLowerCase() ?? "";
-  const csrf = req.headers.get(CREATE_MUTATION_CSRF_HEADER)?.trim() ?? "";
-  return (
-    origin === new URL(req.url).origin &&
-    fetchSite === "same-origin" &&
-    csrf === CREATE_MUTATION_CSRF_VALUE
-  );
+  return hasValidCreateMutationProvenance({
+    expectedOrigin: new URL(req.url).origin,
+    origin: req.headers.get("origin"),
+    fetchSite: req.headers.get("sec-fetch-site"),
+    csrfIntent: req.headers.get(CREATE_MUTATION_CSRF_HEADER),
+  });
 }
 
 function issuanceSubject(req: NextRequest) {
