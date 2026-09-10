@@ -209,7 +209,19 @@ Die kleinste verpflichtende C3B-Acceptance-Matrix umfasst:
 
 Zu erweitern sind ausschließlich `apps/web/tests/create-route-security.contract.test.ts` um die C3B-Verträge und `apps/web/tests/create-mode.save.route.test.ts` um den minimalen persistenten Limiter-Mock. Neu sind `apps/web/tests/create-abuse-guard.contract.test.ts` und `apps/web/tests/create-antispam-client.contract.test.ts`.
 
-Die bestehende Suite `apps/web/tests/create-mode.save.route.test.ts` importiert die reale Save-Route, mockt auf der exakten Basis `main@67c3fb8b6e62201587964e0226714cf3e84e9b4c` jedoch deren persistente Limiter-Abhängigkeit nicht. Deshalb bestehen dort nur 2 von 19 Tests; 17 von 19 scheitern. Dasselbe Ergebnis — 2 von 19 bestanden, 17 von 19 fehlgeschlagen — ist im aktuellen, sicher verwahrten C3B-Implementierungsstand reproduzierbar. Das ist eine Test-Harness-Inkompatibilität, die durch die persistente Security-Abhängigkeit sichtbar wird, und keine belegte Runtime-Regression. Autorisiert ist nur ein steuerbarer Mock des realen persistenten Limiters mit dem Default „Limiter verfügbar, Anfrage erlaubt“; weder `createRouteSecurity` noch Origin, Fetch Metadata, CSRF, Honeypot, Parser oder Body-Size dürfen weggemockt, umgangen oder in ihren Assertions abgeschwächt werden.
+Die bestehende Suite `apps/web/tests/create-mode.save.route.test.ts` importiert die reale Save-Route, mockt auf der exakten Basis `main@67c3fb8b6e62201587964e0226714cf3e84e9b4c` jedoch deren persistente Limiter-Abhängigkeit nicht. Deshalb bestehen dort nur 2 von 19 Tests; 17 von 19 scheitern. Dasselbe Ergebnis — 2 von 19 bestanden, 17 von 19 fehlgeschlagen — ist auf der unverändert archivierten Implementierungsrevision `6ea58ae1f8ad1912249227d254c42bed58c43e05` reproduzierbar. Das ist eine Test-Harness-Inkompatibilität, die durch die persistente Security-Abhängigkeit sichtbar wird, und keine belegte Runtime-Regression. Autorisiert ist nur ein steuerbarer Mock des realen persistenten Limiters mit dem Default „Limiter verfügbar, Anfrage erlaubt“; weder `createRouteSecurity` noch Origin, Fetch Metadata, CSRF, Honeypot, Parser oder Body-Size dürfen weggemockt, umgangen oder in ihren Assertions abgeschwächt werden.
+
+```text
+BASELINE_MAIN_SHA=67c3fb8b6e62201587964e0226714cf3e84e9b4c
+PRESERVED_IMPLEMENTATION_BRANCH=archive/c3b-pre-nine-file-authorization
+PRESERVED_IMPLEMENTATION_SHA=6ea58ae1f8ad1912249227d254c42bed58c43e05
+BASELINE_SAVE_TEST_RESULT=2/19_PASS;17/19_FAIL
+PRESERVED_SAVE_TEST_RESULT=2/19_PASS;17/19_FAIL
+PRESERVED_RUNTIME_LOC_DELTA=+365
+PRESERVED_TEST_LOC_DELTA=+388
+```
+
+Die Archiv-Revision enthält exakt die acht vor der zusätzlichen Autorisierung bewahrten Implementierungs-/Testdateien und keine Governance-Datei. Ihre Runtime- und Test-Deltas wurden gegen die genannte Main-Basis erneut gemessen. Die Autorisierung der neunten, ausschließlich testseitigen Datei beruht auf diesem reproduzierbaren Vergleich zweier unveränderlicher Revisionen; `apps/web/tests/create-mode.save.route.test.ts` selbst ist in der Archiv-Revision unverändert.
 
 `apps/web/tests/create-antispam-client.contract.test.ts` muss zusätzlich belegen:
 
