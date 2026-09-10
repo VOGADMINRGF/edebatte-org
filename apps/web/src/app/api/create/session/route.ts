@@ -62,9 +62,9 @@ export async function POST(req: NextRequest) {
     return noStoreJson({ ok: false, errorCode: "CREATE_REQUEST_REJECTED" }, 403);
   }
 
-  const cookie = req.cookies.get(CREATE_ANON_SESSION_COOKIE)?.value;
-  if (cookie) {
-    const existing = verifyAnonymousSession(cookie);
+  const cookie = req.cookies.get(CREATE_ANON_SESSION_COOKIE);
+  if (cookie !== undefined) {
+    const existing = verifyAnonymousSession(cookie.value);
     if (existing) return noStoreJson({ ok: true }, 200);
 
     const response = noStoreJson(

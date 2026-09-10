@@ -96,6 +96,17 @@ describe("create anonymous session route", () => {
     expect(mockedConsumePersistentRateLimit).not.toHaveBeenCalled();
   });
 
+  it("treats a present but empty cookie as invalid instead of issuing a replacement", async () => {
+    const response = await POST(request({ cookie: "" }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      ok: false,
+      errorCode: "CREATE_SESSION_INVALID",
+    });
+    expect(response.cookies.get(CREATE_ANON_SESSION_COOKIE)?.maxAge).toBe(0);
+    expect(mockedConsumePersistentRateLimit).not.toHaveBeenCalled();
+  });
+
   it("rejects an expired token", () => {
     const issuedAt = Date.now() - (CREATE_ANON_SESSION_MAX_AGE_SECONDS + 1) * 1000;
     const created = createAnonymousSession(issuedAt);
