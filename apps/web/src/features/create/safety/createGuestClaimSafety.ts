@@ -26,7 +26,7 @@ export type PersistedGuestClaimResult = {
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const JWT_LIKE = /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const BEARER = /\bbearer\s+[a-z0-9._~+/=-]{8,}/i;
-const COOKIE_CREDENTIAL = /\b(?:set-)?cookie\s*=|\bsession\s*=/i;
+const COOKIE_CREDENTIAL = /\b(?:set-)?cookie\s*(?:=|:)|\bsession\s*=/i;
 const CREDENTIAL_KEY = /^(?:authorization|cookie|setcookie|apikey|secret|token|accesstoken|refreshtoken|session|password|clientsecret|privatekey|signature|sig|xamzsignature|xgoogsignature|sastoken)$/;
 const PII_KEY = /^(?:name|firstname|lastname|fullname|givenname|familyname|dob|dateofbirth|birthdate|birthday|email|phone|telephone|address|street|postalcode|postcode|zip|userid|useridnumber|nationalid|socialsecuritynumber|ssn)$/;
 const SIGNED_QUERY_KEY = /(?:^|[-_])(signature|sig|token|credential|auth|authorization|access[-_]?token|api[-_]?key)(?:$|[-_])/i;
@@ -70,7 +70,10 @@ function decodePercentEncoding(value: string): string | null {
 }
 
 function hasSignedUrl(value: string) {
-  const candidates = value.match(/(?:https?:\/\/)[^\s<>"']+/giu) ?? [];
+  if (!/https?(?::|%(?:25)*3a)/iu.test(value)) return false;
+  const normalizedLeaf = decodePercentEncoding(value);
+  if (!normalizedLeaf) return true;
+  const candidates = normalizedLeaf.match(/(?:https?:\/\/)[^\s<>"']+/giu) ?? [];
   for (const candidate of candidates) {
     const normalized = decodePercentEncoding(candidate);
     if (!normalized) return true;

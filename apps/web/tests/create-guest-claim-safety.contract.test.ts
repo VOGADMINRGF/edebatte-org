@@ -27,6 +27,13 @@ describe("guest claim recursive safety contract", () => {
     [{ url: "https://any-host.invalid/path?X-Goog-Signature=secret" }, "Google signed URL"],
     [{ url: "https://any-host.invalid/path?sig=secret&se=tomorrow" }, "Azure SAS URL"],
     [{ url: "https://any-host.invalid/path?token=secret" }, "generic token URL"],
+    [{ url: "https%3A%2F%2Fexample.invalid%2Fpath%3Ftoken%3Dsecret" }, "fully encoded generic token URL"],
+    [{ url: "https%253A%252F%252Fexample.invalid%252Fpath%253Ftoken%253Dsecret" }, "double-encoded generic token URL"],
+    [{ url: "https%3A%2F%2Fexample.invalid%2Fpath%3FX-Amz-Signature%3Dsecret" }, "fully encoded AWS signed URL"],
+    [{ url: "https%3A%2F%2Fuser%3Asecret%40example.invalid%2Fpath" }, "fully encoded URL userinfo"],
+    [{ nested: ["Cookie: sessionid=secret"] }, "Cookie header credential"],
+    [{ nested: ["Set-Cookie: sessionid=secret"] }, "Set-Cookie header credential"],
+    [{ nested: ["cOoKiE: sessionid=secret", "sEt-CoOkIe: sessionid=secret"] }, "mixed-case cookie header credential"],
     [{ url: "https://any-host.invalid/%ZZ" }, "malformed percent encoding"],
     [{ url: `https://any-host.invalid/${"%25".repeat(5)}41` }, "decode budget exceeded"],
     [{ ip: "203.0.113.42" }, "IPv4"],
@@ -59,6 +66,10 @@ describe("guest claim recursive safety contract", () => {
     const second = inspectGuestClaim({ detail: { district: "Nord" }, facts: [true, 3, null], topic: "Sichere Schulwege" });
     expect(first).toMatchObject({ ok: true });
     expect(second).toEqual(first);
+  });
+
+  it("allows harmless percent encoding that is not a URL", () => {
+    expect(inspectGuestClaim({ note: "100%20finanziert" })).toMatchObject({ ok: true });
   });
 
   it("accepts only the exact persisted result allowlist", () => {
