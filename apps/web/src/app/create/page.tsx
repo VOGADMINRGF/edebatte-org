@@ -38,6 +38,7 @@ import { buildCreateDraftResumeLookupOrder } from "@features/account/draftSsotPo
 import { buildAgenticCivicE2ECreateHint } from "@/features/agenticRuntime/agenticCivicE2EPilotContract";
 import { buildCreateSegmentHint } from "@/features/agenticRuntime/segmentedAgentExperienceContract";
 import { buildVoxyExperienceShellHint } from "@/features/voxy/voxyExperienceShellContract";
+import GuestCreateEphemeralClient from "./GuestCreateEphemeralClient";
 
 export const metadata: Metadata = {
   title: "Etwas beitragen - eDebatte",
@@ -144,15 +145,15 @@ export default async function CreatePage({
 }: {
   searchParams?: SearchParamsShape;
 }) {
-  const resolved = searchParams ? await searchParams : {};
-  const query = toQueryString(resolved);
   const pageLocale = resolveOperatorLocale(await detectPageLocale());
-  const createText = getOperatorCreateTexts(pageLocale);
-
   const entitlements = await getCreateEntitlementsForRequest();
   if (!entitlements.isAuthenticated || !entitlements.userId) {
-    redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
+    return <GuestCreateEphemeralClient locale={pageLocale} />;
   }
+
+  const resolved = searchParams ? await searchParams : {};
+  const query = toQueryString(resolved);
+  const createText = getOperatorCreateTexts(pageLocale);
 
   const overview = await getAccountOverview(entitlements.userId);
   if (!overview) {
