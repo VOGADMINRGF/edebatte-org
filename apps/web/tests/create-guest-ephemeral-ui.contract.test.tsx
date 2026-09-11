@@ -24,8 +24,10 @@ const componentSource = readFileSync(
 const pageSource = readFileSync(resolve(process.cwd(), "src/app/create/page.tsx"), "utf8");
 const pageRuntimeSource = pageSource.slice(pageSource.indexOf("export default async function"));
 
-function response(status: number) {
-  return new Response(null, { status });
+const VALID_OPERATION_ID = "550e8400-e29b-41d4-a716-446655440000";
+
+function response(status: number, body: unknown = null) {
+  return new Response(body === null ? null : JSON.stringify(body), { status });
 }
 
 afterEach(() => {
@@ -50,7 +52,11 @@ describe("guest ephemeral create UI contract", () => {
 
   it("submits the existing session and claim routes in order with the exact claim body", async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValueOnce(response(200)).mockResolvedValueOnce(response(202));
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(200)).mockResolvedValueOnce(response(202, {
+      ok: true,
+      operationId: VALID_OPERATION_ID,
+      status: "accepted",
+    }));
     vi.stubGlobal("fetch", fetchMock);
     render(<GuestCreateEphemeralClient locale="en" />);
 
@@ -69,7 +75,26 @@ describe("guest ephemeral create UI contract", () => {
     expect(intakeBody).toEqual({ claim: "Safer school routes" });
     expect(Object.keys(intakeBody)).toEqual(["claim"]);
     expect(screen.getByText(/accepted for this operation/i)).not.toBeNull();
-    expect(screen.queryByText(/operationId/i)).toBeNull();
+    expect(screen.queryByText(VALID_OPERATION_ID)).toBeNull();
+  });
+
+  it.each([
+    ["malformed JSON", new Response("{", { status: 202 })],
+    ["ok false", response(202, { ok: false, operationId: VALID_OPERATION_ID, status: "accepted" })],
+    ["missing operation ID", response(202, { ok: true, status: "accepted" })],
+    ["invalid UUIDv4", response(202, { ok: true, operationId: "not-a-uuid", status: "accepted" })],
+    ["wrong status", response(202, { ok: true, operationId: VALID_OPERATION_ID, status: "wrong" })],
+    ["extra field", response(202, { ok: true, operationId: VALID_OPERATION_ID, status: "accepted", extra: "field" })],
+  ])("fails closed for a 202 response with %s", async (_caseName, intakeResponse) => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response(200)).mockResolvedValueOnce(intakeResponse));
+    render(<GuestCreateEphemeralClient locale="en" />);
+
+    await user.type(screen.getByLabelText("Your concern"), "Safer school routes");
+    await user.click(screen.getByRole("button", { name: "Send request" }));
+
+    expect(screen.getByRole("alert").textContent).toBe("The request could not be processed.");
+    expect(screen.queryByText(/accepted for this operation/i)).toBeNull();
   });
 
   it("uses fixed failure copy without echoing server or submitted content", async () => {
@@ -115,11 +140,13 @@ describe("guest ephemeral create UI contract", () => {
     expect(en).not.toContain("Anliegen ohne Konto mitteilen");
   });
 
-  it("contains no guest persistence, handoff, authenticated flow, URL, planner, analysis, or raw logging path", () => {
+  it("does not expose or retain the server operation ID outside local response validation", () => {
     expect(componentSource).not.toMatch(/localStorage|sessionStorage|indexedDB|CacheStorage|document\.cookie|serviceWorker/i);
     expect(componentSource).not.toMatch(/createHandoff|useCreateHandoffDraft|workstate|account draft|planner|intelligent-followup|link-analysis|source-analysis/i);
     expect(componentSource).not.toMatch(/window\.location|URLSearchParams|history\.|console\.|telemetry/i);
-    expect(componentSource).not.toMatch(/correlation|operationId/);
+    expect(componentSource).not.toMatch(/useState[^\n]*operationId|set[A-Za-z]+\([^)]*operationId/);
+    expect(componentSource).not.toMatch(/href[^\n]*operationId|operationId[^\n]*href/);
+    expect(componentSource).toContain("JSON.stringify({ claim: trimmedText })");
     expect(componentSource).toContain('href="/login?next=/create"');
     expect(componentSource).toContain("setGuestText(\"\")");
   });

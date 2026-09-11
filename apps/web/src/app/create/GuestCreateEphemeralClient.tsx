@@ -42,8 +42,22 @@ const COPY = {
   },
 } as const;
 
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function textFor(locale: OperatorLocale) {
   return locale === "de" ? COPY.de : COPY.en;
+}
+
+function isAcceptedGuestClaimResponse(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (keys.length !== 3 || !keys.includes("ok") || !keys.includes("operationId") || !keys.includes("status")) {
+    return false;
+  }
+  const operationId = record.operationId;
+  return record.ok === true && record.status === "accepted" && typeof operationId === "string" && UUID_V4.test(operationId);
 }
 
 export default function GuestCreateEphemeralClient({ locale }: GuestCreateEphemeralClientProps) {
@@ -75,7 +89,7 @@ export default function GuestCreateEphemeralClient({ locale }: GuestCreateEpheme
         headers,
         body: JSON.stringify({ claim: trimmedText }),
       });
-      if (intakeResponse.status === 202) {
+      if (intakeResponse.status === 202 && isAcceptedGuestClaimResponse(await intakeResponse.json())) {
         setGuestText("");
         setStatus("accepted");
         return;
