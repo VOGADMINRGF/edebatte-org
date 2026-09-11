@@ -113,6 +113,56 @@ URL-Kandidaten werden unabhängig vom Hostnamen geprüft. Percent-Encoding wird 
 
 Persistierter Claim/Result und öffentliche API-Response besitzen getrennte minimale Allowlist-Schemas. Beide werden vor ihrer jeweiligen Grenze rekursiv geprüft. Ausgeschlossen sind roher Guest-Text, Source-Input, sensitive oder signierte URLs, Planner-Prompt/-Trace, Providerantwort, Token, Credential, Secret, beliebige Fehlermeldungen und beliebige Metadatenblobs.
 
+Die folgenden drei Shapes sind geschlossene positive Allowlists. Sie besitzen keine Index-Signature, kein Passthrough und keine optionalen oder freien Metadatenfelder. Die Runtime konstruiert jedes Objekt feldweise; sie spreadet oder serialisiert weder das interne Single-Flight-Record noch ein fremdes Result-Objekt. UUID- und Timestamp-Felder werden zusätzlich semantisch validiert.
+
+**A. Persistiertes Guest-Claim-Result**
+
+```ts
+type PersistedGuestClaimResult = {
+  version: 1;
+  status: "accepted";
+  operationId: string; // servergenerierte UUIDv4
+  createdAt: string; // servergenerierter ISO-8601-Zeitstempel
+};
+```
+
+Das ist ausschließlich der typisierte Inhalt des vorhandenen `result`-Felds im bestehenden Single-Flight-Record. Ein abgewiesener oder fehlgeschlagener Lauf erzeugt kein persistiertes Result-Objekt; die vorhandene äußere Claim-Record-Struktur darf dafür nur einen festen allowlisteten `failureCode` speichern. `operationId` ist die authoritative Server-Correlation. Weitere Keys, insbesondere `metadata`, Payload-/Text-Echo, URL, Provider-/Planner-Result, Validation-Details, Client-Correlation, PII oder Secrets, sind schemawidrig.
+
+**B. Erfolgreiche öffentliche Response**
+
+```ts
+type GuestClaimSuccessResponse = {
+  ok: true;
+  operationId: string; // exakt die servergenerierte UUIDv4 des Results
+  status: "accepted";
+};
+```
+
+Die Response wird explizit aus den drei Feldern konstruiert. Das persistierte Result wird nicht direkt zurückgegeben oder gespreadet; insbesondere `version` und `createdAt` bleiben intern. Zusätzliche oder unbekannte Keys sind verboten.
+
+**C. Öffentliche Failure-Response**
+
+```ts
+type GuestClaimPublicErrorCode =
+  | "CREATE_INVALID_REQUEST"
+  | "CREATE_REQUEST_REJECTED"
+  | "CREATE_REQUEST_TOO_LARGE"
+  | "CREATE_RATE_LIMITED"
+  | "CREATE_RATE_LIMIT_UNAVAILABLE"
+  | "CREATE_GUEST_CLAIM_IN_PROGRESS"
+  | "CREATE_GUEST_CLAIM_UNAVAILABLE"
+  | "CREATE_GUEST_UNSAFE_RESPONSE"
+  | "CREATE_GUEST_INTERNAL_ERROR";
+
+type GuestClaimFailureResponse = {
+  ok: false;
+  errorCode: GuestClaimPublicErrorCode;
+  message: "Die Anfrage konnte nicht verarbeitet werden.";
+};
+```
+
+Die Failure-Response besitzt exakt diese drei Keys. `Retry-After` darf bei einem Rate-Limit ausschließlich als HTTP-Header erscheinen und erweitert den JSON-Body nicht. Failure-Bodies enthalten keine `operationId`, Client-Correlation, freien Meldungen oder internen Felder. Alle nicht allowlisteten Fehler werden serverseitig auf `CREATE_GUEST_INTERNAL_ERROR` abgebildet.
+
 ```text
 SAFE_FAILURE_ALLOWLIST=PASS
 ```
@@ -182,6 +232,13 @@ Die C3C-Implementierung muss mindestens folgende fokussierte Regressionen belege
 - maximale Tiefe, Traversierung, Key-, Array- und Stringgrenzen scheitern deterministisch;
 - Exception-Message, Stack, DB-/Provider-Body, PII, Secret und Signed URL erscheinen weder in Response noch Log;
 - jede öffentliche Failure-Response gehört zur festen Allowlist;
+- persistiertes Result besitzt exakt die Keys `version`, `status`, `operationId`, `createdAt` mit den festgelegten Typen und Literalwerten;
+- erfolgreiche Response besitzt exakt die Keys `ok`, `operationId`, `status` und enthält keine internen Result-Felder;
+- Failure-Response besitzt exakt die Keys `ok`, `errorCode`, `message` und der Code gehört zur festen Enum-Allowlist;
+- zusätzliche oder unbekannte Keys sowie `metadata` werden vor Persistenz beziehungsweise Return abgewiesen;
+- Payload-/Text-Echo, URLs, PII, Secrets und Signed URLs fehlen in Result und jeder Response;
+- Provider-/Planner-Resultate und interne Validation-Werte werden niemals serialisiert;
+- clientseitige Correlation fehlt in Persistenz und Response und kann die servergenerierte `operationId` nicht überschreiben;
 - keine Browserpersistenz, Adoption, Resume-, Account-Draft-, Planner- oder Auto-Publish-Semantik wird eingeführt.
 
 C3A-Regressionen:
@@ -262,6 +319,27 @@ git diff --check
 ```
 
 Ergebnis: `PASS`. Der read-only Preflight erzeugte keine getrackten Runtime- oder Dokumentationsänderungen.
+
+### Revision-bound Clean-Base-Evidence
+
+Der eigentliche read-only Preflight lief in einem frischen, isolierten Detached-Worktree auf exakt `c3ff4b01ada66e397c61e7b597ac20ce12e136fb`. Die folgende Prüfung wurde für denselben Commit in einem erneut frisch erzeugten Detached-Worktree reproduziert:
+
+```bash
+git rev-parse HEAD
+git diff --quiet c3ff4b01ada66e397c61e7b597ac20ce12e136fb --
+git status --porcelain
+```
+
+Revision-bound Ergebnis:
+
+```text
+HEAD=c3ff4b01ada66e397c61e7b597ac20ce12e136fb
+GIT_DIFF_QUIET_BASE_EXIT=0
+GIT_STATUS_PORCELAIN=
+TASK_PRODUCED_TRACKED_CHANGES=false
+```
+
+Das leere `git status --porcelain` gilt für den isolierten Preflight-Worktree, nicht für den primären Arbeitsbaum. Im primären Arbeitsbaum bestand bereits vor dem C3C-Preflight die fremde Änderung `apps/web/next-env.d.ts`. Sie lag außerhalb des Tasks, wurde weder in den Preflight-Worktree übernommen noch verändert und ist nicht Teil der C3C-Evidence oder der Governance-PR. Damit wird keine globale Sauberkeit des primären Arbeitsbaums behauptet.
 
 ```text
 GOVERNANCE_TESTS=PASS; 4/4
