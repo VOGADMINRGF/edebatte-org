@@ -4,7 +4,7 @@ Stand: 2026-09-11
 
 Status: Governance- und Extraktionsplan; C1, C2 und C3A–C3D sind gemergt. Der historische C3-Parent bleibt `blocked`. C4-Parent `CREATE-GUEST-RESUME-ADOPTION-DRAFT-BINDING-01` ist nach `FAIL_SPLIT_REQUIRED` `blocked`; nur C4A ist `codex_ready` für `preflight_only`, C4B ist `blocked`.
 
-Zielbasis: `main@65a89f67d1a8bb21fac41def3164270cd171b8d5` (enthält C1 über PR `#734`, C2 über PR `#736`, C3A über PR `#740`, C3B über PR `#744`, C3C über PR `#748` und C3D über PR `#751` als `done`)
+Zielbasis: `main@c736241fe52b7c1c8d1d4c2fe4651c6159c67847` (kanonische Basis des C4-Preflight `FAIL_SPLIT_REQUIRED` und der C4A/C4B-Dekomposition; C1 über PR `#734`, C2 über PR `#736`, C3A über PR `#740`, C3B über PR `#744`, C3C über PR `#748` und C3D über PR `#751` sind historische abgeschlossene Evidenz)
 
 ## 1. Zweck und verbindliche Grenzen
 
@@ -350,8 +350,10 @@ main (C1 über PR #734, C2 über PR #736, C3A über PR #740, C3B über PR #744, 
             └─ merge → refreshed main
                  └─ C4 Parent (`FAIL_SPLIT_REQUIRED`; blocked; never direct implementation)
                       └─ C4A Guest Adoption Preparation (`codex_ready`; `preflight_only`)
-                          └─ C4B Authenticated Adoption/Draft Resume (blocked; after C4A done)
-                      └─ C5 Citizen Context/Place
+                           └─ C4A done → merge → refreshed main
+                                └─ C4B Authenticated Adoption/Draft Resume (blocked; after C4A done)
+                                     └─ C4B done → merge → refreshed main → C4 decomposition complete
+                                          └─ C5 Citizen Context/Place (still unauthorized)
                            └─ C6 Existing Topic/Stance
                                 └─ C7 Jurisdiction
                                      └─ C8 Source/Link Analysis
