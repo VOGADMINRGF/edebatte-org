@@ -34,6 +34,8 @@ const AWS_QUERY_KEY = /^x-amz-(?:algorithm|credential|date|expires|signedheaders
 const GOOGLE_QUERY_KEY = /^x-goog-(?:algorithm|credential|date|expires|signedheaders|signature)$/i;
 const AZURE_QUERY_KEY = /^(?:sig|se|sp|sv|sr|skoid|sktid|skt|ske|sks|skv)$/i;
 const IP_TOKEN = /(?:\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[0-9a-f]{0,4}:[0-9a-f:]{2,}\b)/gi;
+const URL_START = /(?:h|%68)(?:t|%74)(?:t|%74)(?:p|%70)(?:(?:s|%73))?(?::|%(?:25)*3a)(?:\/|%(?:25)*2f)(?:\/|%(?:25)*2f)/giu;
+const URL_CANDIDATE_BOUNDARY = /[\s<>"'\[\]\(\)]/u;
 
 function matches(pattern: RegExp, value: string) {
   return new RegExp(pattern.source, pattern.flags.replaceAll("g", "")).test(value);
@@ -70,10 +72,11 @@ function decodePercentEncoding(value: string): string | null {
 }
 
 function hasSignedUrl(value: string) {
-  if (!/https?(?::|%(?:25)*3a)/iu.test(value)) return false;
-  const normalizedLeaf = decodePercentEncoding(value);
-  if (!normalizedLeaf) return true;
-  const candidates = normalizedLeaf.match(/(?:https?:\/\/)[^\s<>"']+/giu) ?? [];
+  const candidates = Array.from(value.matchAll(URL_START), (match) => {
+    const remainder = value.slice(match.index ?? 0);
+    const boundary = remainder.search(URL_CANDIDATE_BOUNDARY);
+    return boundary === -1 ? remainder : remainder.slice(0, boundary);
+  });
   for (const candidate of candidates) {
     const normalized = decodePercentEncoding(candidate);
     if (!normalized) return true;
