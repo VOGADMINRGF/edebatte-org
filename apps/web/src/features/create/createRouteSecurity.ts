@@ -1,6 +1,7 @@
 import "server-only";
 
 import crypto from "node:crypto";
+import { TextDecoder } from "node:util";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { stableHash } from "@core/utils/hash";
@@ -11,9 +12,18 @@ import type {
 } from "@/utils/persistentRateLimit";
 import { getCreateContributionDraftForResumeRecord } from "@/server/serverDrafts";
 import {
+  CREATE_CLIENT_SIGNAL_HEADER,
+  CREATE_CLIENT_SIGNAL_MAX_LENGTH,
+  CREATE_HONEYPOT_HEADER,
+  CREATE_HONEYPOT_MAX_LENGTH,
   CREATE_MUTATION_CSRF_HEADER,
-  CREATE_MUTATION_CSRF_VALUE,
+  hasValidCreateMutationProvenance,
 } from "@/features/create/createMutationSecurityContract";
+import {
+  CREATE_ANON_SESSION_COOKIE,
+  verifyAnonymousSession,
+} from "@/features/create/createAnonymousSession";
+import { evaluateCreateAbusePayload } from "@/features/create/createAbuseGuard";
 
 export type CreateMutationScope =
   | "create_save"
@@ -25,27 +35,55 @@ const RATE_LIMITS: Record<
   {
     userLimit: number;
     ipLimit: number;
+    sessionLimit: number;
+    clientLimit: number;
     windowMs: number;
   }
 > = {
   create_save: {
     userLimit: 60,
     ipLimit: 120,
+    sessionLimit: 90,
+    clientLimit: 90,
     windowMs: 15 * 60 * 1000,
   },
   create_intelligent_followup: {
     userLimit: 12,
     ipLimit: 30,
+    sessionLimit: 18,
+    clientLimit: 18,
     windowMs: 10 * 60 * 1000,
   },
   create_link_analysis: {
     userLimit: 12,
     ipLimit: 30,
+    sessionLimit: 18,
+    clientLimit: 18,
     windowMs: 10 * 60 * 1000,
   },
 };
 
 const MAX_CREATE_MUTATION_BYTES = 64 * 1024;
+const DUPLICATE_ACTOR_LIMIT = 4;
+const DUPLICATE_IP_LIMIT = 12;
+const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
+const SUSPICIOUS_REPEAT_WINDOW_MS = 60 * 1000;
+const ALLOWED_BODY_FIELDS: Record<CreateMutationScope, ReadonlySet<string>> = {
+  create_save: new Set([
+    "draftId", "packageId", "text", "textOriginal", "textPrepared",
+    "evidenceInput", "locale", "source", "createMode", "anlassraumId",
+    "authorName", "useCase", "sourceUrls", "uploadIds", "materialItems",
+    "analysis", "manualReviewRequested",
+  ]),
+  create_intelligent_followup: new Set([
+    "text", "sourceText", "intakeText", "input", "locale", "anlassraumId",
+    "dossierId", "intent", "sourceUrls", "materialItems", "correlationId",
+    "draftId",
+  ]),
+  create_link_analysis: new Set([
+    "text", "url", "locale", "additionalContext", "correlationId", "draftId",
+  ]),
+};
 
 type CreateRateLimiter = (
   input: PersistentRateLimitInput,
@@ -72,13 +110,10 @@ function normalizeLocale(value: string | null | undefined) {
     : "de";
 }
 
-function expectedRequestOrigin(req: NextRequest) {
-  return new URL(req.url).origin;
-}
-
 function genericSecurityFailure(
-  status: 403 | 413 | 429 | 503,
+  status: 400 | 403 | 413 | 429 | 503,
   errorCode:
+    | "CREATE_INVALID_REQUEST"
     | "CREATE_REQUEST_REJECTED"
     | "CREATE_REQUEST_TOO_LARGE"
     | "CREATE_RATE_LIMITED"
@@ -99,61 +134,242 @@ function genericSecurityFailure(
   return response;
 }
 
+function hasSupportedContentType(req: NextRequest) {
+  return /^application\/json(?:\s*;\s*charset\s*=\s*utf-8)?$/i.test(
+    req.headers.get("content-type")?.trim() ?? "",
+  );
+}
+
+function declaredBodyIsTooLarge(req: NextRequest) {
+  const value = req.headers.get("content-length")?.trim();
+  if (!value) return false;
+  return !/^\d+$/.test(value) || Number(value) > MAX_CREATE_MUTATION_BYTES;
+}
+
+function readClientSignal(req: NextRequest) {
+  const rawValue = req.headers.get(CREATE_CLIENT_SIGNAL_HEADER);
+  if (rawValue === null || !rawValue.trim()) {
+    return { valid: true, value: null } as const;
+  }
+  const value = rawValue.trim();
+  return {
+    valid:
+      value.length <= CREATE_CLIENT_SIGNAL_MAX_LENGTH &&
+      /^[a-z0-9_-]{8,64}$/i.test(value),
+    value,
+  };
+}
+
+async function readBoundedJsonObject(
+  req: NextRequest,
+  scope: CreateMutationScope,
+): Promise<
+  | { ok: true; payload: Record<string, unknown> }
+  | { ok: false; reason: "invalid" | "too_large" }
+> {
+  const reader = req.body?.getReader();
+  if (!reader) return { ok: false, reason: "invalid" };
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value?.byteLength) continue;
+      const remaining = MAX_CREATE_MUTATION_BYTES + 1 - size;
+      const chunk = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+      chunks.push(chunk);
+      size += chunk.byteLength;
+      if (size > MAX_CREATE_MUTATION_BYTES || value.byteLength > remaining) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false, reason: "too_large" };
+      }
+    }
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const payload: unknown = JSON.parse(decoded);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return { ok: false, reason: "invalid" };
+    }
+    const allowedFields = ALLOWED_BODY_FIELDS[scope];
+    if (Object.keys(payload).some((key) => !allowedFields.has(key))) {
+      return { ok: false, reason: "invalid" };
+    }
+    Object.defineProperty(req, "json", {
+      configurable: true,
+      value: async () => payload,
+    });
+    return { ok: true, payload: payload as Record<string, unknown> };
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+}
+
+function firstLimited(results: PersistentRateLimitResult[]) {
+  return results.find((result) => !result.ok) ?? null;
+}
+
 export async function enforceCreateMutationSecurity(input: {
   req: NextRequest;
   scope: CreateMutationScope;
   actorKey: string;
 }): Promise<Response | null> {
-  const origin = input.req.headers.get("origin")?.trim() ?? "";
-  const fetchSite = input.req.headers.get("sec-fetch-site")?.trim().toLowerCase() ?? "";
-  const csrfIntent = input.req.headers.get(CREATE_MUTATION_CSRF_HEADER)?.trim() ?? "";
-  if (
-    !origin ||
-    origin !== expectedRequestOrigin(input.req) ||
-    fetchSite !== "same-origin" ||
-    csrfIntent !== CREATE_MUTATION_CSRF_VALUE
-  ) {
+  if (!hasValidCreateMutationProvenance({
+    expectedOrigin: new URL(input.req.url).origin,
+    origin: input.req.headers.get("origin"),
+    fetchSite: input.req.headers.get("sec-fetch-site"),
+    csrfIntent: input.req.headers.get(CREATE_MUTATION_CSRF_HEADER),
+  })) {
     return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
   }
 
-  const contentLength = Number(input.req.headers.get("content-length") ?? "0");
+  const honeypot = input.req.headers.get(CREATE_HONEYPOT_HEADER) ?? "";
   if (
-    !Number.isFinite(contentLength) ||
-    contentLength < 0 ||
-    contentLength > MAX_CREATE_MUTATION_BYTES
+    honeypot.length > CREATE_HONEYPOT_MAX_LENGTH ||
+    honeypot.trim().length > 0
   ) {
+    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
+  }
+  if (!hasSupportedContentType(input.req)) {
+    return genericSecurityFailure(400, "CREATE_INVALID_REQUEST");
+  }
+  if (declaredBodyIsTooLarge(input.req)) {
     return genericSecurityFailure(413, "CREATE_REQUEST_TOO_LARGE");
+  }
+  const clientSignal = readClientSignal(input.req);
+  if (!clientSignal.valid) {
+    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
   }
 
   const policy = RATE_LIMITS[input.scope];
+  let limiterContext: {
+    limiter: CreateRateLimiter;
+    ip: string;
+    anonymousSession: ReturnType<typeof verifyAnonymousSession>;
+  } | null = null;
   try {
     const limiter = await loadCreateRateLimiter();
     if (!limiter) {
       return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
     }
-    const actorHash = digest(`${input.scope}:actor:${input.actorKey}`);
-    const ipHash = digest(`${input.scope}:ip:${getClientIp(input.req)}`);
-    const [userLimit, ipLimit] = await Promise.all([
+    const ip = getClientIp(input.req);
+    const anonymousSession = verifyAnonymousSession(
+      input.req.cookies.get(CREATE_ANON_SESSION_COOKIE)?.value,
+    );
+    const baseChecks: Array<Promise<PersistentRateLimitResult>> = [
       limiter({
         namespace: `create:${input.scope}:actor`,
-        subjectHash: actorHash,
+        subjectHash: digest(`${input.scope}:actor:${input.actorKey}`),
         limit: policy.userLimit,
         windowMs: policy.windowMs,
       }),
       limiter({
         namespace: `create:${input.scope}:ip`,
-        subjectHash: ipHash,
+        subjectHash: digest(`${input.scope}:ip:${ip}`),
         limit: policy.ipLimit,
         windowMs: policy.windowMs,
       }),
-    ]);
-    const limited = !userLimit.ok ? userLimit : !ipLimit.ok ? ipLimit : null;
-    if (limited) {
+    ];
+    if (anonymousSession) {
+      baseChecks.push(limiter({
+        namespace: `create:${input.scope}:anonymous`,
+        subjectHash: digest(`${input.scope}:anonymous:${anonymousSession.id}`),
+        limit: policy.sessionLimit,
+        windowMs: policy.windowMs,
+      }));
+    }
+    if (clientSignal.value) {
+      baseChecks.push(limiter({
+        namespace: `create:${input.scope}:client`,
+        subjectHash: digest(`${input.scope}:client:${clientSignal.value}`),
+        limit: policy.clientLimit,
+        windowMs: policy.windowMs,
+      }));
+    }
+    const baseLimited = firstLimited(await Promise.all(baseChecks));
+    if (baseLimited) {
       return genericSecurityFailure(
         429,
         "CREATE_RATE_LIMITED",
-        Math.ceil(limited.retryIn / 1000),
+        Math.ceil(baseLimited.retryIn / 1000),
       );
+    }
+    limiterContext = { limiter, ip, anonymousSession };
+  } catch {
+    return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
+  }
+
+  const boundedBody = await readBoundedJsonObject(input.req, input.scope);
+  if ("reason" in boundedBody) {
+    return boundedBody.reason === "too_large"
+      ? genericSecurityFailure(413, "CREATE_REQUEST_TOO_LARGE")
+      : genericSecurityFailure(400, "CREATE_INVALID_REQUEST");
+  }
+  const abuse = evaluateCreateAbusePayload(boundedBody.payload);
+  if (abuse.risk === "block") {
+    return genericSecurityFailure(403, "CREATE_REQUEST_REJECTED");
+  }
+  if (!limiterContext) {
+    return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
+  }
+  const { limiter, ip, anonymousSession } = limiterContext;
+
+  try {
+    if (input.scope !== "create_save" && abuse.fingerprint) {
+      const duplicateLimited = firstLimited(await Promise.all([
+        limiter({
+          namespace: `create:${input.scope}:duplicate:actor`,
+          subjectHash: digest(
+            `${input.scope}:duplicate:actor:${input.actorKey}:${abuse.fingerprint}`,
+          ),
+          limit: DUPLICATE_ACTOR_LIMIT,
+          windowMs: DUPLICATE_WINDOW_MS,
+        }),
+        limiter({
+          namespace: `create:${input.scope}:duplicate:ip`,
+          subjectHash: digest(
+            `${input.scope}:duplicate:ip:${ip}:${abuse.fingerprint}`,
+          ),
+          limit: DUPLICATE_IP_LIMIT,
+          windowMs: DUPLICATE_WINDOW_MS,
+        }),
+      ]));
+      if (duplicateLimited) {
+        return genericSecurityFailure(
+          429,
+          "CREATE_RATE_LIMITED",
+          Math.ceil(duplicateLimited.retryIn / 1000),
+        );
+      }
+    }
+
+    if (abuse.risk === "cooldown" && abuse.fingerprint) {
+      const riskSubject = clientSignal.value ?? anonymousSession?.id ?? input.actorKey;
+      const suspicious = await limiter({
+        namespace: `create:${input.scope}:suspicious-repeat`,
+        subjectHash: digest(
+          `${input.scope}:suspicious:${riskSubject}:${abuse.fingerprint}`,
+        ),
+        limit: 1,
+        windowMs: SUSPICIOUS_REPEAT_WINDOW_MS,
+      });
+      if (!suspicious.ok) {
+        return genericSecurityFailure(
+          429,
+          "CREATE_RATE_LIMITED",
+          Math.ceil(suspicious.retryIn / 1000),
+        );
+      }
     }
   } catch {
     return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");

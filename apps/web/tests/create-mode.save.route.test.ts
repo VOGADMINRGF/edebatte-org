@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
   let userId: string | null = "user-1";
   const docs: AnyDoc[] = [];
   const reviewDocs: AnyDoc[] = [];
+  const consumePersistentRateLimit = vi.fn();
 
   function toKey(value: unknown) {
     if (value && typeof value === "object" && "toHexString" in (value as Record<string, unknown>)) {
@@ -33,6 +34,8 @@ const mocks = vi.hoisted(() => {
   }
 
   return {
+    consumePersistentRateLimit,
+    persistentRateLimitModule: { consumePersistentRateLimit },
     setUser(next: string | null) {
       userId = next;
     },
@@ -155,6 +158,8 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("@/utils/persistentRateLimit", () => mocks.persistentRateLimitModule);
+
 vi.mock("@core/db/triMongo", async () => {
   const mongodb = await import("mongodb");
   return {
@@ -197,6 +202,13 @@ describe("create mode split - save route", () => {
     vi.clearAllMocks();
     mocks.reset();
     mocks.getDraft.mockResolvedValue(null);
+    mocks.consumePersistentRateLimit.mockResolvedValue({
+      ok: true,
+      remaining: 10,
+      limit: 12,
+      resetAt: Date.now() + 60_000,
+      retryIn: 0,
+    });
   });
 
   it("rejects a guest before parsing the body and never emits a cookie or draft", async () => {
@@ -445,6 +457,33 @@ describe("create mode split - save route", () => {
       source: "create_followup",
       createMode: "source",
     };
+
+    // Resolve the hoisted dynamic-import mock before the second request enters security.
+    let releaseSecondRequest = () => undefined;
+    const firstLimiterResolved = new Promise<void>((resolve) => {
+      releaseSecondRequest = resolve;
+    });
+    const sessionUser = {
+      _id: { toHexString: () => "user-1" },
+      roles: ["user"],
+      sessionValid: true,
+    };
+    mocks.getSessionUser
+      .mockImplementationOnce(async () => sessionUser)
+      .mockImplementationOnce(async () => {
+        await firstLimiterResolved;
+        return sessionUser;
+      });
+    mocks.consumePersistentRateLimit.mockImplementation(async () => {
+      releaseSecondRequest();
+      return {
+        ok: true,
+        remaining: 10,
+        limit: 12,
+        resetAt: Date.now() + 60_000,
+        retryIn: 0,
+      };
+    });
 
     const [first, second] = await Promise.all([savePOST(req(payload)), savePOST(req(payload))]);
     const firstBody = await first.json();

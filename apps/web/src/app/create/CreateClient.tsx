@@ -64,7 +64,10 @@ import {
   type CreateIntelligentFollowupResult,
 } from "@/features/create/intelligentFollowupContract";
 import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
-import { createMutationRequestHeaders } from "@/features/create/createMutationSecurityContract";
+import {
+  CREATE_HONEYPOT_MAX_LENGTH,
+  createMutationRequestHeaders,
+} from "@/features/create/createMutationSecurityContract";
 import {
   buildCreateFollowupPrimaryCtaHref,
   buildCreateFollowupTargetHref,
@@ -826,6 +829,7 @@ export default function CreateClient({
   const intakeHydratedRef = React.useRef(false);
   const [intakeText, setIntakeText] = React.useState(initialText ?? "");
   const [composerAttachments, setComposerAttachments] = React.useState<File[]>([]);
+  const [createHoneypotValue, setCreateHoneypotValue] = React.useState("");
   const [activeContextAnchorId, setActiveContextAnchorId] = React.useState<CreateContextIntent | null>(null);
   const [hasStarted, setHasStarted] = React.useState<boolean>(false);
   const [isStarting, setIsStarting] = React.useState(false);
@@ -1220,7 +1224,7 @@ export default function CreateClient({
       const saveStartedAt = performance.now();
       const saveResponse = await fetch("/api/create/save", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         // Save remains non-abortable so the UX deadline cannot break resume safety.
         // The same deadline only cancels analysis after a durable draft exists.
         body: JSON.stringify({
@@ -1283,7 +1287,7 @@ export default function CreateClient({
       plannerDeadlineRef.current = plannerDeadline;
       const response = await fetch("/api/create/intelligent-followup", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         signal: plannerDeadline.signal,
         body: JSON.stringify({
           text: normalizedText,
@@ -1407,6 +1411,7 @@ export default function CreateClient({
     activeContextAnchor?.label,
     activeIntent,
     composerAttachmentMaterialItems,
+    createHoneypotValue,
     dossierId,
     isStarting,
     canonicalCreateMode,
@@ -2288,7 +2293,7 @@ export default function CreateClient({
     try {
       const response = await fetch("/api/create/save", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         body: JSON.stringify({
           draftId: savedDraftId ?? undefined,
           text: normalizedText,
@@ -2346,6 +2351,7 @@ export default function CreateClient({
     currentLinkDetection,
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
+    createHoneypotValue,
     linkClarificationState,
   ]);
 
@@ -2478,7 +2484,7 @@ export default function CreateClient({
     try {
       const response = await fetch("/api/create/intelligent-followup", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         signal: plannerDeadline.signal,
         body: JSON.stringify({
           text: sourceText,
@@ -2553,6 +2559,7 @@ export default function CreateClient({
     activeIntent,
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
+    createHoneypotValue,
     dossierId,
     followupSnapshot?.originalText,
     intelligentFollowup?.sourceText,
@@ -2767,7 +2774,7 @@ export default function CreateClient({
       const correlationId = createClientCorrelationId();
       const response = await fetch("/api/create/link-analysis", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         body: JSON.stringify({
           text: normalizedIntakeText,
           url: currentLinkDetection.primaryUrl,
@@ -2816,6 +2823,7 @@ export default function CreateClient({
     }
   }, [
     currentLinkDetection,
+    createHoneypotValue,
     intelligentFollowup?.meta?.analysis?.state,
     isStarting,
     linkClarificationState?.additionalContext,
@@ -3154,7 +3162,24 @@ export default function CreateClient({
               <CreateDebattenstandStatusBar model={debattenstandModel} onOpen={onOpen} />
             )}
             composer={
-              <SharedCreateComposer
+              <>
+                <input
+                  type="text"
+                  name="request_note_2f7"
+                  value={createHoneypotValue}
+                  onChange={(event) =>
+                    setCreateHoneypotValue(
+                      event.currentTarget.value.slice(0, CREATE_HONEYPOT_MAX_LENGTH),
+                    )
+                  }
+                  maxLength={CREATE_HONEYPOT_MAX_LENGTH}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  data-create-meta-field="v1"
+                  style={{ position: "fixed", left: "-10000px", top: "-10000px", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+                />
+                <SharedCreateComposer
                 badge={surfaceTexts.badgeCanonical}
                 subline={surfaceTexts.sublineCanonical}
                 texts={surfaceComposerTexts}
@@ -3302,7 +3327,8 @@ export default function CreateClient({
                 workspacePhase={hasStarted ? "continuation" : "initial"}
                 hideAlternateModeDisclosure
                 locale={surfaceLocale}
-              />
+                />
+              </>
             }
           />
         </section>

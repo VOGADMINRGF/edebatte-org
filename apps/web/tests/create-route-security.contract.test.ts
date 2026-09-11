@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const originalNextRuntime = process.env.NEXT_RUNTIME;
+const originalCreateSecret = process.env.CREATE_ANON_SESSION_SECRET;
+const signingSecret = "test-create-session-secret-with-at-least-32-bytes";
 const mocks = vi.hoisted(() => ({
   consumePersistentRateLimit: vi.fn(),
   getCreateContributionDraftForResumeRecord: vi.fn(),
@@ -21,10 +23,14 @@ import {
   enforceCreateMutationSecurity,
   verifyCreateDraftBinding,
 } from "@/features/create/createRouteSecurity";
+import {
+  CREATE_ANON_SESSION_COOKIE,
+  createAnonymousSession,
+} from "@/features/create/createAnonymousSession";
 
 function request(
   headers: Record<string, string> = {},
-  body = JSON.stringify({ draftId: "draft-1" }),
+  body: BodyInit = JSON.stringify({ draftId: "draft-1" }),
 ) {
   return new NextRequest("http://localhost/api/create/intelligent-followup", {
     method: "POST",
@@ -37,6 +43,23 @@ function request(
     },
     body,
   });
+}
+
+function observableBodyRequest(
+  headers: Record<string, string> = {},
+  body: BodyInit = followupBody(),
+) {
+  const req = request(headers, body);
+  const requestBody = req.body;
+  let bodyAccessCount = 0;
+  Object.defineProperty(req, "body", {
+    configurable: true,
+    get() {
+      bodyAccessCount += 1;
+      return requestBody;
+    },
+  });
+  return { req, bodyAccessCount: () => bodyAccessCount };
 }
 
 function ownDraft(overrides: Record<string, unknown> = {}) {
@@ -60,10 +83,26 @@ function ownDraft(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function followupBody(text = "Ein normales öffentliches Anliegen") {
+  return JSON.stringify({
+    text,
+    locale: "de",
+    correlationId: "correlation-123",
+    draftId: "draft-1",
+  });
+}
+
+function jsonBodyWithByteLength(size: number) {
+  const prefix = '{"analysis":"';
+  const suffix = '"}';
+  return `${prefix}${"a".repeat(size - prefix.length - suffix.length)}${suffix}`;
+}
+
 describe("authenticated create mutation security contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.NEXT_RUNTIME;
+    process.env.CREATE_ANON_SESSION_SECRET = signingSecret;
     mocks.consumePersistentRateLimit.mockResolvedValue({
       ok: true,
       remaining: 10,
@@ -81,6 +120,11 @@ describe("authenticated create mutation security contract", () => {
       delete process.env.NEXT_RUNTIME;
     } else {
       process.env.NEXT_RUNTIME = originalNextRuntime;
+    }
+    if (originalCreateSecret === undefined) {
+      delete process.env.CREATE_ANON_SESSION_SECRET;
+    } else {
+      process.env.CREATE_ANON_SESSION_SECRET = originalCreateSecret;
     }
   });
 
@@ -176,6 +220,48 @@ describe("authenticated create mutation security contract", () => {
     });
   });
 
+  it.each(["actor", "ip", "anonymous", "client"])(
+    "rejects an exhausted %s base bucket before reading even malformed body data",
+    async (exhaustedDimension) => {
+      const headers: Record<string, string> = {};
+      if (exhaustedDimension === "anonymous") {
+        const created = createAnonymousSession();
+        expect(created).not.toBeNull();
+        headers.cookie = `${CREATE_ANON_SESSION_COOKIE}=${created!.value}`;
+      }
+      if (exhaustedDimension === "client") {
+        headers["x-edebatte-create-client"] = "client_signal_01";
+      }
+      const observed = observableBodyRequest(headers, "{");
+      mocks.consumePersistentRateLimit.mockImplementation(
+        async (value: { namespace: string }) => ({
+          ok: !value.namespace.endsWith(`:${exhaustedDimension}`),
+          remaining: 0,
+          limit: 12,
+          resetAt: Date.now() + 5_000,
+          retryIn: 5_000,
+        }),
+      );
+
+      const response = await enforceCreateMutationSecurity({
+        req: observed.req,
+        scope: "create_intelligent_followup",
+        actorKey: "user:user-1",
+      });
+
+      expect(response?.status).toBe(429);
+      expect(observed.bodyAccessCount()).toBe(0);
+      const namespaces = mocks.consumePersistentRateLimit.mock.calls.map(
+        ([value]) => (value as { namespace: string }).namespace,
+      );
+      expect(namespaces).toEqual(expect.arrayContaining([
+        "create:create_intelligent_followup:actor",
+        "create:create_intelligent_followup:ip",
+        `create:create_intelligent_followup:${exhaustedDimension}`,
+      ]));
+    },
+  );
+
   it("fails closed when the persistent loader is unavailable in an unsupported runtime", async () => {
     process.env.NEXT_RUNTIME = "edge";
     const response = await enforceCreateMutationSecurity({
@@ -189,6 +275,259 @@ describe("authenticated create mutation security contract", () => {
       errorCode: "CREATE_RATE_LIMIT_UNAVAILABLE",
     });
     expect(mocks.consumePersistentRateLimit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ "content-type": "" }, "missing content type"],
+    [{ "content-type": "text/plain" }, "unsupported content type"],
+    [{ "content-type": "application/json; charset=iso-8859-1" }, "unsupported charset"],
+  ])("rejects %s with one fixed parser-safe response", async (headers) => {
+    const response = await enforceCreateMutationSecurity({
+      req: request(headers, followupBody()),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+
+    expect(response?.status).toBe(400);
+    await expect(response?.json()).resolves.toEqual({
+      ok: false,
+      errorCode: "CREATE_INVALID_REQUEST",
+      message: "Die Anfrage konnte nicht verarbeitet werden.",
+    });
+    expect(mocks.consumePersistentRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("accepts application/json with an explicit UTF-8 charset", async () => {
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        { "content-type": "application/json; charset=UTF-8" },
+        followupBody(),
+      ),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+
+    expect(response).toBeNull();
+  });
+
+  it("rejects a filled or oversized honeypot before body and limiter work", async () => {
+    for (const trap of ["bot-filled", "x".repeat(161)]) {
+      const response = await enforceCreateMutationSecurity({
+        req: request({ "x-edebatte-create-meta": trap }, followupBody()),
+        scope: "create_intelligent_followup",
+        actorKey: "user:user-1",
+      });
+      expect(response?.status).toBe(403);
+      await expect(response?.json()).resolves.toMatchObject({
+        errorCode: "CREATE_REQUEST_REJECTED",
+      });
+    }
+    expect(mocks.consumePersistentRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("enforces declared and measured 64 KiB body boundaries", async () => {
+    const declared = await enforceCreateMutationSecurity({
+      req: request({ "content-length": "65537" }, "{}"),
+      scope: "create_save",
+      actorKey: "user:user-1",
+    });
+    expect(declared?.status).toBe(413);
+
+    const exact = await enforceCreateMutationSecurity({
+      req: request({}, jsonBodyWithByteLength(64 * 1024)),
+      scope: "create_save",
+      actorKey: "user:user-1",
+    });
+    expect(exact).toBeNull();
+
+    mocks.consumePersistentRateLimit.mockClear();
+    const oversized = await enforceCreateMutationSecurity({
+      req: request(
+        { "content-length": "1" },
+        jsonBodyWithByteLength(64 * 1024 + 1),
+      ),
+      scope: "create_save",
+      actorKey: "user:user-1",
+    });
+    expect(oversized?.status).toBe(413);
+    await expect(oversized?.json()).resolves.toMatchObject({
+      errorCode: "CREATE_REQUEST_TOO_LARGE",
+    });
+    expect(mocks.consumePersistentRateLimit).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["{", "malformed JSON"],
+    ["[]", "array JSON"],
+    ["null", "null JSON"],
+    [JSON.stringify({ draftId: "draft-1", unknownSecurityField: true }), "unknown field"],
+  ])("fails closed for %s without exposing parser internals", async (body) => {
+    const response = await enforceCreateMutationSecurity({
+      req: request({}, body),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+
+    expect(response?.status).toBe(400);
+    await expect(response?.json()).resolves.toEqual({
+      ok: false,
+      errorCode: "CREATE_INVALID_REQUEST",
+      message: "Die Anfrage konnte nicht verarbeitet werden.",
+    });
+    expect(mocks.consumePersistentRateLimit.mock.calls.map(
+      ([value]) => (value as { namespace: string }).namespace,
+    )).toEqual([
+      "create:create_intelligent_followup:actor",
+      "create:create_intelligent_followup:ip",
+    ]);
+  });
+
+  it("rejects malformed UTF-8 before JSON parsing", async () => {
+    const response = await enforceCreateMutationSecurity({
+      req: request({}, new Uint8Array([0x7b, 0x22, 0x78, 0x22, 0x3a, 0xc3, 0x28, 0x7d])),
+      scope: "create_save",
+      actorKey: "user:user-1",
+    });
+
+    expect(response?.status).toBe(400);
+    await expect(response?.json()).resolves.toMatchObject({
+      errorCode: "CREATE_INVALID_REQUEST",
+    });
+  });
+
+  it("uses only verified session and bounded client-signal dimensions", async () => {
+    const created = createAnonymousSession();
+    expect(created).not.toBeNull();
+    const clientSignal = "client_signal_01";
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        {
+          cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}`,
+          "x-edebatte-create-client": clientSignal,
+          "x-forwarded-for": "203.0.113.42",
+        },
+        followupBody(),
+      ),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+
+    expect(response).toBeNull();
+    const calls = mocks.consumePersistentRateLimit.mock.calls.map(([value]) =>
+      value as { namespace: string; subjectHash: string },
+    );
+    expect(calls.map((call) => call.namespace)).toEqual(expect.arrayContaining([
+      "create:create_intelligent_followup:actor",
+      "create:create_intelligent_followup:ip",
+      "create:create_intelligent_followup:anonymous",
+      "create:create_intelligent_followup:client",
+      "create:create_intelligent_followup:duplicate:actor",
+      "create:create_intelligent_followup:duplicate:ip",
+    ]));
+    for (const call of calls) {
+      expect(call.subjectHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(call.subjectHash).not.toContain(clientSignal);
+      expect(call.subjectHash).not.toContain("203.0.113.42");
+      expect(call.subjectHash).not.toContain(created!.value);
+    }
+  });
+
+  it("does not trust malformed client signals or tampered session tokens", async () => {
+    const invalidClient = await enforceCreateMutationSecurity({
+      req: request(
+        { "x-edebatte-create-client": "contains personal@example.org" },
+        followupBody(),
+      ),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+    expect(invalidClient?.status).toBe(403);
+
+    mocks.consumePersistentRateLimit.mockClear();
+    const created = createAnonymousSession();
+    const tampered = `${created!.value.slice(0, -1)}x`;
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${tampered}` },
+        followupBody(),
+      ),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+    expect(response).toBeNull();
+    expect(mocks.consumePersistentRateLimit.mock.calls.some(
+      ([value]) => (value as { namespace: string }).namespace.endsWith(":anonymous"),
+    )).toBe(false);
+  });
+
+  it("enforces persistent duplicate and suspicious cooldown buckets", async () => {
+    const duplicateRequest = observableBodyRequest(
+      {},
+      followupBody("Dasselbe Anliegen wird erneut eingereicht."),
+    );
+    mocks.consumePersistentRateLimit.mockImplementation(async (value: { namespace: string }) => {
+      if (value.namespace.endsWith(":duplicate:actor")) {
+        expect(duplicateRequest.bodyAccessCount()).toBeGreaterThan(0);
+        return { ok: false, remaining: 0, limit: 4, resetAt: Date.now() + 20_000, retryIn: 20_000 };
+      }
+      return { ok: true, remaining: 10, limit: 12, resetAt: Date.now() + 60_000, retryIn: 0 };
+    });
+    const duplicate = await enforceCreateMutationSecurity({
+      req: duplicateRequest.req,
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+    expect(duplicate?.status).toBe(429);
+    expect(duplicate?.headers.get("retry-after")).toBe("20");
+
+    const cooldownRequest = observableBodyRequest({}, followupBody(
+      "Bitte prüfen https://e.example/a https://e.example/a https://e.example/a https://e.example/a https://e.example/b",
+    ));
+    mocks.consumePersistentRateLimit.mockImplementation(async (value: { namespace: string }) => {
+      if (value.namespace.endsWith(":suspicious-repeat")) {
+        expect(cooldownRequest.bodyAccessCount()).toBeGreaterThan(0);
+      }
+      return {
+        ok: !value.namespace.endsWith(":suspicious-repeat"),
+        remaining: 0,
+        limit: 1,
+        resetAt: Date.now() + 15_000,
+        retryIn: value.namespace.endsWith(":suspicious-repeat") ? 15_000 : 0,
+      };
+    });
+    const cooldown = await enforceCreateMutationSecurity({
+      req: cooldownRequest.req,
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+    expect(cooldown?.status).toBe(429);
+    expect(mocks.consumePersistentRateLimit.mock.calls.some(
+      ([value]) => (value as { namespace: string }).namespace.endsWith(":suspicious-repeat"),
+    )).toBe(true);
+  });
+
+  it("blocks mechanical sentinels without reflecting sensitive input", async () => {
+    const sensitive = "[object Object]";
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        { cookie: "raw-sensitive-cookie", "x-forwarded-for": "203.0.113.99" },
+        followupBody(sensitive),
+      ),
+      scope: "create_intelligent_followup",
+      actorKey: "user:user-1",
+    });
+    const publicBody = JSON.stringify(await response?.json());
+
+    expect(response?.status).toBe(403);
+    expect(publicBody).not.toContain(sensitive);
+    expect(publicBody).not.toContain("raw-sensitive-cookie");
+    expect(publicBody).not.toContain("203.0.113.99");
+    expect(mocks.consumePersistentRateLimit.mock.calls.map(
+      ([value]) => (value as { namespace: string }).namespace,
+    )).toEqual([
+      "create:create_intelligent_followup:actor",
+      "create:create_intelligent_followup:ip",
+    ]);
   });
 
   it("accepts only an active canonical draft owned by the authenticated user", async () => {
