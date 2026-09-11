@@ -28,7 +28,8 @@ import { evaluateCreateAbusePayload } from "@/features/create/createAbuseGuard";
 export type CreateMutationScope =
   | "create_save"
   | "create_intelligent_followup"
-  | "create_link_analysis";
+  | "create_link_analysis"
+  | "create_guest_claim";
 
 const RATE_LIMITS: Record<
   CreateMutationScope,
@@ -61,6 +62,13 @@ const RATE_LIMITS: Record<
     clientLimit: 18,
     windowMs: 10 * 60 * 1000,
   },
+  create_guest_claim: {
+    userLimit: 12,
+    ipLimit: 30,
+    sessionLimit: 18,
+    clientLimit: 18,
+    windowMs: 10 * 60 * 1000,
+  },
 };
 
 const MAX_CREATE_MUTATION_BYTES = 64 * 1024;
@@ -83,6 +91,7 @@ const ALLOWED_BODY_FIELDS: Record<CreateMutationScope, ReadonlySet<string>> = {
   create_link_analysis: new Set([
     "text", "url", "locale", "additionalContext", "correlationId", "draftId",
   ]),
+  create_guest_claim: new Set(["claim"]),
 };
 
 type CreateRateLimiter = (
@@ -375,6 +384,12 @@ export async function enforceCreateMutationSecurity(input: {
     return genericSecurityFailure(503, "CREATE_RATE_LIMIT_UNAVAILABLE");
   }
   return null;
+}
+
+export function getVerifiedGuestClaimSubject(req: NextRequest): string | null {
+  return verifyAnonymousSession(
+    req.cookies.get(CREATE_ANON_SESSION_COOKIE)?.value,
+  )?.id ?? null;
 }
 
 export type VerifiedCreateDraftBinding = {

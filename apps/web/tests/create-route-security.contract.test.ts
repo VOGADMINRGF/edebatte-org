@@ -27,6 +27,12 @@ import {
   CREATE_ANON_SESSION_COOKIE,
   createAnonymousSession,
 } from "@/features/create/createAnonymousSession";
+import {
+  createInMemoryCreateOrchestrationClaimRepo,
+  createOrchestrationClaimKeyForTests,
+  runGuestClaimSingleFlight,
+  setCreateOrchestrationClaimRepoForTests,
+} from "@/features/create/createOrchestrationSingleFlight";
 
 function request(
   headers: Record<string, string> = {},
@@ -568,5 +574,87 @@ describe("authenticated create mutation security contract", () => {
         locale: "de",
       }),
     ).resolves.toBeNull();
+  });
+
+  it("keeps guest claim security isolated to its one-field allowlist and hashed buckets", async () => {
+    const created = createAnonymousSession();
+    expect(created).not.toBeNull();
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}` },
+        JSON.stringify({ claim: { topic: "Sichere Schulwege" } }),
+      ),
+      scope: "create_guest_claim",
+      actorKey: "guest:subject-hash",
+    });
+    expect(response).toBeNull();
+    expect(mocks.consumePersistentRateLimit.mock.calls.map(([value]) =>
+      (value as { namespace: string }).namespace,
+    )).toEqual(expect.arrayContaining([
+      "create:create_guest_claim:actor",
+      "create:create_guest_claim:ip",
+      "create:create_guest_claim:anonymous",
+    ]));
+  });
+
+  it("gives guest claims one owner, isolates guests, recovers stale leases, and fails closed on storage errors", async () => {
+    const repo = createInMemoryCreateOrchestrationClaimRepo();
+    setCreateOrchestrationClaimRepoForTests(repo);
+    const input = {
+      subjectDigest: "a".repeat(64),
+      inputDigest: "b".repeat(64),
+      isSafeResult: (value: unknown): value is { accepted: true } =>
+        Boolean(value && typeof value === "object" && (value as { accepted?: unknown }).accepted === true),
+    };
+    let release!: () => void;
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    let ownerEntered = false;
+    const owner = runGuestClaimSingleFlight({
+      ...input,
+      run: async () => {
+        ownerEntered = true;
+        await wait;
+        return { accepted: true };
+      },
+    });
+    await vi.waitFor(() => expect(ownerEntered).toBe(true));
+    const competitor = await runGuestClaimSingleFlight({ ...input, run: async () => ({ accepted: true }) });
+    expect(competitor).toEqual({ kind: "active" });
+    release();
+    await expect(owner).resolves.toMatchObject({ kind: "completed", reused: false });
+    const independent = await runGuestClaimSingleFlight({
+      ...input,
+      subjectDigest: "c".repeat(64),
+      run: async () => ({ accepted: true }),
+    });
+    expect(independent).toMatchObject({ kind: "completed", reused: false });
+    const staleInput = { ...input, inputDigest: "d".repeat(64) };
+    let releaseStale!: () => void;
+    const staleWait = new Promise<void>((resolve) => { releaseStale = resolve; });
+    let staleOwnerEntered = false;
+    const staleOwner = runGuestClaimSingleFlight({
+      ...staleInput,
+      run: async () => {
+        staleOwnerEntered = true;
+        await staleWait;
+        return { accepted: true };
+      },
+    });
+    await vi.waitFor(() => expect(staleOwnerEntered).toBe(true));
+    repo.expireClaimForTests(createOrchestrationClaimKeyForTests({
+      actorKey: `guest:${staleInput.subjectDigest}`,
+      draftId: "guest_claim",
+      correlationId: staleInput.inputDigest,
+      operationType: "create_guest_claim",
+    }));
+    await expect(runGuestClaimSingleFlight({ ...staleInput, run: async () => ({ accepted: true }) })).resolves.toMatchObject({ kind: "completed", recovered: true });
+    releaseStale();
+    await staleOwner;
+    setCreateOrchestrationClaimRepoForTests({
+      ...repo,
+      acquire: async () => { throw new Error("storage unavailable"); },
+    } as never);
+    await expect(runGuestClaimSingleFlight({ ...input, run: async () => ({ accepted: true }) })).resolves.toEqual({ kind: "unavailable" });
+    setCreateOrchestrationClaimRepoForTests(null);
   });
 });

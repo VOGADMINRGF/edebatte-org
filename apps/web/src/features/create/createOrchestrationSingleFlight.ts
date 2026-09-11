@@ -4,7 +4,9 @@ import crypto from "node:crypto";
 import { coreCol } from "@core/db/triMongo";
 import { stableHash } from "@core/utils/hash";
 
-export type CreateOrchestrationKind = "create_intelligent_followup_planner";
+export type CreateOrchestrationKind =
+  | "create_intelligent_followup_planner"
+  | "create_guest_claim";
 
 type CreateOrchestrationClaimStatus = "running" | "completed" | "failed";
 
@@ -521,6 +523,103 @@ export async function runCreateOrchestrationSingleFlight<T>(input: {
   }
 
   throw new Error("create_single_flight_wait_timeout");
+}
+
+export type GuestClaimSingleFlightResult<T> =
+  | { kind: "completed"; result: T; reused: boolean; recovered: boolean }
+  | { kind: "active" }
+  | { kind: "unsafe" }
+  | { kind: "unavailable" };
+
+export async function runGuestClaimSingleFlight<T>(input: {
+  subjectDigest: string;
+  inputDigest: string;
+  run: () => Promise<T>;
+  isSafeResult: (result: unknown) => result is T;
+  leaseMs?: number;
+}): Promise<GuestClaimSingleFlightResult<T>> {
+  if (!/^[a-f0-9]{64}$/i.test(input.subjectDigest) || !/^[a-f0-9]{64}$/i.test(input.inputDigest)) {
+    return { kind: "unavailable" };
+  }
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const leaseMs = Math.max(1_000, input.leaseMs ?? DEFAULT_LEASE_MS);
+  const claimToken = crypto.randomUUID();
+  const actorKey = `guest:${input.subjectDigest.toLowerCase()}`;
+  const key = buildClaimKey({
+    actorKey,
+    draftId: "guest_claim",
+    correlationId: input.inputDigest.toLowerCase(),
+    operationType: "create_guest_claim",
+  });
+  let acquired: ClaimAcquireResult<T>;
+  try {
+    acquired = await getRepo().acquire({
+      now,
+      record: {
+        key,
+        status: "running",
+        actorKey,
+        draftId: "guest_claim",
+        correlationId: input.inputDigest.toLowerCase(),
+        operationType: "create_guest_claim",
+        inputHash: input.inputDigest.toLowerCase(),
+        claimToken,
+        leaseUntil: new Date(nowDate.getTime() + leaseMs).toISOString(),
+        externalExecutionStarted: false,
+        externalExecutionStartedAt: null,
+        result: null,
+        failureCode: null,
+        createdAt: now,
+        updatedAt: now,
+        expiresAt: new Date(nowDate.getTime() + RESULT_TTL_MS),
+      },
+    });
+  } catch {
+    return { kind: "unavailable" };
+  }
+  if (acquired.kind === "active") return { kind: "active" };
+  if (acquired.kind === "completed") {
+    return input.isSafeResult(acquired.result)
+      ? { kind: "completed", result: acquired.result, reused: true, recovered: false }
+      : { kind: "unsafe" };
+  }
+  try {
+    const result = await input.run();
+    if (!input.isSafeResult(result)) {
+      try {
+        await getRepo().fail({
+          key,
+          claimToken,
+          failureCode: "create_guest_claim_unsafe_result",
+          now: new Date().toISOString(),
+        });
+      } catch {
+        return { kind: "unavailable" };
+      }
+      return { kind: "unsafe" };
+    }
+    const completed = await getRepo().complete({
+      key,
+      claimToken,
+      result,
+      now: new Date().toISOString(),
+    });
+    if (!completed) return { kind: "unavailable" };
+    return { kind: "completed", result, reused: false, recovered: acquired.recovered };
+  } catch {
+    try {
+      await getRepo().fail({
+        key,
+        claimToken,
+        failureCode: "create_guest_claim_failed",
+        now: new Date().toISOString(),
+      });
+    } catch {
+      return { kind: "unavailable" };
+    }
+    return { kind: "unavailable" };
+  }
 }
 
 export function setCreateOrchestrationClaimRepoForTests(
