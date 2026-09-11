@@ -34,8 +34,8 @@ const AWS_QUERY_KEY = /^x-amz-(?:algorithm|credential|date|expires|signedheaders
 const GOOGLE_QUERY_KEY = /^x-goog-(?:algorithm|credential|date|expires|signedheaders|signature)$/i;
 const AZURE_QUERY_KEY = /^(?:sig|se|sp|sv|sr|skoid|sktid|skt|ske|sks|skv)$/i;
 const IP_TOKEN = /(?:\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[0-9a-f]{0,4}:[0-9a-f:]{2,}\b)/gi;
-const URL_START = /(?:h|%68)(?:t|%74)(?:t|%74)(?:p|%70)(?:(?:s|%73))?(?::|%(?:25)*3a)(?:\/|%(?:25)*2f)(?:\/|%(?:25)*2f)/giu;
-const URL_CANDIDATE_BOUNDARY = /[\s<>"'\[\]\(\)]/u;
+const URL_START = /(?:h|%(?:25)*(?:48|68))(?:t|%(?:25)*(?:54|74))(?:t|%(?:25)*(?:54|74))(?:p|%(?:25)*(?:50|70))(?:(?:s|%(?:25)*(?:53|73)))?(?::|%(?:25)*3a)(?:\/|%(?:25)*2f)(?:\/|%(?:25)*2f)/giu;
+const URL_CANDIDATE_BOUNDARY = /[\s<>"']/u;
 
 function matches(pattern: RegExp, value: string) {
   return new RegExp(pattern.source, pattern.flags.replaceAll("g", "")).test(value);

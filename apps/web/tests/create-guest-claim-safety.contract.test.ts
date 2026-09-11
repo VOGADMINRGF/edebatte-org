@@ -37,6 +37,14 @@ describe("guest claim recursive safety contract", () => {
     [{ url: "[https://example.invalid/a%20b?X-Amz-Signature=secret](https://example.invalid/a%20b?X-Amz-Signature=secret)" }, "encoded path AWS signed URL"],
     [{ url: "[https://user:secret@example.invalid/path%20here](https://user:secret@example.invalid/path%20here)" }, "encoded path URL userinfo"],
     [{ url: "h%74tps%3A%2F%2Fexample.invalid%2Fpath%3Ftoken%3Dsecret" }, "partially encoded scheme token URL"],
+    [{ url: "%2568%2574%2574%2570%2573%253A%252F%252Fexample.invalid%252F%253Ftoken%253Dsecret" }, "multi-pass encoded lowercase scheme token URL"],
+    [{ url: "h%2574tps%253A%252F%252Fexample.invalid%252F%253Ftoken%253Dsecret" }, "mixed-level encoded scheme token URL"],
+    [{ url: "%48%54%54%50%53%3A%2F%2Fexample.invalid%2F%3Ftoken%3Dsecret" }, "uppercase encoded scheme token URL"],
+    [{ url: "%2548%2554%2554%2550%2553%253A%252F%252Fexample.invalid%252F%253Ftoken%253Dsecret" }, "multi-pass uppercase encoded scheme token URL"],
+    [{ url: "https://example.invalid/path(foo)?token=secret" }, "parenthesized path token URL"],
+    [{ url: "https://example.invalid/path[foo]?token=secret" }, "bracketed path token URL"],
+    [{ url: "https://example.invalid/a(b)c?X-Amz-Signature=secret" }, "parenthesized path AWS signed URL"],
+    [{ url: "https://example.invalid/a[b]c?X-Goog-Signature=secret" }, "bracketed path Google signed URL"],
     [{ nested: ["Cookie: sessionid=secret"] }, "Cookie header credential"],
     [{ nested: ["Set-Cookie: sessionid=secret"] }, "Set-Cookie header credential"],
     [{ nested: ["cOoKiE: sessionid=secret", "sEt-CoOkIe: sessionid=secret"] }, "mixed-case cookie header credential"],
@@ -76,6 +84,10 @@ describe("guest claim recursive safety contract", () => {
 
   it("allows harmless percent encoding that is not a URL", () => {
     expect(inspectGuestClaim({ note: "100%20finanziert" })).toMatchObject({ ok: true });
+  });
+
+  it("allows a normal URL with path parentheses and brackets without credential query data", () => {
+    expect(inspectGuestClaim({ url: "https://example.invalid/path(foo)[bar]?page=1" })).toMatchObject({ ok: true });
   });
 
   it("accepts only the exact persisted result allowlist", () => {
