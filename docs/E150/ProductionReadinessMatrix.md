@@ -10,7 +10,7 @@ Diese kompakte Sicht gilt für die globale Produkt- und Public-Launch-Aussage au
 
 | Master-Kategorie | Status | Begründung / nächstes hartes Gate |
 | --- | --- | --- |
-| Create/Citizen Core | BLOCKED | C1 und C2 sind abgeschlossen; der C3-Parent ist nach fehlgeschlagenem PII-/Security- und Size-Gate blockiert, C3A–C3D sind nicht autorisiert, C4–C12 bleiben Folgearbeit. |
+| Create/Citizen Core | BLOCKED | C1 und C2 sind abgeschlossen; der C3-Parent bleibt nach fehlgeschlagenem PII-/Security- und Size-Gate `blocked`. C3A und C3B sind `done`. Ausschließlich C3C ist `codex_ready` mit aktiver `implementation`-Autorisierung und `implementation_authorized=true`, aber nicht `done`. C3D bleibt `blocked` und nicht autorisiert; C4–C12 bleiben nicht autorisiert. |
 | Public Guards | BLOCKED | G1–G5 behalten ihre vorhandene Ownership und sind durch die Master Roadmap nicht autorisiert; G1 bleibt harte C9-Abhängigkeit und G4 alleiniger Public-QR-Guard-Owner. |
 | Topic Intelligence | NOT_STARTED | T0–T3 sind ausschließlich als blockierte Contract-/Qualification-/Research-/Context-Roadmap dispositioniert; keine Runtime oder Migration ist freigegeben. |
 | Decision Dossier | PARTIAL | Kanonische Dossier-, Topic-, Claim-, Evidence-, Poll- und TopicRound-Grundlagen existieren; der neue T0–T7-Systemfrage-, Szenario-, Comparator-, Readiness- und Revision-Binding-Endstate ist nicht umgesetzt und bleibt blockiert. |
