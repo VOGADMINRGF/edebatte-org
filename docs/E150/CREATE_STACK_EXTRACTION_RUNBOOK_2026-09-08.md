@@ -1,10 +1,10 @@
 # eDebatte Create Stack Extraction Runbook
 
-Stand: 2026-09-10
+Stand: 2026-09-11
 
 Status: Governance- und Extraktionsplan; C1, C2, C3A, C3B und C3C sind gemergt, der C3-Parent bleibt blockiert und ausschließlich C3D `CREATE-GUEST-EPHEMERAL-UI-01` ist `codex_ready` für `preflight_only`; C3D-Implementierung bleibt nicht autorisiert
 
-Zielbasis: `main@c3ff4b01ada66e397c61e7b597ac20ce12e136fb` (enthält C1 über PR `#734`, C2 über PR `#736`, C3A über PR `#740`, C3B über PR `#744` und die C3C-Preflight-Governance über PR `#746`)
+Zielbasis: `main@932d01e6a85c55e6763f070647c2d67513248e36` (enthält C1 über PR `#734`, C2 über PR `#736`, C3A über PR `#740`, C3B über PR `#744` und C3C über PR `#748` als `done`)
 
 ## 1. Zweck und verbindliche Grenzen
 
@@ -86,7 +86,7 @@ Die einzig zulässige spätere Reihenfolge ist:
 
 1. C3A `CREATE-ANONYMOUS-SESSION-FOUNDATION-01` — signierte HttpOnly-SameSite-Session, serverseitige UUID/Expiry, minimaler Session-Endpunkt und begrenzte Issuance; keine Intake-/Planner-/Resume-/Browser-Rohdaten-Verantwortung. Jede temporäre Session besitzt explizite TTL, Retention Policy, Cleanup Owner, Expiry-/Orphan-Cleanup und Crash-/Restart-Recovery samt verifizierbarer Bereinigung.
 2. C3B `CREATE-ANONYMOUS-ABUSE-ROUTE-SECURITY-01` — Same-Origin/Fetch Metadata/CSRF, Honeypot, persistente Limits/Cooldown, Content-Type, gemessene Body-Grenze und fail-closed Parser-/Limiter-Grenzen; keine fachliche Planner-/Intake-Semantik.
-3. C3C `CREATE-GUEST-CLAIM-PII-SAFETY-01` — der positive Preflight hat die Implementierungsgrenze für Claim-Identität und kanonischen Single-Flight-Key mit ausschließlich servergenerierter Correlation sowie für rekursive PII-/Secret-/Signed-URL-Leakage-Erkennung und ausschließlich allowlistete sichere Fehler bestimmt. Client-Correlation ist niemals Claim-Identität, Key-Einfluss, Replay-Namespace oder freie persistierte Metadaten. Keine Adoption, kein Resume, kein Account Draft, keine Browserpersistenz und keine Production-Aktivierung; die Implementierung ist ausschließlich innerhalb der exakten Sieben-Dateien-Grenze autorisiert.
+3. C3C `CREATE-GUEST-CLAIM-PII-SAFETY-01` — der positive Preflight hatte die Implementierungsgrenze für Claim-Identität und kanonischen Single-Flight-Key mit ausschließlich servergenerierter Correlation sowie für rekursive PII-/Secret-/Signed-URL-Leakage-Erkennung und ausschließlich allowlistete sichere Fehler bestimmt. Client-Correlation ist niemals Claim-Identität, Key-Einfluss, Replay-Namespace oder freie persistierte Metadaten. Keine Adoption, kein Resume, kein Account Draft, keine Browserpersistenz und keine Production-Aktivierung; die Implementierung war ausschließlich innerhalb der exakten Sieben-Dateien-Grenze autorisiert und wurde über PR `#748` abgeschlossen.
 4. C3D `CREATE-GUEST-EPHEMERAL-UI-01` — minimale Guest-UI mit ephemerem React-State; keine Rohdaten-/Trace-/Result-Persistenz, kein Resume, keine Adoption und kein Account Draft.
 
 C3A hat den eigenen Preflight bestanden und wurde über PR `#740`, Exact Head `39a5e2567885ec1d33c74c51b553561d7bd91637`, als `main@52b1995706e0b69c01413171b63b4d7888dbb16b` gemergt. C3B wurde über PR `#744`, Implementation Head `c697fe225339e8f9e923b37506d84214d69068a2`, als `main@91ac96aa8dc12ab38e4912b6e4d29807f124cde4` gemergt und ist `done`; seine Implementierungsautorisierung bleibt für neue oder doppelte Dispatches geschlossen. C3C wurde über PR `#748`, Implementation Head `00c54ae5fcc42e005955ed8854287e585331750c`, als `main@932d01e6a85c55e6763f070647c2d67513248e36` gemergt und ist `done`. Ausschließlich C3D `CREATE-GUEST-EPHEMERAL-UI-01` ist jetzt `codex_ready` für einen eigenen `preflight_only`-Schritt. Es gilt `AUTHORIZATION=preflight_only` und `IMPLEMENTATION_AUTHORIZED=false`; C3D ist nicht `done`, und C4 hängt weiterhin vom Abschluss aller vier Slices ab. Die folgende Source-/Owner-Evidence beschreibt den historischen Parent-Scope und ist keine pauschale Copy- oder Merge-Freigabe.
@@ -100,6 +100,8 @@ C3C definiert getrennte minimale Allowlist-Schemas für (A) den persistierten Cl
 Der C3C-Preflight auf `main@c3ff4b01ada66e397c61e7b597ac20ce12e136fb` ist mit `PASS` und `BLOCKING_COLLISIONS=NONE` abgeschlossen. Alle Gates `SINGLE_FLIGHT_ARCHITECTURE`, `SERVER_CORRELATION`, `RECURSIVE_PII_GUARD`, `RECURSIVE_SECRET_GUARD`, `SIGNED_URL_GUARD`, `SAFE_FAILURE_ALLOWLIST`, `LOGGING_SAFETY`, `BROWSER_PERSISTENCE_ABSENCE`, `NO_ADOPTION`, `NO_RESUME`, `NO_ACCOUNT_DRAFT`, `NO_DB_MIGRATION` und `NO_PROVIDER_SECRET_DEPENDENCY` stehen auf `PASS`.
 
 Die reproduzierbare Architektur-, Collision-, Size-, Security- und Testevidence steht in `docs/E150/CREATE_GUEST_CLAIM_PII_SAFETY_C3C_PREFLIGHT_2026-09-11.md`.
+
+**Historische C3C-Implementierungs- und Completion-Evidence (über PR `#748` abgeschlossen; keine aktuelle oder erneute Implementierungsautorisierung):**
 
 Die C3C-Implementierung ist auf exakt sieben Dateien begrenzt (`FILES_CHANGED_COUNT=7`, `NEW_FILES_COUNT=4`). Geändert werden dürfen ausschließlich `apps/web/src/features/create/createRouteSecurity.ts`, `apps/web/src/features/create/createOrchestrationSingleFlight.ts` und `apps/web/tests/create-route-security.contract.test.ts`. Neu hinzukommen dürfen ausschließlich `apps/web/src/features/create/safety/createGuestClaimSafety.ts`, `apps/web/src/app/api/create/intake/route.ts`, `apps/web/tests/create-guest-claim-safety.contract.test.ts` und `apps/web/tests/create-guest-claim.route.test.ts`. Der Endpunkt `/api/create/intake` ist nur ein Claim-only-Transportvertrag; insbesondere clientgenerierte Correlation, Planner-Aufruf, breites Result-Modell, Browserpersistenz, Adoption und Resume aus dem historischen PR `#682` dürfen nicht übernommen werden. Die Implementierung muss den vorhandenen persistenten Mongo-Single-Flight mit server-session-abgeleitetem Subject, normalisiertem Input-Digest, deterministischem Active-Claim-Fehler, begrenzter Lease, stale Recovery, Multi-Instance-/Restart-Kompatibilität und fail-closed Storage-Fehlern erweitern. Correlation ist ausschließlich eine servergenerierte Operation-UUID. Rekursive PII-/Secret-/Signed-URL-Prüfung besitzt begrenzte Traversierung und stoppt fail-closed. Öffentliche Fehler sind fest allowlistet; Exception-Message, Stack, DB-/Provider-Body, rohe URL, rohe Validierungswerte und PII-tragende Metadaten gelangen weder in Response noch Observability. Es entsteht keine Browserpersistenz, Adoption, Resume-, Account-Draft-, Planner-, Provider-, Secret-, Deployment-, Production-, Schema-/Migrations- oder Auto-Publish-Semantik.
 
@@ -342,7 +344,7 @@ Von den aufgeführten Create-/Guard-Quell-PRs ist keiner auf aktuellem `main` si
 ## 10. Blocking Dependencies und Ziel-Branchgraph
 
 ```text
-main (C1, C2, C3A und C3B gemergt; C3B done über PR #744 auf c697fe225339e8f9e923b37506d84214d69068a2)
+main (C1 über PR #734, C2 über PR #736, C3A über PR #740, C3B über PR #744 und C3C über PR #748 gemergt; C3C done auf main@932d01e6a85c55e6763f070647c2d67513248e36)
   └─ C3C Guest Claim/PII/Safety (done; PR #748; main@932d01e6a85c55e6763f070647c2d67513248e36)
        └─ C3D Guest Ephemeral UI (codex_ready; preflight_only; implementation_authorized=false)
             └─ merge → refreshed main
