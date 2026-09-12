@@ -2,9 +2,9 @@
 
 Stand: 2026-09-12
 
-Status: Governance- und Extraktionsplan; C4-Parent und C4A-Dekompositions-Parent bleiben `blocked` nach `FAIL_SPLIT_REQUIRED`. C4A1s historisches `FAIL_BLOCKED` bleibt erhalten; sein Re-Preflight `PASS_FOR_SEPARATE_GOVERNANCE_AUTHORIZATION` autorisiert exakt die separate Sechs-Dateien-Implementation. C4B und C4C bleiben `blocked`. Keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
+Status: Governance- und Extraktionsplan; C4-Parent und C4A-Dekompositions-Parent bleiben `blocked` nach `FAIL_SPLIT_REQUIRED`. C4A1s historisches `FAIL_BLOCKED` bleibt erhalten; sein Re-Preflight autorisierte exakt die separate Sechs-Dateien-Implementation, deren neuer Dispatch durch Draft-PR `#762` konsumiert ist. Die Review-Reparatur `NO_PREPARATION_BROWSER_CARRIER_V1` bleibt ausschließlich auf #762 zulässig: C3A ist die einzige Browser-Transition-Bindung, C4B liest später binding-only. C4B und C4C bleiben `blocked`. Keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
 
-Zielbasis: `main@a60ce5ee982c99b403966e32aa0ec4d28ee33544` (C4A1 Re-Preflight-PASS und separate Implementierungsautorisierung; frühere SHAs bleiben historische Evidence)
+Zielbasis: `main@daf75eba8a3426309e294aa09417c88e0cea3cda` (Carrier-Race-Governance-Review; aktive Implementation ausschließlich Draft-PR `#762` auf Head `3164210f7aad2151a9ef420e1a14dbe7c4f461a2`, `REVIEW_BLOCKED_P1=true`)
 
 ## 1. Zweck und verbindliche Grenzen
 
