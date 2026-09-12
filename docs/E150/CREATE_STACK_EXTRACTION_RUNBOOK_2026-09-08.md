@@ -2,9 +2,9 @@
 
 Stand: 2026-09-12
 
-Status: Governance- und Extraktionsplan; C4-Parent und C4A bleiben `blocked`. `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` hat `PASS_FOR_SEPARATE_GOVERNANCE_AUTHORIZATION` und ist ausschließlich für seine exakt zwei Dateien `codex_ready` mit `AUTHORIZATION=implementation`, `IMPLEMENTATION_AUTHORIZED=true`, `DONE=false`; C4A benötigt nach Foundation-Merge einen frischen Preflight. C4B bleibt `blocked`; keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
+Status: Governance- und Extraktionsplan; C4-Parent bleibt `blocked`. `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` ist über PR `#757` `done`; seine Implementierungsautorisierung ist konsumiert. C4A ist ausschließlich `codex_ready` mit `AUTHORIZATION=preflight_only`, `CURRENT_PREFLIGHT_RESULT=NOT_YET_RUN` und ohne Implementierungsautorisierung. C4B bleibt `blocked`; keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
 
-Zielbasis: `main@f30477a4ad255bdb6ccfedf655321a49ad44fa14` (kanonische Basis des erfolgreichen At-Rest-Preflight und der aktuellen Implementierungsautorisierung; `main@0103c90e0364f3da2f86ab56ac4a230fafc74049` bleibt historische C4A-FAIL_BLOCKED-Evidence; `main@c736241fe52b7c1c8d1d4c2fe4651c6159c67847` bleibt historische C4-Parent-FAIL_SPLIT_REQUIRED-Evidence)
+Zielbasis: `main@0e156b036f6b8c9c915a5415f7400f466d995d0a` (PR `#757` At-Rest-Foundation done; `main@f30477a4ad255bdb6ccfedf655321a49ad44fa14` bleibt historische At-Rest-Preflight-Evidence; `main@0103c90e0364f3da2f86ab56ac4a230fafc74049` bleibt historische C4A-FAIL_BLOCKED-Evidence; `main@c736241fe52b7c1c8d1d4c2fe4651c6159c67847` bleibt historische C4-Parent-FAIL_SPLIT_REQUIRED-Evidence)
 
 ## 1. Zweck und verbindliche Grenzen
 
@@ -19,9 +19,9 @@ Es gilt für jeden Slice:
 - ein späterer Slice darf dieselbe Integrationsdatei erneut ändern, aber keinen bereits übernommenen Hunk duplizieren;
 - kein Auto-Publish, kein Silent Merge, keine zweite Create-, Planner-, Session-, Resolver-, Source-, Review- oder Progress-Runtime;
 - Quellen, Unsicherheit, Nutzerentscheidung, Auth-Grenze und PII-Grenze bleiben nachvollziehbar;
-- C3A–C3D sind abgeschlossen. C4-Parent und C4A bleiben `blocked`; C4A hat `FAIL_BLOCKED` wegen `AT_REST_PROTECTION`. Ausschließlich `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` ist nach PASS `codex_ready` mit `AUTHORIZATION=implementation`, `IMPLEMENTATION_AUTHORIZED=true`, `DONE=false` und exakt zwei autorisierten Dateien. C4B sowie C5–C12 und G1–G5 bleiben nicht autorisiert.
+- C3A–C3D sind abgeschlossen. C4-Parent bleibt `blocked`; die At-Rest-Foundation ist `done`. C4A ist ausschließlich `codex_ready` für `preflight_only`, mit historischem `FAIL_BLOCKED` und aktuellem Ergebnis `NOT_YET_RUN`; `IMPLEMENTATION_AUTHORIZED=false`. C4B sowie C5–C12 und G1–G5 bleiben nicht autorisiert.
 
-`CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) und `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) sind gemergt. C4-Parent und C4A bleiben `blocked`. Der At-Rest-Preflight auf `main@f30477a4ad255bdb6ccfedf655321a49ad44fa14` ist PASS; ausschließlich dessen exakt zwei Dateien sind `implementation`-autorisiert. C4A benötigt nach Foundation done refreshed main und frischen Preflight; C4B bleibt bis C4A done `blocked`.
+`CREATE-PLANNER-TIMING-FOUNDATION-01` (C1) und `CREATE-WORKSPACE-MOBILE-PRESENTATION-01` (C2) sind gemergt. C4-Parent bleibt `blocked`. Die At-Rest-Foundation ist über PR `#757` done; ihre frühere Autorisierung ist konsumiert. C4A benötigt auf `main@0e156b036f6b8c9c915a5415f7400f466d995d0a` einen frischen `preflight_only`-Check; C4B bleibt bis C4A done `blocked`.
 
 ## 2. Exakte Extraktionsreihenfolge
 
@@ -30,7 +30,7 @@ Es gilt für jeden Slice:
 | C1 | Authenticated Create Planner / Timing Foundation | `#713`, korrigierende Evidence `#682`, Vergleich `#627` | gemergt über PR `#734` als `main@cc42c0f73490833b0bf999d177672ebf342f9880` |
 | C2 | Authenticated Create Workspace / Mobile Presentation | `#713` | gemergt über PR `#736` als `main@7896cd41ba366b3b7de5725872675170e8f3b86b` |
 | C3 | Anonymous Session, Abuse Gates und redacted Guest Claim | `#724`, `#682` | Parent `blocked`; C3A über PR `#740`, C3B über PR `#744`, C3C über PR `#748` und C3D `CREATE-GUEST-EPHEMERAL-UI-01` über PR `#751` auf Head `30b160e17a44cce40afd5626b02c8e4e090da289`, Merge `65a89f67d1a8bb21fac41def3164270cd171b8d5`, `done`; C3D-Autorisierung konsumiert und geschlossen |
-| C4 | Browser Resume, explizite Adoption und Draft Binding | `#682` | C4-Parent `blocked`; C4A `FAIL_BLOCKED` wegen `AT_REST_PROTECTION`; der At-Rest-Task hat PASS und nur seine exakt zwei Dateien sind implementation-authorized. Nach Implementierung/Review/Merge/done folgt refreshed main und frischer C4A-Preflight; C4B bleibt bis C4A done `blocked` |
+| C4 | Browser Resume, explizite Adoption und Draft Binding | `#682` | C4-Parent `blocked`; At-Rest prerequisite `done` über PR `#757`; C4A ausschließlich `preflight_only` auf refreshed `main`, ohne Implementierungsautorisierung. Erst ein frischer C4A-PASS erlaubt eine separate Implementierungsautorisierung; C4B bleibt bis C4A done `blocked` |
 | C5 | Citizen Context und Place Resolution | `#682` | C4 gemergt; keine zweite Resolver-Wahrheit |
 | C6 | Existing-Topic Match und explizite Stance | `#682` | C5 gemergt; kanonische Match-IDs verfügbar |
 | C7 | Official Jurisdiction Index und Confirmation | `#682` | C6 gemergt; serverauthoritative Candidate-Keys |
@@ -89,7 +89,7 @@ Die einzig zulässige spätere Reihenfolge ist:
 3. C3C `CREATE-GUEST-CLAIM-PII-SAFETY-01` — der positive Preflight hatte die Implementierungsgrenze für Claim-Identität und kanonischen Single-Flight-Key mit ausschließlich servergenerierter Correlation sowie für rekursive PII-/Secret-/Signed-URL-Leakage-Erkennung und ausschließlich allowlistete sichere Fehler bestimmt. Client-Correlation ist niemals Claim-Identität, Key-Einfluss, Replay-Namespace oder freie persistierte Metadaten. Keine Adoption, kein Resume, kein Account Draft, keine Browserpersistenz und keine Production-Aktivierung; die Implementierung war ausschließlich innerhalb der exakten Sieben-Dateien-Grenze autorisiert und wurde über PR `#748` abgeschlossen.
 4. C3D `CREATE-GUEST-EPHEMERAL-UI-01` — minimale Guest-UI mit ephemerem React-State; keine Rohdaten-/Trace-/Result-Persistenz, kein Resume, keine Adoption und kein Account Draft.
 
-C3A–C3D sind `done`. Der C4-Parent `CREATE-GUEST-RESUME-ADOPTION-DRAFT-BINDING-01` ist nach seinem revisionsgebundenen Preflight `FAIL_SPLIT_REQUIRED` `blocked`, nicht direkt implementierbar und nicht `done`: C3C persistiert keinen Rohtext, C3D bleibt ephemer, und Payload-/Receipt-/Auth-Transition sind getrennte Sicherheitsdomänen. C4A `CREATE-GUEST-ADOPTION-PREPARATION-FOUNDATION-01` ist nach seinem Preflight auf `main@0103c90e0364f3da2f86ab56ac4a230fafc74049` `FAIL_BLOCKED` mit `BLOCKER=AT_REST_PROTECTION`, `SPLIT_REQUIRED=false`, `IMPLEMENTATION_AUTHORIZED=false` und `DONE=false`. Temporärer Rohpayload darf nicht ohne nachgewiesenen application-level At-Rest-Schutz persistiert werden; TTL oder C3C-Safety sind kein Ersatz. Ausschließlich `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` ist für seinen eigenen `preflight_only`-Security-Contract `codex_ready`; C4B bleibt `blocked`. Die folgende Source-/Owner-Evidence beschreibt historischen Parent-Scope und ist keine Copy- oder Merge-Freigabe.
+C3A–C3D sind `done`. Der C4-Parent `CREATE-GUEST-RESUME-ADOPTION-DRAFT-BINDING-01` ist nach seinem revisionsgebundenen Preflight `FAIL_SPLIT_REQUIRED` `blocked`, nicht direkt implementierbar und nicht `done`: C3C persistiert keinen Rohtext, C3D bleibt ephemer, und Payload-/Receipt-/Auth-Transition sind getrennte Sicherheitsdomänen. Die historische C4A-Evidence auf `main@0103c90e0364f3da2f86ab56ac4a230fafc74049` lautet `FAIL_BLOCKED` mit `BLOCKER=AT_REST_PROTECTION`; der Blocker ist durch die gemergte At-Rest-Foundation aufgelöst. C4A ist aktuell ausschließlich `preflight_only`, `CURRENT_PREFLIGHT_RESULT=NOT_YET_RUN`, `IMPLEMENTATION_AUTHORIZED=false` und `DONE=false`. TTL oder C3C-Safety ersetzen At-Rest-Schutz nicht; der frische Preflight prüft seine tatsächliche Schnittstelle erneut. C4B bleibt `blocked`. Die folgende Source-/Owner-Evidence beschreibt historischen Parent-Scope und ist keine Copy- oder Merge-Freigabe.
 
 Die durch PR `#744` ausgeschöpfte C3B-Implementierungsfreigabe war auf neun Dateien begrenzt. Geändert werden durften ausschließlich `apps/web/src/features/create/createMutationSecurityContract.ts`, `apps/web/src/features/create/createRouteSecurity.ts`, `apps/web/src/app/api/create/session/route.ts`, `apps/web/src/app/create/CreateClient.tsx`, `apps/web/tests/create-route-security.contract.test.ts` und `apps/web/tests/create-mode.save.route.test.ts`; neu hinzukommen durften ausschließlich `apps/web/src/features/create/createAbuseGuard.ts`, `apps/web/tests/create-abuse-guard.contract.test.ts` und `apps/web/tests/create-antispam-client.contract.test.ts`. Die neunte Datei ist eine bestehende Testdatei und durfte nur den minimalen steuerbaren Mock für den realen persistenten Limiter erhalten, dessen Default den verfügbaren und erlaubenden Limiter abbildet. Auf `main@67c3fb8b6e62201587964e0226714cf3e84e9b4c` und im sicher verwahrten C3B-Implementierungsstand bestanden ohne diesen Mock jeweils 2/19 Tests; 17/19 scheiterten als Test-Harness-Inkompatibilität, nicht als belegte Runtime-Regression. Assertions sowie Origin-, Fetch-Metadata-, CSRF-, Honeypot-, Parser- und Body-Size-Prüfungen dürfen weder abgeschwächt noch umgangen werden. In `CreateClient.tsx` war der Hunk ausschließlich auf den minimalen initial leeren, längenbegrenzten, nicht sichtbaren Honeypot-State samt off-screen Control im bestehenden Composer und die Weitergabe an die fünf vorhandenen `createMutationRequestHeaders()`-Callsites beschränkt; `SharedCreateComposer.tsx`, Request-Bodies und Submit-Pfade blieben unverändert. Die ausgeschöpfte Freigabe umfasste nur Same-Origin, Fetch Metadata, CSRF, Honeypot, persistente Rate-/Risk-Limits, Cooldown/Duplicate-Handling, Content-Type, tatsächlich gemessene und vor dem Parse begrenzte Body-Größe, fail-closed Parser/Limiter, minimierte beziehungsweise gehashte Subjects, feste sichere öffentliche Fehler, C3A-Session-Verifikationskompatibilität, Leak-Schutz und fokussierte Regressionen. Weitere Runtime- oder Testdateien, sichtbare Browser-UX, Planner-/Intake-Fachsemantik, Guest Claim/Adoption, browsergenerierte anonyme Session-IDs, Session-/Local-Storage-Resume, implizites Session-Priming, Production-DB, Migration, Deployment, Provider-/Secret-Aktivierung und Auto-Publish bleiben ausgeschlossen.
 
@@ -349,14 +349,12 @@ main (C1 über PR #734, C2 über PR #736, C3A über PR #740, C3B über PR #744, 
        └─ C3D Guest Ephemeral UI (done; PR #751; exact head 30b160e17a44cce40afd5626b02c8e4e090da289; merge 65a89f67d1a8bb21fac41def3164270cd171b8d5; authorization consumed)
             └─ merge → refreshed main
                  └─ C4 Parent (`FAIL_SPLIT_REQUIRED`; blocked; never direct implementation)
-                      └─ C4A Guest Adoption Preparation (`FAIL_BLOCKED`; `AT_REST_PROTECTION`; implementation unauthorized)
-                           └─ Temporary Payload At-Rest Protection (`codex_ready`; `implementation`; exact two-file boundary)
-                                └─ separate implementation authorization only if PASS
-                                     └─ foundation implementation/review/merge → refreshed main
-                                          └─ fresh C4A preflight
-                                               └─ C4A PASS → separate implementation authorization
-                                                    └─ C4A implementation/review/merge/done → refreshed main
-                                                         └─ C4B preflight / later authorization
+                      └─ Temporary Payload At-Rest Protection (done; PR #757; merged)
+                           └─ C4A Guest Adoption Preparation (`preflight_only`; fresh result `NOT_YET_RUN`; implementation unauthorized)
+                                └─ fresh C4A preflight
+                                     └─ C4A PASS → separate implementation authorization
+                                          └─ C4A implementation/review/merge/done → refreshed main
+                                               └─ C4B preflight / later authorization
                                                               └─ C4B implementation/review/merge/done → refreshed main
                                                                    └─ C4 decomposition complete
                                                                         └─ C5 Citizen Context/Place (still unauthorized)
@@ -383,4 +381,4 @@ Jede Kante `merge → refreshed main` bedeutet: kein abhängiger Branch wird auf
 
 ## 11. Nicht autorisiert
 
-Dieses Runbook autorisiert C4A nicht. Ausschließlich `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` ist für seine exakt zwei Dateien `implementation`-autorisiert; nach Foundation done ist ein frischer C4A-Preflight erforderlich. C4B, C5–C12 und G1–G5 bleiben nicht autorisiert; keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
+Dieses Runbook autorisiert C4A nicht. Die At-Rest-Foundation ist done und ihre Autorisierung konsumiert; C4A ist ausschließlich für einen frischen Preflight registriert. C4B, C5–C12 und G1–G5 bleiben nicht autorisiert; keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.

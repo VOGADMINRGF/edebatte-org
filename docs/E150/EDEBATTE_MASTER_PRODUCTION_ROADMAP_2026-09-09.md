@@ -82,7 +82,7 @@ Der C3C-Preflight belegt `PASS` und `BLOCKING_COLLISIONS=NONE`; die reproduzierb
 
 Jedes temporäre Anonymous-Objekt führt TTL, Retention Policy, Cleanup Owner, Expiry-Verhalten, Orphan-/stale-Lease-Cleanup, Crash-/Restart-Recovery und Cleanup-Verifikation, ohne zweiten Persistenzpfad. Dieselbe PII-/Secret-Policy gilt für Datenbank, API-Responses, Logs/Structured Logs, Traces, Analytics, Error Payloads, Audit Metadata und Provider Diagnostics.
 
-Der C4-Parent und C4A bleiben `blocked`; C4A hat `FAIL_BLOCKED` wegen `AT_REST_PROTECTION`. Der Prerequisite-Preflight auf `main@f30477a4ad255bdb6ccfedf655321a49ad44fa14` autorisiert ausschließlich die spätere Zwei-Dateien-Foundation (`atRestEncryption.ts` plus Contract-Test) mit Node `crypto` AES-256-GCM, server-only, versioniertem Keyring/Envelope, Purpose-AAD und Rotation. Kein Secret wird provisioniert; Completion autorisiert C4A nicht direkt, sondern erfordert refreshed main und frischen C4A-Preflight. C4B, C5–C12 und G1–G5 bleiben nicht autorisiert.
+Der C4-Parent bleibt `blocked`. Die Zwei-Dateien-At-Rest-Foundation (`atRestEncryption.ts` plus Contract-Test) ist über PR `#757` auf `main@0e156b036f6b8c9c915a5415f7400f466d995d0a` mit Node `crypto` AES-256-GCM, server-only, versioniertem Keyring/Envelope, Purpose-AAD und Rotation abgeschlossen; kein Secret wird provisioniert oder aktiviert. C4A ist ausschließlich `preflight_only` auf refreshed main; sein früheres `FAIL_BLOCKED` wegen `AT_REST_PROTECTION` bleibt historische Evidence und autorisiert keine Umsetzung. C4B, C5–C12 und G1–G5 bleiben nicht autorisiert.
 
 ## 4. Topic Intelligence / Decision Dossier
 
