@@ -10,7 +10,7 @@ Diese kompakte Sicht gilt für die globale Produkt- und Public-Launch-Aussage au
 
 | Master-Kategorie | Status | Begründung / nächstes hartes Gate |
 | --- | --- | --- |
-| Create/Citizen Core | BLOCKED | `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` ist als server-only AES-256-GCM-Foundation über PR `#757` `done`; kein Production-Key oder Activation ist daraus abgeleitet. C4A ist ausschließlich `preflight_only` mit frischem Ergebnis `NOT_YET_RUN` und ohne Implementierungsautorisierung. C4B und C5–C12 bleiben blockiert beziehungsweise nicht autorisiert. |
+| Create/Citizen Core | BLOCKED | At-Rest ist `done`; der frische C4A-Preflight ergab `FAIL_SPLIT_REQUIRED`. C4A1 ist nur `preflight_only`; C4B und C4C bleiben blockiert, C5–C12 nicht autorisiert. Kein Production-Key oder Activation ist abgeleitet. |
 | Public Guards | BLOCKED | G1–G5 behalten ihre vorhandene Ownership und sind durch die Master Roadmap nicht autorisiert; G1 bleibt harte C9-Abhängigkeit und G4 alleiniger Public-QR-Guard-Owner. |
 | Topic Intelligence | NOT_STARTED | T0–T3 sind ausschließlich als blockierte Contract-/Qualification-/Research-/Context-Roadmap dispositioniert; keine Runtime oder Migration ist freigegeben. |
 | Decision Dossier | PARTIAL | Kanonische Dossier-, Topic-, Claim-, Evidence-, Poll- und TopicRound-Grundlagen existieren; der neue T0–T7-Systemfrage-, Szenario-, Comparator-, Readiness- und Revision-Binding-Endstate ist nicht umgesetzt und bleibt blockiert. |
