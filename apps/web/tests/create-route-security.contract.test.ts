@@ -657,4 +657,31 @@ describe("authenticated create mutation security contract", () => {
     await expect(runGuestClaimSingleFlight({ ...input, run: async () => ({ accepted: true }) })).resolves.toEqual({ kind: "unavailable" });
     setCreateOrchestrationClaimRepoForTests(null);
   });
+
+  it("keeps existing scopes unchanged and gives adoption preparation the guest claim policy and exact claim schema", async () => {
+    const created = createAnonymousSession();
+    expect(created).not.toBeNull();
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}` },
+        JSON.stringify({ claim: "Sichere Schulwege" }),
+      ),
+      scope: "create_guest_adoption_preparation",
+      actorKey: "guest:subject-hash",
+    });
+    expect(response).toBeNull();
+    expect(mocks.consumePersistentRateLimit.mock.calls.map(([value]) => value)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:actor", limit: 12, windowMs: 600_000 }),
+        expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:ip", limit: 30, windowMs: 600_000 }),
+        expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:anonymous", limit: 18, windowMs: 600_000 }),
+      ]),
+    );
+    const extra = await enforceCreateMutationSecurity({
+      req: request({}, JSON.stringify({ claim: "ok", extra: true })),
+      scope: "create_guest_adoption_preparation",
+      actorKey: "guest:subject-hash",
+    });
+    expect(extra?.status).toBe(400);
+  });
 });
