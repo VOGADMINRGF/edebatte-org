@@ -82,7 +82,7 @@ Der C3C-Preflight belegt `PASS` und `BLOCKING_COLLISIONS=NONE`; die reproduzierb
 
 Jedes temporäre Anonymous-Objekt führt TTL, Retention Policy, Cleanup Owner, Expiry-Verhalten, Orphan-/stale-Lease-Cleanup, Crash-/Restart-Recovery und Cleanup-Verifikation, ohne zweiten Persistenzpfad. Dieselbe PII-/Secret-Policy gilt für Datenbank, API-Responses, Logs/Structured Logs, Traces, Analytics, Error Payloads, Audit Metadata und Provider Diagnostics.
 
-Der C4-Parent bleibt `blocked`. Die At-Rest-Foundation ist abgeschlossen; der frische C4A-Preflight auf `main@232f390df68e9b46a01082a73d9f3259f4a61e38` ergab `FAIL_SPLIT_REQUIRED`. C4A wird nie direkt implementiert: C4A1 Server Preparation Foundation ist nur `preflight_only`, danach kann C4B separat vorgeprüft werden; C4C sichtbarer Intent/Login folgt erst nach C4B done. C5–C12 und G1–G5 bleiben nicht autorisiert.
+Der C4-Parent bleibt `blocked`. Die At-Rest-Foundation ist abgeschlossen; C4A bleibt nach `FAIL_SPLIT_REQUIRED` ein Dekompositions-Parent. C4A1s abgeschlossener Preflight auf `main@82a66db13904b9acd6414e4da044de55145daa51` lautet historisch `FAIL_BLOCKED` wegen `DURABLE_FAILED_REPREPARE_REVOCATION`. `DURABLE_REPREPARE_REVOCATION_BARRIER_V1` ist als frischer Preflight-Input genehmigt, nicht als Implementierungsautorisierung. C4A1 bleibt nur `preflight_only`; C4B folgt erst nach C4A1 done, C4C erst nach C4B done. C5–C12 und G1–G5 bleiben nicht autorisiert.
 
 ## 4. Topic Intelligence / Decision Dossier
 
