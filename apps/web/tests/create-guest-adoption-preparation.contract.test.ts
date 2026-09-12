@@ -5,18 +5,26 @@ const store = vi.hoisted(() => ({
   document: null as Record<string, unknown> | null,
   indexes: [] as unknown[],
   failBarrier: false,
+  barrierScript: [] as Array<unknown>,
+  finalizeScript: [] as Array<unknown>,
+  barrierCalls: [] as Array<unknown[]>,
 }));
 
 vi.mock("@core/db/triMongo", () => ({
   coreCol: async () => ({
     createIndex: async (...args: unknown[]) => { store.indexes.push(args); return "index"; },
     findOneAndUpdate: async (filter: Record<string, string>, update: { $set: Record<string, unknown> }, options: { upsert: boolean }) => {
+      store.barrierCalls.push([filter, update, options]);
+      const scripted = store.barrierScript.shift();
+      if (scripted instanceof Error || (scripted && typeof scripted === "object" && "code" in scripted)) throw scripted;
+      if (scripted === null) return null;
       if (store.failBarrier) throw new Error("storage unavailable");
-      if (!store.document && !options.upsert) return null;
       store.document = { ...update.$set };
       return store.document;
     },
     updateOne: async (filter: Record<string, string>, update: { $set: Record<string, unknown> }) => {
+      const scripted = store.finalizeScript.shift();
+      if (scripted instanceof Error) throw scripted;
       if (!store.document || Object.entries(filter).some(([key, value]) => store.document?.[key] !== value)) return { modifiedCount: 0 };
       store.document = { ...store.document, ...update.$set };
       return { modifiedCount: 1 };
@@ -46,6 +54,9 @@ describe("guest adoption preparation durable lifecycle", () => {
   beforeEach(() => {
     store.document = null;
     store.failBarrier = false;
+    store.barrierScript = [];
+    store.finalizeScript = [];
+    store.barrierCalls = [];
     process.env.EDEBATTE_AT_REST_ACTIVE_KEY_VERSION = "test";
     process.env.EDEBATTE_AT_REST_KEYRING = "test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   });
@@ -106,6 +117,25 @@ describe("guest adoption preparation durable lifecycle", () => {
     expect(result).toMatchObject({ ok: true });
     expect((store.document?.expiresAt as Date).getTime() - 10_000).toBeLessThanOrEqual(900_000);
     expect((store.document?.expiresAt as Date).getTime()).toBeLessThanOrEqual(shortSession.expiresAtMs);
+  });
+
+  it("retries exactly once only for the unique binding-slot duplicate race", async () => {
+    store.barrierScript.push({ code: 11000, keyPattern: { anonymousSessionBindingHash: 1 } });
+    const result = await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    expect(result).toMatchObject({ ok: true });
+    expect(store.barrierCalls).toHaveLength(2);
+    expect((store.barrierCalls[0]?.[2] as { upsert: boolean }).upsert).toBe(true);
+    expect((store.barrierCalls[1]?.[2] as { upsert: boolean }).upsert).toBe(false);
+  });
+
+  it.each([
+    { code: 11000, keyPattern: { preparationId: 1 } },
+    { code: 11000 },
+    { code: 11000, keyPattern: { anonymousSessionBindingHash: 1, preparationId: 1 } },
+  ])("never retries unrelated duplicate keys", async (error) => {
+    store.barrierScript.push(error);
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "unavailable" });
+    expect(store.barrierCalls).toHaveLength(1);
   });
 });
 
