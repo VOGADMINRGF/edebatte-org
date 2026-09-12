@@ -8,13 +8,15 @@ export const AT_REST_ALGORITHM = "aes-256-gcm" as const;
 export const AT_REST_KEY_LENGTH_BYTES = 32;
 export const AT_REST_IV_LENGTH_BYTES = 12;
 export const AT_REST_AUTH_TAG_LENGTH_BYTES = 16;
+export const AT_REST_IV_ENCODED_LENGTH = 16;
+export const AT_REST_AUTH_TAG_ENCODED_LENGTH = 22;
+export const MAX_AT_REST_CIPHERTEXT_ENCODED_LENGTH = Math.ceil(MAX_AT_REST_PLAINTEXT_BYTES * 4 / 3);
 
 const PURPOSES = ["create.guest-adoption-preparation"] as const;
 const ENVELOPE_FIELDS = ["version", "algorithm", "keyVersion", "iv", "ciphertext", "authTag"] as const;
 const KEY_VERSION_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/;
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-const MAX_CIPHERTEXT_ENCODED_LENGTH = (MAX_AT_REST_PLAINTEXT_BYTES + AT_REST_AUTH_TAG_LENGTH_BYTES) * 2;
 
 export type AtRestEncryptionPurpose = (typeof PURPOSES)[number];
 
@@ -147,7 +149,9 @@ function parseEnvelope(value: unknown): AtRestEnvelope {
   if (typeof value.iv !== "string" || typeof value.ciphertext !== "string" || typeof value.authTag !== "string") {
     fail("malformed_envelope");
   }
-  if (value.ciphertext.length > MAX_CIPHERTEXT_ENCODED_LENGTH) fail("malformed_envelope");
+  if (value.iv.length !== AT_REST_IV_ENCODED_LENGTH) fail("invalid_nonce");
+  if (value.authTag.length !== AT_REST_AUTH_TAG_ENCODED_LENGTH) fail("malformed_envelope");
+  if (value.ciphertext.length > MAX_AT_REST_CIPHERTEXT_ENCODED_LENGTH) fail("plaintext_too_large");
   const iv = decodeBase64Url(value.iv);
   const ciphertext = decodeBase64Url(value.ciphertext);
   const authTag = decodeBase64Url(value.authTag);

@@ -3,8 +3,11 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AT_REST_AUTH_TAG_LENGTH_BYTES,
+  AT_REST_AUTH_TAG_ENCODED_LENGTH,
   AT_REST_IV_LENGTH_BYTES,
+  AT_REST_IV_ENCODED_LENGTH,
   MAX_AT_REST_PLAINTEXT_BYTES,
+  MAX_AT_REST_CIPHERTEXT_ENCODED_LENGTH,
   AtRestEncryptionError,
   createAtRestEncryption,
   decodeAtRestUtf8,
@@ -79,12 +82,37 @@ describe("at-rest encryption foundation", () => {
     for (const malformed of [null, [], "x", {}, { ...envelope, extra: "x" }]) {
       expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: malformed }), "malformed_envelope");
     }
-    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, iv: `${envelope.iv}=` } }), "invalid_encoding");
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, iv: `${envelope.iv}=` } }), "invalid_nonce");
     expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, iv: "AA" } }), "invalid_nonce");
     expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, authTag: "AA" } }), "malformed_envelope");
-    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, iv: "!" } }), "invalid_encoding");
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, iv: "!".repeat(AT_REST_IV_ENCODED_LENGTH) } }), "invalid_encoding");
     expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, version: "v2" } }), "unsupported_version");
     expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, algorithm: "aes-256-cbc" } }), "unsupported_algorithm");
+  });
+
+  it("bounds binary envelope fields before decoding and rejects decrypt-side oversized ciphertext", () => {
+    const crypto = createAtRestEncryption(CONFIG);
+    const envelope = crypto.encryptAtRest({ purpose: PURPOSE, plaintext: bytes("bounded") });
+    expect(AT_REST_IV_ENCODED_LENGTH).toBe(16);
+    expect(AT_REST_AUTH_TAG_ENCODED_LENGTH).toBe(22);
+    expect(MAX_AT_REST_CIPHERTEXT_ENCODED_LENGTH).toBe(87382);
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, iv: `${envelope.iv}A` } }), "invalid_nonce");
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, authTag: `${envelope.authTag}A` } }), "malformed_envelope");
+    const oversized = Buffer.alloc(MAX_AT_REST_PLAINTEXT_BYTES + 1).toString("base64url");
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, ciphertext: oversized } }), "plaintext_too_large");
+  });
+
+  it("rejects a genuinely non-canonical unpadded base64url ciphertext before authentication", () => {
+    const crypto = createAtRestEncryption(CONFIG);
+    const envelope = crypto.encryptAtRest({ purpose: PURPOSE, plaintext: new Uint8Array([0x5a]) });
+    expect(envelope.ciphertext).toHaveLength(2);
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const canonicalIndex = alphabet.indexOf(envelope.ciphertext[1]);
+    const nonCanonical = `${envelope.ciphertext[0]}${alphabet[canonicalIndex | 1]}`;
+    expect(Buffer.from(nonCanonical, "base64url").equals(Buffer.from(envelope.ciphertext, "base64url"))).toBe(true);
+    expect(Buffer.from(nonCanonical, "base64url").toString("base64url")).toBe(envelope.ciphertext);
+    expect(nonCanonical).not.toBe(envelope.ciphertext);
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: { ...envelope, ciphertext: nonCanonical } }), "invalid_encoding");
   });
 
   it("fails closed on tampering, wrong purpose, unknown keys, and runtime purpose bypass", () => {
@@ -99,6 +127,19 @@ describe("at-rest encryption foundation", () => {
     expectCode(() => crypto.encryptAtRest({ purpose: "wrong-purpose" as AtRestEncryptionPurpose, plaintext: bytes("x") }), "invalid_purpose");
   });
 
+  it("fails GCM authentication for same-length IV tampering and byte-truncated ciphertext", () => {
+    const crypto = createAtRestEncryption(CONFIG);
+    const envelope = crypto.encryptAtRest({ purpose: PURPOSE, plaintext: bytes("truncation must not reveal a partial plaintext") });
+    const iv = Buffer.from(envelope.iv, "base64url");
+    iv[0] ^= 1;
+    const ivTampered = { ...envelope, iv: iv.toString("base64url") };
+    expect(ivTampered.iv).toHaveLength(AT_REST_IV_ENCODED_LENGTH);
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: ivTampered }), "authentication_failed");
+    const ciphertext = Buffer.from(envelope.ciphertext, "base64url");
+    const truncated = { ...envelope, ciphertext: ciphertext.subarray(0, -1).toString("base64url") };
+    expectCode(() => crypto.decryptAtRest({ purpose: PURPOSE, envelope: truncated }), "authentication_failed");
+  });
+
   it("enforces the generic plaintext ceiling for encryption and decrypted data", () => {
     const crypto = createAtRestEncryption(CONFIG);
     const maximum = crypto.encryptAtRest({ purpose: PURPOSE, plaintext: new Uint8Array(MAX_AT_REST_PLAINTEXT_BYTES) });
@@ -106,7 +147,7 @@ describe("at-rest encryption foundation", () => {
     expectCode(() => crypto.encryptAtRest({ purpose: PURPOSE, plaintext: new Uint8Array(MAX_AT_REST_PLAINTEXT_BYTES + 1) }), "plaintext_too_large");
   });
 
-  it("keeps error messages free of sensitive inputs", () => {
+  it("keeps configuration and authentication errors free of plaintext and envelope material", () => {
     const secret = "plaintext-should-not-leak";
     try {
       createAtRestEncryption({ activeKeyVersion: "v1", keyring: `v1:${secret}` });
@@ -114,6 +155,22 @@ describe("at-rest encryption foundation", () => {
       expect(error).toBeInstanceOf(AtRestEncryptionError);
       expect((error as Error).message).not.toContain(secret);
       expect((error as Error).message).not.toContain(KEY_ONE);
+    }
+    const crypto = createAtRestEncryption(CONFIG);
+    const plaintext = "plaintext-auth-error-must-never-leak";
+    const envelope = crypto.encryptAtRest({ purpose: PURPOSE, plaintext: bytes(plaintext) });
+    const altered = { ...envelope, ciphertext: `${envelope.ciphertext[0] === "A" ? "B" : "A"}${envelope.ciphertext.slice(1)}` };
+    try {
+      crypto.decryptAtRest({ purpose: PURPOSE, envelope: altered });
+      throw new Error("expected authentication failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AtRestEncryptionError);
+      const rendered = JSON.stringify(error);
+      for (const secret of [plaintext, envelope.iv, envelope.ciphertext, envelope.authTag, JSON.stringify(envelope)]) {
+        expect((error as Error).message).not.toContain(secret);
+        expect(rendered).not.toContain(secret);
+      }
+      expect(error).not.toHaveProperty("cause");
     }
   });
 
