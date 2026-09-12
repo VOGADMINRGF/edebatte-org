@@ -2,7 +2,7 @@
 
 Stand: 2026-09-12
 
-Status: Governance- und Extraktionsplan; C1, C2 und C3A–C3D sind `done` und gemergt. Der historische C3-Parent bleibt `blocked`. C4-Parent `CREATE-GUEST-RESUME-ADOPTION-DRAFT-BINDING-01` ist nach `FAIL_SPLIT_REQUIRED` `blocked`. C4A `CREATE-GUEST-ADOPTION-PREPARATION-FOUNDATION-01` ist nach `FAIL_BLOCKED` wegen `AT_REST_PROTECTION` `blocked`, `IMPLEMENTATION_AUTHORIZED=false` und `DONE=false`. Ausschließlich `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` ist `codex_ready` mit `AUTHORIZATION=preflight_only`, `IMPLEMENTATION_AUTHORIZED=false` und `DONE=false`. C4B ist `blocked`; C5–C12 bleiben nicht autorisiert. Keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
+Status: Governance- und Extraktionsplan; C4-Parent und C4A bleiben `blocked`. `CREATE-TEMP-PAYLOAD-AT-REST-PROTECTION-01` hat `PASS_FOR_SEPARATE_GOVERNANCE_AUTHORIZATION` und ist ausschließlich für seine exakt zwei Dateien `codex_ready` mit `AUTHORIZATION=implementation`, `IMPLEMENTATION_AUTHORIZED=true`, `DONE=false`; C4A benötigt nach Foundation-Merge einen frischen Preflight. C4B bleibt `blocked`; keine Secret-, Provider- oder Production-Aktivierung ist autorisiert.
 
 Zielbasis: `main@0103c90e0364f3da2f86ab56ac4a230fafc74049` (kanonische Basis des taskbezogenen C4A-Preflight `FAIL_BLOCKED` und des aktuellen At-Rest-Prerequisite-Übergangs; `main@c736241fe52b7c1c8d1d4c2fe4651c6159c67847` bleibt historische Evidence des C4-Parent-Preflight `FAIL_SPLIT_REQUIRED`; C1 über PR `#734`, C2 über PR `#736`, C3A über PR `#740`, C3B über PR `#744`, C3C über PR `#748` und C3D über PR `#751` sind historische abgeschlossene Evidenz)
 
