@@ -59,7 +59,6 @@ describe("guest adoption preparation durable lifecycle", () => {
     expect(store.document?.encryptedPayload).toBeDefined();
     const read = await readGuestAdoptionPreparationForVerifiedAnonymousSession({
       session,
-      preparationId: result.ok ? result.preparationId : "",
       nowMs: 10_001,
     });
     expect(read).toEqual({ preparationId: result.ok ? result.preparationId : "", claim: "Sichere Schulwege" });
@@ -82,6 +81,15 @@ describe("guest adoption preparation durable lifecycle", () => {
     await expect(prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "unavailable" });
     store.failBarrier = false;
     await expect(prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: session.expiresAtMs })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "invalid" });
+  });
+
+  it("fails closed when the authoritative slot is preparing or logically expired", async () => {
+    store.document = {
+      version: 1, preparationId: "123e4567-e89b-42d3-a456-426614174001",
+      anonymousSessionBindingHash: "a".repeat(64), state: "preparing",
+      createdAt: new Date(1), expiresAt: new Date(999_999),
+    };
+    await expect(readGuestAdoptionPreparationForVerifiedAnonymousSession({ session, nowMs: 10_000 })).resolves.toBeNull();
   });
 });
 

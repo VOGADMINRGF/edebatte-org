@@ -46,8 +46,18 @@ export type GuestAdoptionPreparationResult =
 let indexesReady = false;
 let indexesPromise: Promise<void> | null = null;
 
-function isDuplicateKey(error: unknown) {
-  return (error as { code?: unknown } | null)?.code === 11000;
+function isBindingSlotDuplicateKey(error: unknown) {
+  const record = error as { code?: unknown; keyPattern?: unknown } | null;
+  if (record?.code !== 11000 || !record.keyPattern || typeof record.keyPattern !== "object" || Array.isArray(record.keyPattern)) return false;
+  const entries = Object.entries(record.keyPattern as Record<string, unknown>);
+  return entries.length === 1 && entries[0]?.[0] === "anonymousSessionBindingHash" && entries[0]?.[1] === 1;
+}
+
+function isCommittedBarrier(value: unknown, document: Preparing) {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return record.anonymousSessionBindingHash === document.anonymousSessionBindingHash &&
+    record.preparationId === document.preparationId && record.state === "preparing";
 }
 
 async function ensureIndexes() {
@@ -105,19 +115,21 @@ async function commitBarrier(document: Preparing) {
     $unset: { encryptedPayload: "" as const },
   };
   try {
-    await collection.findOneAndUpdate(
+    const committed = await collection.findOneAndUpdate(
       { anonymousSessionBindingHash: document.anonymousSessionBindingHash },
       update,
       { upsert: true, returnDocument: "after" },
     );
+    if (!isCommittedBarrier(committed, document)) throw new Error("barrier_commit_unconfirmed");
   } catch (error) {
-    if (!isDuplicateKey(error)) throw error;
+    if (!isBindingSlotDuplicateKey(error)) throw error;
     // A single retry serializes the only expected first-slot unique-upsert race.
-    await collection.findOneAndUpdate(
+    const committed = await collection.findOneAndUpdate(
       { anonymousSessionBindingHash: document.anonymousSessionBindingHash },
       update,
       { upsert: false, returnDocument: "after" },
     );
+    if (!isCommittedBarrier(committed, document)) throw new Error("barrier_retry_unconfirmed");
   }
 }
 
@@ -175,21 +187,18 @@ export async function prepareGuestAdoptionPreparation(input: {
 
 export async function readGuestAdoptionPreparationForVerifiedAnonymousSession(input: {
   session: CreateAnonymousSession;
-  preparationId: string;
   nowMs?: number;
 }): Promise<{ preparationId: string; claim: string } | null> {
-  if (!UUID_V4.test(input.preparationId)) return null;
   const nowMs = input.nowMs ?? Date.now();
   try {
     await ensureIndexes();
     const collection = await coreCol<Record<string, unknown>>(COLLECTION);
     const document = await collection.findOne({
-      preparationId: input.preparationId,
       anonymousSessionBindingHash: bindingHash(input.session.id),
       state: "prepared",
       expiresAt: { $gt: new Date(nowMs) },
     });
-    if (!isPreparedDocument(document) || document.preparationId !== input.preparationId || document.expiresAt.getTime() <= nowMs) return null;
+    if (!isPreparedDocument(document) || document.expiresAt.getTime() <= nowMs) return null;
     const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: document.encryptedPayload }));
     const normalized = normalizedClaim(claim);
     return normalized === claim ? { preparationId: document.preparationId, claim } : null;

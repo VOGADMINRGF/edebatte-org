@@ -45,13 +45,12 @@ describe("guest adoption preparation route", () => {
     });
   });
 
-  it("returns the exact 202 response and only an opaque preparation carrier", async () => {
+  it("returns the exact 202 response without a preparation browser carrier", async () => {
     const created = createAnonymousSession();
     const response = await POST(request({ claim: "Sichere Schulwege" }, `${CREATE_ANON_SESSION_COOKIE}=${created?.value}`));
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({ ok: true, status: "prepared" });
-    expect(response.headers.get("set-cookie")).toContain("edebatte_create_adoption_preparation=123e4567-e89b-42d3-a456-426614174001");
-    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   it("rejects missing sessions and malformed boundary payloads without invoking preparation", async () => {
@@ -62,12 +61,12 @@ describe("guest adoption preparation route", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
   });
 
-  it("clears the carrier after a committed-barrier failure without exposing details", async () => {
+  it("does not mutate browser state after a committed-barrier failure", async () => {
     const created = createAnonymousSession();
     mocks.prepare.mockResolvedValue({ ok: false, afterBarrier: true, reason: "unavailable" });
     const response = await POST(request({ claim: "Sicher" }, `${CREATE_ANON_SESSION_COOKIE}=${created?.value}`));
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ ok: false, errorCode: "CREATE_PREPARATION_UNAVAILABLE", message: "Die Anfrage konnte nicht verarbeitet werden." });
-    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });
