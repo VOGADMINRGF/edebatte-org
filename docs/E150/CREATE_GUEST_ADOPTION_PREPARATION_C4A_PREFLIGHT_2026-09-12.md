@@ -28,7 +28,7 @@ EXISTING_AT_REST_ENCRYPTION_AVAILABLE=false
 TEMP_RAW_PAYLOAD_ALLOWED=false
 ```
 
-Mongo-TTL und C3C-Safety-Scanning ersetzen keinen Schutz ruhender Rohdaten nicht. Als Repositoriesignale für die gemeinsame Sicherheitslücke gelten `core/db/pii/userPaymentProfiles.ts` (kein Persistieren vollständiger IBAN ohne zentralen Encryption Helper) sowie `docs/E150/SOCIAL_PROVIDER_SECRET_MANIFEST_01.md` (zukünftige `SOCIAL_TOKEN_ENCRYPTION_KEY_REF`, aber keine Encryption Runtime oder Key-Wert). Social-Key und Social-Infrastruktur dürfen nicht für Create wiederverwendet werden.
+Mongo-TTL und C3C-Safety-Scanning ersetzen keinen Schutz ruhender Rohdaten. Als Repositoriesignale für die gemeinsame Sicherheitslücke gelten `core/db/pii/userPaymentProfiles.ts` (kein Persistieren vollständiger IBAN ohne zentralen Encryption Helper) sowie `docs/E150/SOCIAL_PROVIDER_SECRET_MANIFEST_01.md` (zukünftige `SOCIAL_TOKEN_ENCRYPTION_KEY_REF`, aber keine Encryption Runtime oder Key-Wert). Social-Key und Social-Infrastruktur dürfen nicht für Create wiederverwendet werden.
 
 ## Positive, bedingte C4A-Findings
 
