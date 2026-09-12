@@ -82,7 +82,7 @@ Der C3C-Preflight belegt `PASS` und `BLOCKING_COLLISIONS=NONE`; die reproduzierb
 
 Jedes temporäre Anonymous-Objekt führt TTL, Retention Policy, Cleanup Owner, Expiry-Verhalten, Orphan-/stale-Lease-Cleanup, Crash-/Restart-Recovery und Cleanup-Verifikation, ohne zweiten Persistenzpfad. Dieselbe PII-/Secret-Policy gilt für Datenbank, API-Responses, Logs/Structured Logs, Traces, Analytics, Error Payloads, Audit Metadata und Provider Diagnostics.
 
-Der C4-Parent bleibt `blocked`. Die At-Rest-Foundation ist abgeschlossen; C4A bleibt nach `FAIL_SPLIT_REQUIRED` ein Dekompositions-Parent. C4A1s abgeschlossener Preflight auf `main@82a66db13904b9acd6414e4da044de55145daa51` lautet historisch `FAIL_BLOCKED` wegen `DURABLE_FAILED_REPREPARE_REVOCATION`. `DURABLE_REPREPARE_REVOCATION_BARRIER_V1` ist als frischer Preflight-Input genehmigt, nicht als Implementierungsautorisierung. C4A1 bleibt nur `preflight_only`; C4B folgt erst nach C4A1 done, C4C erst nach C4B done. C5–C12 und G1–G5 bleiben nicht autorisiert.
+Der C4-Parent bleibt `blocked`. Die At-Rest-Foundation ist abgeschlossen; C4A bleibt nach `FAIL_SPLIT_REQUIRED` ein Dekompositions-Parent. C4A1s historisches `FAIL_BLOCKED` wegen `DURABLE_FAILED_REPREPARE_REVOCATION` bleibt Evidence. Sein Re-Preflight auf `main@a60ce5ee982c99b403966e32aa0ec4d28ee33544` `PASS_FOR_SEPARATE_GOVERNANCE_AUTHORIZATION` autorisiert ausschließlich die Sechs-Dateien-Server-Foundation mit `DURABLE_REPREPARE_REVOCATION_BARRIER_V1`; keine C4B-/C4C- oder Production-Freigabe. C4B folgt erst nach C4A1 done, C4C erst nach C4B done. C5–C12 und G1–G5 bleiben nicht autorisiert.
 
 ## 4. Topic Intelligence / Decision Dossier
 

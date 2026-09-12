@@ -10,7 +10,7 @@ Diese kompakte Sicht gilt für die globale Produkt- und Public-Launch-Aussage au
 
 | Master-Kategorie | Status | Begründung / nächstes hartes Gate |
 | --- | --- | --- |
-| Create/Citizen Core | BLOCKED | At-Rest ist `done`; C4A bleibt `FAIL_SPLIT_REQUIRED` blockiert. C4A1s abgeschlossener Preflight war `FAIL_BLOCKED` wegen fehlender durable Failed-Reprepare-Revocation. Die genehmigte Barrier V1 erlaubt nur einen neuen `preflight_only`-Check; C4B und C4C bleiben blockiert, C5–C12 nicht autorisiert. Kein Production-Key oder Activation ist abgeleitet. |
+| Create/Citizen Core | BLOCKED | At-Rest ist `done`; C4A bleibt `FAIL_SPLIT_REQUIRED` blockiert. C4A1s historische Failed-Reprepare-Revocation ist durch Barrier V1 für den Re-Preflight adressiert; dessen PASS autorisiert ausschließlich die begrenzte Sechs-Dateien-Implementation. C4B und C4C bleiben blockiert, C5–C12 nicht autorisiert. Kein Production-Key oder Activation ist abgeleitet. |
 | Public Guards | BLOCKED | G1–G5 behalten ihre vorhandene Ownership und sind durch die Master Roadmap nicht autorisiert; G1 bleibt harte C9-Abhängigkeit und G4 alleiniger Public-QR-Guard-Owner. |
 | Topic Intelligence | NOT_STARTED | T0–T3 sind ausschließlich als blockierte Contract-/Qualification-/Research-/Context-Roadmap dispositioniert; keine Runtime oder Migration ist freigegeben. |
 | Decision Dossier | PARTIAL | Kanonische Dossier-, Topic-, Claim-, Evidence-, Poll- und TopicRound-Grundlagen existieren; der neue T0–T7-Systemfrage-, Szenario-, Comparator-, Readiness- und Revision-Binding-Endstate ist nicht umgesetzt und bleibt blockiert. |
