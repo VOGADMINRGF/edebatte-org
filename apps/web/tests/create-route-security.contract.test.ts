@@ -581,7 +581,7 @@ describe("authenticated create mutation security contract", () => {
     expect(created).not.toBeNull();
     const response = await enforceCreateMutationSecurity({
       req: request(
-        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}` },
+        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}`, "x-edebatte-create-client": "client_12345678" },
         JSON.stringify({ claim: { topic: "Sichere Schulwege" } }),
       ),
       scope: "create_guest_claim",
@@ -663,7 +663,7 @@ describe("authenticated create mutation security contract", () => {
     expect(created).not.toBeNull();
     const response = await enforceCreateMutationSecurity({
       req: request(
-        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}` },
+        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}`, "x-edebatte-create-client": "client_12345678" },
         JSON.stringify({ claim: "Sichere Schulwege" }),
       ),
       scope: "create_guest_adoption_preparation",
@@ -675,6 +675,7 @@ describe("authenticated create mutation security contract", () => {
         expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:actor", limit: 12, windowMs: 600_000 }),
         expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:ip", limit: 30, windowMs: 600_000 }),
         expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:anonymous", limit: 18, windowMs: 600_000 }),
+        expect.objectContaining({ namespace: "create:create_guest_adoption_preparation:client", limit: 18, windowMs: 600_000 }),
       ]),
     );
     const extra = await enforceCreateMutationSecurity({

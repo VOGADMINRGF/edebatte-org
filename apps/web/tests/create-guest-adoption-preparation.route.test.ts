@@ -69,4 +69,17 @@ describe("guest adoption preparation route", () => {
     await expect(response.json()).resolves.toEqual({ ok: false, errorCode: "CREATE_PREPARATION_UNAVAILABLE", message: "Die Anfrage konnte nicht verarbeitet werden." });
     expect(response.headers.get("set-cookie")).toBeNull();
   });
+
+  it.each([
+    [{ claim: "" }, 400],
+    [{ claim: 12 }, 400],
+    [{ claim: "Sicher", extra: true }, 400],
+    [{ claim: "a".repeat(10_001) }, 400],
+    [{ claim: "😀".repeat(8_000) }, 400],
+  ])("rejects malformed structural requests without a carrier", async (body, status) => {
+    const created = createAnonymousSession();
+    const response = await POST(request(body, `${CREATE_ANON_SESSION_COOKIE}=${created?.value}`));
+    expect(response.status).toBe(status);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
 });

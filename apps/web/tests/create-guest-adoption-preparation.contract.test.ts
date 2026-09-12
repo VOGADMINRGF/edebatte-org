@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const store = vi.hoisted(() => ({
@@ -55,6 +56,10 @@ describe("guest adoption preparation durable lifecycle", () => {
     expect(store.document).toMatchObject({ state: "prepared", version: 1 });
     expect(store.document).not.toHaveProperty("claim");
     expect(store.document).not.toHaveProperty("anonymousSessionId");
+    expect(store.document).not.toHaveProperty("sessionId");
+    expect(store.document).not.toHaveProperty("userId");
+    expect(store.document).not.toHaveProperty("accountId");
+    expect(store.document).not.toHaveProperty("operationId");
     expect(store.document?.preparationId).toMatch(UUID_V4);
     expect(store.document?.encryptedPayload).toBeDefined();
     const read = await readGuestAdoptionPreparationForVerifiedAnonymousSession({
@@ -67,6 +72,9 @@ describe("guest adoption preparation durable lifecycle", () => {
       [{ anonymousSessionBindingHash: 1 }, { unique: true }],
       [{ expiresAt: 1 }, { expireAfterSeconds: 0 }],
     ]));
+    expect(store.document?.anonymousSessionBindingHash).toBe(
+      crypto.createHash("sha256").update("edebatte:create:adoption-preparation:anon-session:v1", "utf8").update(Buffer.from([0])).update(session.id, "utf8").digest("hex"),
+    );
   });
 
   it("keeps the post-barrier tombstone and revocation when safety rejects", async () => {
@@ -90,6 +98,14 @@ describe("guest adoption preparation durable lifecycle", () => {
       createdAt: new Date(1), expiresAt: new Date(999_999),
     };
     await expect(readGuestAdoptionPreparationForVerifiedAnonymousSession({ session, nowMs: 10_000 })).resolves.toBeNull();
+  });
+
+  it("uses the session-bounded fifteen-minute logical TTL", async () => {
+    const shortSession = { ...session, expiresAtMs: 15_000 };
+    const result = await prepareGuestAdoptionPreparation({ session: shortSession, claim: "Sicher", nowMs: 10_000 });
+    expect(result).toMatchObject({ ok: true });
+    expect((store.document?.expiresAt as Date).getTime() - 10_000).toBeLessThanOrEqual(900_000);
+    expect((store.document?.expiresAt as Date).getTime()).toBeLessThanOrEqual(shortSession.expiresAtMs);
   });
 });
 
