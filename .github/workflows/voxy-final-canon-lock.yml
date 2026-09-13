@@ -1,0 +1,69 @@
+name: Voxy final canon lock
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/features/voxyVideo/**"
+      - "apps/web/scripts/render-voxy-**"
+      - "apps/web/tests/voxy-**"
+      - "apps/web/public/brands/voxy/**"
+      - ".github/workflows/voxy-**"
+      - "docs/E150/VOXY-**"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/web/src/features/voxyVideo/**"
+      - "apps/web/scripts/render-voxy-**"
+      - "apps/web/tests/voxy-**"
+      - "apps/web/public/brands/voxy/**"
+      - ".github/workflows/voxy-**"
+      - "docs/E150/VOXY-**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-canon-lock:
+    name: V3.10.5 / PR624 canon lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Reject superseded active visual workflow bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E \
+            --exclude='voxy-final-canon-lock.yml' \
+            'pr/voxy-animatable-master-asset-01|VOXY_DETECTOR_HEAD_SHA|voxy-first-explainer-video-v2' \
+            .github/workflows; then
+            echo "Superseded pre-V3.10.5 Voxy workflow binding detected." >&2
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce Voxy final canon contract
+        run: pnpm -C apps/web exec vitest run tests/voxy-final-canon-lock.contract.test.ts

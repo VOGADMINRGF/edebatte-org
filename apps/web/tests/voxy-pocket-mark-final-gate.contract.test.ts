@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -124,20 +124,12 @@ describe("Voxy pocket mark final gate contract", () => {
     expect(source).not.toContain("artifacts/voxy-layer-master");
     expect(source).not.toContain("artifacts/voxy-motion-v3");
 
-    const explainerWorkflow = readFileSync(
-      resolve(
-        process.cwd(),
-        "../..",
-        ".github/workflows/voxy-first-explainer-video.yml",
-      ),
-      "utf8",
+    const retiredExplainerWorkflow = resolve(
+      process.cwd(),
+      "../..",
+      ".github/workflows/voxy-first-explainer-video.yml",
     );
-    expect(explainerWorkflow).toContain(
-      "github.head_ref != 'pr/voxy-animatable-master-asset-01'",
-    );
-    expect(explainerWorkflow).not.toContain(
-      'apps/web/public/brands/voxy/overlays/**',
-    );
+    expect(existsSync(retiredExplainerWorkflow)).toBe(false);
   });
 
   it("uses the native-resolution cleaned Canon source without a cleanup box", () => {
