@@ -28,7 +28,11 @@ describe("landing clarity contract", () => {
     expect(headings[0]?.[1] ?? "").not.toContain("sr-only");
 
     expect(html).toContain("Was sollte sich ändern?");
-    expect(html).toContain("Dein Anliegen zählt.");
+    expect(html).toContain("Beteiligung beginnt vor dem Verfahren.");
+    expect(html).toContain("Nicht erst mitreden, wenn die Frage schon feststeht.");
+    expect(html).toContain("beim ungeklärten Anliegen");
+    expect(html).toContain("Citizen-first heißt nicht verwaltungsfern");
+    expect(html).toContain('href="/warum-edebatte"');
     expect(html).toContain("Anliegen einbringen");
     expect(html).toContain("Schnell mitentscheiden");
     expect(html).toContain("Ein Satz reicht zum Start");

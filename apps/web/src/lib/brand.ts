@@ -6,7 +6,7 @@ export const BRAND = {
   supportEmail: "support@edebatte.org",
   membershipEmail: "members@edebatte.org",
   tagline_de:
-    "Aktuelle Entwicklungen, Quellen, Positionen und Beteiligungsmöglichkeiten nachvollziehbar verbinden.",
+    "Vom Anliegen zur gemeinsamen Agenda: demokratische Problemklärung, Evidenz und gesellschaftliche Willensbildung – lokal bis global.",
   tagline_en:
-    "Connect current developments, sources, positions and participation opportunities transparently.",
+    "From concern to shared agenda: democratic problem-solving, evidence and collective civic reasoning — local to global.",
 } as const;

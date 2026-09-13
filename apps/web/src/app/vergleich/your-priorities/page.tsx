@@ -1,0 +1,20 @@
+import type { Metadata } from "next";
+import ComparisonPage from "@/features/comparison/ComparisonPage";
+import { buildPublicPageMetadata } from "@/lib/seo/publicDiscovery";
+
+const TITLE = "eDebatte vs. Your Priorities & Policy Synth – Collective Intelligence mit KI";
+const DESCRIPTION = "Your Priorities und Policy Synth verbinden Community-Problemdefinition, KI-Recherche und Lösungsentwicklung. eDebatte zielt zusätzlich auf persistente, institutionenübergreifende öffentliche Reasoning-Infrastruktur.";
+
+export const metadata: Metadata = { ...buildPublicPageMetadata({ path: "/vergleich/your-priorities", title: TITLE, description: DESCRIPTION, ogType: "website" }), title: { absolute: TITLE } };
+
+const rows = [
+  { dimension: "Problemdefinition", platform: "Probleme können gemeinsam mit der betroffenen Community geformt werden", edebatte: "Ebenso citizen-first; zusätzlich soll schon ein ungeklärtes Signal ohne fertige Problemformulierung Eingang finden können" },
+  { dimension: "KI", platform: "Policy Synth recherchiert Ursachen, entwickelt Lösungsvarianten und hält menschliche Bewertung im Loop", edebatte: "Voxy/Agenten sollen Recherche und Strukturierung unterstützen, mit Quellenbezug, Unsicherheit und Reviewgrenzen" },
+  { dimension: "Kernstärke", platform: "Collective Intelligence + AI für konkrete Beteiligungs- und Policy-Synthese-Workflows", edebatte: "Persistenter öffentlicher Reasoning-Layer über Themen, Regionen, Institutionen, Verfahren und Wahlperioden hinweg" },
+  { dimension: "Wissensmodell", platform: "Problem-, Ideen-, Debatten- und agentische Lösungsentwicklung innerhalb von Engagement-Projekten", edebatte: "Claims, Quellen, Evidenzen, Widersprüche, Dossiers, Positionen und Lösungswege sollen als zusammenhängender öffentlicher Debattenstand bestehen" },
+  { dimension: "Anschluss", platform: "Ergebnisse fließen in menschliche Review-, Voting- und Policy-Prozesse", edebatte: "Ergebnisse sollen flexibel an Initiativen, Verwaltungen, Parlamente, Medien, Wissenschaft, NGOs und internationale Ebenen anschließen" },
+];
+
+export default function YourPrioritiesComparisonPage() {
+  return <ComparisonPage platformName="Your Priorities + Policy Synth" eyebrow="AI + civic collective intelligence" headline="eDebatte vs. Your Priorities & Policy Synth: Hier liegt der anspruchsvollste internationale Vergleich." intro="Citizens Foundation verbindet seit Jahren digitale Beteiligung mit Collective Intelligence. Policy Synth geht inzwischen deutlich weiter: Communities können Probleme definieren, KI-Agenten recherchieren Ursachen und entwickeln Lösungsvarianten, Menschen bleiben bei Bewertungen und Entscheidungen im Loop." fairNote="Das kommt dem eDebatte-Zielbild sehr nahe. Eine glaubwürdige Positionierung darf das nicht kleinreden. Der potenzielle Unterschied liegt weniger in einzelnen KI-Funktionen als in der angestrebten persistenten öffentlichen Wissens-, Debatten- und Anschlussinfrastruktur über einzelne Projekte hinweg." rows={rows} coreQuestion="Bleibt kollektive Problemlösung ein Projekt – oder entsteht daraus eine dauerhafte öffentliche Wissensschicht?" coreExplanation="Genau hier muss eDebatte langfristig stärker werden: Ein Thema soll nicht mit einem einzelnen Auftrag, Workshop oder Voting enden. Quellen, Problemdefinition, Alternativen, Widersprüche, Entscheidungen und spätere Wirkung sollen als nachvollziehbare Geschichte weiterleben und mit neuen gesellschaftlichen Signalen verbunden werden können." closingHeadline="Your Priorities + Policy Synth zeigt, wie nah Civic Tech bereits an echter kollektiver Problemlösung ist. eDebatte muss darüber hinaus eine dauerhafte öffentliche Reasoning-Infrastruktur beweisen." closingBody="Dieser Benchmark ist deshalb besonders wertvoll: Er verhindert, dass eDebatte seinen USP in Funktionen sucht, die international bereits existieren. Der Moat muss im verbundenen Lebenszyklus, der Persistenz, der institutionenübergreifenden Anschlussfähigkeit und der glaubwürdigen Evidenzarchitektur entstehen." />;
+}
