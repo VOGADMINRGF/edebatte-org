@@ -12,6 +12,9 @@ const store = vi.hoisted(() => ({
   firstFinalizeEntered: null as null | ReturnType<typeof deferred<void>>,
   releaseFirstFinalize: null as null | ReturnType<typeof deferred<void>>,
   pauseFirstFinalize: false,
+  firstClaimCasEntered: null as null | ReturnType<typeof deferred<void>>,
+  releaseFirstClaimCas: null as null | ReturnType<typeof deferred<void>>,
+  pauseFirstClaimCas: false,
 }));
 
 vi.mock("@core/db/triMongo", () => ({
@@ -23,6 +26,11 @@ vi.mock("@core/db/triMongo", () => ({
       if (scripted instanceof Error || (scripted && typeof scripted === "object" && "code" in scripted)) throw scripted;
       if (scripted === null) return null;
       if (store.failBarrier) throw new Error("storage unavailable");
+      if (store.pauseFirstClaimCas && "adoption" in filter && store.firstClaimCasEntered && store.releaseFirstClaimCas) {
+        store.pauseFirstClaimCas = false;
+        store.firstClaimCasEntered.resolve();
+        await store.releaseFirstClaimCas.promise;
+      }
       if (store.document && !matches(store.document, filter)) {
         if (options.upsert) throw { code: 11000, keyPattern: { anonymousSessionBindingHash: 1 } };
         return null;
@@ -74,6 +82,9 @@ describe("guest adoption preparation durable lifecycle", () => {
     store.firstFinalizeEntered = null;
     store.releaseFirstFinalize = null;
     store.pauseFirstFinalize = false;
+    store.firstClaimCasEntered = null;
+    store.releaseFirstClaimCas = null;
+    store.pauseFirstClaimCas = false;
     process.env.EDEBATTE_AT_REST_ACTIVE_KEY_VERSION = "test";
     process.env.EDEBATTE_AT_REST_KEYRING = "test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   });
@@ -352,6 +363,50 @@ describe("guest adoption preparation durable lifecycle", () => {
     const claim = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_002 });
     expect(claim).toMatchObject({ ok: true, claim: "Neu" });
     expect(claim).not.toMatchObject({ preparationId: first.ok ? first.preparationId : "" });
+  });
+
+  it("retains completed replay metadata through the C3A expiry, beyond claim recovery", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: 20_000 })).resolves.toBe(true);
+    expect((store.document?.expiresAt as Date).getTime()).toBe(session.expiresAtMs);
+    expect(store.document).not.toHaveProperty("encryptedPayload");
+    const replayAt = 910_002;
+    await expect(claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: replayAt })).resolves.toEqual({ ok: true, state: "completed", preparationId: claimed.preparationId, adoptionId: claimed.adoptionId, draftId: "draft-a" });
+    await expect(claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-b", nowMs: replayAt })).resolves.toEqual({ ok: false });
+    await expect(readGuestAdoptionPreparationForVerifiedAnonymousSession({ session, nowMs: replayAt })).resolves.toBeNull();
+  });
+
+  it("converges overlapping same-account claims on the one durable adoption", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    store.pauseFirstClaimCas = true;
+    store.firstClaimCasEntered = deferred();
+    store.releaseFirstClaimCas = deferred();
+    const first = claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    await store.firstClaimCasEntered.promise;
+    const second = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    store.releaseFirstClaimCas.resolve();
+    const firstResult = await first;
+    expect(firstResult).toMatchObject({ ok: true, state: "claimed" });
+    expect(second).toMatchObject({ ok: true, state: "claimed" });
+    if (!firstResult.ok || firstResult.state !== "claimed" || !second.ok || second.state !== "claimed") throw new Error("claim failed");
+    expect(firstResult).toMatchObject({ adoptionId: second.adoptionId, preparationId: second.preparationId, claim: second.claim });
+    expect((store.document?.adoption as { adoptionId: string }).adoptionId).toBe(second.adoptionId);
+  });
+
+  it("does not let a stale completion consume a new generation after expired reprepare", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Alt", nowMs: 10_000 });
+    const old = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!old.ok || old.state !== "claimed") throw new Error("old claim failed");
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Neu", nowMs: 910_002 })).resolves.toMatchObject({ ok: true });
+    const current = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 910_003 });
+    if (!current.ok || current.state !== "claimed") throw new Error("new claim failed");
+    expect(current.adoptionId).not.toBe(old.adoptionId);
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: old.adoptionId, draftId: "old-draft", nowMs: 910_004 })).resolves.toBe(false);
+    expect(store.document).toMatchObject({ "adoption": expect.objectContaining({ state: "claimed", adoptionId: current.adoptionId }) });
+    expect(store.document).toHaveProperty("encryptedPayload");
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: current.adoptionId, draftId: "new-draft", nowMs: 910_004 })).resolves.toBe(true);
   });
 });
 
