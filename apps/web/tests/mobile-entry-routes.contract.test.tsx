@@ -40,10 +40,10 @@ describe("mobile entry routes contract", () => {
   it("keeps /start as a mobile-first citizen entry without demo dossier fallback", () => {
     const html = renderToStaticMarkup(<LandingStart blocks={[]} />);
 
-    expect(html).toContain("Eine Frage. Viele Perspektiven. Ein klareres Bild.");
-    expect(html).toContain("Schnell deine Meinung abgeben");
-    expect(html).toContain("Eigene Frage starten");
-    expect(html).toContain('href="/runden/new?gtm=1&amp;source=homepage-intent"');
+    expect(html).toContain("Was sollte sich ändern?");
+    expect(html).toContain("Anliegen einbringen");
+    expect(html).toContain("Schnell mitentscheiden");
+    expect(html).toContain('href="/create"');
     expect(html).toContain('href="/swipes"');
     expect(html).not.toContain('href="/dossier/demo"');
   });
@@ -53,11 +53,13 @@ describe("mobile entry routes contract", () => {
     expect(startPageSource).not.toContain("min-h-screen");
   });
 
-  it("renders the interactive question before secondary homepage sections", () => {
+  it("renders the citizen action before secondary homepage sections", () => {
     const html = renderToStaticMarkup(<LandingStart blocks={[]} />);
 
-    expect(html).toContain("1 Frage · direkt ausprobieren");
-    expect(html.indexOf("1 Frage · direkt ausprobieren")).toBeLessThan(html.indexOf("Nicht nur Antworten sammeln"));
-    expect(html).toContain("min-h-14");
+    expect(html).toContain("Ein Satz reicht zum Start");
+    expect(html.indexOf("Anliegen einbringen")).toBeLessThan(
+      html.indexOf("Professionelle Nutzung bleibt nachgelagert"),
+    );
+    expect(html).toContain("min-h-12");
   });
 });

@@ -13,16 +13,17 @@ vi.mock("next/image", () => ({
 }));
 
 describe("start CTA immediate navigation contract", () => {
-  it("renders participation and creator CTAs as direct links", () => {
+  it("renders citizen, participation and professional CTAs as direct links", () => {
     const html = renderToStaticMarkup(
       <LocaleProvider initialLocale="de">
         <LandingStart />
       </LocaleProvider>,
     );
 
-    expect((html.match(/href="\/runden\/new\?gtm=1/g) ?? []).length).toBeGreaterThan(1);
+    expect((html.match(/href="\/create"/g) ?? []).length).toBeGreaterThanOrEqual(2);
     expect((html.match(/href="\/swipes"/g) ?? []).length).toBeGreaterThanOrEqual(2);
-    expect(html).toContain("<button");
+    expect((html.match(/href="\/themen"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(html).toContain('href="/runden/new?gtm=1&amp;source=homepage-professional"');
     expect(html).not.toContain("disabled");
     expect(html).not.toContain("aria-busy");
   });
@@ -33,7 +34,7 @@ describe("start CTA immediate navigation contract", () => {
       "utf8",
     );
     const splitLandingSource = readFileSync(
-      resolve(process.cwd(), "src/features/home/HomeGoToMarketLanding.tsx"),
+      resolve(process.cwd(), "src/features/home/HomeSplitVoxyLanding.tsx"),
       "utf8",
     );
 
