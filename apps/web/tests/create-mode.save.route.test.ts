@@ -9,6 +9,24 @@ const mocks = vi.hoisted(() => {
   const docs: AnyDoc[] = [];
   const reviewDocs: AnyDoc[] = [];
   const consumePersistentRateLimit = vi.fn();
+  let parallelInsertGate: {
+    insertCalls: number;
+    duplicateKeyPathExercised: boolean;
+    firstInsertArrived: Promise<void>;
+    resolveFirstInsertArrived: () => void;
+    secondInsertArrived: Promise<void>;
+    resolveSecondInsertArrived: () => void;
+    firstInsertCommitted: Promise<void>;
+    resolveFirstInsertCommitted: () => void;
+  } | null = null;
+
+  function deferred() {
+    let resolve = () => undefined;
+    const promise = new Promise<void>((next) => {
+      resolve = next;
+    });
+    return { promise, resolve };
+  }
 
   function toKey(value: unknown) {
     if (value && typeof value === "object" && "toHexString" in (value as Record<string, unknown>)) {
@@ -43,6 +61,31 @@ const mocks = vi.hoisted(() => {
       docs.length = 0;
       reviewDocs.length = 0;
       userId = "user-1";
+      parallelInsertGate = null;
+    },
+    enableParallelInsertCollisionGate() {
+      const firstInsertArrived = deferred();
+      const secondInsertArrived = deferred();
+      const firstInsertCommitted = deferred();
+      parallelInsertGate = {
+        insertCalls: 0,
+        duplicateKeyPathExercised: false,
+        firstInsertArrived: firstInsertArrived.promise,
+        resolveFirstInsertArrived: firstInsertArrived.resolve,
+        secondInsertArrived: secondInsertArrived.promise,
+        resolveSecondInsertArrived: secondInsertArrived.resolve,
+        firstInsertCommitted: firstInsertCommitted.promise,
+        resolveFirstInsertCommitted: firstInsertCommitted.resolve,
+      };
+    },
+    parallelInsertCollisionState() {
+      return {
+        insertCalls: parallelInsertGate?.insertCalls ?? 0,
+        duplicateKeyPathExercised: parallelInsertGate?.duplicateKeyPathExercised ?? false,
+      };
+    },
+    waitForFirstParallelInsert() {
+      return parallelInsertGate?.firstInsertArrived ?? Promise.reject(new Error("parallel_insert_gate_disabled"));
     },
     readAll() {
       return docs.map((doc) => ({ ...doc }));
@@ -73,12 +116,27 @@ const mocks = vi.hoisted(() => {
       if (name === "drafts") {
         return {
           async insertOne(doc: AnyDoc) {
+            const gate = parallelInsertGate;
+            let isFirstInsert = false;
+            if (gate) {
+              gate.insertCalls += 1;
+              if (gate.insertCalls === 1) {
+                isFirstInsert = true;
+                gate.resolveFirstInsertArrived();
+                await gate.secondInsertArrived;
+              } else if (gate.insertCalls === 2) {
+                gate.resolveSecondInsertArrived();
+                await gate.firstInsertCommitted;
+              }
+            }
             if (docs.some((entry) => toKey(entry._id) === toKey(doc._id))) {
               const error = new Error("duplicate key");
               (error as Error & { code?: number }).code = 11000;
+              if (gate) gate.duplicateKeyPathExercised = true;
               throw error;
             }
             docs.push({ ...doc });
+            if (isFirstInsert) gate?.resolveFirstInsertCommitted();
             return { acknowledged: true, insertedId: doc._id };
           },
           async findOne(filter: AnyDoc) {
@@ -159,6 +217,7 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("@/utils/persistentRateLimit", () => mocks.persistentRateLimitModule);
+vi.unmock("@/features/create/createRouteSecurity");
 
 vi.mock("@core/db/triMongo", async () => {
   const mongodb = await import("mongodb");
@@ -458,34 +517,11 @@ describe("create mode split - save route", () => {
       createMode: "source",
     };
 
-    // Resolve the hoisted dynamic-import mock before the second request enters security.
-    let releaseSecondRequest = () => undefined;
-    const firstLimiterResolved = new Promise<void>((resolve) => {
-      releaseSecondRequest = resolve;
-    });
-    const sessionUser = {
-      _id: { toHexString: () => "user-1" },
-      roles: ["user"],
-      sessionValid: true,
-    };
-    mocks.getSessionUser
-      .mockImplementationOnce(async () => sessionUser)
-      .mockImplementationOnce(async () => {
-        await firstLimiterResolved;
-        return sessionUser;
-      });
-    mocks.consumePersistentRateLimit.mockImplementation(async () => {
-      releaseSecondRequest();
-      return {
-        ok: true,
-        remaining: 10,
-        limit: 12,
-        resetAt: Date.now() + 60_000,
-        retryIn: 0,
-      };
-    });
-
-    const [first, second] = await Promise.all([savePOST(req(payload)), savePOST(req(payload))]);
+    mocks.enableParallelInsertCollisionGate();
+    const firstRequest = savePOST(req(payload));
+    await mocks.waitForFirstParallelInsert();
+    const secondRequest = savePOST(req(payload));
+    const [first, second] = await Promise.all([firstRequest, secondRequest]);
     const firstBody = await first.json();
     const secondBody = await second.json();
 
@@ -493,6 +529,11 @@ describe("create mode split - save route", () => {
     expect(second.status).toBe(200);
     expect(firstBody.draftId).toBe(secondBody.draftId);
     expect(mocks.readAll()).toHaveLength(1);
+    expect(mocks.consumePersistentRateLimit).toHaveBeenCalledTimes(4);
+    expect(mocks.parallelInsertCollisionState()).toEqual({
+      insertCalls: 2,
+      duplicateKeyPathExercised: true,
+    });
   });
 
   it("updates the same draft id on controlled follow-up saves", async () => {
