@@ -13,6 +13,9 @@ ADOPTION_IDEMPOTENCY_KEY_MODEL=server-derived domain-separated stable hash of ad
 SERVER_DRAFT_RUNTIME_CHANGE_REQUIRED=false
 DRAFT_BOUND_RECOVERY_MODEL=DRAFT_BOUND_RECOVERY_V1
 DRAFT_BOUND_RECOVERY_WINDOW=remaining verified C3A session lifetime
+TOP_LEVEL_EXPIRES_AT_EXTENDED_ON_BIND=true
+TOP_LEVEL_EXPIRES_AT_EQUALS_DRAFT_BOUND_RECOVERY_EXPIRY=true
+TOP_LEVEL_EXPIRES_AT_NEVER_EXCEEDS_C3A_EXPIRY=true
 POST_C3A_EXPIRY_RECOVERY=false
 CLAIM_RECOVERY_CONTRACT_PRESERVED=true
 ACTIVE_DRAFT_BOUND_BLOCKS_REPREPARE=true
@@ -29,6 +32,14 @@ TEST_FILES_PLANNED=1
 ```
 
 The existing slot receives a pre-save, exact-account/adoption CAS draft-recovery binding. It is active only to verified C3A expiry, blocks reprepare while active, and permits reprepare after expiry with metadata/payload cleanup. Same-account server callers may recover claim material only while the bound authority is active; cross-account requests fail closed. Completion after ordinary claim expiry uses exact active bound recovery plus exact draft ID. Stale generations cannot bind or complete a newer slot.
+
+## TTL and authorization invariant
+
+On the first successful draft-recovery bind, the same atomic `findOneAndUpdate` CAS must set `adoption.draftRecovery={ version: 1, boundAt, recoveryExpiresAt: new Date(input.session.expiresAtMs) }` and `expiresAt` to that identical deadline. The CAS requires both an unexpired verified C3A session and the still-valid ordinary claim. This storage extension never changes `adoption.recoveryExpiresAt`: ordinary claimed replay remains unavailable after its original fifteen-minute deadline. Mongo TTL is cleanup only.
+
+For example, with C3A expiry at T+30m, ordinary claim expiry at T+15m, and a bind at T+5m, the nested ordinary deadline remains T+15m but both draft-bound recovery and top-level `expiresAt` are T+30m. At T+16m the ordinary claim API fails, while only same-account, verified-C3A, exact-adoption bound recovery is available and the record remains stored. No bound recovery exists after C3A expiry.
+
+An unbound claimed adoption remains reprepareable after its ordinary deadline. An active draft-bound adoption blocks reprepare until `draftRecovery.recoveryExpiresAt`; an expired bound adoption may be superseded only by atomically clearing prior adoption, draft-recovery metadata, and encrypted payload. Completion through active bound authority requires exact account, adoption ID, and resulting draft ID, removes ciphertext, becomes completed, and may retain only C3A-bounded metadata; draft-bound claim-decryption authority ends on completion. Required deterministic tests additionally cover these top-level TTL, ordinary-vs-bound recovery, and reprepare cases.
 
 `saveUserScopedServerDraft` already accepts `idempotencyKey`, derives deterministic canonical IDs from user, kind and key, and checks payload conflicts. A server-only versioned adoption-scoped key therefore gives pre-bind crash, insert crash, saved-response-loss and original-claim-expiry retry convergence without a serverDraft change, transaction, collection, index, browser locator, account-global guessing or post-C3A authority.
 
