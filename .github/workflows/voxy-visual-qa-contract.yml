@@ -1,0 +1,125 @@
+name: Voxy Visual QA Contract
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/features/voxyVideo/visualQaCheckpoint.ts"
+      - "apps/web/src/features/voxyVideo/visualDetectorLicenseContract.ts"
+      - "apps/web/src/features/voxyVideo/voxyVisualHandDetector.ts"
+      - "apps/web/src/features/voxyVideo/finalCanon.ts"
+      - "apps/web/scripts/capture-voxy-200pct-evidence.ts"
+      - "apps/web/tests/voxy-visual-qa-checkpoint.contract.test.ts"
+      - "apps/web/tests/voxy-visual-detector-license-contract.test.ts"
+      - "apps/web/tests/voxy-final-canon-lock.contract.test.ts"
+      - "apps/web/THIRD_PARTY_NOTICES.voxy-visual-detector.md"
+      - "apps/web/public/brands/voxy/**"
+      - "docs/E150/VOXY-200PCT-VISUAL-QA-CHECKPOINT-01_2026-08-05.md"
+      - ".github/workflows/voxy-visual-qa-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VOXY_QA_INTEGRATION_SHA: ${{ github.sha }}
+  VOXY_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  contract-and-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tested integration revision
+        run: test "$(git rev-parse HEAD)" = "$VOXY_QA_INTEGRATION_SHA"
+
+      - name: Require V3.10.5 final canon before any visual capture
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'apps/web/src/features/voxyVideo/finalCanon.ts';
+          if (!fs.existsSync(path)) throw new Error('voxy_v3_10_5_final_canon_module_missing');
+          const source = fs.readFileSync(path, 'utf8');
+          const required = [
+            'canonId: "VOXY-V3.10.5-HUMAN-FINAL"',
+            'sourcePullRequest: 624',
+            'referenceRenderHeadSha: "00ff10e80dc8985da1df64de8e9a6df23b9d13e5"',
+            'humanAcceptanceManifestHeadSha: "c94edbcf5135ee717ac64d9da5db05c09e076c22"',
+            'allowLegacyVisualReferenceAsCurrentCanon: false',
+            'supersededCharacterReferencePullRequests: [589]',
+          ];
+          for (const needle of required) {
+            if (!source.includes(needle)) throw new Error(`voxy_final_canon_binding_missing:${needle}`);
+          }
+          NODE
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm -C apps/web exec playwright install chromium
+
+      - name: Run focused contract tests
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-visual-detector-license-contract.test.ts \
+            tests/voxy-visual-qa-checkpoint.contract.test.ts \
+            tests/voxy-final-canon-lock.contract.test.ts
+
+      - name: Capture real 200-percent browser evidence
+        env:
+          VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_QA_INTEGRATION_SHA }}
+        run: pnpm -w exec tsx apps/web/scripts/capture-voxy-200pct-evidence.ts --output=artifacts/voxy-200pct-visual-qa
+
+      - name: Verify evidence is bound to tested integration and remains review-first
+        env:
+          VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_QA_INTEGRATION_SHA }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('artifacts/voxy-200pct-visual-qa/evidence-manifest.json','utf8'));
+          if (manifest.commitSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('evidence_integration_sha_mismatch');
+          if (manifest.humanReview.status !== 'pending') throw new Error('human_review_must_remain_pending');
+          if (manifest.humanReview.approvedCommitSha !== null) throw new Error('self_approval_forbidden');
+          if (manifest.formats.length !== 3) throw new Error('three_formats_required');
+          if (!manifest.validation.requiredDecisionGateId) throw new Error('revision_bound_human_gate_missing');
+          if (!manifest.negativeFixture?.sha256) throw new Error('negative_render_fixture_missing');
+          if (manifest.negativeFixture.actualCrop !== true) throw new Error('negative_fixture_real_crop_not_observed');
+          if (!String(manifest.negativeFixture.computedFilter).includes('blur')) throw new Error('negative_fixture_real_blur_not_observed');
+          if (manifest.negativeFixture.mustNeverBeApproved !== true) throw new Error('negative_fixture_guard_missing');
+          if (manifest.detector?.id !== 'voxy_raster_silhouette_hand_landmarker') throw new Error('local_hand_detector_missing');
+          if (manifest.detector?.externalServiceRequired !== false) throw new Error('external_detector_forbidden');
+          if (manifest.detector?.runtimeNetworkRequired !== false) throw new Error('detector_network_forbidden');
+          if (!/^[a-f0-9]{64}$/.test(manifest.detector?.modelSha256 || '')) throw new Error('detector_model_hash_missing');
+          if (manifest.detectorRotationFixtures?.length !== 4) throw new Error('rotated_positive_png_fixtures_missing');
+          if (!manifest.detectorRotationFixtures.every((fixture) => fixture.detection?.fingerCount === 5 && fixture.detection?.normalizationApplied === true)) throw new Error('rotated_positive_png_fixture_not_normalized');
+          if (manifest.detectorNegativeFixtures?.length !== 4) throw new Error('detector_negative_fixtures_missing');
+          if (!manifest.detectorNegativeFixtures.every((fixture) => fixture.mustNeverBeApproved === true)) throw new Error('detector_negative_fixture_guard_missing');
+          if (!manifest.detectorNegativeFixtures.filter((fixture) => fixture.kind.includes('four-finger') || fixture.kind.includes('six-finger')).every((fixture) => fixture.detection?.normalizationApplied === true)) throw new Error('rotated_negative_fixture_not_normalized');
+          if (manifest.validation.productionEligible !== false) throw new Error('human_gate_must_block_production');
+          NODE
+
+      - name: Typecheck
+        run: pnpm -C apps/web run typecheck
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Upload revision-bound review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-200pct-visual-qa-integration-${{ env.VOXY_QA_INTEGRATION_SHA }}
+          path: artifacts/voxy-200pct-visual-qa/**
+          if-no-files-found: error
+          retention-days: 14
