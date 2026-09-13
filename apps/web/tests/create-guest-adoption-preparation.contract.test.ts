@@ -186,6 +186,16 @@ describe("guest adoption preparation durable lifecycle", () => {
     await expect(prepareGuestAdoptionPreparation({ session, claim: "Neu", nowMs: 10_001 })).resolves.toEqual({ ok: false, afterBarrier: true, reason: "unavailable" });
     expect(store.document).toMatchObject({ state: "preparing" });
   });
+
+  it("preserves prior prepared slot when replacement barrier fails before commit", async () => {
+    const first = await prepareGuestAdoptionPreparation({ session, claim: "Bestehender sicherer Hinweis A", nowMs: 10_000 });
+    expect(first).toMatchObject({ ok: true });
+    const prior = structuredClone(store.document);
+    store.failBarrier = true;
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Neuer sicherer Hinweis B", nowMs: 10_001 })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "unavailable" });
+    expect(store.document).toEqual(prior);
+    expect(store.document).toMatchObject({ state: "prepared", preparationId: prior?.preparationId, encryptedPayload: prior?.encryptedPayload, createdAt: prior?.createdAt, expiresAt: prior?.expiresAt, anonymousSessionBindingHash: prior?.anonymousSessionBindingHash });
+  });
 });
 
 function deferred<T = void>() {
