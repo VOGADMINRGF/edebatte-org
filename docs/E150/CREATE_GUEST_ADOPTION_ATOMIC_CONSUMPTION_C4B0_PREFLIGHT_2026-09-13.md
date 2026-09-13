@@ -45,9 +45,9 @@ AND expiresAt > now
 AND adoption is absent
 ```
 
-It sets the `claimed` sub-contract atomically and extends the document TTL `expiresAt` only to the bounded `recoveryExpiresAt`. The original preparation expiry remains represented by the claim-time eligibility condition; after a claim, recovery is authenticated-account-bound, not anonymous-session-authorized.
+It sets the `claimed` sub-contract atomically and sets document TTL `expiresAt` to `recoveryExpiresAt`. The selected recovery model is `SESSION_BOUNDED_ACCOUNT_CLAIM_RECOVERY_V1`: `recoveryExpiresAt = min(claimNow + 15 minutes, verifiedAnonymousSession.expiresAtMs)`. Thus `CLAIM_RECOVERY_WINDOW_MAX=15_MINUTES`, `CLAIM_RECOVERY_CAPPED_BY_C3A_EXPIRY=true`, and `POST_C3A_EXPIRY_RECOVERY=false`. The original preparation expiry remains represented by the claim-time eligibility condition; after a claim, recovery remains both authenticated-account-bound and verified-anonymous-session-bound.
 
-If the CAS does not claim, a binding-only lookup may return a record only after comparing the derived account hash. Same-account `claimed` returns the same internal adoption identity to the server caller; same-account `completed` returns its draft ID metadata; a different account receives the same minimized fail-closed result as an absent/unavailable slot. It never receives payload or foreign draft metadata.
+If the CAS does not claim, a binding-only lookup may return a record only after verifying the C3A session and comparing the derived account hash. Same-account `claimed` returns the same internal adoption identity to the server caller; same-account `completed` returns its draft ID metadata while that C3A session remains valid; a different account receives the same minimized fail-closed result as an absent/unavailable slot. It never receives payload or foreign draft metadata. Account authentication alone never locates or decrypts a claimed payload.
 
 Future C4B draft idempotency is derived server-side from the claimed `adoptionId` plus the authenticated canonical user in `buildCanonicalCreateDraftIdempotencyKey`/`saveUserScopedServerDraft`. Therefore one adoption and account has one deterministic canonical draft; another account cannot access or collide with it.
 
@@ -63,7 +63,7 @@ For `completed`, `encryptedPayload` has already been removed; the anonymous-only
 
 ## Reprepare serialization
 
-`commitBarrier` must no longer replace every matching binding slot unconditionally. Its binding-slot update filter must permit replacement only when the slot has no adoption, is `completed`, or has a logically expired `adoption.recoveryExpiresAt`; it must reject an active `claimed` adoption. Its duplicate-key retry remains limited to the existing binding-slot unique-upsert race and must classify an unmatched active claim as fail-closed/unavailable, never as a retryable overwrite.
+`commitBarrier` must no longer replace every matching binding slot unconditionally. Its binding-slot update filter must permit replacement only when the slot has no adoption, is `completed`, or has a logically expired `adoption.recoveryExpiresAt`; it must reject an active `claimed` adoption. When replacing an expired claim, the new preparing barrier must unset the full prior `adoption` and `encryptedPayload` before it establishes its new attempt. Its duplicate-key retry remains limited to the existing binding-slot unique-upsert race and must classify an unmatched active claim as fail-closed/unavailable, never as a retryable overwrite.
 
 | Ordering | Required result |
 | --- | --- |
@@ -83,9 +83,11 @@ This retains `DURABLE_REPREPARE_REVOCATION_BARRIER_V1`: a new permitted barrier 
 | Draft saved / crash before completion | Deterministic draft idempotency resolves the same draft; binding-only completion CAS records it. |
 | Completion race or replay | CAS on binding, `prepared`, adoption ID, account hash, `claimed`; same draft is idempotent, different draft is fail-closed. |
 | Different-account claim/completion/replay | Hash mismatch yields generic fail-closed response without payload, IDs, or state disclosure. |
-| Logical recovery expiry | Claim is no longer usable; reprepare may create a fresh slot. TTL is cleanup only, not authorization. |
+| Logical recovery expiry | Claim is no longer readable, decryptable, or recoverable; reprepare may create a fresh slot and removes the old adoption metadata and encrypted payload. TTL is cleanup only, not authorization. |
 
-`CLAIM_RECOVERY_WINDOW=15_MINUTES_FROM_CLAIM`, capped neither by anonymous-cookie expiry nor by TTL delivery timing. The claim CAS updates `expiresAt` to this recovery deadline so the existing TTL index retains the document; all authorization compares `recoveryExpiresAt > now` logically. This prevents a crash seconds before C3A expiry from reopening the payload to another account while preserving bounded same-account recovery.
+Pre-claim authority is a verified C3A session plus the current prepared slot with adoption absent. Post-claim authority is a verified C3A session, canonical authenticated account, matching `accountBindingHash`, `adoption.state="claimed"`, and `recoveryExpiresAt > now`. Authorization is always logical checks; TTL is storage cleanup only.
+
+If C3A expires in five seconds and a claim succeeds now, `recoveryExpiresAt` is that C3A expiry—not `now + 15 minutes`. A crash retry immediately before expiry may resume for the same account. After expiry `verifyAnonymousSession` fails: neither account can decrypt, recover, or learn adoption/draft metadata; the payload is logically unusable; and reprepare may safely establish a fresh slot. This is bounded availability loss, not a security reopening. After the browser has received a canonical `draftId`, ordinary authenticated draft resume uses the canonical draft contract rather than C4B0; the C4B0 endpoint makes no post-C3A-expiry replay promise.
 
 Decrypt occurs only after the same account has an active claim. Completion records the canonical draft ID then atomically unsets `encryptedPayload`; completed replay returns only the same-account draft metadata. On draft-save failure, payload remains until recovery expiry for the bound account. No process-local lock, timing assumption, or browser state is part of the design.
 
@@ -102,7 +104,7 @@ Decrypt occurs only after the same account has an active claim. Completion recor
 
 No `serverDrafts` change, migration, receipt collection, route, UI, browser carrier, provider/secret/deploy/production activation, C4B implementation, C4C UX, Planner, publication, or C5–C12 work is in C4B0.
 
-Required deterministic tests include A/A and A/B concurrent claim barriers; reprepare-before-claim and claim-before-reprepare; restart-equivalent retry; close-to-anonymous-expiry recovery; same/different-account completion; conflicting draft completion; completion/replay cleanup; post-completion intentional reprepare; no carrier; and existing stale C4A1 finalize protection. In addition: (16) the legacy anonymous-only reader succeeds before a claim, (17) returns `null` after `claimed`, (18) returns `null` after `completed`, (19) the same-account account-bound helper may decrypt active claimed payload, (20) a different account cannot decrypt it, and (21) completed replay exposes same-account draft metadata only and never claim text. These race tests use deterministic barriers, never arbitrary sleeps.
+Required deterministic tests include A/A and A/B concurrent claim barriers; reprepare-before-claim and claim-before-reprepare; restart-equivalent retry; same/different-account completion; conflicting draft completion; completion/replay cleanup; post-completion intentional reprepare; no carrier; and existing stale C4A1 finalize protection. In addition: (16) the legacy anonymous-only reader succeeds before a claim, (17) returns `null` after `claimed`, (18) returns `null` after `completed`, (19) the same-account account-bound helper may decrypt active claimed payload, (20) a different account cannot decrypt it, and (21) completed replay exposes same-account draft metadata only and never claim text. Cases (22)–(28) prove recovery expiry is `min(now + 15m, C3A expiry)`, never extends authority past C3A, works immediately before expiry and fails for both accounts after expiry without metadata, and allows a fresh reprepare to remove expired adoption metadata and payload. These race tests use explicit `nowMs` and deterministic barriers, never arbitrary sleeps.
 
 ## Authorization boundary
 
