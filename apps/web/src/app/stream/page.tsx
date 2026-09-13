@@ -3,101 +3,70 @@
 import Link from "next/link";
 import useUser from "@features/user/context/UserContext";
 import StreamList from "@features/stream/components/StreamList";
-import PwaRouteStatusHint from "@/components/mobile/PwaRouteStatusHint";
 
 export default function StreamPage() {
-  const { user, role } = useUser();
-  const needsVerification = user && user.verification !== "legitimized";
+  const { role } = useUser();
   const canSeeViews = ["admin", "superadmin", "moderator", "creator"].includes(role);
+  const canManageStreams = ["admin", "superadmin", "moderator", "creator"].includes(role);
 
   return (
     <main className="min-h-screen overflow-x-clip bg-[rgb(var(--bg))] pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-      <section className="mx-auto max-w-6xl space-y-5 px-4 py-10">
+      <section className="mx-auto max-w-6xl space-y-5 px-4 py-5 md:py-10">
         <header className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
-            Öffentliche Event-Beteiligung
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">Live &amp; Events</p>
           <h1 className="text-2xl font-extrabold text-[rgb(var(--fg))] md:text-4xl">
-            Streams und Events zu aktuellen Themen
+            Live dabei sein oder selbst etwas einbringen
           </h1>
-          <p className="text-sm text-[rgb(var(--muted))] md:text-base">
-            Verfolge Debatten live, kommend oder im Rückblick. Der eigentliche Bürgerpfad läuft
-            über Fragen, Quellen und Perspektiven, die reviewpflichtig in Anlassraum und Dossier
-            weitergehen.
+          <p className="max-w-2xl text-sm leading-6 text-[rgb(var(--muted))] md:text-base">
+            Sieh laufende und vergangene Events. Eigene Fragen, Hinweise oder Themen startest du direkt über eDebatte.
           </p>
         </header>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {!user ? (
-            <>
-              <span className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-[rgb(var(--muted))]">
-                Live ansehen ist offen, für Beiträge brauchst du ein Konto.
-              </span>
-              <Link
-                href="/login?next=/stream"
-                className="inline-flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 font-semibold text-[rgb(var(--fg))]"
-              >
-                Einloggen
-              </Link>
-              <Link
-                href="/register?next=/stream"
-                className="inline-flex items-center justify-center rounded-full bg-sky-600 px-3 py-1 font-semibold text-white"
-              >
-                Registrieren
-              </Link>
-            </>
-          ) : null}
-          <span className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-[rgb(var(--muted))]">
-            Öffentliche Hinweise bleiben reviewpflichtig.
-          </span>
-          {needsVerification ? (
-            <Link
-              href="/verify?next=/stream"
-              className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-amber-50 px-3 py-1 font-semibold text-amber-900"
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap">
+            <a
+              href="#live-streams"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 px-5 py-2 text-sm font-bold text-slate-950"
             >
-              Verifizierung starten
+              Live ansehen
+            </a>
+            <Link
+              href="/create"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-5 py-2 text-sm font-semibold text-[rgb(var(--fg))]"
+            >
+              Beitrag einbringen
             </Link>
+          </div>
+          {canManageStreams ? (
+            <p className="px-1 text-xs text-[rgb(var(--muted))]">
+              Du möchtest selbst senden?{" "}
+              <Link href="/dashboard/streams" className="font-semibold text-sky-500 underline underline-offset-4">
+                Event vorbereiten →
+              </Link>
+            </p>
           ) : null}
         </div>
 
-        <PwaRouteStatusHint
-          title="Event- und QR-Einstieg mobil"
-          body="Stream-Links, Event-QRs und spätere Anschlusswege bleiben auf denselben bestehenden Routen. Von hier aus geht es in Anlassraum, Dossier oder Swipes weiter, ohne stillen Sync- oder Live-Claim."
-          caution="Fällt die Verbindung aus, bleiben nur bereits geladene Hinweise sichtbar. Neue Fragen oder Quellen werden nicht offline zwischensynchronisiert."
-          actions={[
-            { href: "/runden", label: "Zum Anlassraum" },
-            { href: "/swipes", label: "Zu Swipes" },
-            { href: "/dossier", label: "Zu Dossiers" },
-          ]}
-        />
-
-        <div className="min-w-0 overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-[0_20px_60px_rgba(15,23,42,0.08)] md:p-6">
-          <div className="mb-4 flex flex-wrap items-center gap-2 overflow-x-auto text-xs text-[rgb(var(--muted))]">
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800">Live</span>
-            <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-sky-800">Kommend</span>
-            <span className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-2.5 py-1">Replay</span>
-          </div>
-          <StreamList showViews={canSeeViews} statusSections />
-          <div className="mt-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3 text-sm text-[rgb(var(--muted))]">
-            Aktuell läuft kein offener Event? Dann nutze Anlassraum, Dossier oder Swipes als
-            Folgeflächen. Sobald ein Stream offen ist, führen Link und QR in denselben
-            reviewpflichtigen Beteiligungspfad.
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/runden" className="inline-flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-xs font-semibold text-[rgb(var(--fg))]">
-                Zum Anlassraum
-              </Link>
-              <Link href="/dossier" className="inline-flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-xs font-semibold text-[rgb(var(--fg))]">
-                Zu Dossiers
-              </Link>
-              <Link href="/themen" className="inline-flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-xs font-semibold text-[rgb(var(--fg))]">
-                Themen folgen
-              </Link>
-              <Link href="/swipes" className="inline-flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-xs font-semibold text-[rgb(var(--fg))]">
-                Zu Swipes
-              </Link>
+        <section
+          id="live-streams"
+          aria-label="Live und vergangene Events"
+          className="scroll-mt-4 min-w-0 overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 shadow-[0_20px_60px_rgba(15,23,42,0.08)] md:p-6"
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[rgb(var(--fg))]">Events</h2>
+              <p className="text-xs text-[rgb(var(--muted))]">Live, geplant oder als Rückblick.</p>
             </div>
+            <span className="rounded-full border border-[rgb(var(--border))] px-2.5 py-1 text-[11px] text-[rgb(var(--muted))]">
+              Öffentlich
+            </span>
           </div>
-        </div>
+          <StreamList showViews={canSeeViews} showToolbar={false} statusSections={false} />
+        </section>
+
+        <p className="px-1 text-xs leading-5 text-[rgb(var(--muted))]">
+          Nichts wird automatisch veröffentlicht.
+        </p>
       </section>
     </main>
   );
