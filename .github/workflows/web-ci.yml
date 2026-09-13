@@ -33,6 +33,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: git diff --check
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
+      - name: VOG multilingual ballot interaction regression
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/vog-public-ballot.language-switch.contract.test.ts
+          tests/vog-public-ballot.language-switch.interaction.test.tsx
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
 
