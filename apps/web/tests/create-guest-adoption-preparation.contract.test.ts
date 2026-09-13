@@ -8,6 +8,10 @@ const store = vi.hoisted(() => ({
   barrierScript: [] as Array<unknown>,
   finalizeScript: [] as Array<unknown>,
   barrierCalls: [] as Array<unknown[]>,
+  finalizeCalls: [] as Array<{ filter: Record<string, string>; update: { $set: Record<string, unknown> } }>,
+  firstFinalizeEntered: null as null | ReturnType<typeof deferred<void>>,
+  releaseFirstFinalize: null as null | ReturnType<typeof deferred<void>>,
+  pauseFirstFinalize: false,
 }));
 
 vi.mock("@core/db/triMongo", () => ({
@@ -23,6 +27,11 @@ vi.mock("@core/db/triMongo", () => ({
       return store.document;
     },
     updateOne: async (filter: Record<string, string>, update: { $set: Record<string, unknown> }) => {
+      store.finalizeCalls.push({ filter, update });
+      if (store.pauseFirstFinalize && store.finalizeCalls.length === 1 && store.firstFinalizeEntered && store.releaseFirstFinalize) {
+        store.firstFinalizeEntered.resolve();
+        await store.releaseFirstFinalize.promise;
+      }
       const scripted = store.finalizeScript.shift();
       if (scripted instanceof Error) throw scripted;
       if (!store.document || Object.entries(filter).some(([key, value]) => store.document?.[key] !== value)) return { modifiedCount: 0 };
@@ -57,6 +66,10 @@ describe("guest adoption preparation durable lifecycle", () => {
     store.barrierScript = [];
     store.finalizeScript = [];
     store.barrierCalls = [];
+    store.finalizeCalls = [];
+    store.firstFinalizeEntered = null;
+    store.releaseFirstFinalize = null;
+    store.pauseFirstFinalize = false;
     process.env.EDEBATTE_AT_REST_ACTIVE_KEY_VERSION = "test";
     process.env.EDEBATTE_AT_REST_KEYRING = "test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   });
@@ -137,6 +150,49 @@ describe("guest adoption preparation durable lifecycle", () => {
     await expect(prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "unavailable" });
     expect(store.barrierCalls).toHaveLength(1);
   });
+
+  it("prevents stale A finalize after B supersedes the binding slot", async () => {
+    store.pauseFirstFinalize = true;
+    store.firstFinalizeEntered = deferred();
+    store.releaseFirstFinalize = deferred();
+    const a = prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege A", nowMs: 10_000 });
+    await store.firstFinalizeEntered.promise;
+    const aId = store.document?.preparationId;
+    const b = await prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege B", nowMs: 10_001 });
+    expect(b).toMatchObject({ ok: true });
+    const bId = store.document?.preparationId;
+    const payload = structuredClone(store.document?.encryptedPayload);
+    store.releaseFirstFinalize.resolve();
+    await expect(a).resolves.toEqual({ ok: false, afterBarrier: true, reason: "unavailable" });
+    expect(store.finalizeCalls[0]?.filter).toMatchObject({ preparationId: aId, state: "preparing" });
+    expect(store.document).toMatchObject({ preparationId: bId, state: "prepared", encryptedPayload: payload });
+    await expect(readGuestAdoptionPreparationForVerifiedAnonymousSession({ session, nowMs: 10_002 })).resolves.toEqual({ preparationId: bId, claim: "Sichere Schulwege B" });
+  });
+
+  it("fails closed when binding duplicate retry does not confirm this attempt", async () => {
+    store.barrierScript.push({ code: 11000, keyPattern: { anonymousSessionBindingHash: 1 } }, null);
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "unavailable" });
+    expect(store.barrierCalls).toHaveLength(2);
+    expect(store.finalizeCalls).toHaveLength(0);
+  });
+
+  it("keeps the new tombstone when encryption or finalization fails", async () => {
+    process.env.EDEBATTE_AT_REST_KEYRING = "invalid";
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 })).resolves.toEqual({ ok: false, afterBarrier: true, reason: "unavailable" });
+    expect(store.document).toMatchObject({ state: "preparing" });
+    expect(store.document).not.toHaveProperty("encryptedPayload");
+    process.env.EDEBATTE_AT_REST_KEYRING = "test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    store.finalizeScript.push(new Error("finalize unavailable"));
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Neu", nowMs: 10_001 })).resolves.toEqual({ ok: false, afterBarrier: true, reason: "unavailable" });
+    expect(store.document).toMatchObject({ state: "preparing" });
+  });
 });
+
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
