@@ -3,6 +3,13 @@ import { votesCol, ObjectId } from "@core/db/triMongo";
 
 export type VoteChoice = "yes" | "no" | "skip" | string;
 
+export type VoteAttribution = {
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+};
+
 export type VoteDoc = {
   _id?: ObjectId;
   statementId: string | ObjectId;
@@ -15,6 +22,7 @@ export type VoteDoc = {
   userHash?: string;
   locale?: string;
   region?: { country?: string };
+  attribution?: VoteAttribution;
   day?: Date;
   deletedAt?: Date;
   createdAt?: Date;
