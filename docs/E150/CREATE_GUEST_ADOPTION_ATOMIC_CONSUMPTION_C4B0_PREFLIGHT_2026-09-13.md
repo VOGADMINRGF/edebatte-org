@@ -51,6 +51,16 @@ If the CAS does not claim, a binding-only lookup may return a record only after 
 
 Future C4B draft idempotency is derived server-side from the claimed `adoptionId` plus the authenticated canonical user in `buildCanonicalCreateDraftIdempotencyKey`/`saveUserScopedServerDraft`. Therefore one adoption and account has one deterministic canonical draft; another account cannot access or collide with it.
 
+## Pre-adoption anonymous reader hardening
+
+`readGuestAdoptionPreparationForVerifiedAnonymousSession(...)` is a **pre-adoption reader only**. Before C4B0, its verified anonymous session, `state="prepared"`, logical-expiry, decrypt, and claim-validation checks return `{ preparationId, claim }`. C4B0 implementation must add `adoption` absent to that read filter. Therefore it is consumable only when `state="prepared"`, `adoption` is absent, and `expiresAt > now`.
+
+For either `adoption.state="claimed"` or `adoption.state="completed"`, the anonymous-only reader must return `null` fail-closed. It must neither decrypt nor return payload after any durable adoption claim, even if the caller still holds a valid C3A cookie. This closes the forbidden path from an account-bound claimed slot through a legacy anonymous-only decrypt.
+
+After `adoption` exists, decrypted payload may be returned only by the new C4B0 account-bound server primitive after it proves: a verified C3A session, canonical authenticated account, derived `accountBindingHash` equal to the durable claim, `adoption.state="claimed"`, and `recoveryExpiresAt > now`. A different account receives neither payload nor adoption/draft metadata. The old anonymous-only reader is not an authorized post-claim path.
+
+For `completed`, `encryptedPayload` has already been removed; the anonymous-only reader returns `null`; the same-account account-bound replay may return only canonical draft metadata; and a different account remains fail-closed.
+
 ## Reprepare serialization
 
 `commitBarrier` must no longer replace every matching binding slot unconditionally. Its binding-slot update filter must permit replacement only when the slot has no adoption, is `completed`, or has a logically expired `adoption.recoveryExpiresAt`; it must reject an active `claimed` adoption. Its duplicate-key retry remains limited to the existing binding-slot unique-upsert race and must classify an unmatched active claim as fail-closed/unavailable, never as a retryable overwrite.
@@ -87,12 +97,12 @@ Decrypt occurs only after the same account has an active claim. Completion recor
 
 | File | Change | Kind | Owner / reason |
 | --- | --- | --- | --- |
-| `apps/web/src/features/create/createGuestAdoptionPreparation.ts` | MODIFY | runtime | C4A1/C4B0 joint slot contract: conditional reprepare barrier, binding-only claim/read/complete helpers, recovery and payload cleanup. |
-| `apps/web/tests/create-guest-adoption-preparation.contract.test.ts` | MODIFY | test | Deterministic CAS/race/crash/account-switch/replay/expiry/cleanup coverage while retaining stale-finalize coverage. |
+| `apps/web/src/features/create/createGuestAdoptionPreparation.ts` | MODIFY | runtime | C4A1/C4B0 joint slot contract: conditional reprepare barrier; harden anonymous-only read so any adoption returns `null`; account-bound claimed/completed read/replay helpers; recovery and payload cleanup. |
+| `apps/web/tests/create-guest-adoption-preparation.contract.test.ts` | MODIFY | test | Deterministic CAS/race/crash/account-switch/replay/expiry/cleanup coverage, including pre-adoption anonymous success, claimed/completed anonymous failure, same-account claimed read, cross-account decrypt denial, metadata-only completion replay, and stale-finalize coverage. |
 
 No `serverDrafts` change, migration, receipt collection, route, UI, browser carrier, provider/secret/deploy/production activation, C4B implementation, C4C UX, Planner, publication, or C5–C12 work is in C4B0.
 
-Required deterministic tests include A/A and A/B concurrent claim barriers; reprepare-before-claim and claim-before-reprepare; restart-equivalent retry; close-to-anonymous-expiry recovery; same/different-account completion; conflicting draft completion; completion/replay cleanup; post-completion intentional reprepare; no carrier; and existing stale C4A1 finalize protection.
+Required deterministic tests include A/A and A/B concurrent claim barriers; reprepare-before-claim and claim-before-reprepare; restart-equivalent retry; close-to-anonymous-expiry recovery; same/different-account completion; conflicting draft completion; completion/replay cleanup; post-completion intentional reprepare; no carrier; and existing stale C4A1 finalize protection. In addition: (16) the legacy anonymous-only reader succeeds before a claim, (17) returns `null` after `claimed`, (18) returns `null` after `completed`, (19) the same-account account-bound helper may decrypt active claimed payload, (20) a different account cannot decrypt it, and (21) completed replay exposes same-account draft metadata only and never claim text. These race tests use deterministic barriers, never arbitrary sleeps.
 
 ## Authorization boundary
 
