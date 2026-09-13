@@ -43,7 +43,13 @@ GOVERNANCE_TESTS=4/4_PASS
 OPENTASKS_ALPHA2_CONTROL_PLANE=126/126_PASS
 
 CREATE_SAVE_SECURITY_REGRESSION=KNOWN_UNRELATED_TIMEOUT
+CREATE_SAVE_SECURITY_REGRESSION_FILE=`tests/create-mode.save.route.test.ts`
+CREATE_SAVE_SECURITY_REGRESSION_CASE=`deduplicates identical parallel retries into the same canonical draft`
+CREATE_SAVE_SECURITY_REGRESSION_TIMEOUT_MS=5000
+NEW_C4A1_REGRESSION_ESTABLISHED=false
 ```
+
+Der isolierte Timeout ist vorbestehend und nicht mit C4A1 verbunden; er begründet keine neue C4A1-Runtime-Regression.
 
 ## Finaler Sicherheits- und Lifecycle-Vertrag
 
