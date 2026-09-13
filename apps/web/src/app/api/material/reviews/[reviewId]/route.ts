@@ -71,6 +71,7 @@ export async function PATCH(
           ...selection,
           action: selection.action ?? null,
           sourceAnchors: existing.sourceAnchors,
+          questionGuard: existing.questionGuard,
           options: selection.options.map((text, index) => {
             const previous = existing.options[index];
             return {

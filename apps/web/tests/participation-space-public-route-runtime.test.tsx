@@ -11,8 +11,13 @@ vi.mock("@/features/create/participationSpaceRuntimeServer", () => ({
 }));
 
 import PublicParticipationSpaceIndexPage from "@/app/beteiligung/page";
-import { listPublishedParticipationSpaces } from "@/features/participation/publicParticipationSpaceRuntime";
+import {
+  getPublishedParticipationSpaceBySlugOrId,
+  isPublicParticipationSpace,
+  listPublishedParticipationSpaces,
+} from "@/features/participation/publicParticipationSpaceRuntime";
 import type { ParticipationSpacePublishRecord } from "@/features/create/participationSpacePublishWorkflow";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 
 function buildRecord(
   overrides: Partial<ParticipationSpacePublishRecord> = {},
@@ -31,7 +36,18 @@ function buildRecord(
     title: "Beteiligungsraum Sichere Schulwege",
     workingTitle: "Beteiligungsraum Sichere Schulwege",
     description: "Öffentliche Runtime-Beschreibung für sichere Schulwege.",
-    participationQuestion: "Welche Kreuzungen sind zuerst kritisch?",
+    participationQuestion: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+      actorContexts: [],
+      actorExtraction: {
+        status: "complete",
+        source: "human_review",
+        independentFromCandidateProvider: true,
+        evidenceRefs: ["human-review:sichere-schulwege:1"],
+        humanReviewFinding: "no_named_actors",
+      },
+    }),
     publicHeadline: "Sichere Schulwege im Blick",
     publicSummary: "Der Beteiligungsraum bündelt veröffentlichte Hinweise und Einordnungen.",
     moderationPolicy:
@@ -114,6 +130,73 @@ function buildRecord(
 }
 
 describe("participation space public route runtime", () => {
+  it("fails closed for legacy or currently blocked guards across public read and input lookup", async () => {
+    const legacyWithoutGuard = buildRecord({ questionGuard: undefined as never });
+    const reviewRequired = buildRecord({
+      questionGuard: evaluatePublicQuestionGeneralization({
+        originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "not_available",
+          independentFromCandidateProvider: false,
+          evidenceRefs: [],
+        },
+      }),
+    });
+    const blocked = buildRecord({
+      questionGuard: evaluatePublicQuestionGeneralization({
+        originalInput: "Sollen wir diese Gruppe verprügeln?",
+        candidatePublicQuestion: "Welche Maßnahmen sollten Konflikte friedlich lösen?",
+        actorContexts: [],
+        actorExtraction: {
+          status: "complete",
+          source: "human_review",
+          independentFromCandidateProvider: true,
+          evidenceRefs: ["human-review:safety:1"],
+          humanReviewFinding: "no_named_actors",
+        },
+      }),
+    });
+
+    expect(isPublicParticipationSpace(legacyWithoutGuard)).toBe(false);
+    expect(reviewRequired.questionGuard.releaseState).toBe("review_required");
+    expect(isPublicParticipationSpace(reviewRequired)).toBe(false);
+    expect(blocked.questionGuard.releaseState).toBe("blocked");
+    expect(isPublicParticipationSpace(blocked)).toBe(false);
+
+    mocks.listParticipationSpacePublishRecords.mockResolvedValue([
+      legacyWithoutGuard,
+      reviewRequired,
+      blocked,
+    ]);
+    await expect(
+      listPublishedParticipationSpaces({ allowFixtureFallback: false }),
+    ).resolves.toMatchObject({ items: [], status: { source: "empty" } });
+    await expect(
+      getPublishedParticipationSpaceBySlugOrId("sichere-schulwege", {
+        allowFixtureFallback: false,
+      }),
+    ).resolves.toMatchObject({ detail: null });
+  });
+
+  it("requires fresh explicit approvals in addition to a draft-allowed guard", () => {
+    const reviewedButNotReapproved = buildRecord({
+      status: "draft",
+      visibility: "editorial_workspace",
+      approvedForActivationAt: null,
+      approvedForActivationBy: null,
+      approvedForPublicationAt: null,
+      approvedForPublicationBy: null,
+    });
+
+    expect(reviewedButNotReapproved.questionGuard.releaseState).toBe(
+      "draft_allowed",
+    );
+    expect(isPublicParticipationSpace(reviewedButNotReapproved)).toBe(false);
+    expect(isPublicParticipationSpace(buildRecord())).toBe(true);
+  });
+
   it("lists only published public runtime participation spaces and strips internals", async () => {
     mocks.listParticipationSpacePublishRecords.mockResolvedValue([
       buildRecord(),

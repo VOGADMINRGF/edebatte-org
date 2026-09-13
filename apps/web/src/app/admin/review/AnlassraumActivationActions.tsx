@@ -11,6 +11,7 @@ import {
 } from "@/features/create/anlassraumActivationWorkflow";
 
 type AnlassraumActivationAction =
+  | "reviewAnlassraumQuestionGuard"
   | "approveAnlassraumActivation"
   | "rejectAnlassraumActivation"
   | "activateApprovedAnlassraum"
@@ -25,6 +26,10 @@ type Props = {
 async function postAction(input: {
   sourceHandoffId: string;
   action: AnlassraumActivationAction;
+  actorExtractionSource?: "human_review";
+  evidenceRefs?: string[];
+  actorContexts?: AnlassraumActivationRecord["questionGuard"]["actorContexts"];
+  noNamedActorsConfirmed?: boolean;
 }) {
   const response = await fetch(
     `/api/admin/anlassraum-activation/${encodeURIComponent(input.sourceHandoffId)}`,
@@ -35,6 +40,14 @@ async function postAction(input: {
       },
       body: JSON.stringify({
         action: input.action,
+        ...(input.actorExtractionSource
+          ? { actorExtractionSource: input.actorExtractionSource }
+          : {}),
+        ...(input.evidenceRefs ? { evidenceRefs: input.evidenceRefs } : {}),
+        ...(input.actorContexts ? { actorContexts: input.actorContexts } : {}),
+        ...(input.noNamedActorsConfirmed
+          ? { noNamedActorsConfirmed: true }
+          : {}),
       }),
     },
   );
@@ -49,14 +62,30 @@ export default function AnlassraumActivationActions({ record }: Props) {
   const [pendingAction, setPendingAction] =
     useState<AnlassraumActivationAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [questionGuardEvidenceRef, setQuestionGuardEvidenceRef] = useState("");
+  const [noNamedActorsConfirmed, setNoNamedActorsConfirmed] = useState(false);
 
-  async function runAction(action: AnlassraumActivationAction) {
+  async function runAction(
+    action: AnlassraumActivationAction,
+    reviewEvidenceRef?: string,
+  ) {
     setPendingAction(action);
     setError(null);
     try {
       await postAction({
         sourceHandoffId: record.sourceHandoffId,
         action,
+        ...(reviewEvidenceRef
+          ? {
+              actorExtractionSource: "human_review" as const,
+              evidenceRefs: [reviewEvidenceRef],
+              actorContexts: record.questionGuard.actorContexts,
+              noNamedActorsConfirmed:
+                record.questionGuard.actorContexts.length === 0
+                  ? noNamedActorsConfirmed
+                  : undefined,
+            }
+          : {}),
       });
       startTransition(() => router.refresh());
     } catch (actionError) {
@@ -91,6 +120,66 @@ export default function AnlassraumActivationActions({ record }: Props) {
         Auto-Graph, keinen Auto-Merge, keinen Auto-Factcheck und kein
         DeepSearch.
       </p>
+
+      {record.questionGuard.releaseState === "review_required" ? (
+        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3">
+          <label
+            className="block text-xs font-semibold text-amber-950"
+            htmlFor={`anlassraum-question-guard-evidence-${record.sourceHandoffId}`}
+          >
+            Belastbare Review-Evidenz
+          </label>
+          <input
+            id={`anlassraum-question-guard-evidence-${record.sourceHandoffId}`}
+            data-testid={`anlassraum-question-guard-evidence-${record.sourceHandoffId}`}
+            value={questionGuardEvidenceRef}
+            onChange={(event) => setQuestionGuardEvidenceRef(event.target.value)}
+            placeholder="z. B. human-review:ticket-123"
+            className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-[rgb(var(--fg))]"
+          />
+          <button
+            type="button"
+            data-testid={`review-anlassraum-question-guard-${record.sourceHandoffId}`}
+            disabled={
+              questionGuardEvidenceRef.trim().length === 0 ||
+              (record.questionGuard.actorContexts.length === 0 &&
+                !noNamedActorsConfirmed) ||
+              pendingAction === "reviewAnlassraumQuestionGuard"
+            }
+            onClick={() =>
+              runAction(
+                "reviewAnlassraumQuestionGuard",
+                questionGuardEvidenceRef.trim(),
+              )
+            }
+            className="mt-2 rounded-full border border-amber-400 px-4 py-2 text-xs font-semibold text-amber-950 disabled:opacity-60"
+          >
+            Question Guard mit Evidenz erneut prüfen
+          </button>
+          {record.questionGuard.actorContexts.length === 0 ? (
+            <label className="mt-3 flex items-start gap-2 text-xs text-amber-950">
+              <input
+                type="checkbox"
+                checked={noNamedActorsConfirmed}
+                onChange={(event) =>
+                  setNoNamedActorsConfirmed(event.target.checked)
+                }
+              />
+              Ich bestätige nach menschlicher Prüfung ausdrücklich, dass die
+              Frage keine benannten Personen oder Organisationen enthält.
+            </label>
+          ) : (
+            <p className="mt-3 text-xs text-amber-950">
+              {record.questionGuard.actorContexts.length} belegte
+              Akteurskontexte werden mit Typ und Rolle erneut persistiert.
+            </p>
+          )}
+          <p className="mt-2 text-xs text-amber-900">
+            Die erneute Prüfung ändert nur den Guard-State. Aktivierung und
+            Veröffentlichung bleiben separate, explizite Schritte.
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button

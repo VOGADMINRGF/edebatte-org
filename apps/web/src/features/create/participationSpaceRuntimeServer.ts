@@ -11,7 +11,9 @@ import {
   approveParticipationSpaceActivation as approveParticipationSpaceActivationRecord,
   approveParticipationSpacePublication as approveParticipationSpacePublicationRecord,
   buildParticipationSpacePublishDraft,
+  getParticipationSpacePublishBlockers,
   publishParticipationSpaceAfterReview,
+  reviewParticipationSpaceQuestionGuard as reviewParticipationSpaceQuestionGuardRecord,
   type ParticipationSpacePublishAuditContext,
   type ParticipationSpacePublishAuditEntry,
   type ParticipationSpacePublishRecord,
@@ -31,6 +33,12 @@ import {
   listPersistedCreateHandoffRecords,
   type PersistedCreateHandoffRecord,
 } from "@/features/create/persistedHandoffReviewQueue";
+import {
+  holdQuestionGuardForSerializedReview,
+  normalizeWorkflowRecordVersion,
+  persistQuestionGuardReviewFailClosed,
+} from "@/features/create/safety/questionGuardReviewPersistence";
+import type { PublicQuestionActorContext } from "@/features/create/safety/publicQuestionGeneralization";
 
 export type ParticipationSpaceRuntimePersistenceState = {
   mode: "persistent_primary" | "in_memory_fallback";
@@ -82,7 +90,7 @@ type ParticipationSpaceRuntimeCreatedSpaceRecord = {
   updatedAt: string;
 };
 
-type ParticipationSpaceRuntimeRepository = {
+export type ParticipationSpaceRuntimeRepository = {
   get(sourceHandoffId: string): Promise<ParticipationSpaceRuntimeRecord | null>;
   save(record: ParticipationSpaceRuntimeRecord): Promise<ParticipationSpaceRuntimeRecord>;
   list(limit?: number): Promise<ParticipationSpaceRuntimeRecord[]>;
@@ -111,6 +119,10 @@ type ParticipationSpaceRuntimeRepository = {
   savePublishRecord(
     record: ParticipationSpacePublishRecord,
   ): Promise<ParticipationSpacePublishRecord>;
+  compareAndSwapPublishRecord(input: {
+    record: ParticipationSpacePublishRecord;
+    expectedVersion: number;
+  }): Promise<ParticipationSpacePublishRecord>;
   listPublishRecords(limit?: number): Promise<ParticipationSpacePublishRecord[]>;
   insertPublishAudit(
     entry: ParticipationSpacePublishAuditEntry,
@@ -293,6 +305,22 @@ export function createInMemoryParticipationSpaceRuntimeRepository(): Participati
       publishRecords.set(record.sourceHandoffId, clone(record));
       return clone(record);
     },
+    async compareAndSwapPublishRecord(input) {
+      const current = publishRecords.get(input.record.sourceHandoffId);
+      const currentVersion = normalizeWorkflowRecordVersion(current?.version);
+      if (
+        (current && currentVersion !== input.expectedVersion) ||
+        (!current && input.expectedVersion !== 0)
+      ) {
+        throw new Error("participation_space_publish_state_conflict");
+      }
+      const nextRecord = {
+        ...input.record,
+        version: input.expectedVersion + 1,
+      };
+      publishRecords.set(nextRecord.sourceHandoffId, clone(nextRecord));
+      return clone(nextRecord);
+    },
     async listPublishRecords(limit) {
       const list = Array.from(publishRecords.values()).sort((left, right) =>
         right.updatedAt.localeCompare(left.updatedAt),
@@ -466,6 +494,60 @@ function createMongoParticipationSpaceRuntimeRepository(): ParticipationSpaceRun
         { upsert: true },
       );
       return clone(record);
+    },
+    async compareAndSwapPublishRecord(input) {
+      const expectedVersion = normalizeWorkflowRecordVersion(
+        input.expectedVersion,
+      );
+      const nextRecord = {
+        ...input.record,
+        version: expectedVersion + 1,
+      };
+      const col = await coreCol<{
+        _id: string;
+        record: ParticipationSpacePublishRecord;
+      }>(PUBLISH_COLLECTION);
+      try {
+        const result = await col.updateOne(
+          {
+            _id: runtimeRecordId(input.record.sourceHandoffId),
+            ...(expectedVersion === 0
+              ? {
+                  $or: [
+                    { version: 0 },
+                    { version: { $exists: false } },
+                  ],
+                }
+              : { version: expectedVersion }),
+          } as any,
+          {
+            $set: {
+              record: clone(nextRecord),
+              sourceHandoffId: nextRecord.sourceHandoffId,
+              status: nextRecord.status,
+              updatedAt: nextRecord.updatedAt,
+              participationSpaceId: nextRecord.participationSpaceId,
+              version: nextRecord.version,
+            } as any,
+          },
+          { upsert: expectedVersion === 0 },
+        );
+        if (result.modifiedCount + result.upsertedCount !== 1) {
+          throw new Error("participation_space_publish_state_conflict");
+        }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "participation_space_publish_state_conflict"
+        ) {
+          throw error;
+        }
+        if ((error as { code?: number })?.code === 11000) {
+          throw new Error("participation_space_publish_state_conflict");
+        }
+        throw error;
+      }
+      return clone(nextRecord);
     },
     async listPublishRecords(limit) {
       const col = await coreCol<{ _id: string; record: ParticipationSpacePublishRecord }>(
@@ -701,7 +783,10 @@ async function saveRecord(record: ParticipationSpaceRuntimeRecord) {
 }
 
 async function savePublishRecord(record: ParticipationSpacePublishRecord) {
-  return getRepo().savePublishRecord(record);
+  return getRepo().compareAndSwapPublishRecord({
+    record,
+    expectedVersion: normalizeWorkflowRecordVersion(record.version),
+  });
 }
 
 function hasRuntimeCreatedAudit(record: ParticipationSpaceRuntimeRecord) {
@@ -811,6 +896,7 @@ async function buildParticipationSpacePublishRecord(
   ]);
 
   const draft = buildParticipationSpacePublishDraft({
+    version: normalizeWorkflowRecordVersion(existing?.version),
     runtimeRecord,
     createdSpace: createdSpace
       ? {
@@ -832,6 +918,7 @@ async function buildParticipationSpacePublishRecord(
           updatedAt: runtimeRecord.updatedAt,
         },
     creationAudited: hasRuntimeCreatedAudit(runtimeRecord),
+    questionGuard: existing?.questionGuard ?? null,
     status: existing?.status ?? "draft",
     visibility: existing?.visibility ?? "editorial_workspace",
     publicHeadline: existing?.publicHeadline ?? null,
@@ -1163,6 +1250,73 @@ export async function approveParticipationSpaceActivation(input: {
   return approvedRecord;
 }
 
+export async function reviewParticipationSpaceQuestionGuard(input: {
+  sourceHandoffId: string;
+  actorUserId: string;
+  actorExtractionSource: "entity_registry" | "actor_graph" | "human_review";
+  evidenceRefs: string[];
+  actorContexts?: PublicQuestionActorContext[];
+  noNamedActorsConfirmed?: boolean;
+  note?: string | null;
+}) {
+  const record = await getParticipationSpacePublishRecord(input.sourceHandoffId);
+  if (!record) {
+    throw new Error("participation_space_publish_record_not_found");
+  }
+
+  const reviewedAt = nowIso();
+  const reviewedRecord = reviewParticipationSpaceQuestionGuardRecord(record, {
+    actorExtractionSource: input.actorExtractionSource,
+    evidenceRefs: input.evidenceRefs,
+    actorContexts: input.actorContexts,
+    noNamedActorsConfirmed: input.noNamedActorsConfirmed,
+    reviewedAt,
+  });
+
+  const auditEntry = {
+    at: reviewedAt,
+    action: "question_guard_reviewed" as const,
+    actorUserId: input.actorUserId,
+    note:
+      trimOrNull(input.note) ??
+      `Public-Question-Guard erneut bewertet: ${reviewedRecord.questionGuard.releaseState}.`,
+    blockers: reviewedRecord.blockers,
+    status: reviewedRecord.status,
+    participationSpaceId: reviewedRecord.participationSpaceId,
+    questionGuardReleaseState: reviewedRecord.questionGuard.releaseState,
+    questionGuardActorExtractionSource: input.actorExtractionSource,
+    questionGuardEvidenceRefs:
+      reviewedRecord.questionGuard.actorExtraction.evidenceRefs,
+    questionGuardActorContexts: reviewedRecord.questionGuard.actorContexts,
+    questionGuardHumanReviewFinding:
+      reviewedRecord.questionGuard.actorExtraction.humanReviewFinding ?? null,
+  } satisfies Omit<
+    ParticipationSpacePublishAuditEntry,
+    "id" | "sourceHandoffId"
+  >;
+
+  const reviewReservationDraft: ParticipationSpacePublishRecord = {
+    ...reviewedRecord,
+    questionGuard: holdQuestionGuardForSerializedReview(record.questionGuard),
+  };
+  const reviewReservation: ParticipationSpacePublishRecord = {
+    ...reviewReservationDraft,
+    blockers: getParticipationSpacePublishBlockers(reviewReservationDraft),
+  };
+
+  return persistQuestionGuardReviewFailClosed({
+    reviewReservation,
+    auditEntry,
+    persistAudit: (entry) =>
+      recordPublishAudit(input.sourceHandoffId, entry),
+    persistRecord: savePublishRecord,
+    buildReleasedRecord: (reservation) => ({
+      ...reviewedRecord,
+      version: reservation.version,
+    }),
+  });
+}
+
 export async function rejectParticipationSpaceActivation(input: {
   sourceHandoffId: string;
   actorUserId: string;
@@ -1252,21 +1406,24 @@ export async function activateApprovedParticipationSpace(input: {
     return blockedRecord;
   }
 
-  const updatedSpace = applyPublishRecordToCreatedSpace(createdSpace, result.record);
+  const persistedRecord = await savePublishRecord(result.record);
+  const updatedSpace = applyPublishRecordToCreatedSpace(
+    createdSpace,
+    persistedRecord,
+  );
   await getRepo().updateCreatedSpace(updatedSpace);
-  await savePublishRecord(result.record);
   await recordPublishAudit(input.sourceHandoffId, {
-    at: result.record.updatedAt,
+    at: persistedRecord.updatedAt,
     action: "activated_internal",
     actorUserId: input.actorUserId,
     note:
       trimOrNull(input.note) ??
       "Beteiligungsraum intern aktiviert. Öffentliche Sichtbarkeit bleibt weiterhin aus.",
     blockers: [],
-    status: result.record.status,
-    participationSpaceId: result.record.participationSpaceId,
+    status: persistedRecord.status,
+    participationSpaceId: persistedRecord.participationSpaceId,
   });
-  return result.record;
+  return persistedRecord;
 }
 
 export async function approveParticipationSpacePublication(input: {
@@ -1426,23 +1583,26 @@ export async function publishApprovedParticipationSpace(input: {
     spaceStatus: buildSpaceStatusForPublication(result.record),
     updatedAt: result.record.updatedAt,
   };
-  const updatedSpace = applyPublishRecordToCreatedSpace(createdSpace, publishedRecord);
+  const persistedRecord = await savePublishRecord(publishedRecord);
+  const updatedSpace = applyPublishRecordToCreatedSpace(
+    createdSpace,
+    persistedRecord,
+  );
   await getRepo().updateCreatedSpace(updatedSpace);
-  await savePublishRecord(publishedRecord);
   await updateRuntimeRecordVisibility({
     sourceHandoffId: input.sourceHandoffId,
     visibility: "public",
   });
   await recordPublishAudit(input.sourceHandoffId, {
-    at: publishedRecord.updatedAt,
+    at: persistedRecord.updatedAt,
     action: "published_public",
     actorUserId: input.actorUserId,
     note:
       trimOrNull(input.note) ??
       "Öffentliche Sichtbarkeit explizit gesetzt. Die öffentliche /beteiligung-Route bleibt bis zum separaten Runtime-Anschluss fixture-basiert.",
     blockers: [],
-    status: publishedRecord.status,
-    participationSpaceId: publishedRecord.participationSpaceId,
+    status: persistedRecord.status,
+    participationSpaceId: persistedRecord.participationSpaceId,
   });
-  return publishedRecord;
+  return persistedRecord;
 }

@@ -3,6 +3,12 @@ import "server-only";
 import crypto from "node:crypto";
 import { coreCol, shouldUseInMemoryMongoFallback } from "@core/db/triMongo";
 import { persistCreateSavedWorkstate } from "@/features/create/createSavedWorkstateRepo";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionActorContext,
+  type PublicQuestionGeneralizationResult,
+  type PublicQuestionProcedureContext,
+} from "@/features/create/safety/publicQuestionGeneralization";
 import type { MaterialExtractionJob } from "./materialExtractionJobs";
 import type { MaterialGraphFirstContext, MaterialGraphRecommendedAction } from "./materialGraphFirstContext";
 import type { MaterialStructuredDraftResult } from "./materialStructuredDrafts";
@@ -17,6 +23,7 @@ export type MaterialReviewSelection = {
   text: string;
   rationale: string;
   sourceAnchors: string[];
+  questionGuard: PublicQuestionGeneralizationResult;
   options: Array<{
     text: string;
     source: "document" | "ai_suggestion" | "human_edit";
@@ -67,6 +74,205 @@ function clone<T>(value: T): T {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalizeQuestionText(value: string): string {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringValues(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((entry) => normalizeQuestionText(String(entry ?? ""))).filter(Boolean)
+    : [];
+}
+
+const ACTOR_TYPES = new Set<PublicQuestionActorContext["type"]>([
+  "person",
+  "company",
+  "party",
+  "organization",
+  "public_body",
+  "media",
+  "other",
+]);
+const ACTOR_ROLES = new Set<PublicQuestionActorContext["role"]>([
+  "source",
+  "initiator",
+  "affected_party",
+  "competent_authority",
+  "position_holder",
+  "documented_case",
+  "procedure_subject",
+  "context",
+  "target",
+]);
+const PROCEDURE_KINDS = new Set<PublicQuestionProcedureContext["kind"]>([
+  "permit",
+  "procurement",
+  "merger",
+  "statute",
+  "parliamentary_procedure",
+  "administrative_procedure",
+  "other",
+]);
+
+function persistedActorContexts(selection: Record<string, unknown>) {
+  const legacyGeneralization = recordValue(selection.generalization);
+  const value = selection.actorContexts ?? legacyGeneralization?.actorContexts;
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry): PublicQuestionActorContext[] => {
+    const actor = recordValue(entry);
+    if (!actor) return [];
+    const id = normalizeQuestionText(String(actor.id ?? ""));
+    const name = normalizeQuestionText(String(actor.name ?? ""));
+    const type = String(actor.type ?? "") as PublicQuestionActorContext["type"];
+    const role = String(actor.role ?? "") as PublicQuestionActorContext["role"];
+    const evidenceRefs = stringValues(actor.evidenceRefs);
+    if (
+      !id ||
+      !name ||
+      !ACTOR_TYPES.has(type) ||
+      !ACTOR_ROLES.has(role) ||
+      evidenceRefs.length === 0
+    ) {
+      return [];
+    }
+    return [{ id, name, type, role, evidenceRefs }];
+  });
+}
+
+function persistedProcedure(
+  selection: Record<string, unknown>,
+): PublicQuestionProcedureContext | null {
+  const legacyGeneralization = recordValue(selection.generalization);
+  const procedure = recordValue(
+    selection.procedure ?? legacyGeneralization?.procedure,
+  );
+  if (!procedure) return null;
+  const kind = String(
+    procedure.kind ?? "",
+  ) as PublicQuestionProcedureContext["kind"];
+  const evidenceRefs = stringValues(procedure.evidenceRefs);
+  if (
+    !PROCEDURE_KINDS.has(kind) ||
+    typeof procedure.entityBindingNecessary !== "boolean" ||
+    evidenceRefs.length === 0
+  ) {
+    return null;
+  }
+  return {
+    kind,
+    entityBindingNecessary: procedure.entityBindingNecessary,
+    evidenceRefs,
+  };
+}
+
+function normalizePersistedSelection(
+  selection: MaterialReviewSelection,
+): MaterialReviewSelection {
+  const raw = selection as unknown as Record<string, unknown>;
+  if (recordValue(raw.questionGuard)) return clone(selection);
+
+  const legacyGeneralization = recordValue(raw.generalization);
+  const text = normalizeQuestionText(
+    String(raw.text ?? raw.publicQuestion ?? raw.originalInput ?? ""),
+  );
+  const originalInput = normalizeQuestionText(
+    String(
+      raw.originalInput ??
+        legacyGeneralization?.originalInput ??
+        raw.text ??
+        raw.publicQuestion ??
+        "",
+    ),
+  );
+  const evidenceRefs = Array.from(
+    new Set([
+      ...stringValues(raw.sourceAnchors),
+      ...stringValues(raw.evidenceRefs),
+      ...stringValues(legacyGeneralization?.evidenceRefs),
+    ]),
+  );
+
+  // Legacy material selections predate the independent extraction contract.
+  // Persisted anchors remain available as private evidence, but never become
+  // an invented independent clearance. Safety/fact blockers still win before
+  // the missing-extraction review gate.
+  const questionGuard = evaluatePublicQuestionGeneralization({
+    originalInput: originalInput || text,
+    candidatePublicQuestion: text || originalInput,
+    actorContexts: persistedActorContexts(raw),
+    actorExtraction: {
+      status: "unverified",
+      source: "material_provider",
+      independentFromCandidateProvider: false,
+      evidenceRefs,
+    },
+    procedure: persistedProcedure(raw),
+  });
+
+  return {
+    ...clone(selection),
+    text,
+    questionGuard,
+    options: clone(Array.isArray(selection.options) ? selection.options : []),
+  };
+}
+
+export function normalizeMaterialDocumentReviewSession(
+  session: MaterialDocumentReviewSession,
+): MaterialDocumentReviewSession {
+  return {
+    ...clone(session),
+    selections: (Array.isArray(session.selections) ? session.selections : []).map(
+      normalizePersistedSelection,
+    ),
+  };
+}
+
+function guardUpdatedSelection(
+  existing: MaterialReviewSelection,
+  selection: MaterialReviewSelection,
+): MaterialReviewSelection {
+  const nextText = normalizeQuestionText(selection.text);
+  const guardedText = normalizeQuestionText(
+    existing.questionGuard.publicQuestion ?? existing.questionGuard.candidatePublicQuestion,
+  );
+  if (nextText === guardedText) {
+    return {
+      ...clone(selection),
+      sourceAnchors: clone(existing.sourceAnchors),
+      questionGuard: clone(existing.questionGuard),
+    };
+  }
+
+  const questionGuard = evaluatePublicQuestionGeneralization({
+    originalInput: existing.questionGuard.originalInput,
+    candidatePublicQuestion: nextText,
+    actorContexts: existing.questionGuard.actorContexts,
+    actorExtraction: {
+      status: "unverified",
+      source: "human_review",
+      independentFromCandidateProvider: false,
+      evidenceRefs: existing.questionGuard.evidenceRefs,
+    },
+    procedure: existing.questionGuard.procedure,
+  });
+
+  return {
+    ...clone(selection),
+    text: nextText,
+    sourceAnchors: clone(existing.sourceAnchors),
+    questionGuard,
+    options: questionGuard.releaseState === "blocked" ? [] : clone(selection.options),
+  };
 }
 
 function createInMemoryRepo(): MaterialReviewRepository {
@@ -149,6 +355,7 @@ export async function createMaterialDocumentReviewSession(input: {
       text: question.text,
       rationale: question.rationale,
       sourceAnchors: clone(question.sourceAnchors),
+      questionGuard: clone(question.generalization),
       options: input.drafts.options
         .filter((option) => option.questionRef === question.id)
         .map((option) => ({ text: option.text, source: option.source })),
@@ -170,7 +377,9 @@ export async function createMaterialDocumentReviewSession(input: {
 
 export async function getMaterialDocumentReviewSession(id: string) {
   const normalized = String(id ?? "").trim();
-  return normalized ? repository().get(normalized) : null;
+  if (!normalized) return null;
+  const session = await repository().get(normalized);
+  return session ? normalizeMaterialDocumentReviewSession(session) : null;
 }
 
 export async function updateMaterialDocumentReviewSelections(input: {
@@ -184,7 +393,12 @@ export async function updateMaterialDocumentReviewSelections(input: {
   if (input.selections.some((selection) => !existingIds.has(selection.questionId))) {
     throw new Error("material_review_question_unknown");
   }
-  session.selections = clone(input.selections);
+  const existingById = new Map(
+    session.selections.map((selection) => [selection.questionId, selection]),
+  );
+  session.selections = input.selections.map((selection) =>
+    guardUpdatedSelection(existingById.get(selection.questionId)!, selection),
+  );
   session.updatedAt = nowIso();
   await repository().save(session);
   return session;
@@ -201,6 +415,9 @@ export async function prepareSelectedMaterialQuestions(input: {
   const selected = session.selections.filter((selection) => selection.selected);
   if (selected.length === 0) throw new Error("material_review_selection_required");
   if (selected.some((selection) => !selection.action)) throw new Error("material_review_action_required");
+  if (selected.some((selection) => selection.questionGuard.releaseState === "blocked")) {
+    throw new Error("material_review_question_blocked");
+  }
 
   const records = await Promise.all(
     selected.map((selection) =>
@@ -209,7 +426,7 @@ export async function prepareSelectedMaterialQuestions(input: {
         organizationId: session.organizationId,
         visibility: session.organizationId ? "organization_internal" : "private",
         type: "question_candidate",
-        status: "prepared",
+        status: selection.questionGuard.requiresHumanReview ? "needs_review" : "prepared",
         sourceAnalysisId: session.id,
         parentTopicId: session.graphFirst.matchedTopicIds[0] ?? null,
         title: selection.text,
@@ -229,6 +446,9 @@ export async function prepareSelectedMaterialQuestions(input: {
           materialId: session.materialId,
           materialReviewAction: selection.action,
           suggestedOptions: selection.options.map((option) => option.text).slice(0, 12),
+        },
+        privateReviewEvidence: {
+          publicQuestionGuard: clone(selection.questionGuard),
         },
         resumeHref: `/create?materialReviewId=${encodeURIComponent(session.id)}`,
       }),

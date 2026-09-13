@@ -175,9 +175,14 @@ describe("poll question options review contract", () => {
       "support",
       "oppose",
     ]);
+    expect(model?.proposedQuestion).toBe("Welche Maßnahme soll zuerst kommen?");
     expect(model?.downstreamReadiness.find((item) => item.id === "publicPoll")?.status).toBe(
       "needs_review",
     );
+    expect(model?.questionGuard).toMatchObject({
+      outcome: "actor_extraction_review_required",
+      releaseState: "review_required",
+    });
   });
 
   it("keeps low-context Arabic input as open review work instead of a poll", () => {
@@ -215,5 +220,30 @@ describe("poll question options review contract", () => {
     expect(model?.questionType).toBe("open_question");
     expect(model?.pollStatus).toBe("needs_source_review");
     expect(model?.noPollAction).toBe(true);
+  });
+
+  it("does not create options when a factual original is reframed as a normative poll", () => {
+    const model = buildPollQuestionOptionsReviewFromReviewContext(
+      buildReviewContextFixture({
+        originalText: "Stimmt es, dass die Emissionen seit 2020 gesunken sind?",
+        openQuestions: ["Soll Deutschland die Emissionen stärker senken?"],
+        participationCandidate: {
+          recommendation: "poll",
+          title: "Emissionspolitik",
+          prompt: "Soll Deutschland die Emissionen stärker senken?",
+          options: ["Ja", "Nein", "Andere Maßnahme"],
+        },
+      }),
+    );
+
+    expect(model?.questionGuard).toMatchObject({
+      outcome: "fact_or_truth_question_blocked",
+      releaseState: "blocked",
+    });
+    expect(model?.optionItems).toEqual([]);
+    expect(model?.proposedQuestion).toBeNull();
+    expect(model?.downstreamReadiness.find((item) => item.id === "publicPoll")?.status).toBe(
+      "blocked",
+    );
   });
 });

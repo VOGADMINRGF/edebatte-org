@@ -92,6 +92,7 @@ export default function QrStudioPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [reviewRequiredCode, setReviewRequiredCode] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [targetQrImage, setTargetQrImage] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
@@ -217,6 +218,7 @@ export default function QrStudioPage() {
     setCreating(true);
     setCreateError(null);
     setCreatedCode(null);
+    setReviewRequiredCode(null);
     try {
       const res = await fetch("/api/qr/sets", {
         method: "POST",
@@ -235,8 +237,12 @@ export default function QrStudioPage() {
         throw new Error(body?.error || "create_failed");
       }
       const code = String(body.code ?? "");
-      setCreatedCode(code);
-      setSummaryCode(code);
+      if (body.status === "review_required") {
+        setReviewRequiredCode(code);
+      } else {
+        setCreatedCode(code);
+        setSummaryCode(code);
+      }
       setSummary(null);
       setQuestionsInput("");
       setCustomOptions("");
@@ -583,6 +589,15 @@ export default function QrStudioPage() {
                       <p className="mt-2">Teilbar und sofort einsatzbereit.</p>
                     </div>
                   </div>
+                </div>
+              ) : reviewRequiredCode ? (
+                <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-4 text-xs text-amber-950">
+                  <p className="font-semibold">Review erforderlich</p>
+                  <p className="mt-1">
+                    Das Set {reviewRequiredCode} ist sicher gespeichert. Ein
+                    QR-Link wird erst nach unabhängiger Akteursprüfung und
+                    separater Aktivierung bereitgestellt.
+                  </p>
                 </div>
               ) : (
                 <div className="mt-4 rounded-2xl border border-dashed border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-6 text-center text-xs text-[rgb(var(--muted))]">

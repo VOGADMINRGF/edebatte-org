@@ -164,6 +164,8 @@ export interface AnlassraumDoc {
   dossierId: ObjectId | null;
   dossierType?: DossierType | null;
   isPublic: boolean;
+  activationWorkflowSourceHandoffId?: string | null;
+  activationWorkflowVersion?: number | null;
   createdBy: string;
   reviewedBy: string | null;
   approvedBy: string | null;

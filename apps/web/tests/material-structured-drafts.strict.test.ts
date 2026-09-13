@@ -42,14 +42,16 @@ describe("material structured draft validation", () => {
     expect(parsed.questions).toHaveLength(1);
     expect(parsed.options).toHaveLength(2);
     expect(parsed.provenance).toEqual(["material_full_text", "topics:vereinsheim"]);
-    expect(parsed.questions[0].reviewState).toBe("draft");
+    expect(parsed.questions[0].reviewState).toBe("review_required");
     expect(parsed.questions[0].originalInput).toBe(
       "Der Verein plant einen barrierefreien Umbau.",
     );
     expect(parsed.questions[0].publicQuestion).toBe(
       "Welcher Umfang des Umbaus soll priorisiert werden?",
     );
-    expect(parsed.questions[0].generalization.outcome).toBe("already_generalized");
+    expect(parsed.questions[0].generalization.outcome).toBe(
+      "actor_extraction_review_required",
+    );
     expect(parsed.questionGuardReviews).toHaveLength(1);
   });
 
@@ -195,5 +197,48 @@ describe("material structured draft validation", () => {
         reasons: expect.arrayContaining(["actor_role_conflicts_with_candidate_targeting"]),
       }),
     ]);
+  });
+
+  it("does not let a provider-owned empty actor list authorize a named target", () => {
+    const question = "Soll Nestlé diese Kampagne fortsetzen dürfen?";
+    const parsed = parseMaterialStructuredDraftPayload({
+      providerText: payload({
+        questions: [
+          {
+            id: "q-company-empty-actors",
+            theme: "Kampagne",
+            originalInput: question,
+            text: question,
+            rationale: "Provider meldet keine Akteure.",
+            sourceAnchors: ["Nestlé"],
+            actorContexts: [],
+            procedure: null,
+          },
+        ],
+        options: [
+          {
+            questionRef: "q-company-empty-actors",
+            text: "Kampagne fortsetzen",
+            source: "ai_suggestion",
+            needsReview: true,
+          },
+        ],
+      }),
+      documentText: `${question} Nestlé ist Betreiber der Kampagne.`,
+    });
+
+    expect(parsed.questions).toEqual([
+      expect.objectContaining({
+        reviewState: "review_required",
+        generalization: expect.objectContaining({
+          outcome: "actor_extraction_review_required",
+          releaseState: "review_required",
+        }),
+      }),
+    ]);
+    expect(parsed.questionGuardReviews[0].actorExtraction).toMatchObject({
+      source: "material_provider",
+      independentFromCandidateProvider: false,
+    });
   });
 });

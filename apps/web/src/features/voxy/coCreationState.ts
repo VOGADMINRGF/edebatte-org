@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionActorContext,
+  type PublicQuestionActorExtraction,
+  type PublicQuestionGeneralizationResult,
+  type PublicQuestionProcedureContext,
+} from "@/features/create/safety/publicQuestionGeneralization";
 
 export const VOXY_AUTHOR_APPROVAL_STATUSES = [
   "draft",
@@ -50,6 +57,13 @@ export const VoxyCoCreationStateSchema = z.object({
 
 export type VoxyCoCreationState = z.infer<typeof VoxyCoCreationStateSchema>;
 
+export type VoxyPublicQuestionGuardContext = {
+  actorContexts: PublicQuestionActorContext[];
+  actorExtraction: PublicQuestionActorExtraction;
+  procedure?: PublicQuestionProcedureContext | null;
+  locale?: string | null;
+};
+
 export function createEmptyVoxyCoCreationState(): VoxyCoCreationState {
   return {
     authorIntent: "",
@@ -75,9 +89,37 @@ export function createEmptyVoxyCoCreationState(): VoxyCoCreationState {
 
 export function isVoxyCoCreationReadyForExport(
   state: VoxyCoCreationState,
+  guardContext?: VoxyPublicQuestionGuardContext,
 ): boolean {
+  const questionGuard = evaluateVoxyCoCreationPublicQuestion(state, guardContext);
   return (
     state.authorApprovalStatus === "author_confirmed" &&
-    state.editorialReviewStatus === "approved_for_export"
+    state.editorialReviewStatus === "approved_for_export" &&
+    questionGuard.releaseState === "draft_allowed" &&
+    questionGuard.publicQuestion !== null
   );
+}
+
+export function evaluateVoxyCoCreationPublicQuestion(
+  state: VoxyCoCreationState,
+  guardContext?: VoxyPublicQuestionGuardContext,
+): PublicQuestionGeneralizationResult {
+  const originalInput =
+    state.rawObservation.trim() ||
+    state.authorIntent.trim() ||
+    state.publicQuestion.trim();
+
+  return evaluatePublicQuestionGeneralization({
+    originalInput,
+    candidatePublicQuestion: state.publicQuestion,
+    actorContexts: guardContext?.actorContexts ?? [],
+    actorExtraction: guardContext?.actorExtraction ?? {
+      status: "unverified",
+      source: "voxy_provider",
+      independentFromCandidateProvider: false,
+      evidenceRefs: [],
+    },
+    procedure: guardContext?.procedure,
+    locale: guardContext?.locale,
+  });
 }

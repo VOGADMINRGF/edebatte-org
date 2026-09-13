@@ -159,4 +159,27 @@ describe("create handoff valid-input contract", () => {
     expect(draft.claims.length).toBeGreaterThan(0);
     expect(draft.openQuestions.length).toBeGreaterThan(0);
   });
+
+  it("preserves a factual origin as blocked when Create proposes a normative handoff question", () => {
+    const followup = buildSemanticFollowup();
+    followup.sourceText = "Stimmt es, dass die Emissionen seit 2020 gesunken sind?";
+    followup.understanding.openQuestion = "Soll Deutschland die Emissionen stärker senken?";
+    if (followup.meta?.planner) {
+      followup.meta.planner.plannerOpenQuestions = [];
+      followup.meta.planner.openQuestions = [];
+    }
+
+    const draft = buildCreateHandoffDraft({
+      result: followup,
+      selectedAction: "request_review",
+      id: "handoff-factual-origin",
+    });
+
+    expect(draft.openQuestions).toHaveLength(1);
+    expect(draft.openQuestions[0].generalization).toMatchObject({
+      outcome: "fact_or_truth_question_blocked",
+      releaseState: "blocked",
+      publicQuestion: null,
+    });
+  });
 });

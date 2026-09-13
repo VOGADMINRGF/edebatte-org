@@ -881,8 +881,15 @@ export default function StreamCockpitPage() {
         }
         throw new Error(body?.error || res.statusText);
       }
-      setQrCode(body.code ?? null);
-      setQrNotice("QR-Set erstellt.");
+      if (body.status === "review_required") {
+        setQrCode(null);
+        setQrNotice(
+          `QR-Set ${body.code ?? ""} ist reviewpflichtig gespeichert. Der öffentliche Link bleibt bis zur unabhängigen Prüfung und separaten Aktivierung gesperrt.`,
+        );
+      } else {
+        setQrCode(body.code ?? null);
+        setQrNotice("QR-Set erstellt.");
+      }
     } catch (err: any) {
       setQrError(err?.message ?? "QR-Set konnte nicht erstellt werden.");
     } finally {

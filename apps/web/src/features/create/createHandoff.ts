@@ -1,5 +1,9 @@
 import type { CreatePlannerResult } from "@/features/create/createPlanner";
 import type { NormalizedMaterialItem } from "@/features/create/materialRouting";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
 import { normalizeGermanSlug } from "@features/common/utils/textNormalization";
 import {
   resolveCreateHandoffVisibilityState,
@@ -47,6 +51,7 @@ export type CreateOpenQuestionDraft = {
   id: string;
   question: string;
   requiredBeforePublish: boolean;
+  generalization?: PublicQuestionGeneralizationResult;
 };
 
 export type CreateHandoffReviewState =
@@ -207,6 +212,17 @@ function buildOpenQuestionDrafts(result: CreateIntelligentFollowupResult): Creat
       id: `question-${index + 1}`,
       question,
       requiredBeforePublish: true,
+      generalization: evaluatePublicQuestionGeneralization({
+        originalInput: result.sourceText,
+        candidatePublicQuestion: question,
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "create_analysis",
+          independentFromCandidateProvider: false,
+          evidenceRefs: result.meta?.analysis?.evidenceReferences ?? [],
+        },
+      }),
     }));
   return dedupeQuestions(items);
 }

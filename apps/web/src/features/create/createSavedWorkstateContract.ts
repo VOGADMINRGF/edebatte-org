@@ -1,3 +1,5 @@
+import type { PublicQuestionGeneralizationResult } from "@/features/create/safety/publicQuestionGeneralization";
+
 export const CREATE_SAVED_WORKSTATE_SCHEMA_VERSION = "create_saved_workstate.v1";
 
 export const CREATE_SAVED_WORKSTATE_VISIBILITIES = [
@@ -52,6 +54,10 @@ export type CreateSavedWorkstateMetadata = {
   suggestedOptions?: string[];
 };
 
+export type CreateSavedWorkstatePrivateReviewEvidence = {
+  publicQuestionGuard: PublicQuestionGeneralizationResult;
+};
+
 export type CreateSavedWorkstateRecord = {
   schemaVersion: typeof CREATE_SAVED_WORKSTATE_SCHEMA_VERSION;
   id: string;
@@ -66,6 +72,7 @@ export type CreateSavedWorkstateRecord = {
   title: string;
   content: string;
   metadata: CreateSavedWorkstateMetadata;
+  privateReviewEvidence?: CreateSavedWorkstatePrivateReviewEvidence;
   resumeHref: string;
   createdAt: string;
   updatedAt: string;
@@ -83,8 +90,21 @@ export type PersistCreateSavedWorkstateInput = {
   title: string;
   content: string;
   metadata?: CreateSavedWorkstateMetadata;
+  privateReviewEvidence?: CreateSavedWorkstatePrivateReviewEvidence;
   resumeHref: string;
 };
+
+export type PublicCreateSavedWorkstateProjection = Omit<
+  CreateSavedWorkstateRecord,
+  "privateReviewEvidence"
+>;
+
+export function projectCreateSavedWorkstateForPublic(
+  record: CreateSavedWorkstateRecord,
+): PublicCreateSavedWorkstateProjection {
+  const { privateReviewEvidence: _privateReviewEvidence, ...publicRecord } = record;
+  return publicRecord;
+}
 
 export function createSavedWorkstateVisibilityLabel(
   visibility: CreateSavedWorkstateVisibility,

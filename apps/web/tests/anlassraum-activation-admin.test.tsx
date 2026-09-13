@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AnlassraumActivationRecord } from "@/features/create/anlassraumActivationWorkflow";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -14,6 +15,7 @@ import AnlassraumActivationActions from "@/app/admin/review/AnlassraumActivation
 function buildRecord(
   overrides: Partial<AnlassraumActivationRecord> = {},
 ): AnlassraumActivationRecord {
+  const trigger = "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?";
   return {
     id: "anlassraum-activation:handoff-1",
     sourceHandoffId: "handoff-1",
@@ -27,7 +29,18 @@ function buildRecord(
     roomIsPublic: false,
     title: "Anlassraum Sichere Schulwege",
     workingTitle: "Anlassraum Sichere Schulwege",
-    trigger: "Welche Kreuzungen sind zuerst kritisch?",
+    trigger,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: trigger,
+      actorContexts: [],
+      actorExtraction: {
+        status: "complete",
+        source: "human_review",
+        independentFromCandidateProvider: true,
+        evidenceRefs: ["human-review:anlassraum-activation-1"],
+        humanReviewFinding: "no_named_actors",
+      },
+    }),
     description:
       "1 Aussage · 1 offene Frage. Sichere Schulwege sollen sichtbar, aber erst nach separater Freigabe öffentlich werden.",
     relatedDossierId: "dossier-sichere-schulwege",
@@ -167,6 +180,21 @@ describe("anlassraum activation admin ui", () => {
           publicAccessMode: "internal_only",
           roomStatus: "active",
           blockers: [],
+          approvedForActivationAt: "2026-07-01T09:20:00.000Z",
+          approvedForActivationBy: "admin-1",
+          approvedForPublicationAt: "2026-07-01T09:40:00.000Z",
+          approvedForPublicationBy: "admin-1",
+        })}
+      />,
+    );
+    const reviewRequiredMarkup = renderToStaticMarkup(
+      <AnlassraumActivationActions
+        record={buildRecord({
+          questionGuard: evaluatePublicQuestionGeneralization({
+            originalInput:
+              "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+            actorContexts: [],
+          }),
         })}
       />,
     );
@@ -177,6 +205,15 @@ describe("anlassraum activation admin ui", () => {
     expect(approvedMarkup).toContain('data-testid="publish-anlassraum-handoff-2"');
     expect(approvedMarkup).not.toContain(
       'data-testid="publish-anlassraum-handoff-2" disabled=""',
+    );
+    expect(reviewRequiredMarkup).toContain(
+      'data-testid="anlassraum-question-guard-evidence-handoff-1"',
+    );
+    expect(reviewRequiredMarkup).toContain(
+      'data-testid="review-anlassraum-question-guard-handoff-1" disabled=""',
+    );
+    expect(reviewOnlyMarkup).not.toContain(
+      "review-anlassraum-question-guard-handoff-1",
     );
   });
 });

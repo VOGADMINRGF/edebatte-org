@@ -2,10 +2,21 @@ import { describe, expect, it } from "vitest";
 
 import {
   createEmptyVoxyCoCreationState,
+  evaluateVoxyCoCreationPublicQuestion,
   isVoxyCoCreationReadyForExport,
   VOXY_EDITORIAL_REVIEW_STATUSES,
   VoxyCoCreationStateSchema,
 } from "@/features/voxy/coCreationState";
+
+const completeGuardContext = {
+  actorContexts: [],
+  actorExtraction: {
+    status: "complete" as const,
+    source: "actor_graph" as const,
+    independentFromCandidateProvider: true,
+    evidenceRefs: ["actor-graph-run-1"],
+  },
+};
 
 describe("voxy co-creation state contract", () => {
   it("keeps author approval and editorial review as separate gates", () => {
@@ -28,11 +39,55 @@ describe("voxy co-creation state contract", () => {
   it("requires both gates before export readiness", () => {
     const ready = {
       ...createEmptyVoxyCoCreationState(),
+      rawObservation: "Kommunen benötigen wirksame Hitzeschutzmaßnahmen.",
+      publicQuestion: "Welche Maßnahmen sollten Kommunen gegen Hitze priorisieren?",
       authorApprovalStatus: "author_confirmed" as const,
       editorialReviewStatus: "approved_for_export" as const,
     };
 
-    expect(isVoxyCoCreationReadyForExport(ready)).toBe(true);
+    expect(isVoxyCoCreationReadyForExport(ready, completeGuardContext)).toBe(true);
+  });
+
+  it("does not export a provider-authored public question with unverified actor extraction", () => {
+    const state = {
+      ...createEmptyVoxyCoCreationState(),
+      rawObservation: "Nestlé betreibt diese Kampagne.",
+      publicQuestion: "Soll Nestlé diese Kampagne fortsetzen dürfen?",
+      authorApprovalStatus: "author_confirmed" as const,
+      editorialReviewStatus: "approved_for_export" as const,
+    };
+
+    const guard = evaluateVoxyCoCreationPublicQuestion(state);
+    expect(guard.outcome).toBe("actor_extraction_review_required");
+    expect(isVoxyCoCreationReadyForExport(state)).toBe(false);
+  });
+
+  it("keeps a factual original out of Voxy export even when the candidate is normative", () => {
+    const state = {
+      ...createEmptyVoxyCoCreationState(),
+      rawObservation: "Stimmt es, dass die Emissionen seit 2020 gesunken sind?",
+      publicQuestion: "Soll Deutschland die Emissionen stärker senken?",
+      authorApprovalStatus: "author_confirmed" as const,
+      editorialReviewStatus: "approved_for_export" as const,
+    };
+
+    const guard = evaluateVoxyCoCreationPublicQuestion(state, completeGuardContext);
+    expect(guard.outcome).toBe("fact_or_truth_question_blocked");
+    expect(isVoxyCoCreationReadyForExport(state, completeGuardContext)).toBe(false);
+  });
+
+  it("keeps blocked safety input out of Voxy export", () => {
+    const state = {
+      ...createEmptyVoxyCoCreationState(),
+      rawObservation: "Sollen wir diese Gruppe verprügeln?",
+      publicQuestion: "Welche Maßnahmen sollten Konflikte friedlich lösen?",
+      authorApprovalStatus: "author_confirmed" as const,
+      editorialReviewStatus: "approved_for_export" as const,
+    };
+
+    const guard = evaluateVoxyCoCreationPublicQuestion(state, completeGuardContext);
+    expect(guard.outcome).toBe("safety_blocked");
+    expect(isVoxyCoCreationReadyForExport(state, completeGuardContext)).toBe(false);
   });
 
   it("treats approved_for_export as distinct from publication", () => {

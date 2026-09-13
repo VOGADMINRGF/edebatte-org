@@ -14,6 +14,14 @@ describe("runden guided question builder contract", () => {
     expect(draft.occasion).toContain("Im Viertel fehlen sichere Schulwege");
     expect(draft.question).toContain("Soll");
     expect(draft.options.length).toBe(3);
+    expect(draft.questionGuard.releaseState).toBe("review_required");
+  });
+
+  it("does not derive answer options from blocked safety input", () => {
+    const draft = deriveRundenFlowDraft("Sollen wir diese Gruppe verprügeln?");
+
+    expect(draft.questionGuard.outcome).toBe("safety_blocked");
+    expect(draft.options).toEqual([]);
   });
 
   it("builds prepare and verify hrefs with route-bound reasons", () => {

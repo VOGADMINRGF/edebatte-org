@@ -148,6 +148,14 @@ describe("manual anlassraum setup contract", () => {
       draftId: "65a111111111111111111122",
       source: "runden_manual_anlassraum",
       textPrepared: expect.stringContaining("Manueller Anlassraum-Entwurf"),
+      analysis: {
+        manualAnlassraumDraft: {
+          questionGuard: {
+            releaseState: "review_required",
+            outcome: "actor_extraction_review_required",
+          },
+        },
+      },
     });
     expect(snapshot).toMatchObject({
       draftId: "65a111111111111111111122",

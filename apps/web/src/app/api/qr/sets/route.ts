@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ObjectId, coreCol } from "@core/db/triMongo";
 import { anlassraumCol } from "@features/anlassraum/db";
 import { requireCreatorContext } from "../../streams/utils";
+import { evaluateQrQuestionSetQuestion } from "@/features/create/qrQuestionSetGuard";
 
 const QuestionSchema = z.object({
   title: z.string().min(3).max(200),
@@ -56,17 +57,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_input" }, { status: 400 });
   }
 
-  const questions = parsed.data.questions.map((q, idx) => ({
-    id: q.title.toLowerCase().replace(/\s+/g, "-").slice(0, 24) + `-${idx + 1}`,
-    title: q.title,
-    description: q.description ?? null,
-    options: q.options.map((opt) => opt.trim()).filter(Boolean),
-    publicAttribution: q.publicAttribution ?? "hidden",
-    allowAnonymousVoting: q.publicAttribution !== "public",
-  }));
+  const questions = parsed.data.questions.map((q, idx) => {
+    const questionGuard = evaluateQrQuestionSetQuestion({
+      question: q.title,
+      staffReviewerId: ctx?.isStaff ? ctx.userId : null,
+    });
+    return {
+      id: q.title.toLowerCase().replace(/\s+/g, "-").slice(0, 24) + `-${idx + 1}`,
+      title: q.title,
+      description: q.description ?? null,
+      options: q.options.map((opt) => opt.trim()).filter(Boolean),
+      publicAttribution: q.publicAttribution ?? "hidden",
+      allowAnonymousVoting: q.publicAttribution !== "public",
+      questionGuard,
+    };
+  });
 
   if (questions.some((q) => q.options.length < 2)) {
     return NextResponse.json({ ok: false, error: "options_required" }, { status: 400 });
+  }
+  const blockedQuestion = questions.find(
+    (question) => question.questionGuard.releaseState === "blocked",
+  );
+  if (blockedQuestion) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "public_question_blocked",
+        questionGuard: blockedQuestion.questionGuard,
+      },
+      { status: 422 },
+    );
   }
 
   if (!ctx) {
@@ -93,6 +114,9 @@ export async function POST(req: NextRequest) {
 
   const code = await generateUniqueCode();
   const now = new Date();
+  const reviewRequired = questions.some(
+    (question) => question.questionGuard.releaseState === "review_required",
+  );
   let anlassraumId: ObjectId | null = null;
   let dossierId: ObjectId | null = null;
 
@@ -129,7 +153,11 @@ export async function POST(req: NextRequest) {
     dossierId,
     roundSlug: parsed.data.roundSlug ?? null,
     protocolStatus: "open",
-    status: "active",
+    status: reviewRequired ? "review_required" : "active",
+    questionGuardReviewState: reviewRequired ? "review_required" : "not_required",
+    version: 0,
+    noAutoApproval: true,
+    noAutoPublish: true,
     source: ctx ? "creator" : "public_qr_studio",
     createdAt: now,
     updatedAt: now,
@@ -138,12 +166,19 @@ export async function POST(req: NextRequest) {
   const col = await coreCol("qr_question_sets");
   const result = await col.insertOne(doc);
 
-  return NextResponse.json({
-    ok: true,
-    setId: result.insertedId.toString(),
-    code,
-    anlassraumId: anlassraumId?.toHexString() ?? null,
-    dossierId: dossierId?.toHexString() ?? null,
-    roundSlug: parsed.data.roundSlug ?? null,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      setId: result.insertedId.toString(),
+      code,
+      status: doc.status,
+      questionGuardReviewState: doc.questionGuardReviewState,
+      anlassraumId: anlassraumId?.toHexString() ?? null,
+      dossierId: dossierId?.toHexString() ?? null,
+      roundSlug: parsed.data.roundSlug ?? null,
+      noAutoApproval: true,
+      noAutoPublish: true,
+    },
+    { status: reviewRequired ? 202 : 200 },
+  );
 }

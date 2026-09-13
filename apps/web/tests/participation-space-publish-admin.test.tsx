@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ParticipationSpacePublishRecord } from "@/features/create/participationSpacePublishWorkflow";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -14,6 +15,8 @@ import ParticipationSpacePublishActions from "@/app/admin/review/ParticipationSp
 function buildRecord(
   overrides: Partial<ParticipationSpacePublishRecord> = {},
 ): ParticipationSpacePublishRecord {
+  const participationQuestion =
+    "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?";
   return {
     id: "participation-space-publish:handoff-1",
     sourceHandoffId: "handoff-1",
@@ -29,7 +32,18 @@ function buildRecord(
     workingTitle: "Beteiligungsraum Sichere Schulwege",
     description:
       "1 Aussage · 1 offene Frage. Sichere Schulwege sollen im Beteiligungsraum weitergeführt werden.",
-    participationQuestion: "Welche Kreuzungen sind zuerst kritisch?",
+    participationQuestion,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "complete",
+        source: "human_review",
+        independentFromCandidateProvider: true,
+        evidenceRefs: ["human-review:participation-publish-1"],
+        humanReviewFinding: "no_named_actors",
+      },
+    }),
     publicHeadline: "Sichere Schulwege im Blick",
     publicSummary:
       "Der Beteiligungsraum bündelt Hinweise zu Querungen und offenen Prüfpfaden.",
@@ -154,7 +168,9 @@ describe("participation space publish admin ui", () => {
     expect(markup).toContain(
       "Beteiligungsraum aktivieren/veröffentlichen prüfen",
     );
-    expect(markup).toContain("Welche Kreuzungen sind zuerst kritisch?");
+    expect(markup).toContain(
+      "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+    );
     expect(markup).toContain("Aktivierung ist ein separater Freigabeschritt.");
     expect(markup).toContain(
       "Veröffentlichung ist nicht Teil der Erstellung.",
@@ -188,6 +204,17 @@ describe("participation space publish admin ui", () => {
         })}
       />,
     );
+    const reviewRequiredMarkup = renderToStaticMarkup(
+      <ParticipationSpacePublishActions
+        record={buildRecord({
+          questionGuard: evaluatePublicQuestionGeneralization({
+            originalInput:
+              "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+            actorContexts: [],
+          }),
+        })}
+      />,
+    );
 
     expect(draftMarkup).toContain(
       'data-testid="activate-participation-space-handoff-1" disabled=""',
@@ -203,6 +230,15 @@ describe("participation space publish admin ui", () => {
     );
     expect(approvedPublicationMarkup).toContain(
       "Öffentliche Sichtbarkeit entsteht nur nach expliziter Veröffentlichung.",
+    );
+    expect(reviewRequiredMarkup).toContain(
+      'data-testid="participation-space-question-guard-evidence-handoff-1"',
+    );
+    expect(reviewRequiredMarkup).toContain(
+      'data-testid="review-participation-space-question-guard-handoff-1" disabled=""',
+    );
+    expect(draftMarkup).not.toContain(
+      "review-participation-space-question-guard-handoff-1",
     );
   });
 });

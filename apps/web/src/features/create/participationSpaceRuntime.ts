@@ -1,6 +1,10 @@
 import type { CreateHandoffReviewQueueItem } from "@/features/create/createHandoffReviewQueue";
 import type { CommunitySourceReviewContribution } from "@/features/create/communitySourceReviewContribution";
 import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+import {
   buildPersistedCreateHandoffSuggestedTitle,
   buildPersistedCreateHandoffSummary,
   persistedCreateHandoffStatementId,
@@ -125,6 +129,7 @@ export type ParticipationSpaceRuntimeDraft = {
   workingTitle: string;
   description: string;
   participationQuestion: string;
+  questionGuard?: PublicQuestionGeneralizationResult;
   relatedAnlassraumId: string | null;
   relatedDossierId: string | null;
   recognizedStandpoints: string[];
@@ -542,6 +547,10 @@ export function buildParticipationSpaceRuntimeDraftFromAnlassraum(
   },
 ): ParticipationSpaceRuntimeDraft {
   const createdAt = nowIso();
+  const participationQuestion =
+    trimOrNull(context.trigger) ??
+    trimOrNull(context.description) ??
+    String(context.title || "").trim();
   const draft: ParticipationSpaceRuntimeDraft = {
     id: `participation-space-runtime:anlassraum:${context.anlassraumId}`,
     sourceHandoffId: `anlassraum:${context.anlassraumId}`,
@@ -550,10 +559,18 @@ export function buildParticipationSpaceRuntimeDraftFromAnlassraum(
     title: String(context.title || "").trim(),
     workingTitle: String(context.title || "").trim(),
     description: String(context.description || "").trim(),
-    participationQuestion:
-      trimOrNull(context.trigger) ??
-      trimOrNull(context.description) ??
-      String(context.title || "").trim(),
+    participationQuestion,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: context.description,
+      candidatePublicQuestion: participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: context.graphReferences ?? [],
+      },
+    }),
     relatedAnlassraumId: context.anlassraumId,
     relatedDossierId: trimOrNull(context.relatedDossierId),
     recognizedStandpoints: unique(context.recognizedStandpoints ?? []),
@@ -604,6 +621,10 @@ export function buildParticipationSpaceRuntimeDraftFromDossier(
   },
 ): ParticipationSpaceRuntimeDraft {
   const createdAt = nowIso();
+  const participationQuestion =
+    trimOrNull(context.originQuestion) ??
+    trimOrNull(context.summary) ??
+    String(context.title || "").trim();
   const draft: ParticipationSpaceRuntimeDraft = {
     id: `participation-space-runtime:dossier:${context.dossierId}`,
     sourceHandoffId: `dossier:${context.dossierId}`,
@@ -612,10 +633,18 @@ export function buildParticipationSpaceRuntimeDraftFromDossier(
     title: String(context.title || "").trim(),
     workingTitle: String(context.title || "").trim(),
     description: String(context.summary || "").trim(),
-    participationQuestion:
-      trimOrNull(context.originQuestion) ??
-      trimOrNull(context.summary) ??
-      String(context.title || "").trim(),
+    participationQuestion,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: context.summary,
+      candidatePublicQuestion: participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: context.graphReferences ?? [],
+      },
+    }),
     relatedAnlassraumId: trimOrNull(context.relatedAnlassraumId),
     relatedDossierId: context.dossierId,
     recognizedStandpoints: unique(context.recognizedStandpoints ?? []),
@@ -676,6 +705,11 @@ export function buildParticipationSpaceRuntimeDraftFromHandoff(
   const sourceStatus = sourceStatusFromCommunitySignals(communitySignals);
   const graphReferences = buildGraphReferences(record);
   const topicReferences = buildTopicReferences(record);
+  const participationQuestion =
+    trimOrNull(record.plannerResult.openQuestions?.[0]) ??
+    trimOrNull(record.plannerResult.shortSummary) ??
+    trimOrNull(record.sourceText) ??
+    "Beteiligungsraum prüfen";
   const draft: ParticipationSpaceRuntimeDraft = {
     id: `participation-space-runtime:${record.id}`,
     sourceHandoffId: record.id,
@@ -690,11 +724,18 @@ export function buildParticipationSpaceRuntimeDraftFromHandoff(
       "participation_space",
     ),
     description: buildPersistedCreateHandoffSummary(record),
-    participationQuestion:
-      trimOrNull(record.plannerResult.openQuestions?.[0]) ??
-      trimOrNull(record.plannerResult.shortSummary) ??
-      trimOrNull(record.sourceText) ??
-      "Beteiligungsraum prüfen",
+    participationQuestion,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: record.sourceText,
+      candidatePublicQuestion: participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: graphReferences,
+      },
+    }),
     relatedAnlassraumId:
       trimOrNull(record.anlassraumId) ??
       trimOrNull(record.graphMatches.matchedAnlassraeume[0]),
@@ -755,6 +796,7 @@ export function buildParticipationSpaceRuntimeDraftFromReviewItem(
     auditContext?: Partial<ParticipationSpaceRuntimeAuditContext>;
   },
 ): ParticipationSpaceRuntimeDraft {
+  const participationQuestion = item.openQuestions[0] ?? item.topicTitle ?? item.summary;
   const draft: ParticipationSpaceRuntimeDraft = {
     id: `participation-space-runtime:${item.id}`,
     sourceHandoffId: item.sourceDraftId,
@@ -763,7 +805,18 @@ export function buildParticipationSpaceRuntimeDraftFromReviewItem(
     title: item.title,
     workingTitle: item.title,
     description: item.summary,
-    participationQuestion: item.openQuestions[0] ?? item.topicTitle ?? item.summary,
+    participationQuestion,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: item.summary,
+      candidatePublicQuestion: participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: [],
+      },
+    }),
     relatedAnlassraumId: null,
     relatedDossierId: null,
     recognizedStandpoints: item.authorStandpoint ? [item.authorStandpoint] : [],

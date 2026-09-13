@@ -1,3 +1,8 @@
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+
 export type CanonicalTopicStatus = "active" | "review" | "archived";
 export type CanonicalTopicReviewState = "verified" | "review_required";
 
@@ -104,9 +109,10 @@ export type CanonicalTopicResolutionResult =
       candidateTopic?: CanonicalTopic | null;
       jurisdiction: JurisdictionContext;
       decisionQuestionCandidate?: Omit<DecisionQuestion, "id"> | null;
+      questionGuard: PublicQuestionGeneralizationResult | null;
       externalSignals: ExternalParticipationSignal[];
       reasons: string[];
-      requiresHumanReview: false;
+      requiresHumanReview: boolean;
     }
   | {
       outcome: "review_required";
@@ -196,6 +202,19 @@ export function resolveCanonicalTopic(
 
   const selected = plausible[0] ?? null;
   const externalSignals = input.externalSignals ?? [];
+  const questionGuard = input.requestedDecisionQuestion
+    ? evaluatePublicQuestionGeneralization({
+        originalInput: input.requestedDecisionQuestion,
+        candidatePublicQuestion: input.requestedDecisionQuestion,
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "create_analysis",
+          independentFromCandidateProvider: false,
+          evidenceRefs: [],
+        },
+      })
+    : null;
 
   if (!selected) {
     return {
@@ -203,6 +222,7 @@ export function resolveCanonicalTopic(
       candidateTopic: null,
       jurisdiction: input.jurisdiction,
       decisionQuestionCandidate: input.requestedDecisionQuestion
+        && questionGuard?.releaseState !== "blocked"
         ? {
             topicId: "pending-topic",
             jurisdiction: input.jurisdiction,
@@ -210,9 +230,19 @@ export function resolveCanonicalTopic(
             kind: "decision",
           }
         : null,
+      questionGuard,
       externalSignals,
-      reasons: ["no_reliable_existing_topic"],
-      requiresHumanReview: false,
+      reasons: [
+        "no_reliable_existing_topic",
+        ...(questionGuard?.releaseState === "review_required"
+          ? ["public_question_guard_review_required"]
+          : []),
+        ...(questionGuard?.releaseState === "blocked"
+          ? ["public_question_guard_blocked"]
+          : []),
+      ],
+      requiresHumanReview:
+        questionGuard !== null && questionGuard.releaseState !== "draft_allowed",
     };
   }
 
@@ -239,15 +269,28 @@ export function resolveCanonicalTopic(
       outcome: "create_extension_required",
       candidateTopic: selected.topic,
       jurisdiction: input.jurisdiction,
-      decisionQuestionCandidate: {
-        topicId: selected.topic.id,
-        jurisdiction: input.jurisdiction,
-        question: input.requestedDecisionQuestion.trim(),
-        kind: "decision",
-      },
+      decisionQuestionCandidate:
+        questionGuard?.releaseState === "blocked"
+          ? null
+          : {
+              topicId: selected.topic.id,
+              jurisdiction: input.jurisdiction,
+              question: input.requestedDecisionQuestion.trim(),
+              kind: "decision",
+            },
+      questionGuard,
       externalSignals,
-      reasons: ["existing_topic_preferred", "new_decision_question_candidate"],
-      requiresHumanReview: false,
+      reasons: [
+        "existing_topic_preferred",
+        "new_decision_question_candidate",
+        ...(questionGuard?.releaseState === "review_required"
+          ? ["public_question_guard_review_required"]
+          : []),
+        ...(questionGuard?.releaseState === "blocked"
+          ? ["public_question_guard_blocked"]
+          : []),
+      ],
+      requiresHumanReview: questionGuard?.releaseState !== "draft_allowed",
     };
   }
 

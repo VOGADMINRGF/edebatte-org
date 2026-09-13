@@ -22,6 +22,10 @@ import type {
 import {
   buildVoxyCocreationDialogFromReviewContext,
 } from "@/features/create/voxyCocreationDialogContract";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
 
 export const PARTICIPATION_ACTIVATION_REVIEW_STATUSES = [
   "readmodel_only",
@@ -183,6 +187,7 @@ export type ParticipationActivationReviewModel = {
   formatConfidenceLabel: string;
   formatReason: string;
   proposedParticipationQuestion: string | null;
+  questionGuard: PublicQuestionGeneralizationResult | null;
   targetGroups: string[];
   stakeholderGroups: string[];
   participationScope: ParticipationActivationReviewScope;
@@ -215,6 +220,7 @@ type BuildSignalsInput = {
   readingLanguage: string;
   rtlDisplayHint: boolean;
   translationAvailable: boolean;
+  originalInput?: string | null;
   texts: string[];
   questionHints: string[];
   openQuestions: string[];
@@ -932,12 +938,32 @@ function buildModelFromSignals(
       "Eine Poll-Idee ist sichtbar, aber offene Quellen- und Prüfbedarfe blockieren jede vorschnelle Aktivierung.";
   }
 
-  const proposedParticipationQuestion = buildQuestionSuggestion({
+  const candidateParticipationQuestion = buildQuestionSuggestion({
     format: suggestedFormat,
     questionHints: input.questionHints,
     title: title || input.dossierModel?.thesis.label || null,
     targetGroups,
   });
+  const questionGuard = candidateParticipationQuestion
+    ? evaluatePublicQuestionGeneralization({
+        originalInput:
+          input.originalInput ?? input.texts[0] ?? candidateParticipationQuestion,
+        candidatePublicQuestion: candidateParticipationQuestion,
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "create_analysis",
+          independentFromCandidateProvider: false,
+          evidenceRefs: [],
+        },
+        sourceLanguage: input.sourceLanguage,
+        contentLanguage: input.readingLanguage,
+      })
+    : null;
+  const proposedParticipationQuestion =
+    questionGuard?.releaseState === "blocked"
+      ? null
+      : candidateParticipationQuestion;
 
   const readinessSignals: ParticipationTag<ParticipationActivationReviewReadinessSignal>[] = [];
   if (thesisPresent) {
@@ -1043,6 +1069,9 @@ function buildModelFromSignals(
     suggestedFormat === "dossier_only_keep_draft"
       ? "Der Arbeitsstand sollte vorerst als Dossier-Entwurf weitergeführt werden."
       : null,
+    questionGuard && questionGuard.releaseState !== "draft_allowed"
+      ? `Public-Question-Guard: ${questionGuard.outcome}.`
+      : null,
   ]);
 
   let activationStatus: ParticipationActivationReviewStatus = "activation_preview";
@@ -1108,7 +1137,10 @@ function buildModelFromSignals(
   }
 
   const pollStatus: ParticipationActivationReviewDownstreamStatus = hasPollCandidate
-    ? suggestedFormat === "poll_preparation" && !sourceReviewNeeded && !factcheckNeeded
+    ? suggestedFormat === "poll_preparation" &&
+      !sourceReviewNeeded &&
+      !factcheckNeeded &&
+      questionGuard?.releaseState === "draft_allowed"
       ? "prepared"
       : "needs_review"
     : "blocked";
@@ -1163,6 +1195,7 @@ function buildModelFromSignals(
         !factcheckNeeded &&
         !humanInputNeeded &&
         !unclearScope &&
+        questionGuard?.releaseState !== "blocked" &&
         formatConfidence !== "missing"
           ? "needs_review"
           : "blocked",
@@ -1171,6 +1204,7 @@ function buildModelFromSignals(
           !factcheckNeeded &&
           !humanInputNeeded &&
           !unclearScope &&
+          questionGuard?.releaseState !== "blocked" &&
           formatConfidence !== "missing"
           ? "needs_review"
           : "blocked",
@@ -1180,6 +1214,7 @@ function buildModelFromSignals(
         !factcheckNeeded &&
         !humanInputNeeded &&
         !unclearScope &&
+        questionGuard?.releaseState !== "blocked" &&
         formatConfidence !== "missing"
           ? "Ein Aktivierungskandidat ist sichtbar, aber öffentliche Aktivierung bleibt strikt review-gated."
           : "Ohne geklärten Scope, Quellenlage und Review bleibt jede öffentliche Aktivierung blockiert.",
@@ -1208,6 +1243,7 @@ function buildModelFromSignals(
     formatConfidenceLabel: confidenceLabel(formatConfidence),
     formatReason,
     proposedParticipationQuestion,
+    questionGuard,
     targetGroups,
     stakeholderGroups,
     participationScope: inferredScope.id,
@@ -1311,6 +1347,7 @@ export function buildParticipationActivationReviewFromReviewContext(
       context.multilingualThread?.readingLocale ?? context.languageBridge.translation.language,
     rtlDisplayHint: Boolean(context.languageBridge.translation.rtl),
     translationAvailable: Boolean(context.languageBridge.translation.text),
+    originalInput: context.languageBridge.original.text,
     texts: uniqueStrings([
       ...(context.dossierWorkspaceSurface?.sections.claims ?? []),
       ...(context.dossierWorkspaceSurface?.sections.counterPositions ?? []),

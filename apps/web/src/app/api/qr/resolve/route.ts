@@ -6,6 +6,7 @@ import { ObjectId, coreCol } from "@core/db/triMongo";
 import { campaignsCol } from "@features/campaign/db";
 import { getLatestDossierUpsertContractByCode } from "@features/dossier/protocolUpsert";
 import { getLatestRoundSeedContractByCode } from "@features/topicRound/seedContract";
+import { isQrQuestionSetPubliclyReleased } from "@/features/create/qrQuestionSetGuard";
 
 async function logScan(args: { code: string; targetType: string; targetIds: string[]; req: NextRequest }) {
   try {
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
   const setsCol = await coreCol("qr_question_sets");
   const set = await setsCol.findOne({ code: qrId, status: "active" });
-  if (set) {
+  if (isQrQuestionSetPubliclyReleased(set)) {
     const [protocolEntryCount, latestProtocolEntry, relatedEvents, latestDossierUpsertContract, latestRoundSeedContract] =
       await Promise.all([
         (await coreCol("qr_protocol_entries")).countDocuments({ code: qrId }),
