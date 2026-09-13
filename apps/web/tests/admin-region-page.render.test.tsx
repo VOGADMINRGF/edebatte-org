@@ -9,6 +9,43 @@ import {
   setRegionSourceConnectionRuntimeRepoForTests,
 } from "@features/region";
 
+const directoryCatalogMocks = vi.hoisted(() => ({
+  status: "ready" as "ready" | "missing" | "error",
+  errorCode: null as string | null,
+}));
+
+vi.mock("@features/region", async () => {
+  const actual = await vi.importActual<typeof import("@features/region")>(
+    "@features/region",
+  );
+  return {
+    ...actual,
+    getOperationalRegionCatalog: () => {
+      const catalog = actual.getOperationalRegionCatalog();
+      return {
+        ...catalog,
+        sources: {
+          ...catalog.sources,
+          officialDirectory: {
+            ...catalog.sources.officialDirectory,
+            status: directoryCatalogMocks.status,
+            isConnected: directoryCatalogMocks.status === "ready",
+            recordCount:
+              directoryCatalogMocks.status === "ready"
+                ? catalog.sources.officialDirectory.recordCount
+                : 0,
+            message:
+              directoryCatalogMocks.status === "ready"
+                ? catalog.sources.officialDirectory.message
+                : "Amtliche Verwaltungsanschriften sind nicht verfügbar.",
+            errorCode: directoryCatalogMocks.errorCode,
+          },
+        },
+      };
+    },
+  };
+});
+
 const navigationMocks = vi.hoisted(() => ({
   redirect: vi.fn((target: string) => {
     throw new Error(`NEXT_REDIRECT:${target}`);
@@ -31,6 +68,8 @@ import AdminRegionPage from "@/app/admin/region/page";
 describe("admin-region-page.render", () => {
   beforeEach(() => {
     navigationMocks.redirect.mockClear();
+    directoryCatalogMocks.status = "ready";
+    directoryCatalogMocks.errorCode = null;
   });
 
   it("renders a connected regional operator workspace with contextual handoffs", async () => {
@@ -212,19 +251,39 @@ describe("admin-region-page.render", () => {
 
     expect(html).toContain('data-testid="admin-region-page"');
     expect(html).toContain('data-testid="admin-region-selector"');
+    expect(html).toContain('data-testid="admin-region-operational-summary"');
     expect(html).toContain('data-testid="admin-region-context"');
     expect(html).toContain('data-testid="admin-region-profile"');
     expect(html).toContain('data-testid="admin-region-experience"');
     expect(html).toContain('data-testid="admin-region-next-action"');
+    expect(html).toContain('data-testid="admin-region-quick-actions"');
     expect(html).toContain('data-testid="admin-region-workspace-navigation"');
     expect(html).toContain('data-testid="admin-region-lagebild"');
-    expect(html).toContain("Region suchen und auswählen");
+    expect(html).toContain("Region wechseln");
     expect(html).toContain('type="search"');
-    expect(html).toContain('list="admin-region-options"');
+    expect(html).toContain('name="regionQuery"');
+    expect(html).toContain(">Region suchen</span>");
+    expect(html).not.toContain("<datalist");
+    expect(html).not.toContain("<option");
+    expect(html).not.toContain('role="combobox"');
+    expect(html).toContain("placeholder:text-[rgb(var(--muted))]");
+    expect(html).toContain("focus:ring-2");
+    expect(html).toContain("focus-visible:ring-2");
+    expect(html).toContain("dark:text-cyan-200");
+    expect(html).toContain("dark:bg-amber-950/50");
+    expect(html).toContain('class="no-grad ');
+    expect(html).not.toContain("from-cyan-50");
+    expect(html).not.toContain("bg-white");
     expect(html).toContain('action="/admin/region"');
     expect(html).toContain('method="get"');
     expect(html).toContain("Berlin Reinickendorf");
-    expect(html).toContain("Ausgewähltes Regionsprofil");
+    expect(html).toContain("Operatives Lagebild");
+    expect(html).toContain("Relevantestes regionales Signal");
+    expect(html).toContain("Quellenbasis und Aktualität");
+    expect(html).toContain("Belastbarkeit:");
+    expect(html).toContain("Review- und Recherchebedarf");
+    expect(html).toContain("Arbeitspriorität:");
+    expect(html).toContain("offene Frage");
     expect(html).toContain("Bezirksamt Reinickendorf");
     expect(html).toContain("bereits erprobt");
     expect(html).toContain("teilweise vorbereitet");
@@ -236,6 +295,32 @@ describe("admin-region-page.render", () => {
     expect(html).toContain("Pilot-/Fixture-Daten enthalten");
     expect(html).toContain("Genau eine nächste Aktion");
     expect(html.match(/data-testid="admin-region-primary-action"/g)).toHaveLength(1);
+    expect(html).toContain(
+      "min-h-11 items-center justify-center rounded-full bg-[rgb(var(--grad-from))]",
+    );
+    expect(html).toContain(
+      "text-[rgb(var(--fg))] focus:outline-none focus-visible:ring-2",
+    );
+    expect(html).toContain("dark:text-[rgb(var(--bg))]");
+    expect(
+      html.match(/data-testid="admin-region-quick-action-[^"]+"/g),
+    ).toHaveLength(5);
+    expect(html).toContain("Quellen sammeln");
+    expect(html).toContain("Recherche vertiefen");
+    expect(html).toContain("Beitrag erstellen");
+    expect(html).toContain("Dossier vorbereiten");
+    expect(html).toContain("Kampagne planen");
+    expect(html).toContain('data-testid="admin-region-quick-action-sources"');
+    expect(html).toContain('data-testid="admin-region-quick-action-research"');
+    expect(html).toContain('data-testid="admin-region-quick-action-create"');
+    expect(html).toContain('data-testid="admin-region-quick-action-dossier"');
+    expect(html).toContain('data-testid="admin-region-quick-action-marketing"');
+    expect(html.indexOf('data-testid="admin-region-operational-summary"')).toBeLessThan(
+      html.indexOf('data-testid="admin-region-profile"'),
+    );
+    expect(html.indexOf('data-testid="admin-region-operational-summary"')).toBeLessThan(
+      html.indexOf('data-testid="admin-region-experience"'),
+    );
     expect(html).toContain("Lagebild");
     expect(html).toContain("Quellen &amp; Feeds");
     expect(html).toContain("Recherche");
@@ -245,12 +330,33 @@ describe("admin-region-page.render", () => {
     expect(html).toContain("Einstellungen &amp; Zugriff");
     expect(html).toContain("overflow-x-auto");
     expect(html).toContain("min-w-max");
+    expect(html).toContain(
+      "inline-flex min-h-11 items-center rounded-full bg-[rgb(var(--fg))]",
+    );
     expect(html).toContain("break-words");
+    for (const view of [
+      "lagebild",
+      "quellen",
+      "recherche",
+      "claims",
+      "beitraege",
+      "kampagnen",
+      "einstellungen",
+    ]) {
+      expect(html).toContain(
+        `regionId=berlin-reinickendorf&amp;view=${view}`,
+      );
+    }
     expect(html).not.toContain('href="#"');
     expect(html).not.toContain("Detailroute");
     expect(html).not.toContain("regionId=...");
     expect(html).not.toContain("Contract");
     expect(html).not.toContain("Auto-Publish aktiv");
+    expect(html).not.toContain("Recherche startet automatisch");
+    expect(html).not.toContain("wird automatisch veröffentlicht");
+    expect(html).not.toContain("Draft wird automatisch erstellt");
+    expect(html).not.toContain("Dossier wird automatisch erstellt");
+    expect(html).not.toContain("Provider wird automatisch aktiviert");
 
     const sourcesHtml = renderToStaticMarkup(
       await AdminRegionPage({
@@ -273,8 +379,12 @@ describe("admin-region-page.render", () => {
     expect(researchHtml).toContain('data-testid="admin-region-recherche"');
     expect(researchHtml).toContain('data-testid="admin-region-research-handoff"');
     expect(researchHtml).toContain("es startet kein Provideraufruf, Crawling oder Scraping.");
-    expect(researchHtml).toContain('href="/admin/research/tasks"');
-    expect(researchHtml).not.toContain("/admin/research/tasks?regionId=");
+    expect(researchHtml).toContain(
+      'href="/admin/research/tasks?regionId=berlin-reinickendorf',
+    );
+    expect(researchHtml).toContain("origin=admin-region");
+    expect(researchHtml).toContain("topic=");
+    expect(researchHtml).toContain("source=Bezirksamt+Reinickendorf+News");
 
     const claimsHtml = renderToStaticMarkup(
       await AdminRegionPage({
@@ -298,6 +408,10 @@ describe("admin-region-page.render", () => {
     expect(contributionsHtml).toContain("Externe Veröffentlichung");
     expect(contributionsHtml).toContain("/create?source=admin_region");
     expect(contributionsHtml).toContain("region=berlin-reinickendorf");
+    expect(html).toContain('data-testid="admin-region-quick-action-dossier"');
+    expect(html).toContain(
+      "reason=Dossier+aus+regionalem+Quellen-+und+Themenkontext+vorbereiten",
+    );
 
     const campaignsHtml = renderToStaticMarkup(
       await AdminRegionPage({
@@ -306,11 +420,13 @@ describe("admin-region-page.render", () => {
     );
     expect(campaignsHtml).toContain('data-testid="admin-region-kampagnen"');
     expect(campaignsHtml).toContain('data-testid="admin-region-marketing-handoff"');
-    expect(campaignsHtml).toContain("wird dort aktuell nicht automatisch als Regionenkontext übernommen");
+    expect(campaignsHtml).toContain("als gefahrlos ignorierbarer Kontext übergeben");
     expect(campaignsHtml).toContain("keine verifizierten Kampagnen- oder Performancewerte");
     expect(campaignsHtml).toContain("/admin/marketing?lang=de");
     expect(campaignsHtml).toContain("reach=regional");
-    expect(campaignsHtml).not.toContain("region=berlin-reinickendorf");
+    expect(campaignsHtml).toContain("segment=b2g");
+    expect(campaignsHtml).toContain("region=berlin-reinickendorf");
+    expect(campaignsHtml).toContain("origin=admin-region");
 
     const settingsHtml = renderToStaticMarkup(
       await AdminRegionPage({
@@ -358,10 +474,12 @@ describe("admin-region-page.render", () => {
 
     expect(reinickendorfHtml).toContain("Berlin Reinickendorf");
     expect(magdeburgHtml).toContain("Magdeburg");
-    expect(magdeburgHtml).toContain('value="magdeburg"');
+    expect(magdeburgHtml).toContain(">Magdeburg</h1>");
+    expect(magdeburgHtml).toContain(
+      'name="regionId" value="kommune-magdeburg"',
+    );
     expect(magdeburgHtml).toContain("Erste regionale Quelle vorbereiten");
     expect(magdeburgHtml).toContain("noch ohne Erfahrung");
-    expect(magdeburgHtml).not.toContain("Bezirksamt Reinickendorf");
     expect(reinickendorfHtml).not.toEqual(magdeburgHtml);
   });
 
@@ -380,13 +498,78 @@ describe("admin-region-page.render", () => {
     expect(html).toContain('data-testid="admin-region-selector"');
     expect(html).toContain('data-testid="admin-region-empty-profile"');
     expect(html).toContain("Noch kein Regionsprofil ausgewählt");
-    expect(html).toContain("Berlin Reinickendorf · Bezirk");
-    expect(html).toContain("Magdeburg · Kommune");
+    expect(html).toContain("Gib einen Namen, eine Regions-ID, AGS, ARS");
+    expect(html).not.toContain('data-testid="admin-region-search-result"');
+    expect(html).not.toContain("<datalist");
+    expect(html).not.toContain("<option");
     expect(html).not.toContain('data-testid="admin-region-workspace-navigation"');
     expect(navigationMocks.redirect).not.toHaveBeenCalled();
   });
 
-  it("keeps an invalid region in the selector and explains the empty state", async () => {
+  it("renders at most 40 accessible server-side results without catalog payload", async () => {
+    setRegionDataRepoForTests(createInMemoryRegionDataRepo());
+    setParticipationSignalReviewRuntimeRepoForTests(
+      createInMemoryParticipationSignalReviewRuntimeRepo(),
+    );
+
+    const noQueryHtml = renderToStaticMarkup(
+      await AdminRegionPage({ searchParams: {} }),
+    );
+    const broadSearchHtml = renderToStaticMarkup(
+      await AdminRegionPage({ searchParams: { regionQuery: "a" } }),
+    );
+    const hamburgNameHtml = renderToStaticMarkup(
+      await AdminRegionPage({ searchParams: { regionQuery: "Hamburg" } }),
+    );
+    const hamburgAgsHtml = renderToStaticMarkup(
+      await AdminRegionPage({ searchParams: { regionQuery: "02000000" } }),
+    );
+    const hamburgArsHtml = renderToStaticMarkup(
+      await AdminRegionPage({ searchParams: { regionQuery: "020000000000" } }),
+    );
+    const longLabelHtml = renderToStaticMarkup(
+      await AdminRegionPage({
+        searchParams: { regionQuery: "Verwaltungsgemeinschaft" },
+      }),
+    );
+    const resultCount = (
+      broadSearchHtml.match(/data-testid="admin-region-search-result"/g) ?? []
+    ).length;
+
+    expect(noQueryHtml).not.toContain('data-testid="admin-region-search-result"');
+    expect(noQueryHtml).not.toContain("Berlin Reinickendorf · Bezirk");
+    expect(broadSearchHtml).toContain(
+      "die ersten 40 Ergebnisse werden angezeigt",
+    );
+    expect(resultCount).toBe(40);
+    expect(broadSearchHtml.length).toBeLessThan(250_000);
+    for (const html of [
+      noQueryHtml,
+      broadSearchHtml,
+      hamburgNameHtml,
+      hamburgAgsHtml,
+      hamburgArsHtml,
+      longLabelHtml,
+    ]) {
+      expect(html).not.toContain("<datalist");
+      expect(html).not.toContain("<option");
+      expect(html).not.toContain('role="combobox"');
+    }
+    expect(broadSearchHtml).toContain('role="status"');
+    expect(broadSearchHtml).toContain('aria-label="Gefundene Regionen"');
+    expect(broadSearchHtml).toContain(">Region suchen</span>");
+    expect(broadSearchHtml).toContain("min-w-0");
+    expect(broadSearchHtml).toContain("break-words");
+    expect(hamburgNameHtml).toContain("Hamburg");
+    for (const html of [hamburgAgsHtml, hamburgArsHtml]) {
+      expect(html).toContain("regionId=region-official-02000000");
+      expect(html).toContain("Exakter Identitätstreffer");
+    }
+    expect(longLabelHtml).toContain('data-testid="admin-region-search-result"');
+    expect(longLabelHtml).toContain("break-words");
+  });
+
+  it("opens an official directory region by its stable ID", async () => {
     setRegionDataRepoForTests(createInMemoryRegionDataRepo());
     setParticipationSignalReviewRuntimeRepoForTests(
       createInMemoryParticipationSignalReviewRuntimeRepo(),
@@ -400,9 +583,68 @@ describe("admin-region-page.render", () => {
       }),
     );
 
-    expect(html).toContain('role="alert"');
-    expect(html).toContain("ist kein vorhandener Regionseintrag");
-    expect(html).toContain('value="region-official-01001000"');
-    expect(html).toContain('data-testid="admin-region-empty-profile"');
+    expect(html).toContain("Flensburg, Stadt");
+    expect(html).toContain(
+      'name="regionId" value="region-official-01001000"',
+    );
+    expect(html).toContain("Amtlicher Verzeichniseintrag");
+    expect(html).not.toContain('data-testid="admin-region-empty-profile"');
+    expect(html).not.toContain('role="alert"');
+  });
+
+  it("shows an honest visible diagnostic when the official directory is unavailable", async () => {
+    setRegionDataRepoForTests(createInMemoryRegionDataRepo());
+    setParticipationSignalReviewRuntimeRepoForTests(
+      createInMemoryParticipationSignalReviewRuntimeRepo(),
+    );
+    directoryCatalogMocks.status = "missing";
+    directoryCatalogMocks.errorCode = "official_directory_not_found";
+
+    const missingHtml = renderToStaticMarkup(
+      await AdminRegionPage({
+        searchParams: { regionQuery: "Berlin Reinickendorf" },
+      }),
+    );
+
+    expect(missingHtml).toContain(
+      'data-testid="admin-region-directory-diagnostic"',
+    );
+    expect(missingHtml).toContain('data-directory-status="missing"');
+    expect(missingHtml).toContain(
+      "Amtliches Verwaltungsverzeichnis nicht verfügbar",
+    );
+    expect(missingHtml).toContain(
+      "nicht als vollständiges amtliches Verzeichnis",
+    );
+    expect(missingHtml).toContain("Diagnose: official_directory_not_found");
+    expect(missingHtml).toContain('data-testid="admin-region-search-result"');
+    expect(missingHtml).toContain("Berlin Reinickendorf");
+
+    directoryCatalogMocks.status = "error";
+    directoryCatalogMocks.errorCode =
+      "official_directory_sheet_missing:Anschriften_31_01_2023";
+    const errorHtml = renderToStaticMarkup(
+      await AdminRegionPage({
+        searchParams: { regionQuery: "Berlin Reinickendorf" },
+      }),
+    );
+
+    expect(errorHtml).toContain('data-directory-status="error"');
+    expect(errorHtml).toContain(
+      "Amtliches Verwaltungsverzeichnis konnte nicht geladen werden",
+    );
+    expect(errorHtml).toContain("official_directory_sheet_missing");
+
+    directoryCatalogMocks.status = "ready";
+    directoryCatalogMocks.errorCode = null;
+    const recoveredHtml = renderToStaticMarkup(
+      await AdminRegionPage({
+        searchParams: { regionQuery: "Berlin Reinickendorf" },
+      }),
+    );
+    expect(recoveredHtml).not.toContain(
+      'data-testid="admin-region-directory-diagnostic"',
+    );
+    expect(recoveredHtml).toContain("Berlin Reinickendorf");
   });
 });
