@@ -15,7 +15,9 @@ import type { CreateAnonymousSession } from "@/features/create/createAnonymousSe
 const COLLECTION = "create_guest_adoption_preparations";
 const PURPOSE = "create.guest-adoption-preparation" as const;
 const BINDING_DOMAIN = "edebatte:create:adoption-preparation:anon-session:v1";
+const ACCOUNT_BINDING_DOMAIN = "edebatte:create:adoption:account:v1";
 const PREPARATION_TTL_MS = 15 * 60 * 1000;
+const CLAIM_RECOVERY_TTL_MS = 15 * 60 * 1000;
 const MAX_CLAIM_CHARS = 10_000;
 const MAX_CLAIM_BYTES = 30_000;
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,9 +37,37 @@ type Preparing = PreparationBase & {
 type Prepared = PreparationBase & {
   state: "prepared";
   encryptedPayload: AtRestEnvelope;
+  adoption?: never;
 };
 
-type PreparationDocument = Preparing | Prepared;
+type Adoption = {
+  version: 1;
+  state: "claimed" | "completed";
+  adoptionId: string;
+  accountBindingHash: string;
+  claimedAt: Date;
+  recoveryExpiresAt: Date;
+  completedAt?: Date;
+  draftId?: string;
+};
+
+type ClaimedPrepared = PreparationBase & {
+  state: "prepared";
+  encryptedPayload: AtRestEnvelope;
+  adoption: Adoption & { state: "claimed" };
+};
+
+type CompletedPrepared = PreparationBase & {
+  state: "prepared";
+  adoption: Adoption & { state: "completed"; completedAt: Date; draftId: string };
+};
+
+type PreparationDocument = Preparing | Prepared | ClaimedPrepared | CompletedPrepared;
+
+export type GuestAdoptionClaimResult =
+  | { ok: true; state: "claimed"; preparationId: string; adoptionId: string; claim: string; recoveryExpiresAtMs: number }
+  | { ok: true; state: "completed"; preparationId: string; adoptionId: string; draftId: string }
+  | { ok: false };
 
 export type GuestAdoptionPreparationResult =
   | { ok: true; preparationId: string; expiresAtMs: number }
@@ -87,6 +117,18 @@ function bindingHash(sessionId: string) {
     .digest("hex");
 }
 
+function accountBindingHash(userId: string) {
+  return crypto.createHash("sha256")
+    .update(ACCOUNT_BINDING_DOMAIN, "utf8")
+    .update(Buffer.from([0]))
+    .update(userId, "utf8")
+    .digest("hex");
+}
+
+function validUserId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256 && value.trim() === value;
+}
+
 function normalizedClaim(value: unknown) {
   if (typeof value !== "string") return null;
   const claim = value.trim();
@@ -94,17 +136,40 @@ function normalizedClaim(value: unknown) {
   return claim;
 }
 
-function isPreparedDocument(value: unknown): value is Prepared {
+function isBasePrepared(value: unknown): value is PreparationBase & { state: "prepared" } {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   if (
     record.version !== 1 || record.state !== "prepared" ||
     typeof record.preparationId !== "string" || !UUID_V4.test(record.preparationId) ||
     typeof record.anonymousSessionBindingHash !== "string" || !/^[a-f0-9]{64}$/.test(record.anonymousSessionBindingHash) ||
-    !(record.createdAt instanceof Date) || !(record.expiresAt instanceof Date) ||
-    !("encryptedPayload" in record)
+    !(record.createdAt instanceof Date) || !(record.expiresAt instanceof Date)
   ) return false;
   return true;
+}
+
+function isAdoption(value: unknown): value is Adoption {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const adoption = value as Record<string, unknown>;
+  if (adoption.version !== 1 || (adoption.state !== "claimed" && adoption.state !== "completed") ||
+    typeof adoption.adoptionId !== "string" || !UUID_V4.test(adoption.adoptionId) ||
+    typeof adoption.accountBindingHash !== "string" || !/^[a-f0-9]{64}$/.test(adoption.accountBindingHash) ||
+    !(adoption.claimedAt instanceof Date) || !(adoption.recoveryExpiresAt instanceof Date)) return false;
+  return adoption.state !== "completed" || (adoption.completedAt instanceof Date && typeof adoption.draftId === "string" && adoption.draftId.length > 0);
+}
+
+function isUnclaimedPrepared(value: unknown): value is Prepared {
+  return isBasePrepared(value) && !("adoption" in (value as Record<string, unknown>)) && "encryptedPayload" in (value as Record<string, unknown>);
+}
+
+function isClaimedPrepared(value: unknown): value is ClaimedPrepared {
+  const record = value as Record<string, unknown>;
+  return isBasePrepared(value) && "encryptedPayload" in record && isAdoption(record.adoption) && record.adoption.state === "claimed";
+}
+
+function isCompletedPrepared(value: unknown): value is CompletedPrepared {
+  const record = value as Record<string, unknown>;
+  return isBasePrepared(value) && !("encryptedPayload" in record) && isAdoption(record.adoption) && record.adoption.state === "completed";
 }
 
 async function commitBarrier(document: Preparing) {
@@ -112,11 +177,19 @@ async function commitBarrier(document: Preparing) {
   const collection = await coreCol<Record<string, unknown>>(COLLECTION);
   const update = {
     $set: document,
-    $unset: { encryptedPayload: "" as const },
+    $unset: { encryptedPayload: "" as const, adoption: "" as const },
+  };
+  const filter = {
+    anonymousSessionBindingHash: document.anonymousSessionBindingHash,
+    $or: [
+      { adoption: { $exists: false } },
+      { "adoption.state": "completed" },
+      { "adoption.state": "claimed", "adoption.recoveryExpiresAt": { $lte: document.createdAt } },
+    ],
   };
   try {
     const committed = await collection.findOneAndUpdate(
-      { anonymousSessionBindingHash: document.anonymousSessionBindingHash },
+      filter,
       update,
       { upsert: true, returnDocument: "after" },
     );
@@ -125,7 +198,7 @@ async function commitBarrier(document: Preparing) {
     if (!isBindingSlotDuplicateKey(error)) throw error;
     // A single retry serializes the only expected first-slot unique-upsert race.
     const committed = await collection.findOneAndUpdate(
-      { anonymousSessionBindingHash: document.anonymousSessionBindingHash },
+      filter,
       update,
       { upsert: false, returnDocument: "after" },
     );
@@ -197,12 +270,64 @@ export async function readGuestAdoptionPreparationForVerifiedAnonymousSession(in
       anonymousSessionBindingHash: bindingHash(input.session.id),
       state: "prepared",
       expiresAt: { $gt: new Date(nowMs) },
+      adoption: { $exists: false },
     });
-    if (!isPreparedDocument(document) || document.expiresAt.getTime() <= nowMs) return null;
+    if (!isUnclaimedPrepared(document) || document.expiresAt.getTime() <= nowMs) return null;
     const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: document.encryptedPayload }));
     const normalized = normalizedClaim(claim);
     return normalized === claim ? { preparationId: document.preparationId, claim } : null;
   } catch {
     return null;
   }
+}
+
+export async function claimGuestAdoptionPreparationForAuthenticatedAccount(input: {
+  session: CreateAnonymousSession;
+  userId: string;
+  nowMs?: number;
+}): Promise<GuestAdoptionClaimResult> {
+  const nowMs = input.nowMs ?? Date.now();
+  if (!validUserId(input.userId) || !Number.isSafeInteger(nowMs) || input.session.expiresAtMs <= nowMs) return { ok: false };
+  const recoveryExpiresAt = new Date(Math.min(nowMs + CLAIM_RECOVERY_TTL_MS, input.session.expiresAtMs));
+  const binding = bindingHash(input.session.id);
+  const account = accountBindingHash(input.userId);
+  const adoption: Adoption = { version: 1, state: "claimed", adoptionId: crypto.randomUUID(), accountBindingHash: account, claimedAt: new Date(nowMs), recoveryExpiresAt };
+  try {
+    await ensureIndexes();
+    const collection = await coreCol<Record<string, unknown>>(COLLECTION);
+    const claimed = await collection.findOneAndUpdate(
+      { anonymousSessionBindingHash: binding, state: "prepared", expiresAt: { $gt: new Date(nowMs) }, adoption: { $exists: false } },
+      { $set: { adoption, expiresAt: recoveryExpiresAt } },
+      { returnDocument: "after" },
+    );
+    if (isClaimedPrepared(claimed) && claimed.adoption.adoptionId === adoption.adoptionId) {
+      const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: claimed.encryptedPayload }));
+      return normalizedClaim(claim) === claim ? { ok: true, state: "claimed", preparationId: claimed.preparationId, adoptionId: adoption.adoptionId, claim, recoveryExpiresAtMs: recoveryExpiresAt.getTime() } : { ok: false };
+    }
+    const existing = await collection.findOne({ anonymousSessionBindingHash: binding, state: "prepared" });
+    if (isClaimedPrepared(existing) && existing.adoption.accountBindingHash === account && existing.adoption.recoveryExpiresAt.getTime() > nowMs) {
+      const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: existing.encryptedPayload }));
+      return normalizedClaim(claim) === claim ? { ok: true, state: "claimed", preparationId: existing.preparationId, adoptionId: existing.adoption.adoptionId, claim, recoveryExpiresAtMs: existing.adoption.recoveryExpiresAt.getTime() } : { ok: false };
+    }
+    if (isCompletedPrepared(existing) && existing.adoption.accountBindingHash === account) return { ok: true, state: "completed", preparationId: existing.preparationId, adoptionId: existing.adoption.adoptionId, draftId: existing.adoption.draftId };
+    return { ok: false };
+  } catch { return { ok: false }; }
+}
+
+export async function completeGuestAdoptionPreparationForAuthenticatedAccount(input: {
+  session: CreateAnonymousSession; userId: string; adoptionId: string; draftId: string; nowMs?: number;
+}): Promise<boolean> {
+  const nowMs = input.nowMs ?? Date.now();
+  if (!validUserId(input.userId) || !UUID_V4.test(input.adoptionId) || !String(input.draftId).trim() || input.session.expiresAtMs <= nowMs) return false;
+  const binding = bindingHash(input.session.id); const account = accountBindingHash(input.userId);
+  try {
+    const collection = await coreCol<Record<string, unknown>>(COLLECTION);
+    const completed = await collection.findOneAndUpdate(
+      { anonymousSessionBindingHash: binding, state: "prepared", "adoption.state": "claimed", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account, "adoption.recoveryExpiresAt": { $gt: new Date(nowMs) } },
+      { $set: { "adoption.state": "completed", "adoption.completedAt": new Date(nowMs), "adoption.draftId": input.draftId }, $unset: { encryptedPayload: "" } }, { returnDocument: "after" },
+    );
+    if (isCompletedPrepared(completed) && completed.adoption.adoptionId === input.adoptionId && completed.adoption.draftId === input.draftId) return true;
+    const existing = await collection.findOne({ anonymousSessionBindingHash: binding, state: "prepared", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account, "adoption.state": "completed" });
+    return isCompletedPrepared(existing) && existing.adoption.draftId === input.draftId;
+  } catch { return false; }
 }
