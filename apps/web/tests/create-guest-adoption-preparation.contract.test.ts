@@ -564,6 +564,41 @@ describe("guest adoption preparation durable lifecycle", () => {
       await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_003 })).resolves.toEqual({ ok: false });
     }
   });
+
+  it.each([
+    ["version", { version: 2, boundAt: new Date(10_002), recoveryExpiresAt: new Date(session.expiresAtMs) }],
+    ["boundAt", { version: 1, boundAt: "not-date", recoveryExpiresAt: new Date(session.expiresAtMs) }],
+    ["recoveryExpiresAt", { version: 1, boundAt: new Date(10_002), recoveryExpiresAt: "not-date" }],
+  ])("fails closed for malformed draft recovery %s during post-ordinary completion", async (_name, malformed) => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    (store.document?.adoption as Record<string, unknown>).draftRecovery = malformed;
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: claimed.recoveryExpiresAtMs + 1 })).resolves.toBe(false);
+    expect(store.document).toMatchObject({ state: "prepared", adoption: { state: "claimed", adoptionId: claimed.adoptionId, draftRecovery: malformed } });
+    expect(store.document).toHaveProperty("encryptedPayload");
+    expect(store.document).not.toHaveProperty("adoption.draftId");
+  });
+
+  it("requires a live top-level expiry even for a canonical draft-bound completion", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    store.document!.expiresAt = new Date(claimed.recoveryExpiresAtMs + 1);
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: claimed.recoveryExpiresAtMs + 1 })).resolves.toBe(false);
+    expect(store.document).toMatchObject({ adoption: { state: "claimed" } });
+    expect(store.document).toHaveProperty("encryptedPayload");
+  });
+
+  it("keeps ordinary active-claim completion independent of draft recovery", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: 10_002 })).resolves.toBe(true);
+    expect(store.document).toMatchObject({ adoption: { state: "completed", draftId: "draft-a" } });
+  });
 });
 
 function matches(document: Record<string, unknown>, filter: Record<string, unknown>): boolean {
@@ -572,9 +607,11 @@ function matches(document: Record<string, unknown>, filter: Record<string, unkno
     const actual = getPath(document, key);
     if (expected && typeof expected === "object" && !(expected instanceof Date)) {
       const query = expected as Record<string, unknown>;
-      if ("$exists" in query) return Boolean(actual !== undefined) === query.$exists;
-      if ("$gt" in query) return actual instanceof Date && query.$gt instanceof Date && actual.getTime() > query.$gt.getTime();
-      if ("$lte" in query) return actual instanceof Date && query.$lte instanceof Date && actual.getTime() <= query.$lte.getTime();
+      if ("$exists" in query && Boolean(actual !== undefined) !== query.$exists) return false;
+      if ("$type" in query && !(query.$type === "date" && actual instanceof Date)) return false;
+      if ("$gt" in query && !(actual instanceof Date && query.$gt instanceof Date && actual.getTime() > query.$gt.getTime())) return false;
+      if ("$lte" in query && !(actual instanceof Date && query.$lte instanceof Date && actual.getTime() <= query.$lte.getTime())) return false;
+      return true;
     }
     return actual === expected;
   });

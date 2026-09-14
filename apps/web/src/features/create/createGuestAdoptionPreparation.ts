@@ -333,7 +333,22 @@ export async function completeGuestAdoptionPreparationForAuthenticatedAccount(in
   try {
     const collection = await coreCol<Record<string, unknown>>(COLLECTION);
     const completed = await collection.findOneAndUpdate(
-      { anonymousSessionBindingHash: binding, state: "prepared", "adoption.state": "claimed", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account, $or: [{ "adoption.recoveryExpiresAt": { $gt: new Date(nowMs) } }, { "adoption.draftRecovery.recoveryExpiresAt": { $gt: new Date(nowMs) } }] },
+      {
+        anonymousSessionBindingHash: binding,
+        state: "prepared",
+        expiresAt: { $gt: new Date(nowMs) },
+        "adoption.state": "claimed",
+        "adoption.adoptionId": input.adoptionId,
+        "adoption.accountBindingHash": account,
+        $or: [
+          { "adoption.recoveryExpiresAt": { $gt: new Date(nowMs) } },
+          {
+            "adoption.draftRecovery.version": 1,
+            "adoption.draftRecovery.boundAt": { $type: "date" },
+            "adoption.draftRecovery.recoveryExpiresAt": { $type: "date", $gt: new Date(nowMs) },
+          },
+        ],
+      },
       {
         $set: {
           "adoption.state": "completed",
