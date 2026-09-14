@@ -26,7 +26,7 @@ vi.mock("@core/db/triMongo", () => ({
       if (scripted instanceof Error || (scripted && typeof scripted === "object" && "code" in scripted)) throw scripted;
       if (scripted === null) return null;
       if (store.failBarrier) throw new Error("storage unavailable");
-      if (store.pauseFirstClaimCas && "adoption" in filter && store.firstClaimCasEntered && store.releaseFirstClaimCas) {
+      if (store.pauseFirstClaimCas && Object.keys(filter).some((key) => key === "adoption" || key.startsWith("adoption.")) && store.firstClaimCasEntered && store.releaseFirstClaimCas) {
         store.pauseFirstClaimCas = false;
         store.firstClaimCasEntered.resolve();
         await store.releaseFirstClaimCas.promise;
@@ -431,6 +431,138 @@ describe("guest adoption preparation durable lifecycle", () => {
     expect(store.document).toMatchObject({ "adoption": expect.objectContaining({ state: "claimed", adoptionId: current.adoptionId }) });
     expect(store.document).toHaveProperty("encryptedPayload");
     await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: current.adoptionId, draftId: "new-draft", nowMs: 910_004 })).resolves.toBe(true);
+  });
+
+  it("rejects first bind after ordinary claim expiry, stale ids, and foreign accounts", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await expect(bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: claimed.recoveryExpiresAtMs })).resolves.toEqual({ ok: false });
+    await expect(bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-b", adoptionId: claimed.adoptionId, nowMs: 10_002 })).resolves.toEqual({ ok: false });
+    await expect(bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: "123e4567-e89b-42d3-a456-426614174099", nowMs: 10_002 })).resolves.toEqual({ ok: false });
+  });
+
+  it("makes the exact bind replay idempotent without moving either deadline", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    const first = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    const second = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_003 });
+    expect(second).toEqual(first);
+    expect(((store.document?.adoption as { recoveryExpiresAt: Date }).recoveryExpiresAt).getTime()).toBe(claimed.recoveryExpiresAtMs);
+    expect(((store.document?.adoption as { draftRecovery: { recoveryExpiresAt: Date } }).draftRecovery.recoveryExpiresAt).getTime()).toBe(session.expiresAtMs);
+  });
+
+  it("recovers only the exact active bound adoption after ordinary expiry", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    const bound = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    if (!bound.ok) throw new Error("bind failed");
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: claimed.recoveryExpiresAtMs + 1 })).resolves.toEqual({ ok: true, preparationId: claimed.preparationId, adoptionId: claimed.adoptionId, claim: "Sicher", draftIdempotencyKey: bound.draftIdempotencyKey, recoveryExpiresAtMs: session.expiresAtMs });
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-b", adoptionId: claimed.adoptionId, nowMs: 10_003 })).resolves.toEqual({ ok: false });
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: "123e4567-e89b-42d3-a456-426614174099", nowMs: 10_003 })).resolves.toEqual({ ok: false });
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: session.expiresAtMs })).resolves.toEqual({ ok: false });
+  });
+
+  it("keeps deterministic draft keys opaque, stable, generation-separated, and fail-closed", () => {
+    const a = "123e4567-e89b-42d3-a456-426614174000";
+    const b = "123e4567-e89b-42d3-a456-426614174099";
+    const key = buildGuestAdoptionDraftIdempotencyKey(a);
+    expect(key).toBe(buildGuestAdoptionDraftIdempotencyKey(a));
+    expect(key).not.toBe(buildGuestAdoptionDraftIdempotencyKey(b));
+    expect(key).toMatch(/^[a-f0-9]{64}$/);
+    expect(key).not.toContain(a);
+    expect(buildGuestAdoptionDraftIdempotencyKey("not-a-uuid")).toBeNull();
+  });
+
+  it("blocks reprepare while draft-bound, then supersedes expired recovery and clears old payload", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Alt", nowMs: 10_000 });
+    const old = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!old.ok || old.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: old.adoptionId, nowMs: 10_002 });
+    const preserved = structuredClone(store.document);
+    await expect(prepareGuestAdoptionPreparation({ session, claim: "Neu", nowMs: old.recoveryExpiresAtMs + 1 })).resolves.toEqual({ ok: false, afterBarrier: false, reason: "unavailable" });
+    expect(store.document).toEqual(preserved);
+    const renewed = { ...session, expiresAtMs: session.expiresAtMs + 1_000 };
+    await expect(prepareGuestAdoptionPreparation({ session: renewed, claim: "Neu", nowMs: session.expiresAtMs })).resolves.toMatchObject({ ok: true });
+    expect(store.document).not.toHaveProperty("adoption");
+    expect(store.document).toHaveProperty("encryptedPayload");
+  });
+
+  it("completes an active draft-bound adoption after ordinary expiry and deauthorizes recovery", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    const at = claimed.recoveryExpiresAtMs + 1;
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: at })).resolves.toBe(true);
+    expect(store.document).not.toHaveProperty("encryptedPayload");
+    expect(store.document).not.toHaveProperty("adoption.draftRecovery");
+    expect(store.document).toMatchObject({ adoption: { state: "completed", adoptionId: claimed.adoptionId, draftId: "draft-a" } });
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: at })).resolves.toEqual({ ok: false });
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: at + 1 })).resolves.toBe(true);
+  });
+
+  it("rejects post-C3A and cross-account draft-bound completion", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-b", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: 10_003 })).resolves.toBe(false);
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: session.expiresAtMs })).resolves.toBe(false);
+  });
+
+  it("rejects stale bound recovery and completion after a new generation replaces it", async () => {
+    const short = { ...session, expiresAtMs: 20_000 };
+    await prepareGuestAdoptionPreparation({ session: short, claim: "Alt", nowMs: 10_000 });
+    const old = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session: short, userId: "account-a", nowMs: 10_001 });
+    if (!old.ok || old.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session: short, userId: "account-a", adoptionId: old.adoptionId, nowMs: 10_002 });
+    const renewed = { ...short, expiresAtMs: 30_000 };
+    await prepareGuestAdoptionPreparation({ session: renewed, claim: "Neu", nowMs: 20_000 });
+    const current = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session: renewed, userId: "account-a", nowMs: 20_001 });
+    if (!current.ok || current.state !== "claimed") throw new Error("new claim failed");
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session: renewed, userId: "account-a", adoptionId: old.adoptionId, nowMs: 20_002 })).resolves.toEqual({ ok: false });
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session: renewed, userId: "account-a", adoptionId: old.adoptionId, draftId: "old", nowMs: 20_002 })).resolves.toBe(false);
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session: renewed, userId: "account-a", adoptionId: current.adoptionId, draftId: "new", nowMs: 20_002 })).resolves.toBe(true);
+  });
+
+  it("converges A/A bind races and lets only the bound owner win A/B", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    store.pauseFirstClaimCas = true; store.firstClaimCasEntered = deferred(); store.releaseFirstClaimCas = deferred();
+    const first = bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    await store.firstClaimCasEntered.promise;
+    const second = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    store.releaseFirstClaimCas.resolve();
+    await expect(first).resolves.toEqual(second);
+    await expect(bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-b", adoptionId: claimed.adoptionId, nowMs: 10_003 })).resolves.toEqual({ ok: false });
+  });
+
+  it("lets only account A bind when an A/B bind race overlaps", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    store.pauseFirstClaimCas = true; store.firstClaimCasEntered = deferred(); store.releaseFirstClaimCas = deferred();
+    const a = bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    await store.firstClaimCasEntered.promise;
+    const b = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-b", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    store.releaseFirstClaimCas.resolve();
+    await expect(a).resolves.toMatchObject({ ok: true });
+    expect(b).toEqual({ ok: false });
+  });
+
+  it("fails closed on malformed persisted draft recovery records", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    for (const malformed of [{ version: 2, boundAt: new Date(), recoveryExpiresAt: new Date(session.expiresAtMs) }, { version: 1, boundAt: "not-date", recoveryExpiresAt: new Date(session.expiresAtMs) }, { version: 1, boundAt: new Date(), recoveryExpiresAt: "not-date" }]) {
+      (store.document?.adoption as Record<string, unknown>).draftRecovery = malformed;
+      await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_003 })).resolves.toEqual({ ok: false });
+    }
   });
 });
 
