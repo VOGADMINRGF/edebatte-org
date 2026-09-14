@@ -628,6 +628,20 @@ describe("guest adoption preparation durable lifecycle", () => {
     await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: at })).resolves.toBe(true);
     await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at + 1 })).resolves.toEqual({ ok: false });
   });
+
+  it("requires canonical recovery to remain within both session and authoritative-slot bounds", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    const at = claimed.recoveryExpiresAtMs + 1;
+    const recovery = (store.document?.adoption as { draftRecovery: { recoveryExpiresAt: Date } }).draftRecovery;
+    recovery.recoveryExpiresAt = new Date(session.expiresAtMs + 1);
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+    recovery.recoveryExpiresAt = new Date(session.expiresAtMs);
+    store.document!.expiresAt = new Date(session.expiresAtMs - 1);
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+  });
 });
 
 function matches(document: Record<string, unknown>, filter: Record<string, unknown>): boolean {

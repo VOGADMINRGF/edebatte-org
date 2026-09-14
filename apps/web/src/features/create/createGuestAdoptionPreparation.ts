@@ -402,9 +402,11 @@ export async function discoverDraftBoundGuestAdoptionForAuthenticatedAccount(inp
       "adoption.draftRecovery.recoveryExpiresAt": { $type: "date", $gt: new Date(nowMs) },
     });
     if (!isClaimedPrepared(doc) || !doc.adoption.draftRecovery) return { ok: false };
+    const recoveryExpiresAtMs = doc.adoption.draftRecovery.recoveryExpiresAt.getTime();
+    if (recoveryExpiresAtMs > input.session.expiresAtMs || recoveryExpiresAtMs > doc.expiresAt.getTime()) return { ok: false };
     const key = buildGuestAdoptionDraftIdempotencyKey(doc.adoption.adoptionId);
     if (!key) return { ok: false };
     const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: doc.encryptedPayload }));
-    return normalizedClaim(claim) === claim ? { ok: true, preparationId: doc.preparationId, adoptionId: doc.adoption.adoptionId, claim, draftIdempotencyKey: key, recoveryExpiresAtMs: doc.adoption.draftRecovery.recoveryExpiresAt.getTime() } : { ok: false };
+    return normalizedClaim(claim) === claim ? { ok: true, preparationId: doc.preparationId, adoptionId: doc.adoption.adoptionId, claim, draftIdempotencyKey: key, recoveryExpiresAtMs } : { ok: false };
   } catch { return { ok: false }; }
 }
