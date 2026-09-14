@@ -1,7 +1,7 @@
 # T0 Closure — Decision Dossier Architecture Contract
 
 Base: `7e81eff9cf285bf2137d5a9eff8c4ce808f5fcbf`.
-Implementation: `8c5646ae2f954330dcb279850c301e1ea55025d8`.
+Implementation: `f7b7f4dbf2fd8d01cc33886d9d91677ad958e43c`.
 
 Files: `features/dossier/decisionDossierArchitectureContract.ts`,
 `apps/web/tests/decision-dossier-architecture-contract.test.ts`, this closure,
