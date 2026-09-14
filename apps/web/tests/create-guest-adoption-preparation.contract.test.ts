@@ -8,6 +8,7 @@ const store = vi.hoisted(() => ({
   failBarrier: false,
   barrierScript: [] as Array<unknown>,
   finalizeScript: [] as Array<unknown>,
+  completionScript: [] as Array<unknown>,
   barrierCalls: [] as Array<unknown[]>,
   finalizeCalls: [] as Array<{ filter: Record<string, unknown>; update: Record<string, unknown> }>,
   firstFinalizeEntered: null as null | ReturnType<typeof deferred<void>>,
@@ -18,6 +19,15 @@ const store = vi.hoisted(() => ({
   pauseFirstClaimCas: false,
 }));
 
+const draftStore = vi.hoisted(() => ({
+  save: vi.fn(),
+}));
+
+vi.mock("@/server/serverDrafts", () => ({
+  CANONICAL_CREATE_DRAFT_KIND: "create_contribution",
+  saveUserScopedServerDraft: (...args: unknown[]) => draftStore.save(...args),
+}));
+
 vi.mock("@core/db/triMongo", () => ({
   coreCol: async () => ({
     createIndex: async (...args: unknown[]) => { store.indexes.push(args); return "index"; },
@@ -26,6 +36,10 @@ vi.mock("@core/db/triMongo", () => ({
       const scripted = store.barrierScript.shift();
       if (scripted instanceof Error || (scripted && typeof scripted === "object" && "code" in scripted)) throw scripted;
       if (scripted === null) return null;
+      if (Array.isArray(filter.$or) && filter["adoption.state"] === "claimed") {
+        const completion = store.completionScript.shift();
+        if (completion instanceof Error) throw completion;
+      }
       if (store.failBarrier) throw new Error("storage unavailable");
       if (store.pauseFirstClaimCas && Object.keys(filter).some((key) => key === "adoption" || key.startsWith("adoption.")) && store.firstClaimCasEntered && store.releaseFirstClaimCas) {
         store.pauseFirstClaimCas = false;
@@ -68,6 +82,7 @@ import {
   recoverDraftBoundGuestAdoptionForAuthenticatedAccount,
   discoverDraftBoundGuestAdoptionForAuthenticatedAccount,
   buildGuestAdoptionDraftIdempotencyKey,
+  resumeGuestAdoptionDraftForAuthenticatedAccount,
 } from "@/features/create/createGuestAdoptionPreparation";
 
 const session = {
@@ -82,6 +97,7 @@ describe("guest adoption preparation durable lifecycle", () => {
     store.failBarrier = false;
     store.barrierScript = [];
     store.finalizeScript = [];
+    store.completionScript = [];
     store.barrierCalls = [];
     store.finalizeCalls = [];
     store.firstFinalizeEntered = null;
@@ -90,8 +106,65 @@ describe("guest adoption preparation durable lifecycle", () => {
     store.firstClaimCasEntered = null;
     store.releaseFirstClaimCas = null;
     store.pauseFirstClaimCas = false;
+    draftStore.save.mockResolvedValue({ ok: true, draftId: "draft-c4b" });
     process.env.EDEBATTE_AT_REST_ACTIVE_KEY_VERSION = "test";
     process.env.EDEBATTE_AT_REST_KEYRING = "test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  });
+
+  it("resumes an unclaimed preparation by binding, saving deterministically, then completing", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege", nowMs: 10_000 });
+    const result = await resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    expect(result).toEqual({ ok: true, state: "resumed", draftId: "draft-c4b" });
+    expect(draftStore.save).toHaveBeenCalledWith(expect.objectContaining({
+      userId: "account-a",
+      route: "/api/create/adoption-resume",
+      kind: "create_contribution",
+      text: "Sichere Schulwege",
+      textOriginal: "Sichere Schulwege",
+      textPrepared: "Sichere Schulwege",
+      idempotencyKey: expect.stringMatching(/^[a-f0-9]{64}$/),
+    }));
+    expect(store.document).toMatchObject({ "adoption": { state: "completed", draftId: "draft-c4b" } });
+    expect(store.document).not.toHaveProperty("encryptedPayload");
+  });
+
+  it("retries post-save completion with the same deterministic draft and then replays completion", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege", nowMs: 10_000 });
+    const original = store.document;
+    store.completionScript.push(new Error("completion unavailable"));
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 })).resolves.toEqual({ ok: false });
+    expect(store.document).toBe(original);
+    expect(store.document).toMatchObject({ adoption: { state: "claimed" }, encryptedPayload: expect.anything() });
+    const retry = await resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_002 });
+    expect(retry).toEqual({ ok: true, state: "resumed", draftId: "draft-c4b" });
+    const saveCallsBeforeReplay = draftStore.save.mock.calls.length;
+    const replay = await resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_003 });
+    expect(replay).toEqual({ ok: true, state: "completed", draftId: "draft-c4b" });
+    expect(draftStore.save).toHaveBeenCalledTimes(saveCallsBeforeReplay);
+  });
+
+  it("uses C4B2 discovery after ordinary recovery expiry while C3A remains live", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: claimed.recoveryExpiresAtMs + 1 })).resolves.toEqual({ ok: true, state: "resumed", draftId: "draft-c4b" });
+    expect(draftStore.save).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: buildGuestAdoptionDraftIdempotencyKey(claimed.adoptionId) }));
+  });
+
+  it("fails closed without completion when deterministic draft persistence fails", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege", nowMs: 10_000 });
+    draftStore.save.mockResolvedValueOnce({ ok: false, error: "idempotency_conflict" });
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 })).resolves.toEqual({ ok: false });
+    expect(store.document).toMatchObject({ adoption: { state: "claimed", draftRecovery: expect.anything() }, encryptedPayload: expect.anything() });
+  });
+
+  it("fails closed for foreign, wrong-session, expired, and superseded authoritative state", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sichere Schulwege", nowMs: 10_000 });
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-b", nowMs: 10_001 })).resolves.toEqual({ ok: true, state: "resumed", draftId: "draft-c4b" });
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_002 })).resolves.toEqual({ ok: false });
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session: { ...session, id: "123e4567-e89b-42d3-a456-426614174099" }, userId: "account-b", nowMs: 10_003 })).resolves.toEqual({ ok: false });
+    await expect(resumeGuestAdoptionDraftForAuthenticatedAccount({ session, userId: "account-b", nowMs: session.expiresAtMs })).resolves.toEqual({ ok: false });
   });
 
   it("writes a preparing barrier before safety, then stores only encrypted normalized payload", async () => {

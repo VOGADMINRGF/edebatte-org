@@ -11,6 +11,10 @@ import {
 } from "@/lib/server/atRestEncryption";
 import { inspectGuestClaim } from "@/features/create/safety/createGuestClaimSafety";
 import type { CreateAnonymousSession } from "@/features/create/createAnonymousSession";
+import {
+  CANONICAL_CREATE_DRAFT_KIND,
+  saveUserScopedServerDraft,
+} from "@/server/serverDrafts";
 
 const COLLECTION = "create_guest_adoption_preparations";
 const PURPOSE = "create.guest-adoption-preparation" as const;
@@ -74,6 +78,10 @@ export type GuestAdoptionClaimResult =
 export type GuestAdoptionPreparationResult =
   | { ok: true; preparationId: string; expiresAtMs: number }
   | { ok: false; afterBarrier: boolean; reason: "invalid" | "rejected" | "unavailable" };
+
+export type GuestAdoptionDraftResumeResult =
+  | { ok: true; state: "resumed" | "completed"; draftId: string }
+  | { ok: false };
 
 let indexesReady = false;
 let indexesPromise: Promise<void> | null = null;
@@ -409,4 +417,67 @@ export async function discoverDraftBoundGuestAdoptionForAuthenticatedAccount(inp
     const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: doc.encryptedPayload }));
     return normalizedClaim(claim) === claim ? { ok: true, preparationId: doc.preparationId, adoptionId: doc.adoption.adoptionId, claim, draftIdempotencyKey: key, recoveryExpiresAtMs } : { ok: false };
   } catch { return { ok: false }; }
+}
+
+export async function resumeGuestAdoptionDraftForAuthenticatedAccount(input: {
+  session: CreateAnonymousSession;
+  userId: string;
+  nowMs?: number;
+}): Promise<GuestAdoptionDraftResumeResult> {
+  const nowMs = input.nowMs ?? Date.now();
+  if (!validUserId(input.userId) || !Number.isSafeInteger(nowMs) || input.session.expiresAtMs <= nowMs) {
+    return { ok: false };
+  }
+
+  const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount(input);
+  if (claimed.ok && claimed.state === "completed") {
+    return { ok: true, state: "completed", draftId: claimed.draftId };
+  }
+
+  let adoptionId: string;
+  let claim: string;
+  let draftIdempotencyKey: string;
+  if (claimed.ok && claimed.state === "claimed") {
+    const bound = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({
+      session: input.session,
+      userId: input.userId,
+      adoptionId: claimed.adoptionId,
+      nowMs,
+    });
+    if (!bound.ok) return { ok: false };
+    adoptionId = claimed.adoptionId;
+    claim = claimed.claim;
+    draftIdempotencyKey = bound.draftIdempotencyKey;
+  } else {
+    const discovered = await discoverDraftBoundGuestAdoptionForAuthenticatedAccount(input);
+    if (!discovered.ok) return { ok: false };
+    adoptionId = discovered.adoptionId;
+    claim = discovered.claim;
+    draftIdempotencyKey = discovered.draftIdempotencyKey;
+  }
+
+  try {
+    const saved = await saveUserScopedServerDraft({
+      userId: input.userId,
+      route: "/api/create/adoption-resume",
+      kind: CANONICAL_CREATE_DRAFT_KIND,
+      text: claim,
+      textOriginal: claim,
+      textPrepared: claim,
+      idempotencyKey: draftIdempotencyKey,
+    });
+    if (!saved.ok) return { ok: false };
+    const completed = await completeGuestAdoptionPreparationForAuthenticatedAccount({
+      session: input.session,
+      userId: input.userId,
+      adoptionId,
+      draftId: saved.draftId,
+      nowMs,
+    });
+    return completed
+      ? { ok: true, state: "resumed", draftId: saved.draftId }
+      : { ok: false };
+  } catch {
+    return { ok: false };
+  }
 }
