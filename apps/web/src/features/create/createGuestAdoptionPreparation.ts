@@ -16,6 +16,7 @@ const COLLECTION = "create_guest_adoption_preparations";
 const PURPOSE = "create.guest-adoption-preparation" as const;
 const BINDING_DOMAIN = "edebatte:create:adoption-preparation:anon-session:v1";
 const ACCOUNT_BINDING_DOMAIN = "edebatte:create:adoption:account:v1";
+const DRAFT_KEY_DOMAIN = "edebatte:create:guest-adoption-draft:v1";
 const PREPARATION_TTL_MS = 15 * 60 * 1000;
 const CLAIM_RECOVERY_TTL_MS = 15 * 60 * 1000;
 const MAX_CLAIM_CHARS = 10_000;
@@ -49,6 +50,7 @@ type Adoption = {
   recoveryExpiresAt: Date;
   completedAt?: Date;
   draftId?: string;
+  draftRecovery?: { version: 1; boundAt: Date; recoveryExpiresAt: Date };
 };
 
 type ClaimedPrepared = PreparationBase & {
@@ -125,6 +127,11 @@ function accountBindingHash(userId: string) {
     .digest("hex");
 }
 
+export function buildGuestAdoptionDraftIdempotencyKey(adoptionId: string) {
+  if (!UUID_V4.test(adoptionId)) return null;
+  return crypto.createHash("sha256").update(DRAFT_KEY_DOMAIN, "utf8").update(Buffer.from([0])).update(adoptionId, "utf8").digest("hex");
+}
+
 function validUserId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 256 && value.trim() === value;
 }
@@ -155,7 +162,9 @@ function isAdoption(value: unknown): value is Adoption {
     typeof adoption.adoptionId !== "string" || !UUID_V4.test(adoption.adoptionId) ||
     typeof adoption.accountBindingHash !== "string" || !/^[a-f0-9]{64}$/.test(adoption.accountBindingHash) ||
     !(adoption.claimedAt instanceof Date) || !(adoption.recoveryExpiresAt instanceof Date)) return false;
-  return adoption.state !== "completed" || (adoption.completedAt instanceof Date && typeof adoption.draftId === "string" && adoption.draftId.length > 0);
+  const recovery = adoption.draftRecovery;
+  const validRecovery = recovery === undefined || (!!recovery && typeof recovery === "object" && !Array.isArray(recovery) && (recovery as Record<string, unknown>).version === 1 && (recovery as Record<string, unknown>).boundAt instanceof Date && (recovery as Record<string, unknown>).recoveryExpiresAt instanceof Date);
+  return validRecovery && (adoption.state !== "completed" || (adoption.completedAt instanceof Date && typeof adoption.draftId === "string" && adoption.draftId.length > 0));
 }
 
 function isUnclaimedPrepared(value: unknown): value is Prepared {
@@ -184,7 +193,8 @@ async function commitBarrier(document: Preparing) {
     $or: [
       { adoption: { $exists: false } },
       { "adoption.state": "completed" },
-      { "adoption.state": "claimed", "adoption.recoveryExpiresAt": { $lte: document.createdAt } },
+      { "adoption.state": "claimed", "adoption.draftRecovery": { $exists: false }, "adoption.recoveryExpiresAt": { $lte: document.createdAt } },
+      { "adoption.state": "claimed", "adoption.draftRecovery.recoveryExpiresAt": { $lte: document.createdAt } },
     ],
   };
   try {
@@ -323,7 +333,22 @@ export async function completeGuestAdoptionPreparationForAuthenticatedAccount(in
   try {
     const collection = await coreCol<Record<string, unknown>>(COLLECTION);
     const completed = await collection.findOneAndUpdate(
-      { anonymousSessionBindingHash: binding, state: "prepared", "adoption.state": "claimed", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account, "adoption.recoveryExpiresAt": { $gt: new Date(nowMs) } },
+      {
+        anonymousSessionBindingHash: binding,
+        state: "prepared",
+        expiresAt: { $gt: new Date(nowMs) },
+        "adoption.state": "claimed",
+        "adoption.adoptionId": input.adoptionId,
+        "adoption.accountBindingHash": account,
+        $or: [
+          { "adoption.recoveryExpiresAt": { $gt: new Date(nowMs) } },
+          {
+            "adoption.draftRecovery.version": 1,
+            "adoption.draftRecovery.boundAt": { $type: "date" },
+            "adoption.draftRecovery.recoveryExpiresAt": { $type: "date", $gt: new Date(nowMs) },
+          },
+        ],
+      },
       {
         $set: {
           "adoption.state": "completed",
@@ -331,7 +356,7 @@ export async function completeGuestAdoptionPreparationForAuthenticatedAccount(in
           "adoption.draftId": input.draftId,
           expiresAt: new Date(input.session.expiresAtMs),
         },
-        $unset: { encryptedPayload: "" },
+        $unset: { encryptedPayload: "", "adoption.draftRecovery": "" },
       },
       { returnDocument: "after" },
     );
@@ -339,4 +364,29 @@ export async function completeGuestAdoptionPreparationForAuthenticatedAccount(in
     const existing = await collection.findOne({ anonymousSessionBindingHash: binding, state: "prepared", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account, "adoption.state": "completed" });
     return isCompletedPrepared(existing) && existing.adoption.draftId === input.draftId;
   } catch { return false; }
+}
+
+export async function bindGuestAdoptionDraftRecoveryForAuthenticatedAccount(input: { session: CreateAnonymousSession; userId: string; adoptionId: string; nowMs?: number }): Promise<{ ok: true; draftIdempotencyKey: string; recoveryExpiresAtMs: number } | { ok: false }> {
+  const nowMs = input.nowMs ?? Date.now();
+  if (!validUserId(input.userId) || !UUID_V4.test(input.adoptionId) || input.session.expiresAtMs <= nowMs) return { ok: false };
+  const key = buildGuestAdoptionDraftIdempotencyKey(input.adoptionId); if (!key) return { ok: false };
+  const binding = bindingHash(input.session.id); const account = accountBindingHash(input.userId); const expiry = new Date(input.session.expiresAtMs);
+  try {
+    const collection = await coreCol<Record<string, unknown>>(COLLECTION);
+    const recovery = { version: 1 as const, boundAt: new Date(nowMs), recoveryExpiresAt: expiry };
+    const bound = await collection.findOneAndUpdate({ anonymousSessionBindingHash: binding, state: "prepared", "adoption.state": "claimed", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account, "adoption.recoveryExpiresAt": { $gt: new Date(nowMs) }, "adoption.draftRecovery": { $exists: false } }, { $set: { "adoption.draftRecovery": recovery, expiresAt: expiry } }, { returnDocument: "after" });
+    if (isClaimedPrepared(bound) && bound.adoption.adoptionId === input.adoptionId) return { ok: true, draftIdempotencyKey: key, recoveryExpiresAtMs: expiry.getTime() };
+    const existing = await collection.findOne({ anonymousSessionBindingHash: binding, state: "prepared", "adoption.state": "claimed", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": account });
+    const draftRecovery = isClaimedPrepared(existing) ? existing.adoption.draftRecovery : null;
+    return draftRecovery && draftRecovery.recoveryExpiresAt.getTime() > nowMs && draftRecovery.recoveryExpiresAt.getTime() <= input.session.expiresAtMs ? { ok: true, draftIdempotencyKey: key, recoveryExpiresAtMs: draftRecovery.recoveryExpiresAt.getTime() } : { ok: false };
+  } catch { return { ok: false }; }
+}
+
+export async function recoverDraftBoundGuestAdoptionForAuthenticatedAccount(input: { session: CreateAnonymousSession; userId: string; adoptionId: string; nowMs?: number }): Promise<{ ok: true; preparationId: string; adoptionId: string; claim: string; draftIdempotencyKey: string; recoveryExpiresAtMs: number } | { ok: false }> {
+  const nowMs = input.nowMs ?? Date.now(); const key = buildGuestAdoptionDraftIdempotencyKey(input.adoptionId);
+  if (!validUserId(input.userId) || !key || input.session.expiresAtMs <= nowMs) return { ok: false };
+  try { const doc = await (await coreCol<Record<string, unknown>>(COLLECTION)).findOne({ anonymousSessionBindingHash: bindingHash(input.session.id), state: "prepared", "adoption.state": "claimed", "adoption.adoptionId": input.adoptionId, "adoption.accountBindingHash": accountBindingHash(input.userId), "adoption.draftRecovery.recoveryExpiresAt": { $gt: new Date(nowMs) }, expiresAt: { $gt: new Date(nowMs) } });
+    if (!isClaimedPrepared(doc) || !doc.adoption.draftRecovery) return { ok: false }; const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: doc.encryptedPayload }));
+    return normalizedClaim(claim) === claim ? { ok: true, preparationId: doc.preparationId, adoptionId: input.adoptionId, claim, draftIdempotencyKey: key, recoveryExpiresAtMs: doc.adoption.draftRecovery.recoveryExpiresAt.getTime() } : { ok: false };
+  } catch { return { ok: false }; }
 }
