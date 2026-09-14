@@ -63,6 +63,9 @@ import {
   readGuestAdoptionPreparationForVerifiedAnonymousSession,
   claimGuestAdoptionPreparationForAuthenticatedAccount,
   completeGuestAdoptionPreparationForAuthenticatedAccount,
+  bindGuestAdoptionDraftRecoveryForAuthenticatedAccount,
+  recoverDraftBoundGuestAdoptionForAuthenticatedAccount,
+  buildGuestAdoptionDraftIdempotencyKey,
 } from "@/features/create/createGuestAdoptionPreparation";
 
 const session = {
@@ -363,6 +366,27 @@ describe("guest adoption preparation durable lifecycle", () => {
     const claim = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_002 });
     expect(claim).toMatchObject({ ok: true, claim: "Neu" });
     expect(claim).not.toMatchObject({ preparationId: first.ok ? first.preparationId : "" });
+  });
+
+  it("binds draft recovery before save, extends TTL, and preserves the ordinary deadline", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claim = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claim.ok || claim.state !== "claimed") throw new Error("claim failed");
+    const bound = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claim.adoptionId, nowMs: 10_002 });
+    expect(bound).toMatchObject({ ok: true, recoveryExpiresAtMs: session.expiresAtMs });
+    expect((store.document?.expiresAt as Date).getTime()).toBe(session.expiresAtMs);
+    expect(((store.document?.adoption as { recoveryExpiresAt: Date }).recoveryExpiresAt).getTime()).toBe(claim.recoveryExpiresAtMs);
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claim.adoptionId, nowMs: claim.recoveryExpiresAtMs + 1 })).resolves.toMatchObject({ ok: true, claim: "Sicher" });
+    await expect(claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: claim.recoveryExpiresAtMs + 1 })).resolves.toEqual({ ok: false });
+  });
+
+  it("keeps bound recovery account and generation exact", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claim = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claim.ok || claim.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claim.adoptionId, nowMs: 10_002 });
+    await expect(recoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-b", adoptionId: claim.adoptionId, nowMs: 10_003 })).resolves.toEqual({ ok: false });
+    expect(buildGuestAdoptionDraftIdempotencyKey(claim.adoptionId)).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("retains completed replay metadata through the C3A expiry, beyond claim recovery", async () => {
