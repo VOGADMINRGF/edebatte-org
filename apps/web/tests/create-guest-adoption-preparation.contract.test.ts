@@ -65,6 +65,7 @@ import {
   completeGuestAdoptionPreparationForAuthenticatedAccount,
   bindGuestAdoptionDraftRecoveryForAuthenticatedAccount,
   recoverDraftBoundGuestAdoptionForAuthenticatedAccount,
+  discoverDraftBoundGuestAdoptionForAuthenticatedAccount,
   buildGuestAdoptionDraftIdempotencyKey,
 } from "@/features/create/createGuestAdoptionPreparation";
 
@@ -598,6 +599,34 @@ describe("guest adoption preparation durable lifecycle", () => {
     if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
     await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: 10_002 })).resolves.toBe(true);
     expect(store.document).toMatchObject({ adoption: { state: "completed", draftId: "draft-a" } });
+  });
+
+  it("discovers the exact active bound generation after ordinary expiry without a browser locator", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    const bound = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    if (!bound.ok) throw new Error("bind failed");
+    const discovered = await discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: claimed.recoveryExpiresAtMs + 1 });
+    expect(discovered).toEqual({ ok: true, preparationId: claimed.preparationId, adoptionId: claimed.adoptionId, claim: "Sicher", draftIdempotencyKey: bound.draftIdempotencyKey, recoveryExpiresAtMs: session.expiresAtMs });
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: claimed.recoveryExpiresAtMs + 1 })).resolves.toEqual(discovered);
+    expect(((store.document?.adoption as { recoveryExpiresAt: Date }).recoveryExpiresAt).getTime()).toBe(claimed.recoveryExpiresAtMs);
+  });
+
+  it("fails closed for non-owning, wrong-session, malformed, expired, completed, and superseded bound slots", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Alt", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    const at = claimed.recoveryExpiresAtMs + 1;
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-b", nowMs: at })).resolves.toEqual({ ok: false });
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session: { ...session, id: "123e4567-e89b-42d3-a456-426614174099" }, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+    (store.document?.adoption as Record<string, unknown>).draftRecovery = { version: 2, boundAt: new Date(), recoveryExpiresAt: new Date(session.expiresAtMs) };
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+    (store.document?.adoption as Record<string, unknown>).draftRecovery = { version: 1, boundAt: new Date(), recoveryExpiresAt: new Date(session.expiresAtMs) };
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: session.expiresAtMs })).resolves.toEqual({ ok: false });
+    await expect(completeGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, draftId: "draft-a", nowMs: at })).resolves.toBe(true);
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at + 1 })).resolves.toEqual({ ok: false });
   });
 });
 
