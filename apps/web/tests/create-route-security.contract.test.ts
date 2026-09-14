@@ -685,4 +685,32 @@ describe("authenticated create mutation security contract", () => {
     });
     expect(extra?.status).toBe(400);
   });
+
+  it("registers adoption resume with the guest policy and rejects every non-empty body", async () => {
+    const created = createAnonymousSession();
+    expect(created).not.toBeNull();
+    const response = await enforceCreateMutationSecurity({
+      req: request(
+        { cookie: `${CREATE_ANON_SESSION_COOKIE}=${created!.value}`, "x-edebatte-create-client": "client_12345678" },
+        "{}",
+      ),
+      scope: "create_guest_adoption_resume",
+      actorKey: "user:account-a",
+    });
+    expect(response).toBeNull();
+    expect(mocks.consumePersistentRateLimit.mock.calls.map(([value]) => value)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ namespace: "create:create_guest_adoption_resume:actor", limit: 12, windowMs: 600_000 }),
+        expect.objectContaining({ namespace: "create:create_guest_adoption_resume:ip", limit: 30, windowMs: 600_000 }),
+        expect.objectContaining({ namespace: "create:create_guest_adoption_resume:anonymous", limit: 18, windowMs: 600_000 }),
+        expect.objectContaining({ namespace: "create:create_guest_adoption_resume:client", limit: 18, windowMs: 600_000 }),
+      ]),
+    );
+    const rejected = await enforceCreateMutationSecurity({
+      req: request({}, JSON.stringify({ preparationId: "browser-carrier" })),
+      scope: "create_guest_adoption_resume",
+      actorKey: "user:account-a",
+    });
+    expect(rejected?.status).toBe(400);
+  });
 });
