@@ -25,6 +25,7 @@ import {
 } from "@/features/create/createMutationSecurityContract";
 import { buildCreateContributionLedgerEntry } from "@features/create/createContributionLedger";
 import { createEditorialReviewRequest } from "@features/editorialReviewQueue";
+import { scheduleCreateSubmissionNotification } from "@/features/operator/operatorNotifications";
 import type {
   SourceSupport,
   TruthStatus,
@@ -569,6 +570,12 @@ export async function POST(req: NextRequest) {
     }
     finalSave = ledgerSave;
   }
+
+  scheduleCreateSubmissionNotification({
+    draftId: finalSave.draftId,
+    safeText: safety.redactedText,
+    locale: normalizedLocale,
+  });
 
   const responseBody: Record<string, unknown> = {
     ok: true,
