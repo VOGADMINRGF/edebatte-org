@@ -390,3 +390,23 @@ export async function recoverDraftBoundGuestAdoptionForAuthenticatedAccount(inpu
     return normalizedClaim(claim) === claim ? { ok: true, preparationId: doc.preparationId, adoptionId: input.adoptionId, claim, draftIdempotencyKey: key, recoveryExpiresAtMs: doc.adoption.draftRecovery.recoveryExpiresAt.getTime() } : { ok: false };
   } catch { return { ok: false }; }
 }
+
+export async function discoverDraftBoundGuestAdoptionForAuthenticatedAccount(input: { session: CreateAnonymousSession; userId: string; nowMs?: number }): Promise<{ ok: true; preparationId: string; adoptionId: string; claim: string; draftIdempotencyKey: string; recoveryExpiresAtMs: number } | { ok: false }> {
+  const nowMs = input.nowMs ?? Date.now();
+  if (!validUserId(input.userId) || !Number.isSafeInteger(nowMs) || input.session.expiresAtMs <= nowMs) return { ok: false };
+  try {
+    const doc = await (await coreCol<Record<string, unknown>>(COLLECTION)).findOne({
+      anonymousSessionBindingHash: bindingHash(input.session.id), state: "prepared", expiresAt: { $gt: new Date(nowMs) },
+      "adoption.state": "claimed", "adoption.accountBindingHash": accountBindingHash(input.userId),
+      "adoption.draftRecovery.version": 1, "adoption.draftRecovery.boundAt": { $type: "date" },
+      "adoption.draftRecovery.recoveryExpiresAt": { $type: "date", $gt: new Date(nowMs) },
+    });
+    if (!isClaimedPrepared(doc) || !doc.adoption.draftRecovery) return { ok: false };
+    const recoveryExpiresAtMs = doc.adoption.draftRecovery.recoveryExpiresAt.getTime();
+    if (recoveryExpiresAtMs > input.session.expiresAtMs || recoveryExpiresAtMs > doc.expiresAt.getTime()) return { ok: false };
+    const key = buildGuestAdoptionDraftIdempotencyKey(doc.adoption.adoptionId);
+    if (!key) return { ok: false };
+    const claim = decodeAtRestUtf8(decryptAtRest({ purpose: PURPOSE, envelope: doc.encryptedPayload }));
+    return normalizedClaim(claim) === claim ? { ok: true, preparationId: doc.preparationId, adoptionId: doc.adoption.adoptionId, claim, draftIdempotencyKey: key, recoveryExpiresAtMs } : { ok: false };
+  } catch { return { ok: false }; }
+}
