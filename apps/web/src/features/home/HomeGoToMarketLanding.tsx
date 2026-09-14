@@ -13,6 +13,12 @@ type Step = {
   body: string;
 };
 
+type EarlyStage = {
+  number: string;
+  title: string;
+  body: string;
+};
+
 export default function HomeGoToMarketLanding({ experience }: Props) {
   const { locale } = useLocale();
   const de = locale === "de";
@@ -53,6 +59,52 @@ export default function HomeGoToMarketLanding({ experience }: Props) {
         },
       ];
 
+  const earlyStages: EarlyStage[] = de
+    ? [
+        {
+          number: "01",
+          title: "Anliegen",
+          body: "Du musst noch keine fertige Forderung haben. Ein Problem, eine Beobachtung, eine offene Frage oder eine Quelle kann der Anfang sein.",
+        },
+        {
+          number: "02",
+          title: "Verstehen",
+          body: "Kontext, Quellen, Perspektiven, Widersprüche und offene Punkte werden unterscheidbar, bevor vorschnell über eine Lösung entschieden wird.",
+        },
+        {
+          number: "03",
+          title: "Optionen",
+          body: "Aus einem nachvollziehbaren Problemverständnis können unterschiedliche Handlungsoptionen, Prioritäten und Zielkonflikte sichtbar werden.",
+        },
+        {
+          number: "04",
+          title: "Anschluss",
+          body: "Erst danach folgen Beteiligung, Priorisierung und der Übergang zu passenden politischen, gesellschaftlichen oder administrativen Stellen.",
+        },
+      ]
+    : [
+        {
+          number: "01",
+          title: "Concern",
+          body: "You do not need a finished demand. A problem, observation, open question or source can be the starting point.",
+        },
+        {
+          number: "02",
+          title: "Understand",
+          body: "Context, sources, perspectives, contradictions and open questions stay distinguishable before a solution is chosen too quickly.",
+        },
+        {
+          number: "03",
+          title: "Options",
+          body: "A transparent understanding of the problem can surface different options, priorities and trade-offs.",
+        },
+        {
+          number: "04",
+          title: "Connect",
+          body: "Participation, prioritisation and hand-off to appropriate political, civic or administrative actors can follow afterwards.",
+        },
+      ];
+
   return (
     <div className="overflow-hidden bg-[color:var(--background)] text-[color:var(--foreground)]">
       <section className="relative border-b border-[color:var(--border)]">
@@ -63,15 +115,15 @@ export default function HomeGoToMarketLanding({ experience }: Props) {
         <div className="relative mx-auto max-w-[76rem] px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <div className="mx-auto max-w-5xl text-center">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300">
-              {de ? "Dein Anliegen zählt." : "Your concern matters."}
+              {de ? "Beteiligung beginnt vor dem Verfahren." : "Participation starts before the process."}
             </p>
             <h1 className="mt-5 text-balance text-5xl font-black leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
               {de ? "Was sollte sich ändern?" : "What should change?"}
             </h1>
             <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-[color:var(--muted)] sm:text-xl">
               {de
-                ? "Bring ein, was dich beschäftigt – lokal, regional oder überregional. eDebatte hilft, Anliegen nachvollziehbar zu strukturieren und gemeinsam weiterzubringen."
-                : "Bring what matters to you – locally, regionally or beyond. eDebatte helps structure concerns transparently and move them forward together."}
+                ? "Bring ein, was dich beschäftigt – auch wenn Problem, Forderung oder Lösung noch nicht fertig formuliert sind. eDebatte beginnt beim Anliegen und hilft, den nächsten nachvollziehbaren Schritt zu finden."
+                : "Bring what matters to you – even if the problem, demand or solution is not fully formed yet. eDebatte starts with the concern and helps identify the next transparent step."}
             </p>
 
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
@@ -116,6 +168,54 @@ export default function HomeGoToMarketLanding({ experience }: Props) {
               <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">{step.body}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="border-y border-[color:var(--border)] bg-[color:var(--surface)]/35">
+        <div className="mx-auto max-w-[76rem] px-5 py-14 sm:px-8 sm:py-16 lg:px-10">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">
+                {de ? "Beteiligung beginnt früher" : "Participation starts earlier"}
+              </p>
+              <h2 className="mt-3 max-w-xl text-3xl font-black tracking-[-0.03em] sm:text-5xl">
+                {de
+                  ? "Nicht erst mitreden, wenn die Frage schon feststeht."
+                  : "Do not wait until the question has already been framed."}
+              </h2>
+            </div>
+            <div className="border-l-2 border-cyan-400 pl-6">
+              <p className="text-base leading-7 text-[color:var(--muted)]">
+                {de
+                  ? "Viele digitale Beteiligungsangebote sind besonders stark, wenn ein Verfahren, Projekt oder Vorschlag bereits benannt ist. eDebatte setzt noch früher an: beim ungeklärten Anliegen – bevor feststehen muss, welches Problem genau vorliegt oder zwischen welchen Lösungen entschieden werden soll."
+                  : "Many digital participation tools are strongest once a process, project or proposal has already been defined. eDebatte starts earlier: with an unresolved concern, before the exact problem or set of solutions has to be fixed."}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {earlyStages.map((stage) => (
+              <article key={stage.number} className="rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--background)] p-5">
+                <span className="text-xs font-black text-cyan-700 dark:text-cyan-300">{stage.number}</span>
+                <h3 className="mt-3 text-xl font-black">{stage.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-[color:var(--muted)]">{stage.body}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-8 flex flex-col gap-4 rounded-[1.5rem] border border-cyan-500/35 bg-cyan-500/5 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-3xl text-sm leading-6 text-[color:var(--muted)]">
+              {de
+                ? "Citizen-first heißt nicht verwaltungsfern: Kommunen, Behörden, Politik, Wissenschaft und Organisationen bleiben wichtige Wissens-, Verfahrens- und Umsetzungspartner. Sie müssen nur nicht die Voraussetzung dafür sein, dass ein gesellschaftliches Problem überhaupt sichtbar und strukturiert wird."
+                : "Citizen-first does not mean disconnected from institutions: municipalities, public bodies, politics, science and organisations remain important knowledge, process and implementation partners. They simply do not have to be the prerequisite for a public problem to become visible and structured."}
+            </p>
+            <Link
+              href="/warum-edebatte"
+              className="shrink-0 text-sm font-black text-cyan-700 hover:underline dark:text-cyan-300"
+            >
+              {de ? "Warum das anders ist" : "Why this is different"} →
+            </Link>
+          </div>
         </div>
       </section>
 

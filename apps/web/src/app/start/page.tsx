@@ -7,9 +7,9 @@ import { buildHomeStructuredData, buildPublicPageMetadata } from "@/lib/seo/publ
 
 /* page-contract: delegated-h1 */
 
-const HOME_TITLE = "eDebatte – Mitmachen oder eine eigene Frage starten";
+const HOME_TITLE = "eDebatte – Vom Anliegen zur gemeinsamen Agenda";
 const HOME_DESCRIPTION =
-  "Stimme mit ab, ergänze Perspektiven, Quellen oder offene Fragen – oder starte selbst kostenlos eine Frage für andere.";
+  "Demokratische Problemlösung beginnt vor dem Verfahren: Anliegen, Evidenz, Perspektiven und Handlungsoptionen verbinden – von lokal bis global.";
 
 const HOME_STRUCTURED_DATA = JSON.stringify(buildHomeStructuredData());
 

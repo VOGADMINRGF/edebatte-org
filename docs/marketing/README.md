@@ -32,6 +32,12 @@ Vor jeder Kampagne oder Zielgruppenunterlage sind mindestens zu prüfen:
 - `docs/E150/membership_pricing.md`
 - `docs/E150/Part04_B2G_B2B_Models.md`
 
+Für SEO, öffentliche Discovery, internationale Landingpages, Knowledge/Research, Vergleichsseiten, Sitemap/Canonical/Hreflang, Structured Data, IndexNow und öffentliche Dossier-/Community-Indexierung ist zusätzlich verbindlich zu prüfen:
+
+- `seo/SEO_DISCOVERY_CONTRACT_2026-09-03.md`
+
+Der SEO-/Discovery-Contract ist eine Arbeitsprojektion unterhalb von Foundation und Brand Narrative. Er darf keine höhere Produkt- oder Governance-Wahrheit überschreiben.
+
 ## Arbeitsbereiche
 
 - `brand/` — aus dem Repository abgeleitete Marketing-Designsprache
@@ -40,6 +46,7 @@ Vor jeder Kampagne oder Zielgruppenunterlage sind mindestens zu prüfen:
 - `sales/` — Zielgruppenbotschaften, Onepager- und Pitchdeck-Strukturen
 - `social/` — Content-Serien, Social-Formate und Videosystem
 - `voiceopengov/` — Membership- und Partnermarketing innerhalb der bestehenden Decision-Grenzen
+- `seo/` — Free-first SEO, Search-/AI-Discovery, Internationalisierung, Knowledge/Research und indexierbare Public-Content-Architektur
 - `templates/` — wiederverwendbare Briefings und Produktionsvorlagen
 - `admin/` — Zielbild für Marketingsteuerung, BI und CRM-light
 - `schemas/` — anbieterneutrale, maschinenlesbare Datenverträge
@@ -48,6 +55,7 @@ Vor jeder Kampagne oder Zielgruppenunterlage sind mindestens zu prüfen:
 ## Zentrale Verträge
 
 - Marketing-Designsprache: `brand/edebatte-marketing-language.md`
+- SEO & Discovery: `seo/SEO_DISCOVERY_CONTRACT_2026-09-03.md`
 - Kampagnenportfolio: `campaigns/campaign-plan-2026.md`
 - Admin-Steuerung: `admin/marketing-control-plane.md`
 - White-Labeling: `white-label/brand-profile-contract.md`
@@ -68,6 +76,8 @@ Die angelegten eDebatte-Brandprofile stehen im Status `review_ready`. Sie sind a
 8. **Barrierearm und mobil.** Untertitel, Kontrast, verständliche Sprache, reduzierte Bewegung und mobile Lesbarkeit sind Standard.
 9. **Anbieterneutral.** Toolnamen gehören weder in Dateinamen noch in sichtbare Copy, Metadaten oder dauerhafte Datenmodelle.
 10. **Eine operative Wahrheit.** Admin Board, Markdown, Asset-Manifest und Telemetrie werden über IDs und Evidence verbunden, nicht als parallele Datenwelten geführt.
+11. **Free-first Discovery.** SEO-/AEO-/GEO-Arbeit nutzt zuerst freie Standards, First-Party-Webmaster-Werkzeuge und eigene Inhalte. Bezahlte Ranking-/Backlink-/SEO-Abhängigkeiten brauchen eine separate dokumentierte Entscheidung.
+12. **International quality before quantity.** Eine unterstützte UI-Sprache erzeugt nicht automatisch eine indexierbare SEO-Sprachkopie. Neue Sprach-URLs entstehen erst bei echtem hochwertigem Hauptinhalt und sauberem Canonical-/Hreflang-Contract.
 
 ## Freigabestufen
 

@@ -4,9 +4,9 @@ import { buildPublicPageMetadata } from "@/lib/seo/publicDiscovery";
 
 /* page-contract: delegated-h1 */
 
-const HOME_TITLE = "eDebatte – Kostenlos Abstimmungen starten und gemeinsam entscheiden";
+const HOME_TITLE = "eDebatte – Gesellschaftliche Willensbildung vor dem Verfahren";
 const HOME_DESCRIPTION =
-  "Starte kostenlos eine Abstimmung, sammle Positionen und mache sichtbar, was eure Gruppe gemeinsam weiterbringt.";
+  "Vom Anliegen zur gemeinsamen Agenda: Problemklärung, Evidenz, Perspektiven und Handlungsoptionen verbinden – für demokratische Zusammenarbeit von lokal bis global.";
 
 export const metadata: Metadata = {
   ...buildPublicPageMetadata({
