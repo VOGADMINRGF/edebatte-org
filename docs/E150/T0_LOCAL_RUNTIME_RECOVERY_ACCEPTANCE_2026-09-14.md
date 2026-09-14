@@ -78,14 +78,21 @@ Source-Head nicht verfügbar und wurde daher nicht erfunden.
 
 ## Verbleibende Gates
 
-`OPERATOR-NOTIFICATIONS-01` bleibt auf `review`. Sein Branch enthält eine
-separate persistierte Operator-Incident-Notification für Support-Tickets an
-`qa-auth@edebatte.org`; diese Implementierung ist nicht Teil von `main` und
-wurde nicht still übernommen. Auf dem aktuellen Source-Head ist daher
-`OPERATOR_NOTIFICATION_IMPLEMENTATION_PRESENT=false`; die Operator- und
-Support-Ticket-Abnahme lautet `BLOCKED_BY_REVIEW_OWNER`. Die lokale Mailpit-
-Inbox belegt nur die oben genannten Auth-Nachrichten und nicht die noch nicht
-übernommene Operator-Funktion.
+Auf dem Konvergenz-Branch für `OPERATOR-NOTIFICATIONS-01` wurde die lokale
+Mailpit-Abnahme zusätzlich belegt: Ein bewusst lokaler Provider-Ausfall
+erzeugte einen persistierten Support-Ticket-Fall, ein gleich referenziertes
+`support_ticket`-Operator-Ereignis und genau eine QA/Auth-Mail ohne
+Beitragstext. Ein sicherer, redigierter Create-Beitrag lieferte genau eine
+Social-Mail ohne Draft-, User- oder Session-ID. Eine frische UI-Registrierung
+lieferte `register_completed`, genau ein Members-Ereignis und eine Mail mit
+Name, E-Mail und Locale. Der Digest wurde über die bestehende Funktion mit
+einem festen Berlin-18-Uhr-Zeitpunkt einmal zugestellt und für dasselbe Datum
+beim zweiten Lauf idempotent übersprungen.
+
+`OPERATOR-NOTIFICATIONS-01` bleibt bis zur PR- und Human-Review auf `review`.
+Der T0-Task bleibt wegen der unabhängigen
+`DB-MIGRATION-BASELINE-01`-Abhängigkeit `manual_gate`; der konkrete lokale
+Operator-Mail-Blocker ist auf dem Konvergenz-Branch nicht mehr offen.
 
 ## Nicht-Ziele
 
