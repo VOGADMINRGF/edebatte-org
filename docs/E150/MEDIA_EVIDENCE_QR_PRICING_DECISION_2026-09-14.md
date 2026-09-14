@@ -138,11 +138,14 @@ Verpflichtende Angebotsfelder:
 - Betriebs-/SLA-Stufe,
 - menschliche Zusatzleistungen,
 - einmalige Einfuehrungsleistung,
-- Rabattart, Betrag/Prozent, Begruendung und Gueltigkeit,
+- Rabattart, betroffene Preiskomponente, Betrag/Prozent, Begruendung und Gueltigkeit,
 - Preis vor/nach Rabatt, Steuerstatus und Waehrung,
 - verantwortliche Freigabe und Auditspur.
 
-Rabatte bleiben auf hoechstens 30 Prozent begrenzt, component-scoped und zeitlich befristet.
+Rabatte bleiben auf hoechstens 30 Prozent begrenzt, auf eine oder mehrere explizit validierte
+Preiskomponenten begrenzt (`Basispaket`, `Organisation`, `Integration`, `Betrieb/SLA`,
+`menschliche Zusatzleistung` oder `Einfuehrung`) und zeitlich befristet. Ein Rabatt ohne
+Komponentenbezug oder auf den pauschalen Gesamtpreis ist unzulaessig.
 Eine hohe Rabattstufe benoetigt Approval und Audit. Unzulaessige Preisachsen sind insbesondere:
 
 - Anzahl oder Ergebnis von Faktenchecks,
