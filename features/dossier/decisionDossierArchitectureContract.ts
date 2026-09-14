@@ -45,12 +45,14 @@ export type MaterialDimension = Readonly<{ material: boolean; status: "complete"
 export type DecisionBindingSnapshot = Readonly<{ boundRevision: string; materialRevisions: Readonly<Record<string, string>> }>;
 
 export function validateArchitectureOwners(entries: readonly OwnerEntry[]) {
+  const expected = new Set<ArchitectureConcept>(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((entry) => entry.concept));
+  if (entries.length !== expected.size) return false;
   const seen = new Set<ArchitectureConcept>();
   for (const value of entries) {
-    if (!value.canonicalOwner || !value.canonicalReference || !value.t0Responsibility || seen.has(value.concept)) return false;
+    if (!expected.has(value.concept) || !value.canonicalOwner || !value.canonicalReference || !value.t0Responsibility || seen.has(value.concept)) return false;
     seen.add(value.concept);
   }
-  return seen.size === DECISION_DOSSIER_ARCHITECTURE_OWNERS.length;
+  return [...expected].every((concept) => seen.has(concept));
 }
 export function canRender(category: EpistemicCategory, renderedAs: "fact" | "measurement" | "evidence" | "value") {
   if (category === "PROJECTION" && renderedAs === "measurement") return false;
