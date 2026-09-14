@@ -15,22 +15,25 @@ export function SwipesHeaderProgress({
   mode = "active",
 }: SwipesHeaderProgressProps) {
   const isActive = mode === "active";
+  const hasReflectionCheckpoint = isActive && swipeCount >= 5;
 
   return (
-    <header className="relative overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]/80 px-3 py-2 backdrop-blur md:bg-[rgb(var(--card))]/95 md:py-3 md:shadow-[0_16px_45px_rgba(2,6,23,0.18)]">
+    <header className="sticky top-0 z-20 overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 px-3 py-2 backdrop-blur md:relative md:top-auto md:z-auto md:py-3 md:shadow-[0_16px_45px_rgba(2,6,23,0.18)]">
       <div className="pointer-events-none absolute -top-16 right-0 h-32 w-32 rounded-full bg-sky-500/15 blur-2xl" />
       <div className="pointer-events-none absolute -bottom-20 left-8 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl" />
       <div className="flex items-start justify-between gap-3 text-xs">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Mitmachen</p>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
+            {hasReflectionCheckpoint ? "Dein Zwischenstand" : "Mitmachen"}
+          </p>
           {isActive ? (
             <>
               <p className="mt-0.5 text-[15px] font-semibold text-[rgb(var(--fg))] md:mt-1 md:text-base">
                 Deine nächste Frage
               </p>
-              <p className="mt-1 hidden text-[rgb(var(--muted))] sm:block">
-                {swipeCount > 0 ? `${swipeCount} beantwortet · ` : ""}{deckProgressLabel}
-                {sessionCount > 0 ? ` · heute ${sessionCount}` : ""}
+              <p className="mt-1 truncate text-[11px] leading-4 text-[rgb(var(--muted))] sm:text-xs">
+                {swipeCount > 0 ? `${swipeCount} eingeordnet · ` : ""}{deckProgressLabel}
+                <span className="hidden sm:inline">{sessionCount > 0 ? ` · heute ${sessionCount}` : ""}</span>
               </p>
             </>
           ) : (
@@ -47,7 +50,7 @@ export function SwipesHeaderProgress({
         <button
           type="button"
           onClick={onOpenSearch}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-300/60 bg-gradient-to-br from-sky-50 to-cyan-50 text-sky-700 shadow-[0_8px_20px_rgba(14,165,233,0.18)] transition hover:brightness-105 dark:border-sky-400/30 dark:from-sky-500/16 dark:to-cyan-500/10 dark:text-sky-200 md:h-10 md:w-10"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-300/60 bg-gradient-to-br from-sky-50 to-cyan-50 text-sky-700 shadow-[0_8px_20px_rgba(14,165,233,0.18)] transition hover:brightness-105 dark:border-sky-400/30 dark:from-sky-500/16 dark:to-cyan-500/10 dark:text-sky-200 md:h-10 md:w-10"
           aria-label="Thema und Bereich auswählen"
         >
           <SearchIcon />
