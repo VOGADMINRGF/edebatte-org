@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { encodeAtRestUtf8, encryptAtRest } from "@/lib/server/atRestEncryption";
 
 const store = vi.hoisted(() => ({
   document: null as Record<string, unknown> | null,
@@ -641,6 +642,41 @@ describe("guest adoption preparation durable lifecycle", () => {
     recovery.recoveryExpiresAt = new Date(session.expiresAtMs);
     store.document!.expiresAt = new Date(session.expiresAtMs - 1);
     await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+  });
+
+  it("fails closed for missing, corrupt, and non-canonical decrypted ciphertext", async () => {
+    await prepareGuestAdoptionPreparation({ session, claim: "Sicher", nowMs: 10_000 });
+    const claimed = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session, userId: "account-a", nowMs: 10_001 });
+    if (!claimed.ok || claimed.state !== "claimed") throw new Error("claim failed");
+    await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session, userId: "account-a", adoptionId: claimed.adoptionId, nowMs: 10_002 });
+    const at = claimed.recoveryExpiresAtMs + 1;
+    const doc = store.document!;
+    const payload = doc.encryptedPayload;
+    delete doc.encryptedPayload;
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+    doc.encryptedPayload = { bad: true };
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+    doc.encryptedPayload = encryptAtRest({ purpose: "create.guest-adoption-preparation", plaintext: encodeAtRestUtf8(" Sicher ") });
+    await expect(discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session, userId: "account-a", nowMs: at })).resolves.toEqual({ ok: false });
+    doc.encryptedPayload = payload;
+  });
+
+  it("discovers only the replacement generation after real expired bound reprepare", async () => {
+    const short = { ...session, expiresAtMs: 20_000 };
+    await prepareGuestAdoptionPreparation({ session: short, claim: "Alt", nowMs: 10_000 });
+    const old = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session: short, userId: "account-a", nowMs: 10_001 });
+    if (!old.ok || old.state !== "claimed") throw new Error("old claim failed");
+    const oldBound = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session: short, userId: "account-a", adoptionId: old.adoptionId, nowMs: 10_002 });
+    if (!oldBound.ok) throw new Error("old bind failed");
+    const renewed = { ...short, expiresAtMs: 30_000 };
+    await prepareGuestAdoptionPreparation({ session: renewed, claim: "Neu", nowMs: 20_000 });
+    const current = await claimGuestAdoptionPreparationForAuthenticatedAccount({ session: renewed, userId: "account-a", nowMs: 20_001 });
+    if (!current.ok || current.state !== "claimed") throw new Error("current claim failed");
+    const currentBound = await bindGuestAdoptionDraftRecoveryForAuthenticatedAccount({ session: renewed, userId: "account-a", adoptionId: current.adoptionId, nowMs: 20_002 });
+    if (!currentBound.ok) throw new Error("current bind failed");
+    const discovered = await discoverDraftBoundGuestAdoptionForAuthenticatedAccount({ session: renewed, userId: "account-a", nowMs: 20_003 });
+    expect(discovered).toMatchObject({ ok: true, adoptionId: current.adoptionId, draftIdempotencyKey: currentBound.draftIdempotencyKey });
+    expect(discovered).not.toMatchObject({ adoptionId: old.adoptionId, draftIdempotencyKey: oldBound.draftIdempotencyKey });
   });
 });
 
