@@ -1,6 +1,6 @@
 # T0 Local Runtime Recovery and Acceptance — 2026-09-14
 
-Status: **teilweise durchgeführt; verbleibende Abnahme-Gates manuell**
+Status: **lokale Auth-, SMTP- und Create-Abnahme durchgeführt; Operator-Notification bleibt Review-Gate**
 
 ## Lokaler Stack
 
@@ -36,18 +36,56 @@ die signierte anonyme Session absichtlich `CREATE_SESSION_UNAVAILABLE`.
 | Gast-UI | wahrheitsgemäßer Annahmestatus, kein Ticket- oder Erfolgsvortäuschen |
 | Persistenter Rate Limiter | aktiv gegen lokalen Core-Mongo; nicht durch In-Memory-Fallback ersetzt |
 
-## Verbleibende Gates
+## Auth, lokaler SMTP und geschützter Create-Pfad
 
-Die frische lokale Core-Datenbank enthält keine Benutzer. Es liegen keine
-dedizierten lokalen Testkonto-/Passwort-/2FA-Daten vor. Deshalb wurden weder
-Login/2FA noch Save, Intelligent Follow-up, Support-Ticket-Persistenz oder
-Post-Login-Transition als bestanden behauptet.
+Der optionale lokale Compose-Service `mailpit` wurde als SMTP-Sink auf
+`127.0.0.1:1025` ergänzt; seine ausschließlich lokale Inbox ist über
+`http://localhost:8025` erreichbar. Der Sink war zur Abnahme erreichbar
+(`v1.21.8`) und enthielt die real zugestellten Registrierungs-,
+Identitäts- und Login-Nachrichten. Es wurden weder Demo-Codes noch
+fest verdrahtete OTPs verwendet.
+
+Ein frisches lokales Konto `qa-auth@edebatte.org` wurde ausschließlich über
+die Registrierungsoberfläche angelegt. Der Browser-Human-Check und
+`POST /api/auth/register` lieferten `200` beziehungsweise `201`. Der über
+Mailpit zugestellte Bestätigungslink aktivierte die E-Mail; anschließend wurde
+der per Mailpit zugestellte Identitätscode über die normale
+`/register/identity`-Oberfläche bestätigt. Die E-Mail-2FA-Einrichtung endete
+mit `POST /api/auth/identity/email/start` `200` und
+`POST /api/auth/identity/email/verify` `200`.
+
+In einem neuen Browser-Kontext führte der Login mit frischem, per Mailpit
+zugestelltem Login-Code ohne Hard Refresh direkt zu `/create`.
+`POST /api/auth/login` und `POST /api/auth/verify-2fa` waren jeweils `200`;
+die HttpOnly-Claims einschließlich `session_token` und `u_2fa` lagen vor.
+Die gemessene lokale Login-bis-Zielroute-Laufzeit betrug 4.246 ms.
+
+Der authentifizierte Beitrag
+„Die Rentenbeiträge steigen immer weiter. Wir sollten endlich das Rentenalter
+auf 70 erhöhen.“ wurde nach dem sichtbaren Datenschutz-Checkpoint über die
+normale `/create`-Oberfläche verarbeitet. `POST /api/create/save`,
+`/api/create/intelligent-followup` und `/api/create/context` lieferten `200`.
+Der erzeugte `drafts`-Eintrag gehört dem QA-User; sein Einordnungs-Claim
+referenziert dessen `draftId`. Die Einordnung zeigte Thema/Einordnung an;
+es wurde nichts automatisch veröffentlicht.
+
+Die Gastregression wurde anschließend in einem frischen Browserkontext erneut
+gestartet. PostgreSQL (`5433`), Redis (`6379`) und `/api/topics?locale=de`
+(`200`) blieben dabei erreichbar. Die vorhandene sichere Gast-Session- und
+Intake-Prüfung wurde nicht gelockert. Ein separater kontrollierter
+Create-Fehlerpfad mit vorgegebener sicherer Simulation ist auf diesem
+Source-Head nicht verfügbar und wurde daher nicht erfunden.
+
+## Verbleibende Gates
 
 `OPERATOR-NOTIFICATIONS-01` bleibt auf `review`. Sein Branch enthält eine
 separate persistierte Operator-Incident-Notification für Support-Tickets an
 `qa-auth@edebatte.org`; diese Implementierung ist nicht Teil von `main` und
-wurde nicht still übernommen. Reale Inbox-Zustellung benötigt zusätzlich einen
-lokalen SMTP-Provider und einen menschlich prüfbaren Empfangsnachweis.
+wurde nicht still übernommen. Auf dem aktuellen Source-Head ist daher
+`OPERATOR_NOTIFICATION_IMPLEMENTATION_PRESENT=false`; die Operator- und
+Support-Ticket-Abnahme lautet `BLOCKED_BY_REVIEW_OWNER`. Die lokale Mailpit-
+Inbox belegt nur die oben genannten Auth-Nachrichten und nicht die noch nicht
+übernommene Operator-Funktion.
 
 ## Nicht-Ziele
 

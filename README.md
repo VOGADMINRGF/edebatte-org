@@ -67,8 +67,13 @@ nicht, dass Infrastruktur-Container ohne eine Root-`.env` gestartet werden.
 ```bash
 nvm use 20.20.2
 brew services start postgresql@14
-docker compose up -d mongo redis
+docker compose up -d mongo redis mailpit
 ```
+
+Mailpit ist ausschließlich der lokale SMTP-Sink: Die App verbindet sich über
+`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` und `SMTP_SECURE=false`; die lokale
+Inbox ist unter `http://localhost:8025` erreichbar. Zugangsdaten oder
+Produktions-SMTP-Werte gehören nicht in die lokale Abnahme.
 
 Für einen neuen, ausschließlich lokalen PostgreSQL-Cluster muss die in
 `apps/web/.env.example` dokumentierte Entwicklungsrolle `dev` samt Datenbank
