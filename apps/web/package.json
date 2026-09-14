@@ -23,7 +23,7 @@
     "test:production-publish-guardrails": "pnpm exec vitest run tests/participation-space-publish-workflow.test.ts tests/participation-space-publish-admin.test.tsx tests/dossier-publish-workflow.test.ts tests/dossier-publish-admin.test.tsx tests/anlassraum-activation-workflow.test.ts tests/anlassraum-activation-admin.test.tsx",
     "test:production-guardrails": "pnpm run test:production-public-routes && pnpm run test:production-admin-review && pnpm run test:production-publish-guardrails",
     "ai:provider-smoke": "pnpm exec tsx scripts/ai-provider-smoke.ts",
-    "render:voxy-homepage-reference-films": "pnpm exec tsx scripts/render-voxy-homepage-reference-films.ts",
+    "render:voxy-homepage-reference-films": "pnpm exec tsx scripts/render-voxy-final-canon.ts",
     "render:voxy-homepage-multiformat-previews": "pnpm exec tsx scripts/render-voxy-homepage-multiformat-previews.ts",
     "prisma:generate": "node ./scripts/prisma-generate-all.mjs",
     "postinstall": "pnpm run prisma:generate",
