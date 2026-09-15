@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canPresentAsVerifiedFact, canPresentAsVerifiedMeasurement, canRender, compareMetricDefinitions, countIndependentEvidenceFamilies, countVerifiedIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasCanonicalVerifiedEvidence, hasRequiredProvenance, isBindingStale, mapCanonicalClaimSemantic, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type CanonicalEvidenceResolution, type EpistemicCategory, type MaterialDimension, type MetricDefinition, type OwnerEntry, type StructuredProvenance } from "@features/dossier/decisionDossierArchitectureContract";
+import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_CLAIM_FORM_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canPresentAsVerifiedFact, canPresentAsVerifiedMeasurement, canRenderClaimForm, compareMetricDefinitions, countStructuralLineageRoots, countVerifiedIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasCanonicalVerifiedEvidence, hasRequiredProvenance, isBindingStale, mapCanonicalAtomicClaimType, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type CanonicalEvidenceResolution, type EpistemicCategory, type MaterialDimension, type MetricDefinition, type OwnerEntry, type StructuredProvenance } from "@features/dossier/decisionDossierArchitectureContract";
 
 const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", basisReference: null, reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
-const resolution: CanonicalEvidenceResolution = { canonicalOwner: "AtomicClaim/EvidenceAssessment", evidenceReference: "evidence-1", relationStatus: "resolved", assessmentStatus: "supported", reviewStatus: "verified", freshnessStatus: "verified_fresh", conflictStatus: "none", revision: "evidence-r1", resolutionReceiptReference: "receipt-1" };
+const resolution: CanonicalEvidenceResolution = { canonicalOwner: "AtomicClaim/EvidenceAssessment", publicationClassification: "publishable_as_externally_verified_fact", evidenceReference: "evidence-1", relationStatus: "resolved", assessmentStatus: "supported", reviewStatus: "verified", freshnessStatus: "verified_fresh", conflictStatus: "none", revision: "evidence-r1", resolutionReceiptReference: "receipt-1" };
 const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], evidenceResolution: resolution, reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
 const completeSet = () => REQUIRED_DECISION_DIMENSIONS.map(complete);
 
@@ -37,14 +37,15 @@ describe("decision dossier T0 architecture contract", () => {
   });
 
   it("uses an exhaustive matrix with no permissive fallback", () => {
-    expect(Object.keys(EPISTEMIC_COMPATIBILITY_MATRIX).sort()).toEqual([...EPISTEMIC_CATEGORIES].sort());
-    for (const category of EPISTEMIC_CATEGORIES) expect(canRender(category, "fact")).toBe(category === "FACT");
-    expect(canRender("PROJECTION", "measurement")).toBe(false); expect(canRender("MODEL_RESULT", "measurement")).toBe(false); expect(canRender("ESTIMATE", "measurement")).toBe(false);
-    expect(canRender("NORMATIVE_JUDGMENT", "fact")).toBe(false); expect(canRender("OPINION", "fact")).toBe(false); expect(canRender("OPINION", "evidence")).toBe(false);
-    expect(canRender("UNKNOWN", "fact")).toBe(false); expect(canRender("UNKNOWN", "measurement")).toBe(false); expect(canRender("UNKNOWN", "evidence")).toBe(false);
+    expect(Object.keys(EPISTEMIC_CLAIM_FORM_COMPATIBILITY_MATRIX).sort()).toEqual([...EPISTEMIC_CATEGORIES].sort());
+    for (const category of EPISTEMIC_CATEGORIES) expect(canRenderClaimForm(category, "factual_claim")).toBe(category === "FACT");
+    expect(canRenderClaimForm("PROJECTION", "measurement")).toBe(false); expect(canRenderClaimForm("MODEL_RESULT", "measurement")).toBe(false); expect(canRenderClaimForm("ESTIMATE", "measurement")).toBe(false);
+    expect(canRenderClaimForm("NORMATIVE_JUDGMENT", "factual_claim")).toBe(false); expect(canRenderClaimForm("OPINION", "factual_claim")).toBe(false); expect(canRenderClaimForm("OPINION", "evidence")).toBe(false);
+    expect(canRenderClaimForm("UNKNOWN", "factual_claim")).toBe(false); expect(canRenderClaimForm("UNKNOWN", "measurement")).toBe(false); expect(canRenderClaimForm("UNKNOWN", "evidence")).toBe(false);
   });
   it("separates factual claim form from verified public presentation", () => {
-    expect(mapCanonicalClaimSemantic("factual_claim")).toBe("FACT");
+    expect(canRenderClaimForm("FACT", "factual_claim")).toBe(true);
+    expect(mapCanonicalAtomicClaimType("factual_claim")).toBe("FACT");
     expect(canPresentAsVerifiedFact("FACT", undefined)).toBe(false);
     expect(canPresentAsVerifiedFact("FACT", { ...resolution, relationStatus: "unresolved" })).toBe(false);
     expect(canPresentAsVerifiedFact("FACT", { ...resolution, conflictStatus: "open" })).toBe(false);
@@ -164,7 +165,7 @@ describe("decision dossier T0 architecture contract", () => {
   });
 
   it("derives one source family and separates fact from value", () => {
-    expect(countIndependentEvidenceFamilies([{ id: "study", parentId: null }, { id: "agency", parentId: "study" }, { id: "repost", parentId: "agency" }])).toEqual({ status: "ok", independentFamilies: 1 });
+    expect(countStructuralLineageRoots([{ id: "study", parentId: null }, { id: "agency", parentId: "study" }, { id: "repost", parentId: "agency" }])).toEqual({ status: "ok", structuralRoots: 1 });
   });
   it("never treats absent lineage as verified independent corroboration", () => {
     const roots = [{ id: "study-a", parentId: null }, { id: "study-b", parentId: null }];
@@ -177,18 +178,18 @@ describe("decision dossier T0 architecture contract", () => {
     expect(t0CanReleasePublicCandidate()).toBe(false);
   });
   it("fails closed for all malformed lineages and accepts deterministic chains", () => {
-    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: null }, { id: "b", parentId: null }])).toEqual({ status: "ok", independentFamilies: 2 });
-    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: "missing" }])).toEqual({ status: "invalid", reason: "missing_parent" });
-    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: "a" }])).toEqual({ status: "invalid", reason: "self_parent" });
-    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: "b" }, { id: "b", parentId: "a" }])).toEqual({ status: "invalid", reason: "cycle" });
-    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: null }, { id: "a", parentId: null }])).toEqual({ status: "invalid", reason: "duplicate_id" });
-    expect(countIndependentEvidenceFamilies([{ id: "", parentId: null }])).toEqual({ status: "invalid", reason: "empty_id" });
+    expect(countStructuralLineageRoots([{ id: "a", parentId: null }, { id: "b", parentId: null }])).toEqual({ status: "ok", structuralRoots: 2 });
+    expect(countStructuralLineageRoots([{ id: "a", parentId: "missing" }])).toEqual({ status: "invalid", reason: "missing_parent" });
+    expect(countStructuralLineageRoots([{ id: "a", parentId: "a" }])).toEqual({ status: "invalid", reason: "self_parent" });
+    expect(countStructuralLineageRoots([{ id: "a", parentId: "b" }, { id: "b", parentId: "a" }])).toEqual({ status: "invalid", reason: "cycle" });
+    expect(countStructuralLineageRoots([{ id: "a", parentId: null }, { id: "a", parentId: null }])).toEqual({ status: "invalid", reason: "duplicate_id" });
+    expect(countStructuralLineageRoots([{ id: "", parentId: null }])).toEqual({ status: "invalid", reason: "empty_id" });
     const chain = Array.from({ length: 512 }, (_, index) => ({ id: `source-${index}`, parentId: index === 0 ? null : `source-${index - 1}` }));
-    expect(countIndependentEvidenceFamilies(chain)).toEqual({ status: "ok", independentFamilies: 1 });
+    expect(countStructuralLineageRoots(chain)).toEqual({ status: "ok", structuralRoots: 1 });
   });
   it("maps canonical semantics without inspecting German, English, or French text", () => {
-    expect(["Der Beitragssatz beträgt 18,6 %.", "The contribution rate is 18.6%.", "Le taux est de 18,6 %."].map(() => mapCanonicalClaimSemantic("quantified_fact"))).toEqual(["FACT", "FACT", "FACT"]);
-    expect(mapCanonicalClaimSemantic("normative_position")).toBe("NORMATIVE_JUDGMENT"); expect(mapCanonicalClaimSemantic("prediction")).toBe("PROJECTION");
+    expect(["Der Beitragssatz beträgt 18,6 %.", "The contribution rate is 18.6%.", "Le taux est de 18,6 %."].map(() => mapCanonicalAtomicClaimType("quantified_claim"))).toEqual(["FACT", "FACT", "FACT"]);
+    expect(mapCanonicalAtomicClaimType("normative_position")).toBe("NORMATIVE_JUDGMENT"); expect(mapCanonicalAtomicClaimType("prediction")).toBe("PROJECTION");
   });
   it("tests every owner field and semantic reference ordering", () => {
     const base = DECISION_DOSSIER_ARCHITECTURE_OWNERS[0]; const mutate = (patch: object) => expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((x, i) => i ? x : { ...x, ...patch }))).toBe(false);
@@ -206,6 +207,6 @@ describe("decision dossier T0 architecture contract", () => {
 
   it("is a pure contract without runtime imports", () => {
     const source = readFileSync(path.resolve(process.cwd(), "../../features/dossier/decisionDossierArchitectureContract.ts"), "utf8");
-    expect(source).not.toMatch(/^import\s/m); expect(source).not.toMatch(/(?:prisma|mongo|redis|fetch\(|axios|queue|next\/|process\.env)/i);
+    expect(source).toMatch(/^import type \{/m); expect(source).not.toMatch(/^import(?! type )/m); expect(source).not.toMatch(/(?:prisma|mongo|redis|fetch\(|axios|queue|next\/|process\.env)/i);
   });
 });

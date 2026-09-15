@@ -30,7 +30,7 @@ For every check below, tick exactly one result: [ ] PASS  [ ] FAIL.
 
 | What this means | Example input | Expected result | Owner result |
 | --- | --- | --- | --- |
-| Quantified factual claims remain factual-claim form | “Der Beitragssatz beträgt 18,6 %.”; canonical semantic `quantified_fact` | Not presented as a verified fact without canonical verified-evidence resolution; never opinion, value or projection | [ ] PASS [ ] FAIL |
+| Quantified factual claims remain factual-claim form | “Der Beitragssatz beträgt 18,6 %.”; canonical semantic `quantified_claim` | Not presented as a verified fact without canonical verified-evidence resolution; never opinion, value or projection | [ ] PASS [ ] FAIL |
 | A projection stays a projection | “Der Beitragssatz könnte 2040 bei 22 % liegen.”; `prediction` | Projection claim-form, never a verified measurement without canonical resolution | [ ] PASS [ ] FAIL |
 | A value judgment stays normative | “22 % wäre gerecht.”; `normative_position` | Normative claim-form, never a factual-claim category or verified fact | [ ] PASS [ ] FAIL |
 | Unknown remains visible | Unknown source/state | UNKNOWN; extra text, citations or raw references never promote it to a verified fact | [ ] PASS [ ] FAIL |
