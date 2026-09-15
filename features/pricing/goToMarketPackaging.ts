@@ -11,6 +11,7 @@ export const GO_TO_MARKET_PACKAGING = {
     discountPercent: 50,
     inquiryOnly: true,
     checkoutIsAvailable: false,
+    publishedPricesAreAvailable: true,
     publicFactsRemainFree: true,
     firstEngagementOnly: true,
     recurringDiscountScope: "first_month_only",
