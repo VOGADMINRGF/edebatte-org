@@ -21,6 +21,8 @@ jobs:
       BROWSERSLIST_IGNORE_OLD_DATA: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.17.1
@@ -32,6 +34,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: git diff --check
+      - run: node scripts/ci/check-repository-integrity-guards.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+      - run: pnpm -C apps/web run test:repository-integrity-guards
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
