@@ -26,10 +26,18 @@ describe("GO-TO-MARKET-01 homepage contract", () => {
     expect(html).toContain("Auch für Initiativen, Vereine, Kommunen und Organisationen.");
     expect(html).toContain("Nichts geht automatisch online");
     expect(html).toContain("Voxy bleibt optional");
+    expect(html).toContain("Aus komplexen Themen werden belastbare Entscheidungsgrundlagen.");
+    expect(html).toContain("Founding 100");
+    expect(html).toContain("50 % auf den ersten Auftrag");
+    expect(html).toContain("Fakten bleiben Fakten. Bezahlt wird für individuelle Arbeit.");
+    expect(html).toContain('href="/pricing/institutionen/decision-intelligence"');
     expect(html).toContain('href="/create"');
     expect(html).toContain('href="/swipes"');
     expect(html.indexOf("Anliegen einbringen")).toBeLessThan(
       html.indexOf("Auch für Initiativen, Vereine, Kommunen und Organisationen."),
+    );
+    expect(html.indexOf("Was sollte sich ändern?")).toBeLessThan(
+      html.indexOf("Founding 100"),
     );
     expect(html).not.toContain("Mitarbeiter-, Kunden- oder Mitgliederperspektiven");
     expect(html).not.toContain("Anlassraum");
@@ -45,6 +53,21 @@ describe("GO-TO-MARKET-01 homepage contract", () => {
       guidelineIsHardLimit: false,
       checkoutIsAvailable: false,
       publishedPricesAreAvailable: false,
+    });
+    expect(GO_TO_MARKET_PACKAGING.foundingDecisionIntelligence).toMatchObject({
+      acceptedEngagementLimit: 100,
+      discountPercent: 50,
+      inquiryOnly: true,
+      checkoutIsAvailable: false,
+      publicFactsRemainFree: true,
+      firstEngagementOnly: true,
+      recurringDiscountScope: "first_month_only",
+    });
+    expect(GO_TO_MARKET_PACKAGING.foundingDecisionIntelligence.products).toMatchObject({
+      decisionDossier: { listPriceEur: 990, foundingPriceEur: 495 },
+      threeDossierPilot: { listPriceEur: 2_490, foundingPriceEur: 1_245 },
+      topicIntelligence: { listPriceEur: 1_490, foundingPriceEur: 745 },
+      proIntelligence: { listPriceEur: 2_990, foundingPriceEur: 1_495 },
     });
     expect(GO_TO_MARKET_TEMPLATES).toHaveLength(5);
     expect(GO_TO_MARKET_TEMPLATES[0]?.title.de).toBe("Prioritäten gemeinsam klären");
