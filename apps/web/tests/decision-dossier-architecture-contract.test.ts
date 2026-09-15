@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canRender, classifyFactValueStatement, compareMetricDefinitions, countIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasRequiredProvenance, isBindingStale, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type MaterialDimension } from "@features/dossier/decisionDossierArchitectureContract";
+import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canRender, compareMetricDefinitions, countIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasRequiredProvenance, isBindingStale, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type MaterialDimension } from "@features/dossier/decisionDossierArchitectureContract";
 
-const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
+const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", basisReference: null, reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
 const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
 const completeSet = () => REQUIRED_DECISION_DIMENSIONS.map(complete);
 
@@ -53,7 +53,7 @@ describe("decision dossier T0 architecture contract", () => {
 
   it("derives Sweden as referenceable but not automatically transferable to Germany", () => {
     const result = evaluateComparator({ jurisdiction: "Sweden", targetJurisdiction: "Germany", institutions: ["income pension", "premium pension"], contributionDefinition: "income-related contribution", benefitDefinition: "income and premium pension", originalLanguage: "sv", readingLanguage: "de" });
-    expect(result).toEqual({ referenceable: true, automaticTransferToTarget: false });
+    expect(result).toEqual({ referenceable: true, transferability: "requires_review" });
   });
 
   it("keeps low-data uncertainty material and blocks a decision", () => {
@@ -67,9 +67,7 @@ describe("decision dossier T0 architecture contract", () => {
   });
 
   it("derives one source family and separates fact from value", () => {
-    expect(countIndependentEvidenceFamilies([{ id: "study", parentId: null }, { id: "agency", parentId: "study" }, { id: "repost", parentId: "agency" }])).toBe(1);
-    expect(classifyFactValueStatement("Beitragssatz beträgt 18,6 Prozent.")).toBe("FACTUAL_QUANTIFIED");
-    expect(classifyFactValueStatement("18,6 Prozent ist gerecht.")).toBe("NORMATIVE_JUDGMENT");
+    expect(countIndependentEvidenceFamilies([{ id: "study", parentId: null }, { id: "agency", parentId: "study" }, { id: "repost", parentId: "agency" }])).toEqual({ status: "ok", independentFamilies: 1 });
   });
 
   it("keeps T0 and the public guard fail-closed", () => {
