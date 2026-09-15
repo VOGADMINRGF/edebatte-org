@@ -61,6 +61,17 @@ Vor der Einführung eines neuen Services, Datenmodells, Endpunkts, Workflows ode
 
 Neue Parallelpfade ohne dokumentierte Migrationsentscheidung sind nicht zulässig.
 
+### Kanonische Domain Ownership
+
+`features/*` besitzt die shared-, Domain- und Business-Contracts sowie die
+kanonische Fachwahrheit einer Feature-Domain. `apps/web/src/features/*` besitzt
+nur Web-UI, Adapter, Runtime-Bridges und Readmodels. Existiert
+`features/<domain>/`, darf unter `apps/web/src/features/<domain>/` kein neuer
+kanonischer Domain-Contract, keine doppelte Implementierung und keine zweite
+Fachwahrheit entstehen. Neue Web-Dateien in einem solchen Domainpfad werden
+explizit als `ui`, `adapter`, `runtime-bridge` oder `readmodel` klassifiziert;
+historische Pfadschulden werden separat inventarisiert statt still migriert.
+
 ## 3. Dokumentation als Teil der Implementierung
 
 Ändert eine Implementierung Verhalten, Routing, Rollen, Begriffe, Datenwahrheit, Kommunikation oder Architektur, müssen die relevanten Dokumente im selben Slice aktualisiert werden.
@@ -96,6 +107,18 @@ Ein System darf keinen Erfolg vortäuschen, wenn eine Operation nicht nachweisba
 Bei relevanten Inhalten und KI-Ausgaben werden – soweit technisch und rechtlich möglich – Herkunft, Zeitpunkt, Quelle, Verarbeitungsschritte, Sprache und Unsicherheit erhalten.
 
 Zusammenfassungen dürfen den Quellenbezug nicht stillschweigend verlieren. Übersetzungen dürfen eine Aussage nicht sicherer oder eindeutiger erscheinen lassen als das Original.
+
+### Geschützte Dokumente und vollständige Evidenz
+
+Für `*_PREFLIGHT_*.md`, `*_AUDIT_*.md`, `*_CLOSURE_*.md`, kanonische Runbooks,
+Architektur-/Security-Evidenz und Dokumente des Foundation-Canons gilt:
+Bestehende Evidenz darf korrigiert, erweitert oder durch eine klar referenzierte
+Ersatzquelle superseded werden, aber nicht still durch eine kürzere
+Zusammenfassung ersetzt werden. **SUMMARY != REPLACEMENT.** Die Entfernung
+erforderlicher Abschnitte braucht explizit `DOCUMENT_REWRITE_AUTHORIZED=true`,
+eine belastbare Begründung und eine Replacement-/Supersession-Referenz. Die CI
+prüft bei geänderten geschützten Dokumenten gegen den Merge-Base die erhaltene
+Abschnittsstruktur; sie ersetzt keine fachliche Review der Evidenz.
 
 ## 7. Mehrsprachigkeit als Systemvertrag
 
