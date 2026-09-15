@@ -155,6 +155,25 @@ Eine hohe Rabattstufe benoetigt Approval und Audit. Unzulaessige Preisachsen sin
 - Abstimmungs-, Ranking- oder Debattenausgang,
 - Community-Signalhoehe oder Hinweisgebermaterial.
 
+### 6.1 Eng begrenzte Founding-100-Ausnahme
+
+Die Projektentscheidung `FOUNDING_100_DECISION_INTELLIGENCE_DECISION_2026-09-15.md` autorisiert
+fuer genau die dort benannten Decision-Intelligence-Pakete eine einmalige Ausnahme vom allgemeinen
+30-Prozent-Rabattdeckel. Fuer die ersten 100 angenommenen professionellen Auftraege darf der
+Founding-Preis 50 Prozent unter dem dort dokumentierten Listenpreis liegen.
+
+Die Ausnahme gilt nicht als neue allgemeine Rabattregel:
+
+- bei Einmalpaketen nur fuer den ersten beauftragten Founding-100-Auftrag,
+- bei laufenden Paketen nur fuer den ersten Monat,
+- nur fuer die zentral konfigurierten Founding-100-Decision-Intelligence-Pakete,
+- ohne Checkout-Aktivierung,
+- ohne Rabatt auf Faktenstatus, Evidenzstatus, Review-Ergebnis oder politische Gewichtung.
+
+Alle anderen institutionellen Rabatte bleiben an den allgemeinen Hoechstwert von 30 Prozent und
+die oben genannten Komponenten-/Approvalregeln gebunden. Eine exakte oeffentliche Restplatz-Zahl
+darf erst angezeigt werden, wenn dafuer eine verlaessliche Source of Truth existiert.
+
 ## 7. Implementierungsgrenzen
 
 Diese Entscheidung aktiviert keine Runtime, keinen Provider, keinen Checkout und keinen
