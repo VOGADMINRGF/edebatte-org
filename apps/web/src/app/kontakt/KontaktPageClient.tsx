@@ -39,7 +39,7 @@ export default function KontaktPageClient({
             <p className="text-sm leading-relaxed text-[rgb(var(--muted))] md:text-base">
               {professionalOfferLabel
                 ? t(
-                    `Du interessierst dich für ${professionalOfferLabel}. Die Auswahl ist im Formular bereits vorgemerkt.`,
+                    `Du interessierst dich für ${professionalOfferLabel}. Schreib uns kurz, welches Thema oder welchen Einsatz du im Blick hast.`,
                     "professional.lead",
                   )
                 : t("Per Formular oder direkt per E-Mail.", "lead")}
@@ -85,12 +85,7 @@ export default function KontaktPageClient({
             </div>
           </section>
 
-          <KontaktForm
-            sent={sent}
-            error={error}
-            challenge={challenge}
-            professionalOfferLabel={professionalOfferLabel}
-          />
+          <KontaktForm sent={sent} error={error} challenge={challenge} />
 
           <div className="mt-6 text-center text-xs text-[rgb(var(--muted))]">
             {t(
