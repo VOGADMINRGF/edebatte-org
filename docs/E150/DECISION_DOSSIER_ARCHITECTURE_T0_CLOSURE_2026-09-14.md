@@ -66,3 +66,12 @@ structured provenance, reviewed materiality, complete required dimensions and
 two-way material-dependency staleness. Its fixtures execute contract logic rather
 than asserting fixture literals. `OWNER_ACCEPTANCE=false` and `T0_GLOBAL_DONE=false`.
 CI and architecture review remain required; no runtime or production completion is claimed.
+
+## Epistemic trust boundary repair
+
+T0 performs structural validation only. A factual claim form is never a
+verified fact: verified factual or measurement presentation and material
+decision readiness require a non-persisted resolution receipt from the existing
+`AtomicClaim`/`EvidenceAssessment` owner. Raw reference strings, review labels,
+freshness labels, root records and repetition do not establish verification or
+independence. Unknown source-family independence remains fail-closed.

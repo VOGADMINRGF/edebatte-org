@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canRender, compareMetricDefinitions, countIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasRequiredProvenance, isBindingStale, mapCanonicalClaimSemantic, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type EpistemicCategory, type MaterialDimension, type MetricDefinition, type OwnerEntry, type StructuredProvenance } from "@features/dossier/decisionDossierArchitectureContract";
+import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canPresentAsVerifiedFact, canPresentAsVerifiedMeasurement, canRender, compareMetricDefinitions, countIndependentEvidenceFamilies, countVerifiedIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasCanonicalVerifiedEvidence, hasRequiredProvenance, isBindingStale, mapCanonicalClaimSemantic, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type CanonicalEvidenceResolution, type EpistemicCategory, type MaterialDimension, type MetricDefinition, type OwnerEntry, type StructuredProvenance } from "@features/dossier/decisionDossierArchitectureContract";
 
 const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", basisReference: null, reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
-const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
+const resolution: CanonicalEvidenceResolution = { canonicalOwner: "AtomicClaim/EvidenceAssessment", evidenceReference: "evidence-1", relationStatus: "resolved", assessmentStatus: "supported", reviewStatus: "verified", freshnessStatus: "verified_fresh", conflictStatus: "none", revision: "evidence-r1", resolutionReceiptReference: "receipt-1" };
+const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], evidenceResolution: resolution, reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
 const completeSet = () => REQUIRED_DECISION_DIMENSIONS.map(complete);
 
 describe("decision dossier T0 architecture contract", () => {
@@ -41,6 +42,22 @@ describe("decision dossier T0 architecture contract", () => {
     expect(canRender("PROJECTION", "measurement")).toBe(false); expect(canRender("MODEL_RESULT", "measurement")).toBe(false); expect(canRender("ESTIMATE", "measurement")).toBe(false);
     expect(canRender("NORMATIVE_JUDGMENT", "fact")).toBe(false); expect(canRender("OPINION", "fact")).toBe(false); expect(canRender("OPINION", "evidence")).toBe(false);
     expect(canRender("UNKNOWN", "fact")).toBe(false); expect(canRender("UNKNOWN", "measurement")).toBe(false); expect(canRender("UNKNOWN", "evidence")).toBe(false);
+  });
+  it("separates factual claim form from verified public presentation", () => {
+    expect(mapCanonicalClaimSemantic("factual_claim")).toBe("FACT");
+    expect(canPresentAsVerifiedFact("FACT", undefined)).toBe(false);
+    expect(canPresentAsVerifiedFact("FACT", { ...resolution, relationStatus: "unresolved" })).toBe(false);
+    expect(canPresentAsVerifiedFact("FACT", { ...resolution, conflictStatus: "open" })).toBe(false);
+    expect(canPresentAsVerifiedFact("FACT", resolution)).toBe(true);
+    expect(canPresentAsVerifiedFact("OPINION", resolution)).toBe(false);
+    expect(canPresentAsVerifiedMeasurement("MEASURED_VALUE", resolution)).toBe(true);
+    expect(hasCanonicalVerifiedEvidence({ ...resolution, resolutionReceiptReference: "" })).toBe(false);
+  });
+  it("fails closed across 2,500 adversarial resolution mutations", () => {
+    for (let index = 0; index < 2500; index += 1) {
+      const poisoned = index % 5 === 0 ? { ...resolution, relationStatus: "unresolved" as const } : index % 5 === 1 ? { ...resolution, assessmentStatus: "contested" as const } : index % 5 === 2 ? { ...resolution, reviewStatus: "pending" as const } : index % 5 === 3 ? { ...resolution, freshnessStatus: "stale" as const } : { ...resolution, resolutionReceiptReference: null };
+      expect(canPresentAsVerifiedFact("FACT", poisoned)).toBe(false);
+    }
   });
 
   it("requires structured category-specific provenance", () => {
@@ -83,7 +100,7 @@ describe("decision dossier T0 architecture contract", () => {
   });
 
   it("permits only reviewed, justified non-materiality and complete material dimensions", () => {
-    const nonMaterial = { classification: "non_material" as const, rationale: "Not relevant to this reviewed system question.", basisReference: "review-basis-1", reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r2" };
+    const nonMaterial = { classification: "non_material" as const, rationale: "Not relevant to this reviewed system question.", basisReference: "review-basis-1", reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r2", canonicalReviewResolution: { canonicalOwner: "Dossier/Atomic evidence context" as const, reviewStatus: "verified" as const, basisStatus: "verified" as const, revision: "materiality-r2", receiptReference: "materiality-receipt" } };
     const replaceMetric = (change: Partial<MaterialDimension>) => completeSet().map((value) => value.key === "metric" ? { ...value, ...change } : value);
 
     expect(decisionReady(replaceMetric({ materiality: nonMaterial, status: "unknown", evidenceReferences: [], reviewStatus: "reviewed", freshness: "unknown", revision: null, gap: "reviewed non-material" }))).toBe(true);
@@ -91,7 +108,7 @@ describe("decision dossier T0 architecture contract", () => {
     expect(decisionReady(replaceMetric({ materiality: { ...nonMaterial, reviewStatus: "pending", reviewedBy: null } }))).toBe(false);
     expect(decisionReady(replaceMetric({ materiality: { ...nonMaterial, reviewStatus: "rejected" } }))).toBe(false);
     expect(decisionReady(completeSet())).toBe(true);
-    expect(decisionReady(replaceMetric({ evidenceReferences: [] }))).toBe(false);
+    expect(decisionReady(replaceMetric({ evidenceResolution: undefined }))).toBe(false);
     expect(decisionReady(replaceMetric({ freshness: "stale" }))).toBe(false);
     expect(decisionReady(replaceMetric({ revision: null }))).toBe(false);
   });
@@ -149,6 +166,11 @@ describe("decision dossier T0 architecture contract", () => {
   it("derives one source family and separates fact from value", () => {
     expect(countIndependentEvidenceFamilies([{ id: "study", parentId: null }, { id: "agency", parentId: "study" }, { id: "repost", parentId: "agency" }])).toEqual({ status: "ok", independentFamilies: 1 });
   });
+  it("never treats absent lineage as verified independent corroboration", () => {
+    const roots = [{ id: "study-a", parentId: null }, { id: "study-b", parentId: null }];
+    expect(countVerifiedIndependentEvidenceFamilies(roots, [])).toEqual({ status: "unknown_independence" });
+    expect(countVerifiedIndependentEvidenceFamilies(roots, [{ sourceFamilyId: "study-a", independence: "verified_independent_root", resolutionReceiptReference: "receipt-a" }, { sourceFamilyId: "study-b", independence: "verified_independent_root", resolutionReceiptReference: "receipt-b" }])).toEqual({ status: "ok", independentFamilies: 2 });
+  });
 
   it("keeps T0 and the public guard fail-closed", () => {
     for (const action of ["generate_scenario", "generate_recommendation", "claim_research_success", "activate_decision", "publish", "release_public_candidate"]) expect(t0Allows(action)).toBe(false);
@@ -175,7 +197,7 @@ describe("decision dossier T0 architecture contract", () => {
     expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((x, i) => i ? x : { ...base, concept: "unknown" as never }))).toBe(false);
   });
   it("covers non-material basis, comparator boundaries, and metric normalization", () => {
-    const nonMaterial = completeSet().map(x => x.key === "metric" ? { ...x, materiality: { ...reviewed, classification: "non_material" as const, basisReference: "review-1" }, status: "unknown" as const, evidenceReferences: [], freshness: "unknown" as const, gap: "not material" } : x);
+    const nonMaterial = completeSet().map(x => x.key === "metric" ? { ...x, materiality: { ...reviewed, classification: "non_material" as const, basisReference: "review-1", canonicalReviewResolution: { canonicalOwner: "Dossier/Atomic evidence context" as const, reviewStatus: "verified" as const, basisStatus: "verified" as const, revision: "m1", receiptReference: "receipt" } }, status: "unknown" as const, evidenceReferences: [], freshness: "unknown" as const, gap: "not material" } : x);
     expect(decisionReady(nonMaterial)).toBe(true); expect(decisionReady(nonMaterial.map(x => x.key === "metric" ? { ...x, materiality: { ...x.materiality, basisReference: null } } : x))).toBe(false);
     expect(evaluateComparator({ jurisdiction: "Germany", targetJurisdiction: "Germany", institutions: ["a"], contributionDefinition: "a", benefitDefinition: "a", originalLanguage: "de", readingLanguage: "de" }).transferability).toBe("requires_review");
     const metric = { metricKey: "replacement_rate", numerator: "income", denominator: "income", population: "people", jurisdictionScope: "Germany", timeBasis: "2025", unit: "%", methodology: "standard" };
