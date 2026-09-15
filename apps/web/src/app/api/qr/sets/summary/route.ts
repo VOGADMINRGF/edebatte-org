@@ -6,6 +6,7 @@ import { coreCol } from "@core/db/triMongo";
 import { getLatestDossierUpsertContractByCode } from "@features/dossier/protocolUpsert";
 import { getLatestRoundSeedContractByCode } from "@features/topicRound/seedContract";
 import { VoteModel } from "@/models/votes/Vote";
+import { isQrQuestionSetPubliclyReleased } from "@/features/create/qrQuestionSetGuard";
 
 type SummaryOption = { label: string; count: number };
 type SummaryQuestion = {
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   const setsCol = await coreCol("qr_question_sets");
   const set = await setsCol.findOne({ code, status: "active" });
-  if (!set) {
+  if (!isQrQuestionSetPubliclyReleased(set)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
   const [protocolEntryCount, latestProtocolEntry, relatedEvents, latestDossierUpsertContract, latestRoundSeedContract] =

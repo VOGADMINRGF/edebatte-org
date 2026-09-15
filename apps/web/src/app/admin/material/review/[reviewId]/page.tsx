@@ -13,6 +13,16 @@ type Selection = {
   text: string;
   rationale: string;
   sourceAnchors: string[];
+  questionGuard: {
+    originalInput: string;
+    outcome: string;
+    releaseState: "draft_allowed" | "review_required" | "blocked";
+    actorContexts: Array<{ id: string; name: string; role: string; evidenceRefs: string[] }>;
+    procedure: { kind: string; evidenceRefs: string[] } | null;
+    reasons: string[];
+    evidenceRefs: string[];
+    requiresHumanReview: boolean;
+  };
   options: Array<{ text: string; source: "document" | "ai_suggestion" | "human_edit" }>;
 };
 type Session = {
@@ -218,6 +228,17 @@ export default function MaterialDocumentReviewPage() {
               <label className="mt-4 block text-sm font-semibold">Begründung
                 <textarea className="mt-1 min-h-20 w-full rounded-xl border bg-transparent px-3 py-2 font-normal" value={selection.rationale} disabled={session.status === "prepared"} onChange={(event) => updateSelection(selection.questionId, (item) => ({ ...item, rationale: event.target.value }))} />
               </label>
+              <details className="mt-4 rounded-xl border p-3 text-xs text-[rgb(var(--muted))]">
+                <summary className="cursor-pointer font-semibold">Guard- und Originalnachweis</summary>
+                <dl className="mt-3 grid gap-2">
+                  <div><dt className="font-semibold">Originaleingabe</dt><dd>{selection.questionGuard.originalInput}</dd></div>
+                  <div><dt className="font-semibold">Ergebnis</dt><dd>{selection.questionGuard.outcome} · {selection.questionGuard.releaseState}</dd></div>
+                  <div><dt className="font-semibold">Gründe</dt><dd>{selection.questionGuard.reasons.join(", ") || "Keine"}</dd></div>
+                  <div><dt className="font-semibold">Akteure</dt><dd>{selection.questionGuard.actorContexts.map((actor) => `${actor.name} (${actor.role})`).join(", ") || "Keine erkannt"}</dd></div>
+                  <div><dt className="font-semibold">Verfahren</dt><dd>{selection.questionGuard.procedure?.kind ?? "Kein verfahrensgebundener Kontext"}</dd></div>
+                  <div><dt className="font-semibold">Evidenzreferenzen</dt><dd>{selection.questionGuard.evidenceRefs.join(", ") || "Keine"}</dd></div>
+                </dl>
+              </details>
               <fieldset className="mt-4"><legend className="text-sm font-semibold">Antwortoptionen</legend><div className="mt-2 space-y-2">
                 {selection.options.map((option, optionIndex) => (
                   <label key={`${selection.questionId}-${optionIndex}`} className="flex items-center gap-2 text-xs"><span className="w-24 shrink-0 text-[rgb(var(--muted))]">{option.source === "document" ? "Aus Dokument" : option.source === "human_edit" ? "Bearbeitet" : "KI-Vorschlag"}</span><input className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm" value={option.text} disabled={session.status === "prepared"} onChange={(event) => updateSelection(selection.questionId, (item) => ({ ...item, options: item.options.map((entry, currentIndex) => currentIndex === optionIndex ? { ...entry, text: event.target.value, source: "human_edit" } : entry) }))} /></label>

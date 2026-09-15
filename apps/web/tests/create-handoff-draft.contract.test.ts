@@ -27,6 +27,25 @@ describe("create handoff draft contract", () => {
       locale: "de",
       intent: "contribute",
     });
+    if (!followup.meta?.planner) throw new Error("missing_planner_fixture");
+    followup.understanding.statements = [
+      {
+        id: "statement-1",
+        text: "Einheitliche Tierwohlstandards sollen geprüft werden.",
+        kind: "claim",
+        stance: "open",
+        confidence: "high",
+      },
+    ];
+    followup.understanding.openQuestion =
+      "Welche Regeln sollten für Tierwohlstandards gelten?";
+    followup.meta.planner.plannerTopic = "Tierwohlstandards";
+    followup.meta.planner.shortSummary =
+      "Einheitliche Standards werden als Review-Entwurf vorbereitet.";
+    followup.meta.planner.plannerOpenQuestions = [
+      "Welche Regeln sollten für Tierwohlstandards gelten?",
+    ];
+    followup.meta.planner.openQuestions = [];
     const draft = buildCreateHandoffDraft({
       result: followup,
       selectedAction: "create_dossier",
@@ -37,14 +56,25 @@ describe("create handoff draft contract", () => {
     expect(draft.id).toBe("handoff-1");
     expect(draft.source).toBe("create");
     expect(draft.sourceText).toContain("Tierschutz");
-    expect(draft.plannerResult.plannerTopic).toBe("GPT-Einordnung nicht abgeschlossen");
+    expect(draft.plannerResult.plannerTopic).toBe("Tierwohlstandards");
     expect(draft.graphMatches.stage).toBe("after_structure");
     expect(draft.claims.length).toBeGreaterThan(0);
     expect(draft.arguments.length).toBeGreaterThan(0);
     expect(draft.openQuestions.length).toBeGreaterThan(0);
+    expect(draft.openQuestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generalization: expect.objectContaining({
+            originalInput: TIERWOHL_TEXT,
+            releaseState: "review_required",
+            outcome: "actor_extraction_review_required",
+          }),
+        }),
+      ]),
+    );
     expect(draft.topicSeed).toEqual({
-      topicKey: "gpt-einordnung-nicht-abgeschlossen",
-      topicLabel: "GPT-Einordnung nicht abgeschlossen",
+      topicKey: "tierwohlstandards",
+      topicLabel: "Tierwohlstandards",
       jurisdiction: "mixed",
       themenradarSourceType: "create_intake",
     });

@@ -17,6 +17,7 @@ import {
   type CreateProductionAccessDecision,
 } from "@/features/create/createProductionAccess";
 import { classifyCreateHandoffDraft } from "@/features/create/inputClassification";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 import {
   persistCreateHandoffForReview,
   resolvePersistedCreateHandoffContext,
@@ -142,7 +143,7 @@ function normalizeArgumentDrafts(value: unknown): CreateArgumentDraft[] {
   }).filter((argument) => argument.text.length > 0);
 }
 
-function normalizeOpenQuestions(value: unknown): CreateOpenQuestionDraft[] {
+function normalizeOpenQuestions(value: unknown, sourceText: string): CreateOpenQuestionDraft[] {
   if (!Array.isArray(value)) return [];
   return value.map((item, index) => {
     const question = item as Record<string, unknown>;
@@ -150,6 +151,17 @@ function normalizeOpenQuestions(value: unknown): CreateOpenQuestionDraft[] {
       id: String(question.id ?? `question-${index + 1}`),
       question: String(question.question ?? "").trim(),
       requiredBeforePublish: question.requiredBeforePublish !== false,
+      generalization: evaluatePublicQuestionGeneralization({
+        originalInput: sourceText,
+        candidatePublicQuestion: String(question.question ?? "").trim(),
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "create_analysis",
+          independentFromCandidateProvider: false,
+          evidenceRefs: [],
+        },
+      }),
     };
   }).filter((question) => question.question.length > 0);
 }
@@ -215,7 +227,7 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
     selectedAction: normalizeCreateHandoffAction(draft.selectedAction),
     claims: normalizeClaimDrafts(draft.claims),
     arguments: normalizeArgumentDrafts(draft.arguments),
-    openQuestions: normalizeOpenQuestions(draft.openQuestions),
+    openQuestions: normalizeOpenQuestions(draft.openQuestions, sourceText),
     sourceGrounding: normalizeSourceGrounding(draft.sourceGrounding),
     topicSeed: normalizeTopicSeed(draft.topicSeed),
     resumeHref,

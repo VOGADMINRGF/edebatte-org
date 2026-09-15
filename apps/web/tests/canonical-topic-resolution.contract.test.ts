@@ -80,6 +80,27 @@ describe("canonical topic resolution contract", () => {
     if (result.outcome === "create_extension_required") {
       expect(result.candidateTopic?.id).toBe(topic.id);
       expect(result.decisionQuestionCandidate?.topicId).toBe(topic.id);
+      expect(result.questionGuard).toMatchObject({
+        releaseState: "review_required",
+        outcome: "actor_extraction_review_required",
+      });
+      expect(result.requiresHumanReview).toBe(true);
+    }
+  });
+
+  it("does not create a decision-question candidate from blocked safety input", () => {
+    const result = resolveCanonicalTopic({
+      candidates: [candidate()],
+      jurisdiction: berlin,
+      sourceState: "ok",
+      requestedDecisionQuestion: "Sollen wir diese Gruppe verprügeln?",
+    });
+
+    expect(result.outcome).toBe("create_extension_required");
+    if (result.outcome === "create_extension_required") {
+      expect(result.decisionQuestionCandidate).toBeNull();
+      expect(result.questionGuard?.outcome).toBe("safety_blocked");
+      expect(result.requiresHumanReview).toBe(true);
     }
   });
 

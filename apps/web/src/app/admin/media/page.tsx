@@ -60,6 +60,7 @@ export default function AdminMediaPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [reviewRequiredCode, setReviewRequiredCode] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
 
@@ -122,6 +123,7 @@ export default function AdminMediaPage() {
     setCreating(true);
     setCreateError(null);
     setCreatedCode(null);
+    setReviewRequiredCode(null);
     try {
       const res = await fetch("/api/qr/sets", {
         method: "POST",
@@ -141,8 +143,12 @@ export default function AdminMediaPage() {
         throw new Error(body?.error || "create_failed");
       }
       const code = String(body.code ?? "");
-      setCreatedCode(code);
-      setSummaryCode(code);
+      if (body.status === "review_required") {
+        setReviewRequiredCode(code);
+      } else {
+        setCreatedCode(code);
+        setSummaryCode(code);
+      }
       setSummary(null);
       setQuestionsInput("");
       setScriptInput("");
@@ -211,6 +217,12 @@ export default function AdminMediaPage() {
               <span className="rounded-full bg-[rgb(var(--bg))] px-3 py-1 font-semibold text-[rgb(var(--fg))]">
                 {createdCode}
               </span>
+            </div>
+          )}
+          {reviewRequiredCode && (
+            <div className="text-sm text-amber-800">
+              <span className="font-semibold">Review erforderlich:</span>{" "}
+              {reviewRequiredCode}
             </div>
           )}
         </div>
@@ -323,6 +335,16 @@ export default function AdminMediaPage() {
                 {qrImage && (
                   <img src={qrImage} alt="QR Code" className="h-28 w-28 rounded-xl border border-[rgb(var(--border))]" />
                 )}
+              </div>
+            )}
+            {reviewRequiredCode && (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                <p className="font-semibold">Noch kein öffentlicher QR-Link</p>
+                <p className="mt-1">
+                  Das Set {reviewRequiredCode} ist reviewpflichtig gespeichert.
+                  Erst unabhängige Akteursprüfung und separate Aktivierung
+                  machen den Link öffentlich nutzbar.
+                </p>
               </div>
             )}
           </div>

@@ -33,7 +33,7 @@ export type MaterialStructuredQuestionDraft = {
   actorContexts: PublicQuestionActorContext[];
   procedure: PublicQuestionProcedureContext | null;
   generalization: PublicQuestionGeneralizationResult;
-  reviewState: "draft";
+  reviewState: "draft" | "review_required";
 };
 
 export type MaterialStructuredOptionDraft = {
@@ -255,6 +255,12 @@ export function parseMaterialStructuredDraftPayload(input: {
         originalInput: question.originalInput,
         candidatePublicQuestion: question.text,
         actorContexts: question.actorContexts,
+        actorExtraction: {
+          status: "unverified",
+          source: "material_provider",
+          independentFromCandidateProvider: false,
+          evidenceRefs: question.sourceAnchors,
+        },
         procedure: question.procedure,
       }),
     }));
@@ -262,8 +268,7 @@ export function parseMaterialStructuredDraftPayload(input: {
   const questions = guardedQuestions
     .filter(
       ({ generalization }) =>
-        (generalization.releaseState === "draft_allowed" ||
-          generalization.outcome === "entity_specific_procedure_review_required") &&
+        generalization.releaseState !== "blocked" &&
         generalization.publicQuestion !== null,
     )
     .map(({ question, generalization }) => ({
@@ -272,7 +277,10 @@ export function parseMaterialStructuredDraftPayload(input: {
       text: generalization.publicQuestion!,
       publicQuestion: generalization.publicQuestion!,
       generalization,
-      reviewState: "draft" as const,
+      reviewState:
+        generalization.releaseState === "draft_allowed"
+          ? ("draft" as const)
+          : ("review_required" as const),
     }));
   const questionIds = new Set(questions.map((question) => question.id));
   const options = raw.options.filter(

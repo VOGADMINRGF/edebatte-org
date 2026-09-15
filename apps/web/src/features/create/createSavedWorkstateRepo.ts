@@ -127,6 +127,9 @@ export async function persistCreateSavedWorkstate(
     title: String(input.title).trim().slice(0, 160) || "Arbeitsstand",
     content: String(input.content).trim().slice(0, 4000),
     metadata: clone(input.metadata ?? {}),
+    ...(input.privateReviewEvidence
+      ? { privateReviewEvidence: clone(input.privateReviewEvidence) }
+      : {}),
     resumeHref: String(input.resumeHref).trim() || "/create",
     createdAt: timestamp,
     updatedAt: timestamp,

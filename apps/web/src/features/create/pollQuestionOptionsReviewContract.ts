@@ -30,6 +30,10 @@ import type {
 import {
   buildVoxyCocreationDialogFromReviewContext,
 } from "@/features/create/voxyCocreationDialogContract";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
 
 export const POLL_QUESTION_OPTIONS_REVIEW_STATUSES = [
   "readmodel_only",
@@ -193,6 +197,7 @@ export type PollQuestionOptionsReviewModel = {
   questionType: PollQuestionType;
   questionTypeLabel: string;
   proposedQuestion: string | null;
+  questionGuard: PublicQuestionGeneralizationResult | null;
   questionConfidence: PollQuestionConfidence;
   questionConfidenceLabel: string;
   questionReason: string;
@@ -234,6 +239,7 @@ type BuildSignalsInput = {
   readingLanguage: string;
   rtlDisplayHint: boolean;
   translationAvailable: boolean;
+  originalInput?: string | null;
   texts: string[];
   questionHints: string[];
   openQuestions: string[];
@@ -532,12 +538,29 @@ function buildModelFromSignals(input: BuildSignalsInput): PollQuestionOptionsRev
     input.activationModel?.readinessSignals.some((item) => item.id === "poll_question_needed") ||
     (scope === "multilingual" && targetGroups.length === 0);
 
-  const proposedQuestion =
+  const candidateQuestion =
     uniqueStrings([
       ...input.questionHints.filter(isLikelyQuestion),
       input.activationModel?.proposedParticipationQuestion ?? null,
       input.openQuestions[0] ?? null,
     ])[0] ?? null;
+  const questionGuard = candidateQuestion
+    ? evaluatePublicQuestionGeneralization({
+        originalInput: input.originalInput ?? input.texts[0] ?? candidateQuestion,
+        candidatePublicQuestion: candidateQuestion,
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "create_analysis",
+          independentFromCandidateProvider: false,
+          evidenceRefs: [],
+        },
+        sourceLanguage: input.sourceLanguage,
+        contentLanguage: input.readingLanguage,
+      })
+    : null;
+  const proposedQuestion =
+    questionGuard?.releaseState === "blocked" ? null : candidateQuestion;
 
   const questionReason =
     input.activationModel?.formatReason ??
@@ -590,7 +613,9 @@ function buildModelFromSignals(input: BuildSignalsInput): PollQuestionOptionsRev
     factcheckNeeded,
   });
 
-  const optionItems: PollQuestionOptionItem[] = optionSeeds.slice(0, 6).map((seed, index) => {
+  const optionItems: PollQuestionOptionItem[] = (
+    questionGuard?.releaseState === "blocked" ? [] : optionSeeds.slice(0, 6)
+  ).map((seed, index) => {
     const optionType = mapOptionType(seed.label, seed.explicitType);
     const biasRisk =
       multilingualReviewNeeded && optionType !== "neutral"
@@ -800,6 +825,9 @@ function buildModelFromSignals(input: BuildSignalsInput): PollQuestionOptionsRev
     input.providerBlocked
       ? "Voxy- oder Briefing-Folgepfade bleiben durch Provider- oder Secret-Gates blockiert."
       : null,
+    questionGuard && questionGuard.releaseState !== "draft_allowed"
+      ? `Public-Question-Guard: ${questionGuard.outcome}.`
+      : null,
   ]);
 
   let pollStatus: PollQuestionOptionsReviewStatus = "readmodel_only";
@@ -989,6 +1017,7 @@ function buildModelFromSignals(input: BuildSignalsInput): PollQuestionOptionsRev
     questionType,
     questionTypeLabel: questionTypeLabel(questionType),
     proposedQuestion,
+    questionGuard,
     questionConfidence,
     questionConfidenceLabel: questionConfidenceLabel(questionConfidence),
     questionReason,
@@ -1116,6 +1145,7 @@ export function buildPollQuestionOptionsReviewFromReviewContext(
       context.multilingualThread?.readingLocale ?? context.languageBridge.translation.language,
     rtlDisplayHint: Boolean(context.languageBridge.translation.rtl),
     translationAvailable: Boolean(context.languageBridge.translation.text),
+    originalInput: context.languageBridge.original.text,
     texts: uniqueStrings([
       ...(context.dossierWorkspaceSurface?.sections.claims ?? []),
       ...(context.dossierWorkspaceSurface?.sections.counterPositions ?? []),

@@ -1,6 +1,10 @@
 import type { CreateHandoffReviewQueueItem } from "@/features/create/createHandoffReviewQueue";
 import type { CommunitySourceReviewContribution } from "@/features/create/communitySourceReviewContribution";
 import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+import {
   buildPersistedCreateHandoffSuggestedTitle,
   buildPersistedCreateHandoffSummary,
   persistedCreateHandoffStatementId,
@@ -117,6 +121,7 @@ export type AnlassraumRuntimeDraft = {
   title: string;
   workingTitle: string;
   trigger: string;
+  questionGuard?: PublicQuestionGeneralizationResult;
   description: string;
   relatedDossierId: string | null;
   recognizedStandpoints: string[];
@@ -500,6 +505,10 @@ export function buildAnlassraumRuntimeDraftFromDossier(
 ): AnlassraumRuntimeDraft {
   const createdAt = nowIso();
   const updatedAt = createdAt;
+  const trigger =
+    trimOrNull(context.originQuestion) ??
+    trimOrNull(context.summary) ??
+    String(context.title || "").trim();
   const draft: AnlassraumRuntimeDraft = {
     id: `anlassraum-runtime:dossier:${context.dossierId}`,
     sourceHandoffId: `dossier:${context.dossierId}`,
@@ -507,10 +516,18 @@ export function buildAnlassraumRuntimeDraftFromDossier(
     statementId: `dossier:${context.dossierId}`,
     title: String(context.title || "").trim(),
     workingTitle: String(context.title || "").trim(),
-    trigger:
-      trimOrNull(context.originQuestion) ??
-      trimOrNull(context.summary) ??
-      String(context.title || "").trim(),
+    trigger,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: context.summary,
+      candidatePublicQuestion: trigger,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: context.graphReferences ?? [],
+      },
+    }),
     description: String(context.summary || "").trim(),
     relatedDossierId: context.dossierId,
     recognizedStandpoints: unique(context.recognizedStandpoints ?? []),
@@ -574,6 +591,11 @@ export function buildAnlassraumRuntimeDraftFromHandoff(
   const relatedDossierId =
     trimOrNull(record.dossierId) ??
     trimOrNull(record.graphMatches.matchedDossiers[0]);
+  const trigger =
+    trimOrNull(record.plannerResult.openQuestions?.[0]) ??
+    trimOrNull(record.plannerResult.shortSummary) ??
+    trimOrNull(record.sourceText) ??
+    "Anlassraum prüfen";
   const draft: AnlassraumRuntimeDraft = {
     id: `anlassraum-runtime:${record.id}`,
     sourceHandoffId: record.id,
@@ -581,11 +603,18 @@ export function buildAnlassraumRuntimeDraftFromHandoff(
     statementId: persistedCreateHandoffStatementId(record.id),
     title: buildPersistedCreateHandoffSuggestedTitle(record, "anlassraum"),
     workingTitle: buildPersistedCreateHandoffSuggestedTitle(record, "anlassraum"),
-    trigger:
-      trimOrNull(record.plannerResult.openQuestions?.[0]) ??
-      trimOrNull(record.plannerResult.shortSummary) ??
-      trimOrNull(record.sourceText) ??
-      "Anlassraum prüfen",
+    trigger,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: record.sourceText,
+      candidatePublicQuestion: trigger,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: graphReferences,
+      },
+    }),
     description: buildPersistedCreateHandoffSummary(record),
     relatedDossierId,
     recognizedStandpoints: buildRecognizedStandpoints(record),
@@ -638,6 +667,7 @@ export function buildAnlassraumRuntimeDraftFromReviewItem(
     auditContext?: Partial<AnlassraumRuntimeAuditContext>;
   },
 ): AnlassraumRuntimeDraft {
+  const trigger = item.openQuestions[0] ?? item.topicTitle ?? item.summary;
   const draft: AnlassraumRuntimeDraft = {
     id: `anlassraum-runtime:${item.id}`,
     sourceHandoffId: item.sourceDraftId,
@@ -645,7 +675,18 @@ export function buildAnlassraumRuntimeDraftFromReviewItem(
     statementId: persistedCreateHandoffStatementId(item.sourceDraftId),
     title: item.title,
     workingTitle: item.title,
-    trigger: item.openQuestions[0] ?? item.topicTitle ?? item.summary,
+    trigger,
+    questionGuard: evaluatePublicQuestionGeneralization({
+      originalInput: item.summary,
+      candidatePublicQuestion: trigger,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: [],
+      },
+    }),
     description: item.summary,
     relatedDossierId: null,
     recognizedStandpoints: item.authorStandpoint ? [item.authorStandpoint] : [],
