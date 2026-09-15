@@ -31,6 +31,11 @@ Die folgenden Abschnitte bewahren den damaligen Preflight und seine damals
 geltenden Autorisierungsgrenzen als Evidenz. Sie beschreiben keinen aktuellen
 Taskstatus und keine aktuelle Implementierungsfreigabe.
 
+Historische Fixture-Ergebnisse beschreiben deterministische Contract-Eingaben
+und -Ausgänge. Sie bestätigen weder Tatsachen, Evidenz- oder
+Quellenauthentizität, Source-Retrieval, unabhängige Herkunft,
+Reviewer-Autorität, tatsächliche Frische noch Konfliktauflösung.
+
 ## 1. Entscheidung
 
 Der T0-Architektur-/Security-Preflight ist auf dem exakten Main-Stand positiv. Ein
@@ -123,30 +128,44 @@ Readiness-Werte vorwegnehmen.
 
 | Normative Kategorie | Vorhandener Anker | T0-Regel |
 | --- | --- | --- |
-| FACT | factual claim + geprüfte Relation/EvidenceAssessment | Faktstatus setzt geeignete Evidenz und Scopeprüfung voraus |
-| MEASURED_VALUE | quantified claim | Einheit, Nenner, Population, Zeitraum, Quelle und Methode erforderlich |
+| FACT | factual-claim category + Referenz auf eine kanonische EvidenceAssessment-Resolution | Claim-Form, nicht Wahrheitsbeweis; eine verifizierte öffentliche Faktpräsentation verlangt zusätzlich einen kanonischen Verified-Evidence-Resolution-Receipt |
+| MEASURED_VALUE | quantified-claim category | Einheit, Nenner, Population, Zeitraum, Quelle und Methode müssen referenzierbar sein; eine verifizierte Messwertpräsentation verlangt zusätzlich einen kanonischen Verified-Evidence-Resolution-Receipt |
 | ESTIMATE | quantified/prediction claim + Unsicherheit | nicht als Messwert rendern |
 | PROJECTION | prediction + Modellprovenienz | Basisjahr, Annahmen und Modellrevision erforderlich |
 | MODEL_RESULT | quantified/prediction + Modellreferenz | Modelloutput ist keine Primärbeobachtung |
 | ASSUMPTION | explizite Annahmereferenz | sichtbar und revisionsgebunden |
-| INTERPRETATION | interpretation | referenziert Fakten, Actor und Scope |
+| INTERPRETATION | interpretation | referenziert factual claims, Actor und Scope |
 | OPINION | non_checkable_opinion | nicht als Widerlegung oder Beleg zählen |
 | NORMATIVE_JUDGMENT | normative_position/value | demokratische Abwägung, keine Auto-Truth |
-| UNKNOWN | offene Evidence Gap / unknown Assessment | bleibt sichtbar und blockiert bei Materialität Decision Readiness |
+| UNKNOWN | offene Evidence Gap / unknown Assessment | bleibt sichtbar und blockiert bei Materialität Decision Readiness; zusätzlicher Text, Zitate oder Raw References promoten UNKNOWN nicht zum verifizierten Fakt |
 
 Dieses Mapping ist eine Contract-Klassifikation. Es autorisiert kein neues
 persistiertes Enum und keine automatische Statuspromotion.
+
+`FACT` ist in T0 ausschließlich eine epistemische Claim-Form-Kategorie, kein
+Beweis für Wahrheit. Ebenso ist ein Raw-Evidence-Identifier keine verifizierte
+Evidenz. Für eine verifizierte öffentliche Fakt- oder Messwertpräsentation muss
+der kanonische Evidence-/Research-/Review-Owner einen passenden
+EvidenceAssessment-Resolution-Receipt liefern. T0 konsumiert diesen Receipt als
+Contract-Eingabe und blockiert die entsprechende Präsentation, wenn er fehlt;
+T0 validiert dabei nur die bereitgestellte Receipt-Struktur und ihre
+Contract-Referenzen; es authentifiziert weder die Receipt-Herkunft noch Quelle
+oder Evidenz und prüft weder Wahrheit, Retrieval, Unabhängigkeit,
+Reviewer-Autorität, tatsächliche Frische noch Konflikte semantisch.
 
 ## 6. Decision-Readiness-Verantwortung
 
 T0 hält nur die Architekturpflicht fest:
 
 - `ready_for_human_deliberation` und `decision_ready` sind getrennt;
-- jede materielle Dimension besitzt Materialität, Status, Evidence-Refs,
-  Reviewzustand, Gap, Freshness und Revision;
+- jede materielle Dimension besitzt Materialität, Status und strukturelle
+  Referenzen für Evidence, Review, Gap, Freshness und Revision; diese Felder
+  authentifizieren weder Evidenz noch Review noch tatsächliche Frische;
 - eine sichtbare Lücke kann Beratung erlauben, aber keine Aktivierung;
 - keine gewichtete Gesamtzahl darf einen harten Blocker kompensieren;
-- Materialitätsänderungen brauchen Actor, Rationale, Revision und Review;
+- Materialitätsänderungen brauchen Actor, Rationale, Revision und einen
+  kanonischen Materiality-Review-Resolution-Receipt; T0 prüft dessen
+  Contract-Präsenz, nicht die Reviewer-Autorität oder materielle Semantik;
 - eine materielle Änderung macht die gebundene Entscheidung stale.
 
 Die vollständige Berechnung und Projektion gehört T3–T7.
@@ -184,12 +203,15 @@ für die Umsetzung doch ein bestehendes Schema benötigt, stoppt der Slice mit
    belastbarer Baseline und keinem verlässlichen internationalen Comparator.
    Ergebnis: `UNKNOWN` bleibt materiell und `decision_ready=false`.
 3. **Messdefinitionskonflikt:** Rentenniveau versus säulenübergreifende
-   Nettoersatzquote. Ergebnis: kein Fact Conflict, bevor Nenner und Scope
-   harmonisiert sind.
+   Nettoersatzquote. Ergebnis: strukturell `requires_harmonization`, kein als
+   verifizierter Faktenkonflikt auszugebender Conflict, bevor Nenner und Scope
+   kanonisch harmonisiert sind.
 4. **Operationalisierungsunterschied:** Unterrichtsversorgung versus
    Unterrichtsausfall. Ergebnis: Werte dürfen nicht gleichgesetzt werden.
-5. **Source Family:** Originalstudie, Agenturmeldung und Repost zählen nicht als
-   drei unabhängige Quellen.
+5. **Source Lineage:** Originalstudie, Agenturmeldung und Repost können einen
+   strukturellen Lineage-Root bilden. Verifizierte Quellenunabhängigkeit
+   verlangt eine kanonische SourceFamily-/Independence-Resolution; fehlt sie,
+   bleibt die Unabhängigkeit unbekannt und der Gate-Pfad schlägt fail-closed fehl.
 6. **Fakt/Wert:** „Beitragssatz beträgt X“ getrennt von „X ist gerecht“.
 7. **Revision:** materielle Projection- oder Scenario-Revision invalidiert die
    bestehende DecisionBinding-Referenz.
