@@ -4,6 +4,8 @@ import { BRAND } from "@/lib/brand";
 import { buildPublicPageMetadata } from "@/lib/seo/publicDiscovery";
 import { GO_TO_MARKET_PACKAGING } from "@features/pricing/goToMarketPackaging";
 
+/* page-contract: delegated-h1 */
+
 const PATH = "/pricing/institutionen/decision-intelligence";
 const TITLE = "Decision Intelligence für Organisationen | eDebatte";
 const DESCRIPTION =
