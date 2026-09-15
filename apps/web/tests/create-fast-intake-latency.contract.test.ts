@@ -21,6 +21,8 @@ import {
 
 const REGRESSION_TEXT =
   "ich bin für mindestlohn bei behindertenwerkstätten, für mehr integration innerhalb der wirtschaft aber auch für stärkere kontrollen der vorstände der jeweiligen akteure";
+const TIMEOUT_REGRESSION_TEXT =
+  "ich bin für fakten und denke 90 % der Migranten sind arbeitslos";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -31,15 +33,16 @@ describe("create fast-intake latency contract", () => {
     vi.useRealTimers();
   });
 
-  it("uses the small one-call planner profile for the regression input", () => {
+  it("uses the small one-call planner profile for the regression inputs", () => {
     expect(isCreateFastIntakeText(REGRESSION_TEXT)).toBe(true);
+    expect(isCreateFastIntakeText(TIMEOUT_REGRESSION_TEXT)).toBe(true);
     expect(resolveCreatePlannerTimeoutMs(REGRESSION_TEXT)).toBe(6_500);
     expect(resolveCreatePlannerMaxOutputTokens(REGRESSION_TEXT)).toBe(400);
     expect(CREATE_FIRST_RESPONSE_PERFORMANCE_TARGET_MS).toBe(3_000);
-    expect(CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS).toBeGreaterThan(
+    expect(CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS).toBe(
       CREATE_FAST_INTAKE_TIMEOUT_MS + CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS,
     );
-    expect(CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS).toBeGreaterThan(
+    expect(CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS).toBe(
       CREATE_STANDARD_INTAKE_TIMEOUT_MS + CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS,
     );
   });
@@ -79,7 +82,7 @@ describe("create fast-intake latency contract", () => {
     expect(resolveCreateIntakeTiming(REGRESSION_TEXT)).toEqual({
       lane: "fast",
       serverTimeoutMs: 6_500,
-      clientTimeoutMs: 8_000,
+      clientTimeoutMs: 9_000,
     });
     expect(resolveCreateIntakeTiming("Ein normaler Bürgertext. ".repeat(45))).toEqual({
       lane: "standard",
@@ -88,25 +91,47 @@ describe("create fast-intake latency contract", () => {
     });
   });
 
-  it("keeps the standard client alive beyond the server budget plus transport reserve", () => {
+  it("allows server orchestration to complete through the canonical reserve before client abort", () => {
     vi.useFakeTimers();
-    const deadline = startCreateIntelligentFollowupDeadline(
-      CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
-    );
+    const deadline = startCreateIntelligentFollowupDeadline(CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS);
 
-    vi.advanceTimersByTime(
-      CREATE_STANDARD_INTAKE_TIMEOUT_MS + CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS,
-    );
+    vi.advanceTimersByTime(CREATE_FAST_INTAKE_TIMEOUT_MS - 1);
+    expect(deadline.signal.aborted).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(deadline.signal.aborted).toBe(false);
+    vi.advanceTimersByTime(CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS - 1);
     expect(deadline.signal.aborted).toBe(false);
 
-    vi.advanceTimersByTime(
-      CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS -
-        CREATE_STANDARD_INTAKE_TIMEOUT_MS -
-        CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS,
-    );
+    vi.advanceTimersByTime(1);
     expect(deadline.signal.aborted).toBe(true);
     expect(deadline.didTimeout()).toBe(true);
   });
+
+  it.each([5_999, 6_499, 6_500, 6_501, 7_999, 8_000, 8_999, 9_000])(
+    "keeps the fast client deadline deterministic at %ims",
+    (elapsedMs) => {
+      vi.useFakeTimers();
+      const deadline = startCreateIntelligentFollowupDeadline(
+        CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
+      );
+      vi.advanceTimersByTime(elapsedMs);
+      expect(deadline.signal.aborted).toBe(elapsedMs >= 9_000);
+      deadline.clear();
+    },
+  );
+
+  it.each([12_499, 12_500])(
+    "keeps the standard client deadline deterministic at %ims",
+    (elapsedMs) => {
+      vi.useFakeTimers();
+      const deadline = startCreateIntelligentFollowupDeadline(
+        CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
+      );
+      vi.advanceTimersByTime(elapsedMs);
+      expect(deadline.signal.aborted).toBe(elapsedMs >= 12_500);
+      deadline.clear();
+    },
+  );
 
   it("keeps a five-second provider response inside both technical limits", () => {
     vi.useFakeTimers();
@@ -157,6 +182,9 @@ describe("create fast-intake latency contract", () => {
     expect(recovery.indexOf("Dein Beitrag konnte nicht sicher gespeichert werden.")).toBeLessThan(
       recovery.indexOf("} else {"),
     );
+    expect(recovery).toContain("technicalReference: plannerCorrelationId");
+    expect(recovery).not.toContain("ensureCreateSupportTicket");
+    expect(recovery).not.toContain("scheduleSupportTicketNotification");
   });
 
   it("keeps the same correlation for timeout retry and reports planner timings", () => {

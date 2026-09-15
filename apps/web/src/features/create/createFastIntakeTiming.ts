@@ -2,10 +2,22 @@ import { isCreateFastIntakeText } from "@/features/create/createIntakeClassifica
 
 export const CREATE_FIRST_RESPONSE_PERFORMANCE_TARGET_MS = 3_000;
 export const CREATE_FAST_INTAKE_TIMEOUT_MS = 6_500;
-export const CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS = 8_000;
 export const CREATE_STANDARD_INTAKE_TIMEOUT_MS = 10_000;
-export const CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS = 12_500;
-export const CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS = 1_000;
+// This is deliberately separate from the 3s performance target. It leaves the
+// route enough time to complete orchestration, persist a support handoff, and
+// return its confirmed result after the provider deadline has elapsed.
+export const CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS = 2_500;
+
+export function resolveCreateIntelligentFollowupClientTimeoutMs(
+  serverTimeoutMs: number,
+): number {
+  return serverTimeoutMs + CREATE_INTELLIGENT_FOLLOWUP_TRANSPORT_RESERVE_MS;
+}
+
+export const CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS =
+  resolveCreateIntelligentFollowupClientTimeoutMs(CREATE_FAST_INTAKE_TIMEOUT_MS);
+export const CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS =
+  resolveCreateIntelligentFollowupClientTimeoutMs(CREATE_STANDARD_INTAKE_TIMEOUT_MS);
 
 export type CreateIntakeTimingLane = "fast" | "standard";
 
@@ -20,12 +32,16 @@ export function resolveCreateIntakeTiming(text: string): CreateIntakeTiming {
     ? {
         lane: "fast",
         serverTimeoutMs: CREATE_FAST_INTAKE_TIMEOUT_MS,
-        clientTimeoutMs: CREATE_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
+        clientTimeoutMs: resolveCreateIntelligentFollowupClientTimeoutMs(
+          CREATE_FAST_INTAKE_TIMEOUT_MS,
+        ),
       }
     : {
         lane: "standard",
         serverTimeoutMs: CREATE_STANDARD_INTAKE_TIMEOUT_MS,
-        clientTimeoutMs: CREATE_STANDARD_INTELLIGENT_FOLLOWUP_CLIENT_TIMEOUT_MS,
+        clientTimeoutMs: resolveCreateIntelligentFollowupClientTimeoutMs(
+          CREATE_STANDARD_INTAKE_TIMEOUT_MS,
+        ),
       };
 }
 
