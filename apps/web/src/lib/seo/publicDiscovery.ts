@@ -11,6 +11,7 @@ export const PUBLIC_DISCOVERY_PATHS = [
   "/factcheck",
   "/pricing",
   "/pricing/institutionen",
+  "/pricing/institutionen/decision-intelligence",
 ] as const;
 
 export const NOINDEX_ROBOTS = {
