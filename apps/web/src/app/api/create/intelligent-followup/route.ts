@@ -249,6 +249,7 @@ export async function POST(req: NextRequest) {
           };
         }
 
+        let confirmedSupportHandoff: CreateSupportHandoffPublic | null = null;
         try {
           await markExternalExecutionStarted();
           const orchestrationStartedAt = Date.now();
@@ -268,7 +269,7 @@ export async function POST(req: NextRequest) {
           const orchestrationMs = Date.now() - orchestrationStartedAt;
           const plannerMs = result.meta?.planner?.runtimeMs ?? null;
           const analysisState = result.meta?.analysis?.state ?? null;
-          const supportHandoff =
+          confirmedSupportHandoff =
             analysisState === "ai_failed" || analysisState === "fetch_failed"
               ? await createSupportHandoff({
                   actor: verifiedActor,
@@ -277,13 +278,13 @@ export async function POST(req: NextRequest) {
                   planner: result.meta?.planner ?? null,
                   draftId: draftBinding.draftId,
                   locale,
-                })
+              })
               : null;
 
           return {
             ok: true as const,
             result,
-            supportHandoff,
+            supportHandoff: confirmedSupportHandoff,
             trace: {
               requestId,
               operationId,
@@ -313,16 +314,18 @@ export async function POST(req: NextRequest) {
             },
           };
         } catch {
-          const supportHandoff = await createSupportHandoff({
-            actor: verifiedActor,
-            requestId,
-            analysisState: "ai_failed",
-            planner: null,
-            draftId: draftBinding.draftId,
-            locale,
-            reasonOverride: "unhandled_orchestration_error",
-            technicalErrorCodeOverride: "CREATE_FOLLOWUP_FAILED",
-          });
+          const supportHandoff =
+            confirmedSupportHandoff ??
+            (await createSupportHandoff({
+              actor: verifiedActor,
+              requestId,
+              analysisState: "ai_failed",
+              planner: null,
+              draftId: draftBinding.draftId,
+              locale,
+              reasonOverride: "unhandled_orchestration_error",
+              technicalErrorCodeOverride: "CREATE_FOLLOWUP_FAILED",
+            }));
           return {
             ok: true as const,
             result: buildCreateTechnicalFollowup({
