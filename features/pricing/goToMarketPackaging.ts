@@ -4,6 +4,47 @@ export const GO_TO_MARKET_PACKAGING = {
   guidelineIsHardLimit: false,
   checkoutIsAvailable: false,
   publishedPricesAreAvailable: false,
+  foundingDecisionIntelligence: {
+    campaignId: "founding-100-decision-intelligence",
+    active: true,
+    acceptedEngagementLimit: 100,
+    discountPercent: 50,
+    inquiryOnly: true,
+    checkoutIsAvailable: false,
+    publicFactsRemainFree: true,
+    firstEngagementOnly: true,
+    recurringDiscountScope: "first_month_only",
+    products: {
+      decisionDossier: {
+        id: "decision-dossier",
+        name: { de: "Decision Dossier", en: "Decision Dossier" },
+        listPriceEur: 990,
+        foundingPriceEur: 495,
+        billing: "one_time",
+      },
+      threeDossierPilot: {
+        id: "three-dossier-pilot",
+        name: { de: "3-Dossier Pilot", en: "3-Dossier Pilot" },
+        listPriceEur: 2_490,
+        foundingPriceEur: 1_245,
+        billing: "one_time",
+      },
+      topicIntelligence: {
+        id: "topic-intelligence",
+        name: { de: "Topic Intelligence", en: "Topic Intelligence" },
+        listPriceEur: 1_490,
+        foundingPriceEur: 745,
+        billing: "monthly",
+      },
+      proIntelligence: {
+        id: "pro-intelligence",
+        name: { de: "Pro Intelligence", en: "Pro Intelligence" },
+        listPriceEur: 2_990,
+        foundingPriceEur: 1_495,
+        billing: "monthly",
+      },
+    },
+  },
   documentAnalysis: {
     internalCostUnit: {
       label: "interne Analyse-Einheit",
