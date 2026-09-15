@@ -4,7 +4,7 @@
 
 ```text
 CURRENT_BASE_MAIN_SHA=0c4938dded685783582ac6a4c46fba9cd3e2627a
-CURRENT_REPAIR_HEAD_SHA=pending-commit
+CURRENT_REPAIR_HEAD_SHA=c49a44da574dc815fea008df17fb0b5166211785
 IMPLEMENTATION_COMPLETE=true
 OWNER_ACCEPTANCE=false
 T0_GLOBAL_DONE=false
@@ -16,8 +16,10 @@ CI_STATUS=pending current head
 
 ## Historical implementation evidence
 
-Base: `7e81eff9cf285bf2137d5a9eff8c4ce808f5fcbf`.
-Implementation: `f7b7f4dbf2fd8d01cc33886d9d91677ad958e43c`.
+```text
+ORIGINAL_BASE_MAIN_SHA=7e81eff9cf285bf2137d5a9eff8c4ce808f5fcbf
+ORIGINAL_IMPLEMENTATION_SHA=f7b7f4dbf2fd8d01cc33886d9d91677ad958e43c
+```
 
 Files: `features/dossier/decisionDossierArchitectureContract.ts`,
 `apps/web/tests/decision-dossier-architecture-contract.test.ts`, this closure,
@@ -54,7 +56,7 @@ Claim/Evidence, Dossier revision, Poll/TopicRound and Public Guard owners; it
 does not introduce a store, migration, runtime, provider, publish or decision
 activation. Material revision invalidates a DecisionBinding architecturally;
 hard material gaps cannot be compensated by a score. T1 remains downstream and
-blocked pending T0 merge.
+blocked pending T0 completion after review and owner acceptance.
 
 ## Wave-1 truth repair (2026-09-15)
 
