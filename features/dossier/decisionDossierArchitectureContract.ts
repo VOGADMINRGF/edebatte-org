@@ -1,71 +1,55 @@
-/**
- * T0 architecture-only contract. This module describes references to existing
- * owners; it deliberately creates no runtime objects, state, or persistence.
- */
+/** T0 architecture-only contract: references existing owners, never runtime. */
 export const DECISION_DOSSIER_T0_ROLE = "T0" as const;
-
-export type ArchitectureConcept =
-  | "SystemQuestion" | "ResearchObject" | "ContextEvent" | "Metric" | "Projection"
-  | "Assumption" | "PolicyBuildingBlock" | "ScenarioSet" | "Scenario" | "Impact"
-  | "Tradeoff" | "Comparator" | "DecisionBinding";
-
-export type EpistemicCategory =
-  | "FACT" | "MEASURED_VALUE" | "ESTIMATE" | "PROJECTION" | "MODEL_RESULT"
-  | "ASSUMPTION" | "INTERPRETATION" | "OPINION" | "NORMATIVE_JUDGMENT" | "UNKNOWN";
-
-export type OwnerEntry = Readonly<{
-  concept: ArchitectureConcept; canonicalOwner: string; canonicalReference: string;
-  t0Responsibility: string; laterTaskOwner: "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7";
-  allowedReferences: readonly string[]; forbiddenOwnershipDuplication: string;
-  revisionSensitive: boolean; readinessRelevant: boolean;
-}>;
-
-const entry = (value: OwnerEntry) => value;
+export const ARCHITECTURE_CONCEPTS = ["SystemQuestion", "ResearchObject", "ContextEvent", "Metric", "Projection", "Assumption", "PolicyBuildingBlock", "ScenarioSet", "Scenario", "Impact", "Tradeoff", "Comparator", "DecisionBinding"] as const;
+export type ArchitectureConcept = (typeof ARCHITECTURE_CONCEPTS)[number];
+export type OwnerEntry = Readonly<{ concept: ArchitectureConcept; canonicalOwner: string; canonicalReference: string; t0Responsibility: string; laterTaskOwner: "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7"; allowedReferences: readonly string[]; forbiddenOwnershipDuplication: string; revisionSensitive: boolean; readinessRelevant: boolean }>;
+const owner = (value: OwnerEntry) => value;
 export const DECISION_DOSSIER_ARCHITECTURE_OWNERS = Object.freeze([
-  entry({ concept: "SystemQuestion", canonicalOwner: "CanonicalTopic + DecisionQuestion", canonicalReference: "canonical topic ID + jurisdiction", t0Responsibility: "reference only", laterTaskOwner: "T1", allowedReferences: ["CanonicalTopic", "DecisionQuestion", "JurisdictionContext"], forbiddenOwnershipDuplication: "second topic or decision owner", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "ResearchObject", canonicalOwner: "Dossier + ResearchTask", canonicalReference: "dossier ID", t0Responsibility: "reference only", laterTaskOwner: "T2", allowedReferences: ["Dossier", "ResearchTask", "ResearchArtifact"], forbiddenOwnershipDuplication: "second research store", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "ContextEvent", canonicalOwner: "Dossier claim/source/revision domain", canonicalReference: "claim/source/revision IDs", t0Responsibility: "reference only", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "SourceArtifact", "DossierRevision"], forbiddenOwnershipDuplication: "event truth outside dossier", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Metric", canonicalOwner: "Atomic quantified claim + evidence", canonicalReference: "claim/evidence IDs", t0Responsibility: "require definitional references", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "EvidenceAssessment"], forbiddenOwnershipDuplication: "second metric truth", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Projection", canonicalOwner: "Atomic prediction + model provenance", canonicalReference: "claim/model/source IDs", t0Responsibility: "prohibit measurement rendering", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "EvidenceAssessment", "DossierRevision"], forbiddenOwnershipDuplication: "second projection owner", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Assumption", canonicalOwner: "Dossier atomic evidence context", canonicalReference: "claim/revision IDs", t0Responsibility: "make explicit", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "DossierRevision"], forbiddenOwnershipDuplication: "silent default assumption", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "PolicyBuildingBlock", canonicalOwner: "Dossier scenario domain", canonicalReference: "future scenario reference", t0Responsibility: "owner boundary only", laterTaskOwner: "T4", allowedReferences: ["Dossier"], forbiddenOwnershipDuplication: "T0 policy runtime", revisionSensitive: true, readinessRelevant: false }),
-  entry({ concept: "ScenarioSet", canonicalOwner: "Dossier scenario domain", canonicalReference: "future scenario-set reference", t0Responsibility: "owner boundary only", laterTaskOwner: "T4", allowedReferences: ["Dossier", "DossierRevision"], forbiddenOwnershipDuplication: "T0 scenario store", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Scenario", canonicalOwner: "Dossier scenario domain", canonicalReference: "future scenario reference", t0Responsibility: "owner boundary only", laterTaskOwner: "T4", allowedReferences: ["ScenarioSet", "DossierRevision"], forbiddenOwnershipDuplication: "T0 recommendation", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Impact", canonicalOwner: "Dossier evidence domain", canonicalReference: "claim/evidence/affected-group references", t0Responsibility: "separate observed/modelled/normative", laterTaskOwner: "T5", allowedReferences: ["AtomicClaim", "EvidenceAssessment"], forbiddenOwnershipDuplication: "second impact truth", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Tradeoff", canonicalOwner: "Dossier evidence domain", canonicalReference: "claim/evidence references", t0Responsibility: "separate value judgment", laterTaskOwner: "T5", allowedReferences: ["AtomicClaim", "EvidenceAssessment"], forbiddenOwnershipDuplication: "auto normative conclusion", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "Comparator", canonicalOwner: "Dossier evidence domain", canonicalReference: "source/jurisdiction/metric references", t0Responsibility: "require transfer boundary", laterTaskOwner: "T5", allowedReferences: ["SourceArtifact", "JurisdictionContext", "AtomicClaim"], forbiddenOwnershipDuplication: "automatic transfer", revisionSensitive: true, readinessRelevant: true }),
-  entry({ concept: "DecisionBinding", canonicalOwner: "Poll/TopicRound", canonicalReference: "poll/topic-round ID + revision refs", t0Responsibility: "staleness invariant only", laterTaskOwner: "T6", allowedReferences: ["Poll", "TopicRound", "DossierRevision", "ScenarioSet", "Scenario"], forbiddenOwnershipDuplication: "dossier activates decision", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "SystemQuestion", canonicalOwner: "CanonicalTopic + DecisionQuestion", canonicalReference: "canonical topic ID + jurisdiction", t0Responsibility: "reference only", laterTaskOwner: "T1", allowedReferences: ["CanonicalTopic", "DecisionQuestion", "JurisdictionContext"], forbiddenOwnershipDuplication: "second topic or decision owner", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "ResearchObject", canonicalOwner: "Dossier + ResearchTask", canonicalReference: "dossier ID", t0Responsibility: "reference only", laterTaskOwner: "T2", allowedReferences: ["Dossier", "ResearchTask", "ResearchArtifact"], forbiddenOwnershipDuplication: "second research store", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "ContextEvent", canonicalOwner: "Dossier claim/source/revision domain", canonicalReference: "claim/source/revision IDs", t0Responsibility: "reference only", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "SourceArtifact", "DossierRevision"], forbiddenOwnershipDuplication: "event truth outside dossier", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Metric", canonicalOwner: "Atomic quantified claim + EvidenceAssessment", canonicalReference: "claim/evidence IDs", t0Responsibility: "require definitional references", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "EvidenceAssessment"], forbiddenOwnershipDuplication: "second metric truth", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Projection", canonicalOwner: "Atomic prediction/model provenance", canonicalReference: "claim/model/source IDs", t0Responsibility: "prohibit measurement rendering", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "EvidenceAssessment", "DossierRevision"], forbiddenOwnershipDuplication: "second projection owner", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Assumption", canonicalOwner: "Dossier/Atomic evidence context", canonicalReference: "claim/revision IDs", t0Responsibility: "make explicit", laterTaskOwner: "T3", allowedReferences: ["AtomicClaim", "DossierRevision"], forbiddenOwnershipDuplication: "silent default assumption", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "PolicyBuildingBlock", canonicalOwner: "Dossier scenario domain", canonicalReference: "future scenario reference", t0Responsibility: "owner boundary only", laterTaskOwner: "T4", allowedReferences: ["Dossier"], forbiddenOwnershipDuplication: "T0 policy runtime", revisionSensitive: true, readinessRelevant: false }),
+  owner({ concept: "ScenarioSet", canonicalOwner: "Dossier scenario domain", canonicalReference: "future scenario-set reference", t0Responsibility: "owner boundary only", laterTaskOwner: "T4", allowedReferences: ["Dossier", "DossierRevision"], forbiddenOwnershipDuplication: "T0 scenario store", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Scenario", canonicalOwner: "Dossier scenario domain", canonicalReference: "future scenario reference", t0Responsibility: "owner boundary only", laterTaskOwner: "T4", allowedReferences: ["ScenarioSet", "DossierRevision"], forbiddenOwnershipDuplication: "T0 recommendation", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Impact", canonicalOwner: "Dossier evidence domain", canonicalReference: "claim/evidence/affected-group references", t0Responsibility: "separate observed/modelled/normative", laterTaskOwner: "T5", allowedReferences: ["AtomicClaim", "EvidenceAssessment"], forbiddenOwnershipDuplication: "second impact truth", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Tradeoff", canonicalOwner: "Dossier evidence domain", canonicalReference: "claim/evidence references", t0Responsibility: "separate value judgment", laterTaskOwner: "T5", allowedReferences: ["AtomicClaim", "EvidenceAssessment"], forbiddenOwnershipDuplication: "auto normative conclusion", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "Comparator", canonicalOwner: "Dossier evidence domain", canonicalReference: "source/jurisdiction/metric references", t0Responsibility: "require transfer boundary", laterTaskOwner: "T5", allowedReferences: ["SourceArtifact", "JurisdictionContext", "AtomicClaim"], forbiddenOwnershipDuplication: "automatic transfer", revisionSensitive: true, readinessRelevant: true }),
+  owner({ concept: "DecisionBinding", canonicalOwner: "Poll/TopicRound", canonicalReference: "poll/topic-round ID + revision refs", t0Responsibility: "staleness invariant only", laterTaskOwner: "T6", allowedReferences: ["Poll", "TopicRound", "DossierRevision", "ScenarioSet", "Scenario"], forbiddenOwnershipDuplication: "dossier activates decision", revisionSensitive: true, readinessRelevant: true }),
 ] as const);
+export function validateArchitectureOwners(entries: readonly OwnerEntry[]): boolean { if (entries.length !== DECISION_DOSSIER_ARCHITECTURE_OWNERS.length) return false; const expected = new Map(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((value) => [value.concept, value])); const seen = new Set<ArchitectureConcept>(); return entries.every((value) => { const canonical = expected.get(value.concept); if (!canonical || seen.has(value.concept) || !value.canonicalOwner.trim() || !value.canonicalReference.trim()) return false; seen.add(value.concept); return value.canonicalOwner === canonical.canonicalOwner && value.canonicalReference === canonical.canonicalReference && value.laterTaskOwner === canonical.laterTaskOwner && value.allowedReferences.length === canonical.allowedReferences.length && value.allowedReferences.every((reference, index) => reference === canonical.allowedReferences[index]); }); }
 
-export const EPISTEMIC_MAPPING: Readonly<Record<EpistemicCategory, readonly string[]>> = Object.freeze({
-  FACT: ["factual claim", "EvidenceAssessment"], MEASURED_VALUE: ["quantified claim", "EvidenceAssessment"], ESTIMATE: ["quantified or prediction claim", "uncertainty"], PROJECTION: ["prediction claim", "model provenance"], MODEL_RESULT: ["quantified or prediction claim", "model reference"], ASSUMPTION: ["explicit assumption reference"], INTERPRETATION: ["interpretation claim"], OPINION: ["non_checkable_opinion"], NORMATIVE_JUDGMENT: ["normative_position", "value"], UNKNOWN: ["unknown assessment", "evidence gap"],
-});
+export const EPISTEMIC_CATEGORIES = ["FACT", "MEASURED_VALUE", "ESTIMATE", "PROJECTION", "MODEL_RESULT", "ASSUMPTION", "INTERPRETATION", "OPINION", "NORMATIVE_JUDGMENT", "UNKNOWN"] as const;
+export type EpistemicCategory = (typeof EPISTEMIC_CATEGORIES)[number];
+export const RENDERED_AS = ["fact", "measurement", "evidence", "estimate", "projection", "model_result", "assumption", "interpretation", "opinion", "value", "unknown"] as const;
+export type RenderedAs = (typeof RENDERED_AS)[number];
+export const EPISTEMIC_COMPATIBILITY_MATRIX: Readonly<Record<EpistemicCategory, readonly RenderedAs[]>> = Object.freeze({ FACT: ["fact", "evidence"], MEASURED_VALUE: ["measurement", "evidence"], ESTIMATE: ["estimate"], PROJECTION: ["projection"], MODEL_RESULT: ["model_result"], ASSUMPTION: ["assumption"], INTERPRETATION: ["interpretation"], OPINION: ["opinion"], NORMATIVE_JUDGMENT: ["value"], UNKNOWN: ["unknown"] });
+export function canRender(category: EpistemicCategory, renderedAs: RenderedAs): boolean { return EPISTEMIC_COMPATIBILITY_MATRIX[category].includes(renderedAs); }
+export type StructuredProvenance = Readonly<{ sourceReference?: string; evidenceReference?: string; metricDefinitionReference?: string; period?: string; populationScope?: string; unit?: string; denominator?: string; method?: string; uncertainty?: string; modelReference?: string; basisPeriod?: string; assumptions?: readonly string[]; revision?: string; modelVersion?: string }>;
+const present = (value: string | undefined) => Boolean(value?.trim());
+export function hasRequiredProvenance(category: EpistemicCategory, value: StructuredProvenance): boolean { switch (category) { case "MEASURED_VALUE": return present(value.sourceReference) && present(value.evidenceReference) && present(value.metricDefinitionReference) && present(value.period) && present(value.populationScope) && present(value.unit) && present(value.denominator); case "ESTIMATE": return present(value.method) && present(value.sourceReference) && present(value.uncertainty); case "PROJECTION": return present(value.modelReference) && present(value.basisPeriod) && Boolean(value.assumptions?.length) && present(value.revision); case "MODEL_RESULT": return present(value.modelReference) && present(value.modelVersion ?? value.revision); default: return true; } }
 
-export type MaterialDimension = Readonly<{ material: boolean; status: "complete" | "gap" | "unknown"; evidenceReferences: readonly string[]; reviewStatus: "reviewed" | "pending" | "rejected"; gap: string | null; freshness: "fresh" | "stale" | "unknown"; revision: string | null }>;
+export const REQUIRED_DECISION_DIMENSIONS = ["system_question", "research", "context", "metric", "projection", "assumption", "scenario", "impact", "tradeoff", "comparator", "decision_binding"] as const;
+export type RequiredDecisionDimension = (typeof REQUIRED_DECISION_DIMENSIONS)[number];
+export type MaterialityDecision = Readonly<{ classification: "material" | "non_material"; rationale: string; reviewStatus: "reviewed" | "pending" | "rejected"; reviewedBy: string | null; revision: string | null }>;
+export type MaterialDimension = Readonly<{ key: RequiredDecisionDimension; materiality: MaterialityDecision; status: "complete" | "gap" | "unknown"; evidenceReferences: readonly string[]; reviewStatus: "reviewed" | "pending" | "rejected"; gap: string | null; freshness: "fresh" | "stale" | "unknown"; revision: string | null }>;
+const reviewedMateriality = (value: MaterialityDecision) => value.reviewStatus === "reviewed" && present(value.rationale) && present(value.reviewedBy ?? undefined) && present(value.revision ?? undefined);
+const hasCompleteRequiredSet = (values: readonly MaterialDimension[]) => { const keys = new Set(values.map((value) => value.key)); return values.length === REQUIRED_DECISION_DIMENSIONS.length && keys.size === REQUIRED_DECISION_DIMENSIONS.length && REQUIRED_DECISION_DIMENSIONS.every((key) => keys.has(key)); };
+const hardBlocked = (value: MaterialDimension) => !reviewedMateriality(value.materiality) || (value.materiality.classification === "material" && (value.status !== "complete" || value.reviewStatus !== "reviewed" || !value.evidenceReferences.length || value.freshness !== "fresh" || !present(value.revision ?? undefined) || value.gap !== null));
+export function readyForHumanDeliberation(values: readonly MaterialDimension[]): boolean { return hasCompleteRequiredSet(values) && values.every((value) => reviewedMateriality(value.materiality) && value.reviewStatus !== "rejected"); }
+export function decisionReady(values: readonly MaterialDimension[]): boolean { return hasCompleteRequiredSet(values) && values.every((value) => !hardBlocked(value)); }
+
 export type DecisionBindingSnapshot = Readonly<{ boundRevision: string; materialRevisions: Readonly<Record<string, string>> }>;
-
-export function validateArchitectureOwners(entries: readonly OwnerEntry[]) {
-  const expected = new Set<ArchitectureConcept>(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((entry) => entry.concept));
-  if (entries.length !== expected.size) return false;
-  const seen = new Set<ArchitectureConcept>();
-  for (const value of entries) {
-    if (!expected.has(value.concept) || !value.canonicalOwner || !value.canonicalReference || !value.t0Responsibility || seen.has(value.concept)) return false;
-    seen.add(value.concept);
-  }
-  return [...expected].every((concept) => seen.has(concept));
-}
-export function canRender(category: EpistemicCategory, renderedAs: "fact" | "measurement" | "evidence" | "value") {
-  if (category === "PROJECTION" && renderedAs === "measurement") return false;
-  if (category === "NORMATIVE_JUDGMENT" && renderedAs === "fact") return false;
-  if (category === "UNKNOWN") return false;
-  if (category === "OPINION" && renderedAs === "evidence") return false;
-  return true;
-}
-export function hasRequiredProvenance(category: EpistemicCategory, provenance: readonly string[]) {
-  return !(["PROJECTION", "MODEL_RESULT", "MEASURED_VALUE"] as const).includes(category as any) || provenance.length > 0;
-}
-export function readyForHumanDeliberation(dimensions: readonly MaterialDimension[]) { return dimensions.every((d) => !d.material || d.reviewStatus !== "rejected"); }
-export function decisionReady(dimensions: readonly MaterialDimension[]) { return dimensions.every((d) => !d.material || (d.status === "complete" && d.reviewStatus === "reviewed" && d.evidenceReferences.length > 0 && d.freshness === "fresh" && !d.gap)); }
-export function isBindingStale(binding: DecisionBindingSnapshot, currentMaterialRevisions: Readonly<Record<string, string>>) { return Object.entries(binding.materialRevisions).some(([key, revision]) => currentMaterialRevisions[key] !== revision); }
-export function t0Allows(action: string) { return ["reference_owner", "validate_fixture", "validate_architecture"].includes(action); }
-export function t0CanReleasePublicCandidate() { return false; }
+export function isBindingStale(binding: DecisionBindingSnapshot, current: DecisionBindingSnapshot): boolean { if (!present(binding.boundRevision) || !present(current.boundRevision) || binding.boundRevision !== current.boundRevision) return true; const keys = new Set([...Object.keys(binding.materialRevisions), ...Object.keys(current.materialRevisions)]); return [...keys].some((key) => binding.materialRevisions[key] !== current.materialRevisions[key]); }
+export type MetricDefinition = Readonly<{ metricKey: string; numerator: string; denominator: string; population: string; jurisdictionScope: string; timeBasis: string; unit: string; methodology: string }>;
+export type MetricCompatibility = "compatible" | "incompatible" | "requires_harmonization" | "unknown";
+export function compareMetricDefinitions(left: MetricDefinition, right: MetricDefinition): MetricCompatibility { if (Object.values(left).some((value) => !value.trim()) || Object.values(right).some((value) => !value.trim())) return "unknown"; if (left.metricKey !== right.metricKey) return "incompatible"; const keys: Array<keyof MetricDefinition> = ["numerator", "denominator", "population", "jurisdictionScope", "timeBasis", "unit", "methodology"]; return keys.every((key) => left[key] === right[key]) ? "compatible" : "requires_harmonization"; }
+export type ComparatorInput = Readonly<{ jurisdiction: string; targetJurisdiction: string; institutions: readonly string[]; contributionDefinition: string; benefitDefinition: string; originalLanguage: string; readingLanguage: string }>;
+export function evaluateComparator(value: ComparatorInput) { const referenceable = Boolean(value.jurisdiction && value.institutions.length && value.contributionDefinition && value.benefitDefinition && value.originalLanguage && value.readingLanguage); return { referenceable, automaticTransferToTarget: referenceable && value.jurisdiction === value.targetJurisdiction }; }
+export type SourceLineage = Readonly<{ id: string; parentId: string | null }>;
+export function countIndependentEvidenceFamilies(values: readonly SourceLineage[]): number { const parents = new Map(values.map((value) => [value.id, value.parentId])); const root = (id: string): string => { const parent = parents.get(id); return parent ? root(parent) : id; }; return new Set(values.map((value) => root(value.id))).size; }
+export function classifyFactValueStatement(value: string): "FACTUAL_QUANTIFIED" | "NORMATIVE_JUDGMENT" | "UNKNOWN" { if (/\b(gerecht|ungerecht|sollte|muss)\b/i.test(value)) return "NORMATIVE_JUDGMENT"; if (/\bbeträgt\b/i.test(value) && /\d/.test(value)) return "FACTUAL_QUANTIFIED"; return "UNKNOWN"; }
+export function t0Allows(action: string): boolean { return (["reference_owner", "validate_fixture", "validate_architecture"] as readonly string[]).includes(action); }
+export function t0CanReleasePublicCandidate(): false { return false; }

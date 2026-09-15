@@ -39,3 +39,12 @@ does not introduce a store, migration, runtime, provider, publish or decision
 activation. Material revision invalidates a DecisionBinding architecturally;
 hard material gaps cannot be compensated by a score. T1 remains downstream and
 blocked pending T0 merge.
+
+## Wave-1 truth repair (2026-09-15)
+
+`IMPLEMENTATION_COMPLETE=true` for the pure contract only. The repaired contract
+uses exact owner/reference validation, a closed epistemic compatibility matrix,
+structured provenance, reviewed materiality, complete required dimensions and
+two-way material-dependency staleness. Its fixtures execute contract logic rather
+than asserting fixture literals. `OWNER_ACCEPTANCE=false` and `T0_GLOBAL_DONE=false`.
+CI and architecture review remain required; no runtime or production completion is claimed.

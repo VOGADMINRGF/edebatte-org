@@ -1,23 +1,84 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { DECISION_DOSSIER_ARCHITECTURE_OWNERS, canRender, decisionReady, hasRequiredProvenance, isBindingStale, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners } from "@features/dossier/decisionDossierArchitectureContract";
+import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canRender, classifyFactValueStatement, compareMetricDefinitions, countIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasRequiredProvenance, isBindingStale, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type MaterialDimension } from "@features/dossier/decisionDossierArchitectureContract";
 
-const complete = { material: true, status: "complete" as const, evidenceReferences: ["e1"], reviewStatus: "reviewed" as const, gap: null, freshness: "fresh" as const, revision: "r1" };
+const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
+const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
+const completeSet = () => REQUIRED_DECISION_DIMENSIONS.map(complete);
 
 describe("decision dossier T0 architecture contract", () => {
-  it("maps every owner exactly once and fails closed for missing or duplicate owners", () => { expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS)).toBe(true); expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS.slice(1))).toBe(false); expect(validateArchitectureOwners([...DECISION_DOSSIER_ARCHITECTURE_OWNERS, DECISION_DOSSIER_ARCHITECTURE_OWNERS[0]])).toBe(false); });
-  it("keeps the Swedish pension comparator referenceable but non-transferable", () => { const comparator = DECISION_DOSSIER_ARCHITECTURE_OWNERS.find((owner) => owner.concept === "Comparator")!; expect(comparator.allowedReferences).toContain("JurisdictionContext"); expect(comparator.forbiddenOwnershipDuplication).toContain("automatic transfer"); });
-  it("has explicit Swedish comparator fixture data", () => { const fixture = { jurisdiction: "Sweden", institutions: ["income pension", "premium pension"], contributionDefinition: "income-related contribution", referenceable: true, transferToGermanyAutomatically: false }; expect(fixture.jurisdiction).toBe("Sweden"); expect(fixture.institutions).toHaveLength(2); expect(fixture.referenceable).toBe(true); expect(fixture.transferToGermanyAutomatically).toBe(false); });
-  it("keeps UNKNOWN material in a low-data jurisdiction and blocks decision readiness", () => { const lowData = { ...complete, status: "unknown" as const, evidenceReferences: [], gap: "robust baseline missing", freshness: "unknown" as const }; expect(readyForHumanDeliberation([lowData])).toBe(true); expect(decisionReady([lowData])).toBe(false); });
-  it("does not render a projection as measurement and requires model provenance", () => { expect(canRender("PROJECTION", "measurement")).toBe(false); expect(hasRequiredProvenance("PROJECTION", [])).toBe(false); });
-  it("does not treat a fact/value pair as one claim", () => { expect(canRender("FACT", "fact")).toBe(true); expect(canRender("NORMATIVE_JUDGMENT", "fact")).toBe(false); });
-  it("requires measurement definitions before factual contradiction or equivalence", () => { const metric = DECISION_DOSSIER_ARCHITECTURE_OWNERS.find((owner) => owner.concept === "Metric")!; expect(metric.t0Responsibility).toContain("definitional"); expect(metric.allowedReferences).toContain("EvidenceAssessment"); });
-  it("keeps measurement and operationalization conflicts explicit", () => { const pension = { left: "Rentenniveau", right: "cross-pillar net replacement rate", denominatorAligned: false, scopeAligned: false }; const school = { left: "Unterrichtsversorgung", right: "Unterrichtsausfall", equivalent: false }; expect(pension.denominatorAligned && pension.scopeAligned).toBe(false); expect(school.equivalent).toBe(false); });
-  it("preserves source-family lineage rather than inventing independent evidence", () => { const research = DECISION_DOSSIER_ARCHITECTURE_OWNERS.find((owner) => owner.concept === "ResearchObject")!; expect(research.allowedReferences).toContain("ResearchArtifact"); expect(canRender("OPINION", "evidence")).toBe(false); });
-  it("has explicit one-family source lineage", () => { const lineage = { family: "study-1", members: ["original study", "agency report", "repost"], independentEvidenceCount: 1 }; expect(lineage.members).toHaveLength(3); expect(lineage.independentEvidenceCount).toBe(1); });
-  it("invalidates a binding after a material projection or scenario revision", () => { expect(isBindingStale({ boundRevision: "d1", materialRevisions: { projection: "p1", scenario: "s1" } }, { projection: "p2", scenario: "s1" })).toBe(true); });
-  it("does not allow T0 to create scenarios, research success, decisions, or public candidates", () => { expect(t0Allows("generate_scenario")).toBe(false); expect(t0Allows("research_success")).toBe(false); expect(t0Allows("activate_decision")).toBe(false); expect(t0CanReleasePublicCandidate()).toBe(false); });
-  it("has no runtime action or public guard bypass surface", () => { expect(t0Allows("database_access")).toBe(false); expect(t0Allows("provider_call")).toBe(false); expect(t0Allows("publish")).toBe(false); expect(t0Allows("modify_user_state")).toBe(false); expect(t0CanReleasePublicCandidate()).toBe(false); });
-  it("is structurally a zero-import pure contract", () => { const source = readFileSync(path.resolve(process.cwd(), "../../features/dossier/decisionDossierArchitectureContract.ts"), "utf8"); expect(source).not.toMatch(/^import\s/m); expect(source).not.toMatch(/from\s+["'](?:@prisma|mongodb|redis|@\/|next\/server|axios|bull)/); });
+  it("validates every exact owner/reference pairing and fails closed", () => {
+    expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS)).toBe(true);
+    expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS.slice(1))).toBe(false);
+    expect(validateArchitectureOwners([...DECISION_DOSSIER_ARCHITECTURE_OWNERS, DECISION_DOSSIER_ARCHITECTURE_OWNERS[0]])).toBe(false);
+    expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((entry) => entry.concept === "Metric" ? { ...entry, canonicalOwner: "wrong owner" } : entry))).toBe(false);
+    expect(validateArchitectureOwners(DECISION_DOSSIER_ARCHITECTURE_OWNERS.map((entry) => entry.concept === "Metric" ? { ...entry, canonicalReference: "" } : entry))).toBe(false);
+    expect(ARCHITECTURE_CONCEPTS).toHaveLength(13);
+  });
+
+  it("uses an exhaustive matrix with no permissive fallback", () => {
+    expect(Object.keys(EPISTEMIC_COMPATIBILITY_MATRIX).sort()).toEqual([...EPISTEMIC_CATEGORIES].sort());
+    for (const category of EPISTEMIC_CATEGORIES) expect(canRender(category, "fact")).toBe(category === "FACT");
+    expect(canRender("PROJECTION", "measurement")).toBe(false); expect(canRender("MODEL_RESULT", "measurement")).toBe(false); expect(canRender("ESTIMATE", "measurement")).toBe(false);
+    expect(canRender("NORMATIVE_JUDGMENT", "fact")).toBe(false); expect(canRender("OPINION", "fact")).toBe(false); expect(canRender("OPINION", "evidence")).toBe(false);
+    expect(canRender("UNKNOWN", "fact")).toBe(false); expect(canRender("UNKNOWN", "measurement")).toBe(false); expect(canRender("UNKNOWN", "evidence")).toBe(false);
+  });
+
+  it("requires structured category-specific provenance", () => {
+    expect(hasRequiredProvenance("MEASURED_VALUE", {})).toBe(false);
+    expect(hasRequiredProvenance("MEASURED_VALUE", { sourceReference: "s", evidenceReference: "e", metricDefinitionReference: "m", period: "2025", populationScope: "insured people", unit: "%", denominator: "net income" })).toBe(true);
+    expect(hasRequiredProvenance("ESTIMATE", { sourceReference: "s", method: "survey", uncertainty: "CI" })).toBe(true);
+    expect(hasRequiredProvenance("PROJECTION", { modelReference: "model", basisPeriod: "2025", assumptions: ["a"], revision: "r2" })).toBe(true);
+    expect(hasRequiredProvenance("MODEL_RESULT", { modelReference: "model", modelVersion: "v2" })).toBe(true);
+  });
+
+  it("fails closed for empty, incomplete, unreviewed, stale, and revisionless readiness", () => {
+    expect(decisionReady([])).toBe(false);
+    expect(decisionReady([complete("metric")])).toBe(false);
+    expect(decisionReady(completeSet().map((value) => value.key === "metric" ? { ...value, revision: null } : value))).toBe(false);
+    expect(decisionReady(completeSet().map((value) => value.key === "metric" ? { ...value, materiality: { ...reviewed, classification: "non_material", reviewStatus: "pending", reviewedBy: null, rationale: "", revision: null }, status: "unknown", evidenceReferences: [], freshness: "unknown", gap: "unreviewed" } : value))).toBe(false);
+    expect(readyForHumanDeliberation(completeSet().map((value) => value.key === "metric" ? { ...value, status: "gap", gap: "open" } : value))).toBe(true);
+    expect(decisionReady(completeSet().map((value) => value.key === "metric" ? { ...value, status: "gap", gap: "open" } : value))).toBe(false);
+  });
+
+  it("compares all material dependency snapshots, including additions and deletions", () => {
+    const bound = { boundRevision: "dossier-r1", materialRevisions: { dossier: "dossier-r1", projection: "projection-r1", scenario: "scenario-r1" } };
+    expect(isBindingStale(bound, { ...bound, boundRevision: "dossier-r2" })).toBe(true);
+    expect(isBindingStale(bound, { ...bound, materialRevisions: { ...bound.materialRevisions, projection: "projection-r2" } })).toBe(true);
+    expect(isBindingStale(bound, { ...bound, materialRevisions: { ...bound.materialRevisions, comparator: "comparator-r1" } })).toBe(true);
+    expect(isBindingStale(bound, { ...bound, materialRevisions: { dossier: "dossier-r1", projection: "projection-r1" } })).toBe(true);
+    expect(isBindingStale(bound, bound)).toBe(false);
+  });
+
+  it("derives Sweden as referenceable but not automatically transferable to Germany", () => {
+    const result = evaluateComparator({ jurisdiction: "Sweden", targetJurisdiction: "Germany", institutions: ["income pension", "premium pension"], contributionDefinition: "income-related contribution", benefitDefinition: "income and premium pension", originalLanguage: "sv", readingLanguage: "de" });
+    expect(result).toEqual({ referenceable: true, automaticTransferToTarget: false });
+  });
+
+  it("keeps low-data uncertainty material and blocks a decision", () => {
+    const lowData = completeSet().map((value) => value.key === "comparator" ? { ...value, status: "unknown" as const, evidenceReferences: [], freshness: "unknown" as const, gap: "robust baseline and comparator missing" } : value);
+    expect(decisionReady(lowData)).toBe(false);
+  });
+
+  it("derives measurement harmonization and operationalization differences", () => {
+    expect(compareMetricDefinitions({ metricKey: "replacement_rate", numerator: "statutory pension", denominator: "previous earnings", population: "statutory insured", jurisdictionScope: "Germany", timeBasis: "retirement", unit: "%", methodology: "Rentenniveau" }, { metricKey: "replacement_rate", numerator: "all pension pillars", denominator: "net disposable income", population: "all retirees", jurisdictionScope: "Germany", timeBasis: "retirement", unit: "%", methodology: "cross-pillar" })).toBe("requires_harmonization");
+    expect(compareMetricDefinitions({ metricKey: "school_supply", numerator: "covered lessons", denominator: "planned lessons", population: "schools", jurisdictionScope: "Saxony-Anhalt", timeBasis: "term", unit: "%", methodology: "coverage" }, { metricKey: "school_supply", numerator: "cancelled lessons", denominator: "planned lessons", population: "schools", jurisdictionScope: "Saxony-Anhalt", timeBasis: "term", unit: "%", methodology: "cancellation" })).toBe("requires_harmonization");
+  });
+
+  it("derives one source family and separates fact from value", () => {
+    expect(countIndependentEvidenceFamilies([{ id: "study", parentId: null }, { id: "agency", parentId: "study" }, { id: "repost", parentId: "agency" }])).toBe(1);
+    expect(classifyFactValueStatement("Beitragssatz beträgt 18,6 Prozent.")).toBe("FACTUAL_QUANTIFIED");
+    expect(classifyFactValueStatement("18,6 Prozent ist gerecht.")).toBe("NORMATIVE_JUDGMENT");
+  });
+
+  it("keeps T0 and the public guard fail-closed", () => {
+    for (const action of ["generate_scenario", "generate_recommendation", "claim_research_success", "activate_decision", "publish", "release_public_candidate"]) expect(t0Allows(action)).toBe(false);
+    expect(t0CanReleasePublicCandidate()).toBe(false);
+  });
+
+  it("is a pure contract without runtime imports", () => {
+    const source = readFileSync(path.resolve(process.cwd(), "../../features/dossier/decisionDossierArchitectureContract.ts"), "utf8");
+    expect(source).not.toMatch(/^import\s/m); expect(source).not.toMatch(/(?:prisma|mongo|redis|fetch\(|axios|queue|next\/|process\.env)/i);
+  });
 });
