@@ -1,5 +1,21 @@
 # T0 Closure — Decision Dossier Architecture Contract
 
+## Current repair state
+
+```text
+CURRENT_BASE_MAIN_SHA=0c4938dded685783582ac6a4c46fba9cd3e2627a
+CURRENT_REPAIR_HEAD_SHA=pending-commit
+IMPLEMENTATION_COMPLETE=true
+OWNER_ACCEPTANCE=false
+T0_GLOBAL_DONE=false
+T0_STATUS=review
+T1_STATUS=blocked
+ARCHITECTURE_REVIEW=self-review pending
+CI_STATUS=pending current head
+```
+
+## Historical implementation evidence
+
 Base: `7e81eff9cf285bf2137d5a9eff8c4ce808f5fcbf`.
 Implementation: `f7b7f4dbf2fd8d01cc33886d9d91677ad958e43c`.
 

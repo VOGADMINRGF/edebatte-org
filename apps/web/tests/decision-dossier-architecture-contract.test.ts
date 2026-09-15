@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canRender, compareMetricDefinitions, countIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasRequiredProvenance, isBindingStale, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type MaterialDimension } from "@features/dossier/decisionDossierArchitectureContract";
+import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_CATEGORIES, EPISTEMIC_COMPATIBILITY_MATRIX, REQUIRED_DECISION_DIMENSIONS, canRender, compareMetricDefinitions, countIndependentEvidenceFamilies, decisionReady, evaluateComparator, hasRequiredProvenance, isBindingStale, mapCanonicalClaimSemantic, readyForHumanDeliberation, t0Allows, t0CanReleasePublicCandidate, validateArchitectureOwners, type MaterialDimension } from "@features/dossier/decisionDossierArchitectureContract";
 
 const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", basisReference: null, reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
 const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
@@ -73,6 +73,18 @@ describe("decision dossier T0 architecture contract", () => {
   it("keeps T0 and the public guard fail-closed", () => {
     for (const action of ["generate_scenario", "generate_recommendation", "claim_research_success", "activate_decision", "publish", "release_public_candidate"]) expect(t0Allows(action)).toBe(false);
     expect(t0CanReleasePublicCandidate()).toBe(false);
+  });
+  it("fails closed for all malformed lineages and accepts deterministic chains", () => {
+    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: null }, { id: "b", parentId: null }])).toEqual({ status: "ok", independentFamilies: 2 });
+    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: "missing" }])).toEqual({ status: "invalid", reason: "missing_parent" });
+    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: "a" }])).toEqual({ status: "invalid", reason: "self_parent" });
+    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: "b" }, { id: "b", parentId: "a" }])).toEqual({ status: "invalid", reason: "cycle" });
+    expect(countIndependentEvidenceFamilies([{ id: "a", parentId: null }, { id: "a", parentId: null }])).toEqual({ status: "invalid", reason: "duplicate_id" });
+    expect(countIndependentEvidenceFamilies([{ id: "", parentId: null }])).toEqual({ status: "invalid", reason: "empty_id" });
+  });
+  it("maps canonical semantics without inspecting German, English, or French text", () => {
+    expect(["Der Beitragssatz beträgt 18,6 %.", "The contribution rate is 18.6%.", "Le taux est de 18,6 %."].map(() => mapCanonicalClaimSemantic("quantified_fact"))).toEqual(["FACT", "FACT", "FACT"]);
+    expect(mapCanonicalClaimSemantic("normative_position")).toBe("NORMATIVE_JUDGMENT"); expect(mapCanonicalClaimSemantic("prediction")).toBe("PROJECTION");
   });
 
   it("is a pure contract without runtime imports", () => {
