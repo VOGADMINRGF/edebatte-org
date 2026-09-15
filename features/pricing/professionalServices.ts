@@ -74,7 +74,7 @@ export const PROFESSIONAL_SERVICES: readonly ProfessionalService[] = [
       de: "Verbände, Redaktionen, NGOs, Beratungen und Public-Affairs-Teams",
       en: "Associations, newsrooms, NGOs, consultancies and public-affairs teams",
     },
-    href: "/leistungen/decision-dossier#pilot",
+    href: "/leistungen/decision-dossier",
     inquiryHref: "/kontakt?channel=team&source=professional-services&offer=decision-dossier-pilot",
     featured: true,
   },
@@ -113,7 +113,7 @@ export const PROFESSIONAL_SERVICES: readonly ProfessionalService[] = [
       de: "Organisationen mit wiederkehrendem Research- und Entscheidungsbedarf",
       en: "Organisations with recurring research and decision-support needs",
     },
-    href: "/leistungen/topic-intelligence#pro",
+    href: "/leistungen/topic-intelligence",
     inquiryHref: "/kontakt?channel=team&source=professional-services&offer=topic-intelligence-pro",
   },
   {
