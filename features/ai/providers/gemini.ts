@@ -1,28 +1,21 @@
 // features/ai/providers/gemini.ts
 import { withMetrics } from "../orchestrator_health";
+import {
+  getProviderFallbackModel,
+  resolveProviderModel,
+} from "@features/ai/providerModelRegistry";
 
 const API_BASE =
   process.env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com";
-const CURRENT_MODEL = "gemini-3.8-flash";
-const CURRENT_FALLBACK_MODEL = "gemini-3.6-flash";
-const RETIRED_MODEL_REPLACEMENTS = new Map<string, string>([
-  ["gemini-1.5-flash-latest", CURRENT_MODEL],
-  ["gemini-1.5-flash", CURRENT_MODEL],
-  ["gemini-2.0-flash", CURRENT_MODEL],
-  ["gemini-2.0-flash-lite", CURRENT_FALLBACK_MODEL],
-  ["gemini-2.5-flash", CURRENT_MODEL],
-]);
 
 export function resolveGeminiModelName(modelName?: string): string {
-  const normalized = modelName?.trim().replace(/^models\//, "");
-  if (!normalized) return CURRENT_MODEL;
-  return RETIRED_MODEL_REPLACEMENTS.get(normalized) ?? normalized;
+  return resolveProviderModel("gemini", modelName);
 }
 
 const MODEL = resolveGeminiModelName(process.env.GEMINI_MODEL);
 const FALLBACK_MODEL = process.env.GEMINI_MODEL_FALLBACK?.trim()
   ? resolveGeminiModelName(process.env.GEMINI_MODEL_FALLBACK)
-  : CURRENT_FALLBACK_MODEL;
+  : getProviderFallbackModel("gemini");
 
 export type AskArgs = {
   prompt: string;
