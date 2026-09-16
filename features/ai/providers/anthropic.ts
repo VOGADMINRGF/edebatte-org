@@ -6,9 +6,27 @@ const API_BASE = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com")
   /\/+$/,
   "",
 );
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
-const FALLBACK_MODEL =
-  process.env.ANTHROPIC_MODEL_FALLBACK || "claude-sonnet-4-20250514";
+const CURRENT_MODEL = "claude-opus-5";
+const CURRENT_FALLBACK_MODEL = "claude-sonnet-5";
+const RETIRED_MODEL_REPLACEMENTS = new Map<string, string>([
+  ["claude-opus-4-1-20250805", CURRENT_MODEL],
+  ["claude-opus-4-20250514", CURRENT_MODEL],
+  ["claude-sonnet-4-20250514", CURRENT_FALLBACK_MODEL],
+  ["claude-3-7-sonnet", CURRENT_FALLBACK_MODEL],
+  ["claude-3-7-sonnet-20250219", CURRENT_FALLBACK_MODEL],
+  ["claude-3-5-sonnet-20240620", CURRENT_FALLBACK_MODEL],
+]);
+
+export function resolveAnthropicModelName(modelName?: string): string {
+  const normalized = modelName?.trim();
+  if (!normalized) return CURRENT_MODEL;
+  return RETIRED_MODEL_REPLACEMENTS.get(normalized) ?? normalized;
+}
+
+const MODEL = resolveAnthropicModelName(process.env.ANTHROPIC_MODEL);
+const FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK?.trim()
+  ? resolveAnthropicModelName(process.env.ANTHROPIC_MODEL_FALLBACK)
+  : CURRENT_FALLBACK_MODEL;
 const VERSION = process.env.ANTHROPIC_VERSION || "2023-06-01";
 
 export type AskArgs = {
@@ -92,18 +110,18 @@ async function askAnthropic({
     ],
   });
 
-  let selectedModel = model ?? MODEL;
+  let selectedModel = resolveAnthropicModelName(model ?? MODEL);
   let data;
   try {
     data = await post(buildBody(selectedModel), signal);
   } catch (err: any) {
+    const resolvedFallbackModel = resolveAnthropicModelName(FALLBACK_MODEL);
     const canFallbackModel =
       err?.status === 404 &&
-      typeof FALLBACK_MODEL === "string" &&
-      FALLBACK_MODEL.length > 0 &&
-      FALLBACK_MODEL !== selectedModel;
+      resolvedFallbackModel.length > 0 &&
+      resolvedFallbackModel !== selectedModel;
     if (!canFallbackModel) throw err;
-    selectedModel = FALLBACK_MODEL;
+    selectedModel = resolvedFallbackModel;
     data = await post(buildBody(selectedModel), signal);
   }
 
