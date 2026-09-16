@@ -16,6 +16,19 @@ export type ParliamentaryContextStatement = {
   url: string;
 };
 
+export type ParliamentaryContextPoll = {
+  id: string;
+  title: string;
+  date: string;
+  outcome: string;
+  overallResult: string;
+  germanDelegationResult?: string;
+  scopeNote: string;
+  url: string;
+  apiUrl: string;
+  votesApiUrl: string;
+};
+
 export type ParliamentaryContextTopic = {
   id: "eu-csa-chatkontrolle" | "de-ifg-reform";
   title: string;
@@ -24,6 +37,7 @@ export type ParliamentaryContextTopic = {
   procedureStatus: string;
   procedureSummary: string;
   keywords: string[];
+  polls: ParliamentaryContextPoll[];
   statements: ParliamentaryContextStatement[];
   links: ParliamentaryContextLink[];
   caveat: string;
@@ -47,6 +61,22 @@ const TOPICS: ParliamentaryContextTopic[] = [
       "csa regulation",
       "2021/1232",
       "eprivacy",
+    ],
+    polls: [
+      {
+        id: "aw-poll-6454",
+        title: "Verlängerung der freiwilligen Chatkontrolle als Maßnahme gegen Kindesmissbrauch",
+        date: "2026-03-26",
+        outcome: "Vorschlag abgelehnt",
+        overallResult: "EU-Parlament gesamt: 228 Ja · 311 Nein · 92 Enthaltungen",
+        germanDelegationResult:
+          "Deutsche EU-Abgeordnete: 12 Ja · 62 Nein · 12 Enthaltungen · 9 nicht beteiligt",
+        scopeNote:
+          "Das Gesamtergebnis bezieht sich auf das gesamte EU-Parlament. Die gesonderte Aufschlüsselung von abgeordnetenwatch zeigt ausschließlich die damals 95 deutschen EU-Abgeordneten.",
+        url: "https://www.abgeordnetenwatch.de/eu/10/abstimmungen/verlaengerung-der-freiwilligen-chatkontrolle-als-massnahme-gegen-kindesmissbrauch",
+        apiUrl: "https://www.abgeordnetenwatch.de/api/v2/polls/6454",
+        votesApiUrl: "https://www.abgeordnetenwatch.de/api/v2/votes?poll=6454",
+      },
     ],
     statements: [
       {
@@ -90,7 +120,7 @@ const TOPICS: ParliamentaryContextTopic[] = [
       },
     ],
     caveat:
-      "Die dargestellten Politikerpositionen sind öffentliche Eigenaussagen auf abgeordnetenwatch. Sie werden nicht als Faktenbeleg oder als Position einer gesamten Partei gewertet. Maßgeblich für den Verfahrensstand sind die verlinkten offiziellen EU-Quellen.",
+      "Die dargestellten Politikerpositionen sind öffentliche Eigenaussagen auf abgeordnetenwatch. Sie werden nicht als Faktenbeleg oder als Position einer gesamten Partei gewertet. Abstimmungsdaten werden separat als dokumentiertes parlamentarisches Verhalten ausgewiesen; maßgeblich für den aktuellen Verfahrensstand sind die verlinkten offiziellen EU-Quellen.",
   },
   {
     id: "de-ifg-reform",
@@ -108,6 +138,7 @@ const TOPICS: ParliamentaryContextTopic[] = [
       "staatliche transparenz",
       "transparenzgesetz",
     ],
+    polls: [],
     statements: [
       {
         actor: "Hakan Demir",
