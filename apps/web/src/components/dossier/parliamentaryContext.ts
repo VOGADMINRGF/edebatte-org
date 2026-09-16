@@ -5,7 +5,7 @@ export type ParliamentaryContextLink = {
   publisher: string;
   url: string;
   date: string;
-  kind: "official" | "abgeordnetenwatch" | "position";
+  kind: "official" | "register" | "abgeordnetenwatch" | "position";
 };
 
 export type ParliamentaryContextStatement = {
@@ -141,12 +141,12 @@ const TOPICS: ParliamentaryContextTopic[] = [
     polls: [],
     statements: [
       {
-        actor: "Hakan Demir",
+        actor: "Tim Klüssendorf",
         affiliation: "SPD · Bundestag",
-        date: "2026-07-03",
+        date: "2026-09-15",
         summary:
-          "Erklärte auf abgeordnetenwatch, der Koalitionsbeschluss sei noch kein Gesetz und der Zugang zu staatlichen Informationen solle im parlamentarischen Verfahren nicht faktisch erschwert oder auf wenige Gruppen begrenzt werden.",
-        url: "https://www.abgeordnetenwatch.de/profile/hakan-demir/fragen-antworten/sehr-geehrter-herr-demir-wie-werden-sie-sich-zur-aenderung-des-informationsfreiheitsgesetz-positionieren",
+          "Erklärte auf abgeordnetenwatch, bestehende Auskunftsansprüche für Bürger:innen, Presse und Zivilgesellschaft sollten nicht reduziert werden; eine Reform solle zugleich sensible Informationen schützen und die Bearbeitung digitalisieren.",
+        url: "https://www.abgeordnetenwatch.de/profile/tim-kluessendorf/fragen-antworten/wie-werden-sie-die-geplante-reform-und-damit-die-de-facto-abschaffung-des-ifg-aufhalten",
       },
       {
         actor: "Josef Oster",
@@ -163,7 +163,7 @@ const TOPICS: ParliamentaryContextTopic[] = [
         publisher: "Lobbyregister beim Deutschen Bundestag",
         url: "https://www.lobbyregister.bundestag.de/inhalte-der-interessenvertretung/regelungsvorhabensuche/RV0027707/508772",
         date: "2026-08-07",
-        kind: "official",
+        kind: "register",
       },
       {
         label: "Koalition will Informationsfreiheitsgesetz stark einschränken",
@@ -181,7 +181,7 @@ const TOPICS: ParliamentaryContextTopic[] = [
       },
     ],
     caveat:
-      "abgeordnetenwatch tritt beim IFG selbst als Interessenvertreter für weitgehende Informationsfreiheit auf. Diese Organisationsposition ist deshalb getrennt von amtlichem Verfahrensstand und von Eigenaussagen einzelner Abgeordneter gekennzeichnet.",
+      "abgeordnetenwatch tritt beim IFG selbst als Interessenvertreter für weitgehende Informationsfreiheit auf. Diese Organisationsposition ist deshalb getrennt vom Verfahrensstand und von Eigenaussagen einzelner Abgeordneter gekennzeichnet. Angaben aus dem Lobbyregister werden als Registereintrag und nicht als amtliche Sachfeststellung behandelt.",
   },
 ];
 
