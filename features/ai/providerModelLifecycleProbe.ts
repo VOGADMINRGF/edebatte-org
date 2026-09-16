@@ -54,10 +54,21 @@ function extractModelIds(provider: CoreModelProvider, payload: any): string[] {
           ? payload
           : [];
   if (!Array.isArray(raw)) return [];
-  return raw
-    .map((entry: any) => entry?.id ?? entry?.name ?? entry?.model)
-    .filter((value: unknown): value is string => typeof value === "string")
-    .map((value) => normalizeListedModel(provider, value));
+
+  const values: string[] = [];
+  for (const entry of raw) {
+    const primary = [entry?.id, entry?.name, entry?.model, entry?.baseModelId, entry?.root];
+    for (const value of primary) {
+      if (typeof value === "string" && value.trim()) values.push(value);
+    }
+    if (Array.isArray(entry?.aliases)) {
+      for (const alias of entry.aliases) {
+        if (typeof alias === "string" && alias.trim()) values.push(alias);
+      }
+    }
+  }
+
+  return Array.from(new Set(values.map((value) => normalizeListedModel(provider, value))));
 }
 
 function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.ProcessEnv): { url: string; init: RequestInit } {
@@ -79,7 +90,7 @@ function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.Proces
       };
     case "gemini":
       return {
-        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?key=${encodeURIComponent(key)}`,
+        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?pageSize=1000&key=${encodeURIComponent(key)}`,
         init: {},
       };
   }
