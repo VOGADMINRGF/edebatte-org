@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { PROVIDER_MODEL_REGISTRY } from "@features/ai/providerModelRegistry";
-import { probeProviderModelLifecycle } from "@features/ai/providerModelLifecycleProbe";
+import {
+  deriveProviderModelLifecycleHealth,
+  probeProviderModelLifecycle,
+  probeProviderModelsLifecycle,
+} from "@features/ai/providerModelLifecycleProbe";
 
 const repoRoot = path.resolve(process.cwd(), "../..");
 const allowedRuntimeFile = path.normalize("features/ai/providerModelRegistry.ts");
@@ -85,5 +89,70 @@ describe("AI provider model governance", () => {
     expect(result.effectiveModel).toBe("gpt-5.6-sol");
     expect(result.modelAvailable).toBe(true);
     expect(result.status).toBe("ok");
+  });
+
+  it("loads a provider catalog once when validating several routed models", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: "gpt-5" },
+            { id: "gpt-5.6-luna" },
+            { id: "gpt-5.6-sol" },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    ) as unknown as typeof fetch;
+
+    const results = await probeProviderModelsLifecycle(
+      "openai",
+      [undefined, "gpt-5.6-luna", "gpt-5.6-sol"],
+      {
+        env: {
+          OPENAI_API_KEY: "test-key",
+          OPENAI_MODEL: "gpt-5",
+        },
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(results.map((entry) => entry.effectiveModel)).toEqual([
+      "gpt-5",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+    ]);
+    expect(results.every((entry) => entry.status === "ok")).toBe(true);
+  });
+
+  it("distinguishes healthy, degraded and blocked lifecycle states", async () => {
+    const healthyFetch = vi.fn(async () =>
+      new Response(JSON.stringify({ data: [{ id: "gpt-5" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    ) as unknown as typeof fetch;
+    const healthy = await probeProviderModelLifecycle("openai", {
+      env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-5" },
+      fetchImpl: healthyFetch,
+    });
+
+    const degraded = await probeProviderModelLifecycle("anthropic", { env: {} });
+
+    const blockedFetch = vi.fn(async () =>
+      new Response(JSON.stringify({ data: [{ id: "gpt-5" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    ) as unknown as typeof fetch;
+    const blocked = await probeProviderModelLifecycle("openai", {
+      env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-5.6-sol" },
+      fetchImpl: blockedFetch,
+    });
+
+    expect(deriveProviderModelLifecycleHealth([healthy])).toBe("healthy");
+    expect(deriveProviderModelLifecycleHealth([healthy, degraded])).toBe("degraded");
+    expect(deriveProviderModelLifecycleHealth([healthy, degraded, blocked])).toBe("blocked");
   });
 });
