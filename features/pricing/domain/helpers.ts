@@ -39,7 +39,7 @@ const CURRENT_PRIVATE_PRICING: Record<
     de: {
       titel: "eDebatte Plus",
       preisMonat: 7.99,
-      preisLabel: "7,99 € / Monat inkl. MwSt.",
+      preisLabel: "7,99 € / Monat",
       beschreibungKurz: "Erweiterter Arbeits- und Prüfmodus mit zusätzlichen Beitrags-, Analyse- und Recherchefunktionen.",
       unterschiedZurNaechstenStufe: "Pro ergänzt die vertiefte Ausarbeitung und das größere Arbeitskontingent.",
       ctaText: "Plus wählen",
@@ -49,7 +49,7 @@ const CURRENT_PRIVATE_PRICING: Record<
     en: {
       titel: "eDebatte Plus",
       preisMonat: 7.99,
-      preisLabel: "€7.99 / month incl. VAT",
+      preisLabel: "€7.99 / month",
       beschreibungKurz: "Extended work and review mode with additional contribution, analysis and research features.",
       unterschiedZurNaechstenStufe: "Pro adds deeper elaboration and a larger working allowance.",
       ctaText: "Choose Plus",
@@ -61,7 +61,7 @@ const CURRENT_PRIVATE_PRICING: Record<
     de: {
       titel: "eDebatte Pro",
       preisMonat: 19.99,
-      preisLabel: "19,99 € / Monat inkl. MwSt.",
+      preisLabel: "19,99 € / Monat",
       beschreibungKurz: "Vertiefter Arbeitsmodus mit erweiterten Analyse-, Recherche- und Ausarbeitungsfunktionen.",
       unterschiedZurNaechstenStufe: "Höchste öffentliche B2C-Stufe im aktuellen Modell.",
       ctaText: "Pro wählen",
@@ -71,7 +71,7 @@ const CURRENT_PRIVATE_PRICING: Record<
     en: {
       titel: "eDebatte Pro",
       preisMonat: 19.99,
-      preisLabel: "€19.99 / month incl. VAT",
+      preisLabel: "€19.99 / month",
       beschreibungKurz: "Deeper working mode with extended analysis, research and elaboration features.",
       unterschiedZurNaechstenStufe: "Highest public B2C tier in the current model.",
       ctaText: "Choose Pro",
