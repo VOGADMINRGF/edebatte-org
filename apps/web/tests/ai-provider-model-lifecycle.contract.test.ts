@@ -1,11 +1,23 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { getAiRuntimePolicyFromEnv } from "@features/ai/aiRuntimePolicy";
 import {
   PROVIDER_MODEL_REGISTRY,
+  knownRetiredModelIds,
   resolveProviderModel,
 } from "@features/ai/providerModelRegistry";
 import { resolveAnthropicModelName } from "@features/ai/providers/anthropic";
 import { resolveGeminiModelName } from "@features/ai/providers/gemini";
+
+const RUNTIME_MODEL_CONFIG_FILES = [
+  "features/ai/aiRuntimePolicy.ts",
+  "features/ai/providers/openai.ts",
+  "features/ai/providers/anthropic.ts",
+  "features/ai/providers/mistral.ts",
+  "features/ai/providers/gemini.ts",
+  "apps/web/.env.example",
+] as const;
 
 describe("AI provider model lifecycle", () => {
   it("uses one registry for current provider defaults", () => {
@@ -56,5 +68,20 @@ describe("AI provider model lifecycle", () => {
     });
     expect(policy.anthropic.model).toBe("claude-opus-4-8");
     expect(policy.gemini.model).toBe("gemini-3.6-flash");
+  });
+
+  it("keeps known retired model ids out of runtime configuration surfaces", () => {
+    const repoRoot = path.resolve(process.cwd(), "../..");
+    const retiredIds = knownRetiredModelIds();
+    const offenders: string[] = [];
+
+    for (const relativePath of RUNTIME_MODEL_CONFIG_FILES) {
+      const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+      for (const retiredId of retiredIds) {
+        if (content.includes(retiredId)) offenders.push(`${relativePath}: ${retiredId}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
