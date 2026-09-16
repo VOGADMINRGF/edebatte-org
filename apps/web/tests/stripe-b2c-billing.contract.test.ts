@@ -44,4 +44,22 @@ describe("Stripe B2C billing contract", () => {
     expect(pricing).toContain("preisMonat: 7.99");
     expect(pricing).toContain("preisMonat: 19.99");
   });
+
+  it("differentiates B2C tiers by convenience and intelligence instead of visible quantity quotas", () => {
+    const pricing = readFileSync(resolve(REPO_ROOT, "features/pricing/domain/helpers.ts"), "utf8");
+    const formatter = readFileSync(resolve(REPO_ROOT, "features/pricing/domain/formatters.ts"), "utf8");
+
+    expect(pricing).toContain("Persönlicher Update-Feed");
+    expect(pricing).toContain("Watchlists");
+    expect(pricing).toContain("Voice-Briefings");
+    expect(pricing).toContain("Vertiefte Vergleiche");
+    expect(pricing).toContain("Arbeitsmappen");
+    expect(pricing).toContain("beleggebundene Dossier-Ausarbeitung");
+    expect(pricing).toContain('sekundarCtaHref: "https://voiceopengov.org/unterstuetzen"');
+    expect(pricing).not.toContain('"3 Beiträge pro Monat"');
+    expect(pricing).not.toContain('"10 Beiträge pro Monat"');
+    expect(pricing).not.toContain('"1 Anlassraum inklusive"');
+    expect(formatter).not.toContain("jährliche Zahlung bevorzugt");
+    expect(formatter).not.toContain("annual billing preferred");
+  });
 });
