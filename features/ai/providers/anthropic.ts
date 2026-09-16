@@ -1,32 +1,25 @@
 // features/ai/providers/anthropic.ts
 import { withMetrics } from "../orchestrator_health";
 import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
+import {
+  getProviderFallbackModel,
+  resolveProviderModel,
+} from "@features/ai/providerModelRegistry";
+import { probeProviderModelLifecycle } from "@features/ai/providerModelLifecycleProbe";
 
 const API_BASE = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(
   /\/+$/,
   "",
 );
-const CURRENT_MODEL = "claude-opus-5";
-const CURRENT_FALLBACK_MODEL = "claude-sonnet-5";
-const RETIRED_MODEL_REPLACEMENTS = new Map<string, string>([
-  ["claude-opus-4-1-20250805", CURRENT_MODEL],
-  ["claude-opus-4-20250514", CURRENT_MODEL],
-  ["claude-sonnet-4-20250514", CURRENT_FALLBACK_MODEL],
-  ["claude-3-7-sonnet", CURRENT_FALLBACK_MODEL],
-  ["claude-3-7-sonnet-20250219", CURRENT_FALLBACK_MODEL],
-  ["claude-3-5-sonnet-20240620", CURRENT_FALLBACK_MODEL],
-]);
 
 export function resolveAnthropicModelName(modelName?: string): string {
-  const normalized = modelName?.trim();
-  if (!normalized) return CURRENT_MODEL;
-  return RETIRED_MODEL_REPLACEMENTS.get(normalized) ?? normalized;
+  return resolveProviderModel("anthropic", modelName);
 }
 
 const MODEL = resolveAnthropicModelName(process.env.ANTHROPIC_MODEL);
 const FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK?.trim()
   ? resolveAnthropicModelName(process.env.ANTHROPIC_MODEL_FALLBACK)
-  : CURRENT_FALLBACK_MODEL;
+  : getProviderFallbackModel("anthropic");
 const VERSION = process.env.ANTHROPIC_VERSION || "2023-06-01";
 
 export type AskArgs = {
@@ -158,37 +151,22 @@ export async function anthropicProbe({ signal }: { signal?: AbortSignal } = {}):
   status?: number;
   durationMs: number;
 }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 1_800);
-  const started = Date.now();
-
-  try {
-    const res = await fetch(`${API_BASE}/v1/models`, {
-      method: "GET",
-      headers: {
-        "anthropic-version": VERSION,
-        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-      },
-      signal: signal ?? controller.signal,
-    });
-
-    const durationMs = Date.now() - started;
-    if (res.ok) {
-      return { ok: true, durationMs };
-    }
-
-    let errorKind: AiErrorKind = "INTERNAL";
-    if (res.status === 401 || res.status === 403) errorKind = "UNAUTHORIZED";
-    else if (res.status === 404) errorKind = "MODEL_NOT_FOUND";
-    else if (res.status === 429) errorKind = "RATE_LIMIT";
-
-    return { ok: false, errorKind, status: res.status, durationMs };
-  } catch (err: any) {
-    const durationMs = Date.now() - started;
-    const errorKind: AiErrorKind =
-      err?.name === "AbortError" ? "TIMEOUT" : "INTERNAL";
-    return { ok: false, errorKind, durationMs };
-  } finally {
-    clearTimeout(timeout);
+  const result = await probeProviderModelLifecycle("anthropic", { signal });
+  if (result.status === "ok" || result.status === "retired_migrated") {
+    return { ok: true, status: result.httpStatus ?? undefined, durationMs: result.durationMs };
   }
+
+  let errorKind: AiErrorKind = "INTERNAL";
+  if (result.status === "model_not_found") errorKind = "MODEL_NOT_FOUND";
+  else if (result.status === "config_missing") errorKind = "UNAUTHORIZED";
+  else if (result.reason === "timeout") errorKind = "TIMEOUT";
+  else if (result.httpStatus === 401 || result.httpStatus === 403) errorKind = "UNAUTHORIZED";
+  else if (result.httpStatus === 429) errorKind = "RATE_LIMIT";
+
+  return {
+    ok: false,
+    errorKind,
+    status: result.httpStatus ?? undefined,
+    durationMs: result.durationMs,
+  };
 }
