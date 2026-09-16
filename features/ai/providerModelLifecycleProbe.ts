@@ -19,7 +19,28 @@ export type ProviderModelProbeResult = {
   reason: string | null;
 };
 
+export type ProviderModelLifecycleHealth = "healthy" | "degraded" | "blocked";
+
+export type ProviderModelCatalogSnapshot = {
+  provider: CoreModelProvider;
+  credentialPresent: boolean;
+  providerReachable: boolean;
+  httpStatus: number | null;
+  durationMs: number;
+  modelIds: string[] | null;
+  reason: string | null;
+};
+
 type FetchLike = typeof fetch;
+type CatalogProbeOptions = {
+  env?: NodeJS.ProcessEnv;
+  fetchImpl?: FetchLike;
+  signal?: AbortSignal;
+};
+type ProbeOptions = CatalogProbeOptions & {
+  /** Explicit model to verify, used by profiled routing health checks. */
+  configuredModelOverride?: string | null;
+};
 
 function configuredModelFor(provider: CoreModelProvider, env: NodeJS.ProcessEnv): string | null {
   switch (provider) {
@@ -96,30 +117,23 @@ function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.Proces
   }
 }
 
-export async function probeProviderModelLifecycle(
+export async function fetchProviderModelCatalog(
   provider: CoreModelProvider,
-  options: { env?: NodeJS.ProcessEnv; fetchImpl?: FetchLike; signal?: AbortSignal } = {},
-): Promise<ProviderModelProbeResult> {
+  options: CatalogProbeOptions = {},
+): Promise<ProviderModelCatalogSnapshot> {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? fetch;
-  const configuredModel = configuredModelFor(provider, env);
-  const modelState = describeProviderModel(provider, configuredModel);
-  const effectiveModel = resolveProviderModel(provider, configuredModel);
   const key = credentialFor(provider, env);
   const started = Date.now();
 
   if (!key) {
     return {
       provider,
-      configuredModel,
-      effectiveModel,
-      providerRecommendedReplacement: modelState.providerRecommendedReplacement,
-      migrated: modelState.migrated,
-      modelAvailable: null,
+      credentialPresent: false,
       providerReachable: false,
-      status: "config_missing",
       httpStatus: null,
       durationMs: Date.now() - started,
+      modelIds: null,
       reason: "provider credential missing",
     };
   }
@@ -131,42 +145,63 @@ export async function probeProviderModelLifecycle(
     if (!res.ok) {
       return {
         provider,
-        configuredModel,
-        effectiveModel,
-        providerRecommendedReplacement: modelState.providerRecommendedReplacement,
-        migrated: modelState.migrated,
-        modelAvailable: null,
+        credentialPresent: true,
         providerReachable: false,
-        status: "provider_error",
         httpStatus: res.status,
         durationMs,
+        modelIds: null,
         reason: `provider model catalog returned ${res.status}`,
       };
     }
 
     const payload = await res.json().catch(() => ({}));
-    const modelIds = extractModelIds(provider, payload);
-    const modelAvailable = modelIds.includes(normalizeListedModel(provider, effectiveModel));
+    return {
+      provider,
+      credentialPresent: true,
+      providerReachable: true,
+      httpStatus: res.status,
+      durationMs,
+      modelIds: extractModelIds(provider, payload),
+      reason: null,
+    };
+  } catch (error: any) {
+    return {
+      provider,
+      credentialPresent: true,
+      providerReachable: false,
+      httpStatus: null,
+      durationMs: Date.now() - started,
+      modelIds: null,
+      reason: error?.name === "AbortError" ? "timeout" : "provider probe failed",
+    };
+  }
+}
+
+export function evaluateProviderModelLifecycle(
+  provider: CoreModelProvider,
+  configuredModel: string | null,
+  catalog: ProviderModelCatalogSnapshot,
+): ProviderModelProbeResult {
+  const modelState = describeProviderModel(provider, configuredModel);
+  const effectiveModel = resolveProviderModel(provider, configuredModel);
+
+  if (!catalog.credentialPresent) {
     return {
       provider,
       configuredModel,
       effectiveModel,
       providerRecommendedReplacement: modelState.providerRecommendedReplacement,
       migrated: modelState.migrated,
-      modelAvailable,
-      providerReachable: true,
-      status: modelAvailable
-        ? modelState.migrated ? "retired_migrated" : "ok"
-        : "model_not_found",
-      httpStatus: res.status,
-      durationMs,
-      reason: modelAvailable
-        ? modelState.migrated
-          ? `configured retired model migrated to ${effectiveModel}`
-          : null
-        : `effective model ${effectiveModel} not present in provider catalog`,
+      modelAvailable: null,
+      providerReachable: false,
+      status: "config_missing",
+      httpStatus: null,
+      durationMs: catalog.durationMs,
+      reason: catalog.reason ?? "provider credential missing",
     };
-  } catch (error: any) {
+  }
+
+  if (!catalog.providerReachable || catalog.modelIds === null) {
     return {
       provider,
       configuredModel,
@@ -176,18 +211,77 @@ export async function probeProviderModelLifecycle(
       modelAvailable: null,
       providerReachable: false,
       status: "provider_error",
-      httpStatus: null,
-      durationMs: Date.now() - started,
-      reason: error?.name === "AbortError" ? "timeout" : "provider probe failed",
+      httpStatus: catalog.httpStatus,
+      durationMs: catalog.durationMs,
+      reason: catalog.reason ?? "provider probe failed",
     };
   }
+
+  const modelAvailable = catalog.modelIds.includes(normalizeListedModel(provider, effectiveModel));
+  return {
+    provider,
+    configuredModel,
+    effectiveModel,
+    providerRecommendedReplacement: modelState.providerRecommendedReplacement,
+    migrated: modelState.migrated,
+    modelAvailable,
+    providerReachable: true,
+    status: modelAvailable
+      ? modelState.migrated ? "retired_migrated" : "ok"
+      : "model_not_found",
+    httpStatus: catalog.httpStatus,
+    durationMs: catalog.durationMs,
+    reason: modelAvailable
+      ? modelState.migrated
+        ? `configured retired model migrated to ${effectiveModel}`
+        : null
+      : `effective model ${effectiveModel} not present in provider catalog`,
+  };
+}
+
+export async function probeProviderModelsLifecycle(
+  provider: CoreModelProvider,
+  configuredModels: readonly (string | null | undefined)[],
+  options: CatalogProbeOptions = {},
+): Promise<ProviderModelProbeResult[]> {
+  if (configuredModels.length === 0) return [];
+  const env = options.env ?? process.env;
+  const catalog = await fetchProviderModelCatalog(provider, options);
+  return configuredModels.map((override) => {
+    const configuredModel = override !== undefined
+      ? override?.trim() || null
+      : configuredModelFor(provider, env);
+    return evaluateProviderModelLifecycle(provider, configuredModel, catalog);
+  });
+}
+
+export async function probeProviderModelLifecycle(
+  provider: CoreModelProvider,
+  options: ProbeOptions = {},
+): Promise<ProviderModelProbeResult> {
+  const results = await probeProviderModelsLifecycle(
+    provider,
+    [options.configuredModelOverride],
+    options,
+  );
+  return results[0]!;
 }
 
 export async function probeAllCoreProviderModels(
-  options: { env?: NodeJS.ProcessEnv; fetchImpl?: FetchLike; signal?: AbortSignal } = {},
+  options: ProbeOptions = {},
 ): Promise<ProviderModelProbeResult[]> {
   const providers = Object.keys(PROVIDER_MODEL_REGISTRY_KEYS()) as CoreModelProvider[];
   return Promise.all(providers.map((provider) => probeProviderModelLifecycle(provider, options)));
+}
+
+export function deriveProviderModelLifecycleHealth(
+  results: readonly ProviderModelProbeResult[],
+): ProviderModelLifecycleHealth {
+  if (results.some((entry) => entry.status === "model_not_found" || entry.status === "provider_error")) {
+    return "blocked";
+  }
+  if (results.some((entry) => entry.status === "config_missing")) return "degraded";
+  return "healthy";
 }
 
 function PROVIDER_MODEL_REGISTRY_KEYS(): Record<CoreModelProvider, true> {

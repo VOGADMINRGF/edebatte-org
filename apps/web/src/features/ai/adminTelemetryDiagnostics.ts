@@ -2,6 +2,7 @@ import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
 import { sanitizeAiLogText } from "@core/telemetry/aiLogSanitization";
 import type { E150ProviderName, ProviderMatrixEntry } from "@features/ai/orchestratorE150";
 import { tryGetAiRuntimePolicy } from "@features/ai/aiRuntimePolicy";
+import { getProviderModelRegistry } from "@features/ai/providerModelRegistry";
 
 export const PROVIDER_ORDER: readonly E150ProviderName[] = [
   "openai",
@@ -202,7 +203,6 @@ export function isAccountBlockedErrorCode(code: string | null | undefined): bool
 }
 
 export function getProviderContractCapabilities(provider: E150ProviderName): ProviderContractCapabilities {
-  // Capabilities are intentionally derived only from adapter behavior implemented in this repo.
   switch (provider) {
     case "openai":
       return {
@@ -341,13 +341,13 @@ export function defaultModelForProvider(provider: E150ProviderName): string {
   const policy = policyResult.ok ? policyResult.policy : null;
   switch (provider) {
     case "openai":
-      return policy?.openai.model ?? "gpt-5";
+      return policy?.openai.model ?? getProviderModelRegistry("openai").preferredModel;
     case "anthropic":
-      return policy?.anthropic.model ?? "claude-sonnet-4-20250514";
+      return policy?.anthropic.model ?? getProviderModelRegistry("anthropic").preferredModel;
     case "mistral":
-      return policy?.mistral.model ?? "mistral-large-latest";
+      return policy?.mistral.model ?? getProviderModelRegistry("mistral").preferredModel;
     case "gemini":
-      return policy?.gemini.model ?? "gemini-2.5-flash";
+      return policy?.gemini.model ?? getProviderModelRegistry("gemini").preferredModel;
     case "ari":
       return process.env.ARI_MODEL ?? "ari-main";
     default:
@@ -446,7 +446,7 @@ export function mapErrorToKind(error: unknown): AiErrorKind {
     return "UNAUTHORIZED";
   }
   if (
-    status === 400 && /api key|token/i.test(message) ||
+    (status === 400 && /api key|token/i.test(message)) ||
     /api key|invalid api key|invalid_api_key/i.test(message)
   ) {
     return "INVALID_API_KEY";

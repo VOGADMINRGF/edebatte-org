@@ -1,4 +1,13 @@
-export type AiCoreProviderName = "openai" | "anthropic" | "mistral" | "gemini";
+import {
+  getProviderModelRegistry,
+  resolveProviderModel,
+  resolveProviderModelForRouting,
+  type AiModelRoutingMode,
+  type AiModelTier,
+  type CoreModelProvider,
+} from "./providerModelRegistry";
+
+export type AiCoreProviderName = CoreModelProvider;
 export type AiRuntimeProviderName = AiCoreProviderName | "ari";
 export type AiRuntimeMode = "test" | "development" | "preview" | "production";
 export type AiRuntimeProfileName =
@@ -16,10 +25,6 @@ type EnvMap = Record<string, string | undefined>;
 
 const CORE_PROVIDER_ALLOWLIST = ["openai", "anthropic", "mistral", "gemini"] as const;
 const DEFAULT_PROVIDER_ORDER: AiCoreProviderName[] = ["openai", "anthropic", "mistral", "gemini"];
-const OPENAI_DEFAULT_MODEL = "gpt-5";
-const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-20250514";
-const MISTRAL_DEFAULT_MODEL = "mistral-large-latest";
-const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
 const ARI_DEFAULT_MODEL = "ari-main";
 const OPENAI_TRACE_DEFAULT_MODEL = "gpt-4o-mini";
 const OPENAI_FAST_DEFAULT_MODEL = "gpt-4o-mini";
@@ -31,6 +36,25 @@ const DIRECT_PROBE_MAX_OUTPUT_TOKENS = 96;
 const DIRECT_RUNTIME_MAX_OUTPUT_TOKENS = 192;
 const CONTRIBUTION_TRACE_MAX_OUTPUT_TOKENS = 1_200;
 const QUALITY_CLARIFY_MAX_OUTPUT_TOKENS = 250;
+
+const PROFILE_MODEL_TIERS: Readonly<Record<AiRuntimeProfileName, AiModelTier>> = {
+  planner: "balanced",
+  smoke: "economy",
+  providerProbe: "economy",
+  runtimeProbe: "economy",
+  fullContract: "quality",
+  fullContractLite: "balanced",
+  fullContractRepair: "quality",
+  contributionTrace: "balanced",
+  qualityClarify: "economy",
+};
+
+const PROVIDER_ENV_PREFIX: Readonly<Record<AiCoreProviderName, string>> = {
+  openai: "OPENAI",
+  anthropic: "ANTHROPIC",
+  mistral: "MISTRAL",
+  gemini: "GEMINI",
+};
 
 const PLACEHOLDER_CREDENTIAL_VALUES = new Set([
   "__set_in_secret_manager__",
@@ -53,6 +77,7 @@ export class AiRuntimePolicyError extends Error {
       | "INVALID_INTEGER"
       | "INVALID_NUMBER"
       | "INVALID_BOOLEAN"
+      | "INVALID_MODEL_ROUTING_MODE"
       | "OUT_OF_RANGE",
     readonly envVar?: string,
   ) {
@@ -64,10 +89,12 @@ export class AiRuntimePolicyError extends Error {
 export type AiRuntimeProfile = {
   timeoutMs: number;
   maxOutputTokens?: number;
+  modelTier: AiModelTier;
 };
 
 export type AiRuntimePolicy = {
   runtimeMode: AiRuntimeMode;
+  modelRoutingMode: AiModelRoutingMode;
   providerOrder: AiCoreProviderName[];
   maxProviders: number;
   enabledProviders: AiCoreProviderName[];
@@ -101,6 +128,7 @@ export type AiRuntimePolicy = {
     apiKeyPresent: boolean;
     baseUrl: string | null;
     model: string;
+    modelsByProfile: Record<AiRuntimeProfileName, string>;
     plannerModelCandidates: string[];
     smokeModelCandidates: string[];
     traceModel: string;
@@ -109,15 +137,18 @@ export type AiRuntimePolicy = {
   anthropic: {
     apiKeyPresent: boolean;
     model: string;
+    modelsByProfile: Record<AiRuntimeProfileName, string>;
     disabledExplicitly: boolean;
   };
   mistral: {
     apiKeyPresent: boolean;
     model: string;
+    modelsByProfile: Record<AiRuntimeProfileName, string>;
   };
   gemini: {
     apiKeyPresent: boolean;
     model: string;
+    modelsByProfile: Record<AiRuntimeProfileName, string>;
     disabledExplicitly: boolean;
   };
   ari: {
@@ -179,11 +210,7 @@ export function hasConfiguredCredential(value: string | undefined): boolean {
   return hasText(value) && !isPlaceholderCredentialValue(value);
 }
 
-function parseBooleanishEnv(
-  env: EnvMap,
-  key: string,
-  fallback: boolean,
-): boolean {
+function parseBooleanishEnv(env: EnvMap, key: string, fallback: boolean): boolean {
   const raw = readEnv(env, key);
   if (!hasText(raw)) return fallback;
   const normalized = raw!.trim().toLowerCase();
@@ -204,11 +231,7 @@ function readPositiveInteger(
     throw new AiRuntimePolicyError(`${key} must be a positive integer`, "INVALID_INTEGER", key);
   }
   if (parsed < options.min || parsed > options.max) {
-    throw new AiRuntimePolicyError(
-      `${key} must be between ${options.min} and ${options.max}`,
-      "OUT_OF_RANGE",
-      key,
-    );
+    throw new AiRuntimePolicyError(`${key} must be between ${options.min} and ${options.max}`, "OUT_OF_RANGE", key);
   }
   return parsed;
 }
@@ -225,11 +248,7 @@ function readUnitInterval(
     throw new AiRuntimePolicyError(`${key} must be a number`, "INVALID_NUMBER", key);
   }
   if (parsed < options.min || parsed > options.max) {
-    throw new AiRuntimePolicyError(
-      `${key} must be between ${options.min} and ${options.max}`,
-      "OUT_OF_RANGE",
-      key,
-    );
+    throw new AiRuntimePolicyError(`${key} must be between ${options.min} and ${options.max}`, "OUT_OF_RANGE", key);
   }
   return parsed;
 }
@@ -257,11 +276,7 @@ function normalizeProviderOrder(env: EnvMap, maxProviders: number): AiCoreProvid
   for (const token of tokens) {
     if (!token) continue;
     if (!CORE_PROVIDER_ALLOWLIST.includes(token as AiCoreProviderName)) {
-      throw new AiRuntimePolicyError(
-        `Unknown provider '${token}' in AI_PROVIDER_ORDER`,
-        "INVALID_PROVIDER",
-        "AI_PROVIDER_ORDER",
-      );
+      throw new AiRuntimePolicyError(`Unknown provider '${token}' in AI_PROVIDER_ORDER`, "INVALID_PROVIDER", "AI_PROVIDER_ORDER");
     }
     if (seen.has(token)) continue;
     seen.add(token);
@@ -269,14 +284,46 @@ function normalizeProviderOrder(env: EnvMap, maxProviders: number): AiCoreProvid
   }
 
   if (out.length === 0) {
-    throw new AiRuntimePolicyError(
-      "AI_PROVIDER_ORDER produced an empty provider list",
-      "EMPTY_PROVIDER_ORDER",
-      "AI_PROVIDER_ORDER",
-    );
+    throw new AiRuntimePolicyError("AI_PROVIDER_ORDER produced an empty provider list", "EMPTY_PROVIDER_ORDER", "AI_PROVIDER_ORDER");
   }
 
   return out.slice(0, maxProviders);
+}
+
+function resolveModelRoutingMode(env: EnvMap): AiModelRoutingMode {
+  const raw = readTrimmed(env, "AI_MODEL_ROUTING_MODE")?.toLowerCase() ?? "legacy";
+  if (raw === "legacy" || raw === "profiled") return raw;
+  throw new AiRuntimePolicyError(
+    "AI_MODEL_ROUTING_MODE must be legacy or profiled",
+    "INVALID_MODEL_ROUTING_MODE",
+    "AI_MODEL_ROUTING_MODE",
+  );
+}
+
+function tierEnvKey(provider: AiCoreProviderName, tier: AiModelTier): string {
+  return `${PROVIDER_ENV_PREFIX[provider]}_MODEL_${tier.toUpperCase()}`;
+}
+
+function buildProviderProfileModels(
+  provider: AiCoreProviderName,
+  env: EnvMap,
+  routingMode: AiModelRoutingMode,
+): Record<AiRuntimeProfileName, string> {
+  const legacyConfigured = readTrimmed(env, `${PROVIDER_ENV_PREFIX[provider]}_MODEL`);
+  const out = {} as Record<AiRuntimeProfileName, string>;
+  for (const profileName of Object.keys(PROFILE_MODEL_TIERS) as AiRuntimeProfileName[]) {
+    const tier = PROFILE_MODEL_TIERS[profileName];
+    const configuredModel =
+      routingMode === "profiled"
+        ? readTrimmed(env, tierEnvKey(provider, tier))
+        : legacyConfigured;
+    out[profileName] = resolveProviderModelForRouting(provider, {
+      routingMode,
+      tier,
+      configuredModel,
+    });
+  }
+  return out;
 }
 
 export function resolveAiRuntimeModeFromEnv(env: EnvMap = process.env): AiRuntimeMode {
@@ -299,15 +346,9 @@ function hasProviderCredential(env: EnvMap, provider: AiRuntimeProviderName): bo
     case "mistral":
       return hasConfiguredCredential(readEnv(env, "MISTRAL_API_KEY"));
     case "gemini":
-      return (
-        hasConfiguredCredential(readEnv(env, "GEMINI_API_KEY")) ||
-        hasConfiguredCredential(readEnv(env, "GOOGLE_API_KEY"))
-      );
+      return hasConfiguredCredential(readEnv(env, "GEMINI_API_KEY")) || hasConfiguredCredential(readEnv(env, "GOOGLE_API_KEY"));
     case "ari":
-      return (
-        hasConfiguredCredential(readEnv(env, "ARI_API_KEY")) ||
-        hasConfiguredCredential(readEnv(env, "YOUCOM_ARI_API_KEY"))
-      );
+      return hasConfiguredCredential(readEnv(env, "ARI_API_KEY")) || hasConfiguredCredential(readEnv(env, "YOUCOM_ARI_API_KEY"));
     default:
       return false;
   }
@@ -362,38 +403,47 @@ function buildProfiles(params: {
     planner: {
       timeoutMs: params.plannerTimeoutMs,
       maxOutputTokens: params.plannerMaxOutputTokens,
+      modelTier: PROFILE_MODEL_TIERS.planner,
     },
     smoke: {
       timeoutMs: params.smokeTimeoutMs,
       maxOutputTokens: params.smokeMaxOutputTokens,
+      modelTier: PROFILE_MODEL_TIERS.smoke,
     },
     providerProbe: {
       timeoutMs: params.smokeTimeoutMs,
       maxOutputTokens: DIRECT_PROBE_MAX_OUTPUT_TOKENS,
+      modelTier: PROFILE_MODEL_TIERS.providerProbe,
     },
     runtimeProbe: {
       timeoutMs: params.smokeTimeoutMs,
       maxOutputTokens: DIRECT_RUNTIME_MAX_OUTPUT_TOKENS,
+      modelTier: PROFILE_MODEL_TIERS.runtimeProbe,
     },
     fullContract: {
       timeoutMs: params.smokeTimeoutMs,
       maxOutputTokens: FULL_CONTRACT_DEFAULT_MAX_OUTPUT_TOKENS,
+      modelTier: PROFILE_MODEL_TIERS.fullContract,
     },
     fullContractLite: {
       timeoutMs: params.smokeTimeoutMs,
       maxOutputTokens: FULL_CONTRACT_LITE_MAX_OUTPUT_TOKENS,
+      modelTier: PROFILE_MODEL_TIERS.fullContractLite,
     },
     fullContractRepair: {
       timeoutMs: params.smokeTimeoutMs,
       maxOutputTokens: FULL_CONTRACT_REPAIR_MAX_OUTPUT_TOKENS,
+      modelTier: PROFILE_MODEL_TIERS.fullContractRepair,
     },
     contributionTrace: {
       timeoutMs: params.contributionTraceTimeoutMs,
       maxOutputTokens: params.contributionTraceMaxOutputTokens,
+      modelTier: PROFILE_MODEL_TIERS.contributionTrace,
     },
     qualityClarify: {
       timeoutMs: params.qualityClarifyTimeoutMs,
       maxOutputTokens: params.qualityClarifyMaxOutputTokens,
+      modelTier: PROFILE_MODEL_TIERS.qualityClarify,
     },
   };
 }
@@ -405,10 +455,7 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
     max: CORE_PROVIDER_ALLOWLIST.length,
   });
   const providerOrder = normalizeProviderOrder(env, maxProviders);
-  const openaiModel = readTrimmed(env, "OPENAI_MODEL") ?? OPENAI_DEFAULT_MODEL;
-  const anthropicModel = readTrimmed(env, "ANTHROPIC_MODEL") ?? ANTHROPIC_DEFAULT_MODEL;
-  const mistralModel = readTrimmed(env, "MISTRAL_MODEL") ?? MISTRAL_DEFAULT_MODEL;
-  const geminiModel = readTrimmed(env, "GEMINI_MODEL") ?? GEMINI_DEFAULT_MODEL;
+  const modelRoutingMode = resolveModelRoutingMode(env);
   const ariModel = readTrimmed(env, "ARI_MODEL") ?? ARI_DEFAULT_MODEL;
   const defaultTimeoutMs = readPositiveInteger(env, "OPENAI_TIMEOUT_MS", {
     defaultValue: 18_000,
@@ -493,6 +540,7 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
     min: 250,
     max: 10_000,
   });
+
   const profiles = buildProfiles({
     plannerTimeoutMs,
     plannerMaxOutputTokens: CREATE_PLANNER_MAX_OUTPUT_TOKENS,
@@ -504,8 +552,19 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
     qualityClarifyMaxOutputTokens: QUALITY_CLARIFY_MAX_OUTPUT_TOKENS,
   });
 
+  const openaiModelsByProfile = buildProviderProfileModels("openai", env, modelRoutingMode);
+  const anthropicModelsByProfile = buildProviderProfileModels("anthropic", env, modelRoutingMode);
+  const mistralModelsByProfile = buildProviderProfileModels("mistral", env, modelRoutingMode);
+  const geminiModelsByProfile = buildProviderProfileModels("gemini", env, modelRoutingMode);
+
+  const openaiModel = openaiModelsByProfile.fullContract;
+  const anthropicModel = anthropicModelsByProfile.fullContract;
+  const mistralModel = mistralModelsByProfile.fullContract;
+  const geminiModel = geminiModelsByProfile.fullContract;
+
   const policy: AiRuntimePolicy = {
     runtimeMode: resolveAiRuntimeModeFromEnv(env),
+    modelRoutingMode,
     providerOrder,
     maxProviders,
     enabledProviders: enabledProviders(providerOrder, env),
@@ -513,26 +572,10 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
     defaultTimeoutMs,
     providerTimeoutsMs: {
       openai: defaultTimeoutMs,
-      anthropic: readPositiveInteger(env, "ANTHROPIC_TIMEOUT_MS", {
-        defaultValue: 22_000,
-        min: 600,
-        max: 60_000,
-      }),
-      mistral: readPositiveInteger(env, "MISTRAL_TIMEOUT_MS", {
-        defaultValue: 18_000,
-        min: 600,
-        max: 60_000,
-      }),
-      gemini: readPositiveInteger(env, "GEMINI_TIMEOUT_MS", {
-        defaultValue: 18_000,
-        min: 600,
-        max: 60_000,
-      }),
-      ari: readPositiveInteger(env, "ARI_TIMEOUT_MS", {
-        defaultValue: 25_000,
-        min: 600,
-        max: 60_000,
-      }),
+      anthropic: readPositiveInteger(env, "ANTHROPIC_TIMEOUT_MS", { defaultValue: 22_000, min: 600, max: 60_000 }),
+      mistral: readPositiveInteger(env, "MISTRAL_TIMEOUT_MS", { defaultValue: 18_000, min: 600, max: 60_000 }),
+      gemini: readPositiveInteger(env, "GEMINI_TIMEOUT_MS", { defaultValue: 18_000, min: 600, max: 60_000 }),
+      ari: readPositiveInteger(env, "ARI_TIMEOUT_MS", { defaultValue: 25_000, min: 600, max: 60_000 }),
     },
     plannerTimeoutMs,
     plannerMaxOutputTokens: CREATE_PLANNER_MAX_OUTPUT_TOKENS,
@@ -561,23 +604,40 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
       apiKeyPresent: hasProviderCredential(env, "openai"),
       baseUrl: readTrimmed(env, "OPENAI_BASE_URL") ?? null,
       model: openaiModel,
-      plannerModelCandidates: dedupe([readTrimmed(env, "OPENAI_PLANNER_MODEL"), openaiModel]),
-      smokeModelCandidates: dedupe([readTrimmed(env, "OPENAI_SMOKE_MODEL"), openaiModel, OPENAI_DEFAULT_MODEL]),
-      traceModel: readTrimmed(env, "OPENAI_TRACE_MODEL") ?? OPENAI_TRACE_DEFAULT_MODEL,
-      fastModel: readTrimmed(env, "OPENAI_FAST_MODEL") ?? openaiModel ?? OPENAI_FAST_DEFAULT_MODEL,
+      modelsByProfile: openaiModelsByProfile,
+      plannerModelCandidates: dedupe([
+        readTrimmed(env, "OPENAI_PLANNER_MODEL"),
+        openaiModelsByProfile.planner,
+        openaiModel,
+      ]),
+      smokeModelCandidates: dedupe([
+        readTrimmed(env, "OPENAI_SMOKE_MODEL"),
+        openaiModelsByProfile.smoke,
+        openaiModel,
+        getProviderModelRegistry("openai").preferredModel,
+      ]),
+      traceModel:
+        readTrimmed(env, "OPENAI_TRACE_MODEL") ??
+        (modelRoutingMode === "profiled" ? openaiModelsByProfile.contributionTrace : OPENAI_TRACE_DEFAULT_MODEL),
+      fastModel:
+        readTrimmed(env, "OPENAI_FAST_MODEL") ??
+        (modelRoutingMode === "profiled" ? openaiModelsByProfile.qualityClarify : openaiModel ?? OPENAI_FAST_DEFAULT_MODEL),
     },
     anthropic: {
       apiKeyPresent: hasProviderCredential(env, "anthropic"),
       model: anthropicModel,
+      modelsByProfile: anthropicModelsByProfile,
       disabledExplicitly: isProviderExplicitlyDisabled(env, "anthropic"),
     },
     mistral: {
       apiKeyPresent: hasProviderCredential(env, "mistral"),
       model: mistralModel,
+      modelsByProfile: mistralModelsByProfile,
     },
     gemini: {
       apiKeyPresent: hasProviderCredential(env, "gemini"),
       model: geminiModel,
+      modelsByProfile: geminiModelsByProfile,
       disabledExplicitly: isProviderExplicitlyDisabled(env, "gemini"),
     },
     ari: {
@@ -617,10 +677,10 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
   };
 
   if (policy.openai.plannerModelCandidates.length === 0) {
-    policy.openai.plannerModelCandidates.push(OPENAI_DEFAULT_MODEL);
+    policy.openai.plannerModelCandidates.push(getProviderModelRegistry("openai").preferredModel);
   }
   if (policy.openai.smokeModelCandidates.length === 0) {
-    policy.openai.smokeModelCandidates.push(OPENAI_DEFAULT_MODEL);
+    policy.openai.smokeModelCandidates.push(getProviderModelRegistry("openai").preferredModel);
   }
 
   policy.ari.enabled =
@@ -641,6 +701,23 @@ export function getAiRuntimeProfile(
   policy = getAiRuntimePolicy(),
 ): AiRuntimeProfile {
   return policy.profiles[profileName];
+}
+
+export function resolveAiRuntimeModel(
+  provider: AiCoreProviderName,
+  profileName: AiRuntimeProfileName,
+  policy = getAiRuntimePolicy(),
+): string {
+  switch (provider) {
+    case "openai":
+      return policy.openai.modelsByProfile[profileName];
+    case "anthropic":
+      return policy.anthropic.modelsByProfile[profileName];
+    case "mistral":
+      return policy.mistral.modelsByProfile[profileName];
+    case "gemini":
+      return policy.gemini.modelsByProfile[profileName];
+  }
 }
 
 export function isAiRuntimeProviderEnabled(
