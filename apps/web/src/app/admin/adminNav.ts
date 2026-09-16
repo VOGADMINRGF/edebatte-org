@@ -319,6 +319,12 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["smoke", "orchestrator", "probe"],
       },
       {
+        href: "/admin/telemetry/ai/models",
+        label: "AI Models",
+        description: "Lifecycle, Drift & Routing-Tiers",
+        keywords: ["models", "lifecycle", "routing", "drift", "retired"],
+      },
+      {
         href: "/admin/telemetry/ai/flow",
         label: "AI Flow Health",
         description: "Feeds -> Analyze -> Drafts",
