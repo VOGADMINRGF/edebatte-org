@@ -91,7 +91,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           privateKicker: "Private packages",
           privateTitle: "Packages for individuals",
           privateText:
-            "eDebatte Free: €0 · Plus: €7.99/month incl. VAT · Pro: €19.99/month incl. VAT.",
+            "eDebatte Free: €0 · Plus: €7.99/month · Pro: €19.99/month.",
           segmentTitle: "More segments",
           segmentLabels: {
             privat: "Individuals",
@@ -101,7 +101,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           } as Record<PricingSegmentId, string>,
           segmentTexts: {
             privat:
-              "eDebatte Free: €0 · Plus: €7.99/month incl. VAT · Pro: €19.99/month incl. VAT.",
+              "eDebatte Free: €0 · Plus: €7.99/month · Pro: €19.99/month.",
             journalismus:
               "Journalism packages combine participation with defined research and editorial support quotas.",
             organisationen:
@@ -117,10 +117,10 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           municipalBridgeQuoteCta: "Request service description",
           municipalStagesTitle: "Compact B2G overview",
           municipalStages: [
-            "Participation Check · from €2,500 one-time + VAT",
-            "Dossier & Participation Round · project-based, quote-oriented + VAT",
-            "Municipal Participation Operations · from €4,500/month + VAT",
-            "Framework Package / Procurement Package · after clarification, quote-based + VAT",
+            "Participation Check · from €2,500 one-time · plus VAT where legally applicable",
+            "Dossier & Participation Round · project-based, quote-oriented · plus VAT where legally applicable",
+            "Municipal Participation Operations · from €4,500/month · plus VAT where legally applicable",
+            "Framework Package / Procurement Package · after clarification, quote-based · plus VAT where legally applicable",
           ],
           annualHint: "Current self-service B2C packages are billed monthly through Stripe.",
           trustTitle: "Trust & clarity",
@@ -169,7 +169,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           privateKicker: "Für Einzelpersonen",
           privateTitle: "Pakete für Einzelpersonen",
           privateText:
-            "eDebatte Free: 0 € · Plus: 7,99 € mtl. inkl. MwSt. · Pro: 19,99 € mtl. inkl. MwSt.",
+            "eDebatte Free: 0 € · Plus: 7,99 € mtl. · Pro: 19,99 € mtl.",
           segmentTitle: "Weitere Zielgruppen",
           segmentLabels: {
             privat: "Einzelpersonen",
@@ -179,7 +179,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           } as Record<PricingSegmentId, string>,
           segmentTexts: {
             privat:
-              "eDebatte Free: 0 € · Plus: 7,99 € mtl. inkl. MwSt. · Pro: 19,99 € mtl. inkl. MwSt.",
+              "eDebatte Free: 0 € · Plus: 7,99 € mtl. · Pro: 19,99 € mtl.",
             journalismus:
               "Journalistische Pakete verbinden Beteiligung mit klar definierten Recherche- und Redaktionsleistungen.",
             organisationen:
@@ -195,10 +195,10 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           municipalBridgeQuoteCta: "Leistungsbeschreibung anfordern",
           municipalStagesTitle: "Kompakter Überblick",
           municipalStages: [
-            "Beteiligungs-Check · ab 2.500 € einmalig zzgl. MwSt.",
-            "Dossier & Beteiligungsrunde · projektbezogen, als Leistungsbaustein zzgl. MwSt.",
-            "Beteiligungsbetrieb Kommune · ab 4.500 € / Monat zzgl. MwSt.",
-            "Rahmenvertrag / Vergabepaket · Angebot nach Klärung zzgl. MwSt.",
+            "Beteiligungs-Check · ab 2.500 € einmalig · ggf. zzgl. gesetzlich geschuldeter USt.",
+            "Dossier & Beteiligungsrunde · projektbezogen, als Leistungsbaustein · ggf. zzgl. gesetzlich geschuldeter USt.",
+            "Beteiligungsbetrieb Kommune · ab 4.500 € / Monat · ggf. zzgl. gesetzlich geschuldeter USt.",
+            "Rahmenvertrag / Vergabepaket · Angebot nach Klärung · ggf. zzgl. gesetzlich geschuldeter USt.",
           ],
           annualHint: "Die aktuellen B2C-Self-Service-Pakete werden über Stripe monatlich abgerechnet.",
           trustTitle: "Klare Regeln",
@@ -253,6 +253,18 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
               ? "Where a package requires a contract or manual activation, we show that openly instead of pretending there is an instant checkout."
               : "Wo ein Paket Vertrag oder manuelle Freischaltung braucht, zeigen wir das offen statt einen sofortigen Checkout vorzutäuschen."}
           </p>
+          <div className="mt-4 max-w-4xl rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+            <p className="font-semibold">
+              {locale === "en"
+                ? "Build phase: eDebatte is currently operated by Ricky G. Fleischer as a natural person. No eDebatte.org GmbH or VOG Holding is currently the provider or contractual partner."
+                : "Aufbauphase: eDebatte wird derzeit von Ricky G. Fleischer als natürlicher Person betrieben. Eine eDebatte.org GmbH oder VOG Holding ist aktuell nicht Anbieter oder Vertragspartner."}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed">
+              {locale === "en"
+                ? "The stated self-service amounts are the current checkout amounts. VAT is shown on invoices only where it is legally due under the applicable tax status."
+                : "Die genannten Self-Service-Beträge sind die aktuellen Checkout-Beträge. Umsatzsteuer wird auf Rechnungen nur ausgewiesen, soweit sie nach dem jeweils geltenden Steuerstatus gesetzlich geschuldet wird."}
+            </p>
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href={withLocaleHref("/register", locale)} className="btn-primary">
               {labels.freeStartCta}
