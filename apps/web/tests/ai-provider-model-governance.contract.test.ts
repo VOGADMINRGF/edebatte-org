@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PROVIDER_MODEL_REGISTRY } from "@features/ai/providerModelRegistry";
+import { probeProviderModelLifecycle } from "@features/ai/providerModelLifecycleProbe";
 
 const repoRoot = path.resolve(process.cwd(), "../..");
 const allowedRuntimeFile = path.normalize("features/ai/providerModelRegistry.ts");
@@ -61,5 +62,28 @@ describe("AI provider model governance", () => {
     }
 
     expect(violations, `Retired model IDs found outside ${allowedRuntimeFile}`).toEqual([]);
+  });
+
+  it("checks the explicitly routed model instead of silently probing the legacy provider model", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ data: [{ id: "gpt-5.6-sol" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    ) as unknown as typeof fetch;
+
+    const result = await probeProviderModelLifecycle("openai", {
+      env: {
+        OPENAI_API_KEY: "test-key",
+        OPENAI_MODEL: "gpt-5",
+      },
+      fetchImpl,
+      configuredModelOverride: "gpt-5.6-sol",
+    });
+
+    expect(result.configuredModel).toBe("gpt-5.6-sol");
+    expect(result.effectiveModel).toBe("gpt-5.6-sol");
+    expect(result.modelAvailable).toBe(true);
+    expect(result.status).toBe("ok");
   });
 });
