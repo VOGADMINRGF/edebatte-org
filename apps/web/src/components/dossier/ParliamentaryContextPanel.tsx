@@ -18,9 +18,9 @@ export function ParliamentaryContextPanel({ sources }: { sources: Dossier["sourc
           Parlamentarischer Kontext · Pilot
         </div>
         <p className="text-xs text-[rgb(var(--muted))]">
-          Offizieller Verfahrensstand, dokumentiertes Abstimmungsverhalten und öffentliche Aussagen werden getrennt
-          dargestellt. Offene Abstimmungsdaten von abgeordnetenwatch werden als eigener Datenbaustein ausgewiesen;
-          Eigenaussagen von Abgeordneten sind keine Faktenbewertung.
+          Verfahrensstand, dokumentiertes Abstimmungsverhalten und öffentliche Aussagen werden getrennt dargestellt.
+          Offene Abstimmungsdaten von abgeordnetenwatch werden als eigener Datenbaustein ausgewiesen; Eigenaussagen von
+          Abgeordneten sind keine Faktenbewertung.
         </p>
       </div>
 
@@ -41,7 +41,7 @@ export function ParliamentaryContextPanel({ sources }: { sources: Dossier["sourc
 
           <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-              Offizieller Verfahrensstand
+              Verfahrensstand
             </p>
             <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">{topic.procedureStatus}</p>
             <p className="mt-1 text-xs leading-5 text-[rgb(var(--muted))]">{topic.procedureSummary}</p>
@@ -128,9 +128,11 @@ export function ParliamentaryContextPanel({ sources }: { sources: Dossier["sourc
                   <span className="rounded-full border border-[rgb(var(--border))] px-2 py-0.5 text-[9px] uppercase tracking-wide text-[rgb(var(--muted))]">
                     {link.kind === "official"
                       ? "amtlich"
-                      : link.kind === "position"
-                        ? "Organisationsposition"
-                        : "abgeordnetenwatch"}
+                      : link.kind === "register"
+                        ? "Registereintrag"
+                        : link.kind === "position"
+                          ? "Organisationsposition"
+                          : "abgeordnetenwatch"}
                   </span>
                   <a href={link.url} target="_blank" rel="noreferrer" className="underline text-[rgb(var(--fg))]">
                     {link.label}
