@@ -67,7 +67,7 @@ const IFG_SOURCES: Dossier["sourceSet"] = [
     host: "abgeordnetenwatch.de",
     publisher: "abgeordnetenwatch.de",
     sourceClass: "stakeholder",
-    sourceType: "stakeholder",
+    sourceType: "other",
     timeRange: "Stand 15.09.2026",
     location: "Deutschland",
     audience: "Öffentlichkeit",
@@ -81,7 +81,7 @@ const IFG_SOURCES: Dossier["sourceSet"] = [
     host: "abgeordnetenwatch.de",
     publisher: "abgeordnetenwatch.de",
     sourceClass: "stakeholder",
-    sourceType: "stakeholder",
+    sourceType: "other",
     timeRange: "02.07.2026",
     location: "Deutschland",
     audience: "Öffentlichkeit",
@@ -130,14 +130,14 @@ const CONFIG = {
       "Wie verändert die Reform den praktischen Informationszugang für Bürger:innen, Medien und Zivilgesellschaft?",
     ],
   },
-} satisfies Record<ParliamentaryDemoTopic, unknown>;
+};
 
 export function isParliamentaryDemoTopic(value: string): value is ParliamentaryDemoTopic {
   return value === "chatkontrolle" || value === "informationsfreiheit";
 }
 
 export function buildParliamentaryTestDossier(topic: ParliamentaryDemoTopic): Dossier {
-  const config = CONFIG[topic] as (typeof CONFIG)[ParliamentaryDemoTopic];
+  const config = CONFIG[topic];
 
   return {
     ...demoDossier,
