@@ -223,7 +223,9 @@ export async function geminiProbe({ signal }: { signal?: AbortSignal } = {}): Pr
     if (res.status === 401 || res.status === 403) errorKind = "UNAUTHORIZED";
     else if (res.status === 404) errorKind = "MODEL_NOT_FOUND";
     else if (res.status === 429) errorKind = "RATE_LIMIT";
-    else if (res.status === 503) errorKind = "UNAVAILABLE";
+    // AiErrorKind intentionally has no provider-specific UNAVAILABLE member.
+    // Preserve 503 as INTERNAL while keeping the HTTP status for diagnostics.
+    else if (res.status === 503) errorKind = "INTERNAL";
 
     return {
       ok: false,
