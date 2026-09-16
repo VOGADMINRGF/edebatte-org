@@ -20,6 +20,13 @@ export type ProviderModelProbeResult = {
 };
 
 type FetchLike = typeof fetch;
+type ProbeOptions = {
+  env?: NodeJS.ProcessEnv;
+  fetchImpl?: FetchLike;
+  signal?: AbortSignal;
+  /** Explicit model to verify, used by profiled routing health checks. */
+  configuredModelOverride?: string | null;
+};
 
 function configuredModelFor(provider: CoreModelProvider, env: NodeJS.ProcessEnv): string | null {
   switch (provider) {
@@ -98,11 +105,14 @@ function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.Proces
 
 export async function probeProviderModelLifecycle(
   provider: CoreModelProvider,
-  options: { env?: NodeJS.ProcessEnv; fetchImpl?: FetchLike; signal?: AbortSignal } = {},
+  options: ProbeOptions = {},
 ): Promise<ProviderModelProbeResult> {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? fetch;
-  const configuredModel = configuredModelFor(provider, env);
+  const configuredModel =
+    options.configuredModelOverride !== undefined
+      ? options.configuredModelOverride?.trim() || null
+      : configuredModelFor(provider, env);
   const modelState = describeProviderModel(provider, configuredModel);
   const effectiveModel = resolveProviderModel(provider, configuredModel);
   const key = credentialFor(provider, env);
@@ -184,7 +194,7 @@ export async function probeProviderModelLifecycle(
 }
 
 export async function probeAllCoreProviderModels(
-  options: { env?: NodeJS.ProcessEnv; fetchImpl?: FetchLike; signal?: AbortSignal } = {},
+  options: ProbeOptions = {},
 ): Promise<ProviderModelProbeResult[]> {
   const providers = Object.keys(PROVIDER_MODEL_REGISTRY_KEYS()) as CoreModelProvider[];
   return Promise.all(providers.map((provider) => probeProviderModelLifecycle(provider, options)));
