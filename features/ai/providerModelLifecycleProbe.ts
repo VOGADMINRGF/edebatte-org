@@ -21,25 +21,24 @@ export type ProviderModelProbeResult = {
 
 export type ProviderModelLifecycleHealth = "healthy" | "degraded" | "blocked";
 
-export type ProviderModelCatalogSnapshot = {
-  provider: CoreModelProvider;
-  credentialPresent: boolean;
-  providerReachable: boolean;
-  httpStatus: number | null;
-  durationMs: number;
-  modelIds: string[] | null;
-  reason: string | null;
-};
-
 type FetchLike = typeof fetch;
-type CatalogProbeOptions = {
+type ProbeOptions = {
   env?: NodeJS.ProcessEnv;
   fetchImpl?: FetchLike;
   signal?: AbortSignal;
-};
-type ProbeOptions = CatalogProbeOptions & {
   /** Explicit model to verify, used by profiled routing health checks. */
   configuredModelOverride?: string | null;
+};
+
+type ProviderModelLookup = {
+  provider: CoreModelProvider;
+  effectiveModel: string;
+  credentialPresent: boolean;
+  providerReachable: boolean;
+  modelAvailable: boolean | null;
+  httpStatus: number | null;
+  durationMs: number;
+  reason: string | null;
 };
 
 function configuredModelFor(provider: CoreModelProvider, env: NodeJS.ProcessEnv): string | null {
@@ -60,67 +59,53 @@ function credentialFor(provider: CoreModelProvider, env: NodeJS.ProcessEnv): str
   }
 }
 
-function normalizeListedModel(provider: CoreModelProvider, model: string): string {
+function normalizeModel(provider: CoreModelProvider, model: string): string {
   const trimmed = model.trim();
   return provider === "gemini" ? trimmed.replace(/^models\//, "") : trimmed;
 }
 
-function extractModelIds(provider: CoreModelProvider, payload: any): string[] {
-  const raw =
-    provider === "gemini"
-      ? payload?.models
-      : Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload)
-          ? payload
-          : [];
-  if (!Array.isArray(raw)) return [];
-
-  const values: string[] = [];
-  for (const entry of raw) {
-    const primary = [entry?.id, entry?.name, entry?.model, entry?.baseModelId, entry?.root];
-    for (const value of primary) {
-      if (typeof value === "string" && value.trim()) values.push(value);
-    }
-    if (Array.isArray(entry?.aliases)) {
-      for (const alias of entry.aliases) {
-        if (typeof alias === "string" && alias.trim()) values.push(alias);
-      }
-    }
-  }
-
-  return Array.from(new Set(values.map((value) => normalizeListedModel(provider, value))));
-}
-
-function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.ProcessEnv): { url: string; init: RequestInit } {
+function requestForModel(
+  provider: CoreModelProvider,
+  key: string,
+  effectiveModel: string,
+  env: NodeJS.ProcessEnv,
+): { url: string; init: RequestInit } {
+  const model = encodeURIComponent(normalizeModel(provider, effectiveModel));
   switch (provider) {
     case "openai":
       return {
-        url: `${(env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/models`,
-        init: { headers: { authorization: `Bearer ${key}` } },
+        url: `${(env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/models/${model}`,
+        init: { method: "GET", headers: { authorization: `Bearer ${key}` } },
       };
     case "anthropic":
       return {
-        url: `${(env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "")}/v1/models`,
-        init: { headers: { "x-api-key": key, "anthropic-version": env.ANTHROPIC_VERSION || "2023-06-01" } },
+        url: `${(env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "")}/v1/models/${model}`,
+        init: {
+          method: "GET",
+          headers: {
+            "x-api-key": key,
+            "anthropic-version": env.ANTHROPIC_VERSION || "2023-06-01",
+          },
+        },
       };
     case "mistral":
       return {
-        url: `${(env.MISTRAL_BASE_URL || "https://api.mistral.ai").replace(/\/+$/, "")}/v1/models`,
-        init: { headers: { authorization: `Bearer ${key}` } },
+        url: `${(env.MISTRAL_BASE_URL || "https://api.mistral.ai").replace(/\/+$/, "")}/v1/models/${model}`,
+        init: { method: "GET", headers: { authorization: `Bearer ${key}` } },
       };
     case "gemini":
       return {
-        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?pageSize=1000&key=${encodeURIComponent(key)}`,
-        init: {},
+        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models/${model}`,
+        init: { method: "GET", headers: { "x-goog-api-key": key } },
       };
   }
 }
 
-export async function fetchProviderModelCatalog(
+async function fetchProviderModel(
   provider: CoreModelProvider,
-  options: CatalogProbeOptions = {},
-): Promise<ProviderModelCatalogSnapshot> {
+  effectiveModel: string,
+  options: Pick<ProbeOptions, "env" | "fetchImpl" | "signal"> = {},
+): Promise<ProviderModelLookup> {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? fetch;
   const key = credentialFor(provider, env);
@@ -129,63 +114,80 @@ export async function fetchProviderModelCatalog(
   if (!key) {
     return {
       provider,
+      effectiveModel,
       credentialPresent: false,
       providerReachable: false,
+      modelAvailable: null,
       httpStatus: null,
       durationMs: Date.now() - started,
-      modelIds: null,
       reason: "provider credential missing",
     };
   }
 
   try {
-    const request = requestFor(provider, key, env);
+    const request = requestForModel(provider, key, effectiveModel, env);
     const res = await fetchImpl(request.url, { ...request.init, signal: options.signal });
     const durationMs = Date.now() - started;
-    if (!res.ok) {
+
+    if (res.status === 404) {
       return {
         provider,
+        effectiveModel,
         credentialPresent: true,
-        providerReachable: false,
+        providerReachable: true,
+        modelAvailable: false,
         httpStatus: res.status,
         durationMs,
-        modelIds: null,
-        reason: `provider model catalog returned ${res.status}`,
+        reason: `effective model ${effectiveModel} not found by provider`,
       };
     }
 
-    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        provider,
+        effectiveModel,
+        credentialPresent: true,
+        providerReachable: false,
+        modelAvailable: null,
+        httpStatus: res.status,
+        durationMs,
+        reason: `provider model lookup returned ${res.status}`,
+      };
+    }
+
     return {
       provider,
+      effectiveModel,
       credentialPresent: true,
       providerReachable: true,
+      modelAvailable: true,
       httpStatus: res.status,
       durationMs,
-      modelIds: extractModelIds(provider, payload),
       reason: null,
     };
   } catch (error: any) {
     return {
       provider,
+      effectiveModel,
       credentialPresent: true,
       providerReachable: false,
+      modelAvailable: null,
       httpStatus: null,
       durationMs: Date.now() - started,
-      modelIds: null,
       reason: error?.name === "AbortError" ? "timeout" : "provider probe failed",
     };
   }
 }
 
-export function evaluateProviderModelLifecycle(
+function evaluateProviderModelLifecycle(
   provider: CoreModelProvider,
   configuredModel: string | null,
-  catalog: ProviderModelCatalogSnapshot,
+  lookup: ProviderModelLookup,
 ): ProviderModelProbeResult {
   const modelState = describeProviderModel(provider, configuredModel);
   const effectiveModel = resolveProviderModel(provider, configuredModel);
 
-  if (!catalog.credentialPresent) {
+  if (!lookup.credentialPresent) {
     return {
       provider,
       configuredModel,
@@ -196,12 +198,12 @@ export function evaluateProviderModelLifecycle(
       providerReachable: false,
       status: "config_missing",
       httpStatus: null,
-      durationMs: catalog.durationMs,
-      reason: catalog.reason ?? "provider credential missing",
+      durationMs: lookup.durationMs,
+      reason: lookup.reason ?? "provider credential missing",
     };
   }
 
-  if (!catalog.providerReachable || catalog.modelIds === null) {
+  if (!lookup.providerReachable || lookup.modelAvailable === null) {
     return {
       provider,
       configuredModel,
@@ -211,47 +213,72 @@ export function evaluateProviderModelLifecycle(
       modelAvailable: null,
       providerReachable: false,
       status: "provider_error",
-      httpStatus: catalog.httpStatus,
-      durationMs: catalog.durationMs,
-      reason: catalog.reason ?? "provider probe failed",
+      httpStatus: lookup.httpStatus,
+      durationMs: lookup.durationMs,
+      reason: lookup.reason ?? "provider probe failed",
     };
   }
 
-  const modelAvailable = catalog.modelIds.includes(normalizeListedModel(provider, effectiveModel));
+  if (!lookup.modelAvailable) {
+    return {
+      provider,
+      configuredModel,
+      effectiveModel,
+      providerRecommendedReplacement: modelState.providerRecommendedReplacement,
+      migrated: modelState.migrated,
+      modelAvailable: false,
+      providerReachable: true,
+      status: "model_not_found",
+      httpStatus: lookup.httpStatus,
+      durationMs: lookup.durationMs,
+      reason: lookup.reason ?? `effective model ${effectiveModel} not found by provider`,
+    };
+  }
+
   return {
     provider,
     configuredModel,
     effectiveModel,
     providerRecommendedReplacement: modelState.providerRecommendedReplacement,
     migrated: modelState.migrated,
-    modelAvailable,
+    modelAvailable: true,
     providerReachable: true,
-    status: modelAvailable
-      ? modelState.migrated ? "retired_migrated" : "ok"
-      : "model_not_found",
-    httpStatus: catalog.httpStatus,
-    durationMs: catalog.durationMs,
-    reason: modelAvailable
-      ? modelState.migrated
-        ? `configured retired model migrated to ${effectiveModel}`
-        : null
-      : `effective model ${effectiveModel} not present in provider catalog`,
+    status: modelState.migrated ? "retired_migrated" : "ok",
+    httpStatus: lookup.httpStatus,
+    durationMs: lookup.durationMs,
+    reason: modelState.migrated
+      ? `configured retired model migrated to ${effectiveModel}`
+      : null,
   };
 }
 
 export async function probeProviderModelsLifecycle(
   provider: CoreModelProvider,
   configuredModels: readonly (string | null | undefined)[],
-  options: CatalogProbeOptions = {},
+  options: Pick<ProbeOptions, "env" | "fetchImpl" | "signal"> = {},
 ): Promise<ProviderModelProbeResult[]> {
   if (configuredModels.length === 0) return [];
   const env = options.env ?? process.env;
-  const catalog = await fetchProviderModelCatalog(provider, options);
-  return configuredModels.map((override) => {
-    const configuredModel = override !== undefined
+  const configured = configuredModels.map((override) =>
+    override !== undefined
       ? override?.trim() || null
-      : configuredModelFor(provider, env);
-    return evaluateProviderModelLifecycle(provider, configuredModel, catalog);
+      : configuredModelFor(provider, env),
+  );
+  const effectiveModels = configured.map((model) => resolveProviderModel(provider, model));
+  const uniqueEffectiveModels = Array.from(new Set(effectiveModels));
+  const lookups = await Promise.all(
+    uniqueEffectiveModels.map(async (effectiveModel) => [
+      effectiveModel,
+      await fetchProviderModel(provider, effectiveModel, options),
+    ] as const),
+  );
+  const lookupByModel = new Map(lookups);
+
+  return configured.map((configuredModel, index) => {
+    const effectiveModel = effectiveModels[index]!;
+    const lookup = lookupByModel.get(effectiveModel);
+    if (!lookup) throw new Error(`provider model lookup missing for ${provider}:${effectiveModel}`);
+    return evaluateProviderModelLifecycle(provider, configuredModel, lookup);
   });
 }
 
