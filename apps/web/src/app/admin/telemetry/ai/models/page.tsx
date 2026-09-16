@@ -14,6 +14,7 @@ type ProfileName =
   | "fullContractRepair"
   | "contributionTrace"
   | "qualityClarify";
+type LifecycleHealth = "healthy" | "degraded" | "blocked";
 
 type LifecycleRow = {
   provider: ProviderName;
@@ -38,6 +39,7 @@ type RoutingCheck = {
 
 type LifecycleResponse = {
   ok: boolean;
+  health: LifecycleHealth;
   checkedAt: string;
   routing: {
     mode: "legacy" | "profiled";
@@ -82,6 +84,23 @@ function isBlocking(row: LifecycleRow): boolean {
   return row.status === "model_not_found" || row.status === "provider_error";
 }
 
+function healthLabel(health: LifecycleHealth | undefined, loading: boolean): string {
+  if (loading) return "…";
+  if (health === "healthy") return "Gesund";
+  if (health === "degraded") return "Eingeschränkt";
+  if (health === "blocked") return "Blockiert";
+  return "Unbekannt";
+}
+
+function healthDetail(health: LifecycleHealth | undefined, missingProviderCount: number): string {
+  if (health === "healthy") return "Alle konfigurierten Provider und gerouteten Modelle sind prüfbar.";
+  if (health === "degraded") {
+    return `${missingProviderCount} Provider ohne Credential; vorhandene Provider haben keinen Modellblocker.`;
+  }
+  if (health === "blocked") return "Mindestens ein Provider-Katalog oder benötigtes Modell blockiert den Lifecycle-Check.";
+  return "Noch kein belastbarer Lifecycle-Check vorhanden.";
+}
+
 export default function AiModelLifecyclePage() {
   const [data, setData] = useState<LifecycleResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,11 +137,22 @@ export default function AiModelLifecyclePage() {
   }, [data]);
 
   const driftCount = data?.drift.length ?? 0;
-  const missingCount = useMemo(() => {
-    const base = data?.providers.filter(isBlocking).length ?? 0;
-    const routed = data?.routing.checks.filter((check) => isBlocking(check.result)).length ?? 0;
-    return base + routed;
+  const missingProviderCount = useMemo(
+    () => data?.providers.filter((row) => row.status === "config_missing").length ?? 0,
+    [data],
+  );
+  const blockingCount = useMemo(() => {
+    const keys = new Set<string>();
+    for (const row of data?.providers ?? []) {
+      if (isBlocking(row)) keys.add(`${row.provider}:${row.effectiveModel}`);
+    }
+    for (const check of data?.routing.checks ?? []) {
+      if (isBlocking(check.result)) keys.add(`${check.provider}:${check.model}`);
+    }
+    return keys.size;
   }, [data]);
+
+  const healthTone = data?.health === "healthy" ? "emerald" : data?.health === "degraded" ? "amber" : data?.health === "blocked" ? "rose" : "default";
 
   return (
     <main className="mx-auto flex max-w-[1280px] flex-col gap-6 px-4 py-8">
@@ -153,10 +183,29 @@ export default function AiModelLifecyclePage() {
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
       ) : null}
 
-      <section className="grid gap-3 md:grid-cols-3">
-        <SummaryCard label="Routing Mode" value={data?.routing.mode ?? (loading ? "…" : "unbekannt")} detail={data?.routing.mode === "profiled" ? "Economy / Balanced / Quality aktiv" : "Bestehendes Single-Model-Verhalten"} />
-        <SummaryCard label="Konfigurationsdrift" value={loading ? "…" : String(driftCount)} detail="Retired-Konfiguration oder fehlendes effektives/routetes Modell" />
-        <SummaryCard label="Blockierende Modellfehler" value={loading ? "…" : String(missingCount)} detail="MODEL_NOT_FOUND oder Provider-Katalog nicht prüfbar" />
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard
+          label="Lifecycle Health"
+          value={healthLabel(data?.health, loading)}
+          detail={healthDetail(data?.health, missingProviderCount)}
+          tone={healthTone}
+        />
+        <SummaryCard
+          label="Routing Mode"
+          value={data?.routing.mode ?? (loading ? "…" : "unbekannt")}
+          detail={data?.routing.mode === "profiled" ? "Economy / Balanced / Quality aktiv" : "Bestehendes Single-Model-Verhalten"}
+        />
+        <SummaryCard
+          label="Konfigurationsdrift"
+          value={loading ? "…" : String(driftCount)}
+          detail="Retired-Konfiguration oder fehlendes effektives/routetes Modell"
+        />
+        <SummaryCard
+          label="Blockierende Modelle"
+          value={loading ? "…" : String(blockingCount)}
+          detail="Eindeutige Provider-/Modellziele mit MODEL_NOT_FOUND oder Katalogfehler"
+          tone={blockingCount > 0 ? "rose" : "default"}
+        />
       </section>
 
       <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm">
@@ -208,7 +257,7 @@ export default function AiModelLifecyclePage() {
       <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-[rgb(var(--fg))]">Runtime-Profile</h2>
         <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-          Im Modus <code>legacy</code> bleiben alle Profile beim explizit konfigurierten bzw. bisherigen Default-Modell. <code>profiled</code> aktiviert die abgestufte Auswahl. Jedes hier gezeigte Modell wird zusätzlich gegen den Provider-Katalog geprüft.
+          Im Modus <code>legacy</code> bleiben alle Profile beim explizit konfigurierten bzw. bisherigen Default-Modell. <code>profiled</code> aktiviert die abgestufte Auswahl. Jedes hier gezeigte Modell wird zusätzlich gegen den Provider-Katalog geprüft; pro Provider wird der Katalog dafür nur einmal je Refresh geladen.
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full divide-y divide-[rgb(var(--border))] text-xs">
@@ -248,9 +297,27 @@ export default function AiModelLifecyclePage() {
   );
 }
 
-function SummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
+function SummaryCard({
+  label,
+  value,
+  detail,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "default" | "emerald" | "amber" | "rose";
+}) {
+  const toneClass =
+    tone === "emerald"
+      ? "border-emerald-300/70 bg-emerald-50/70"
+      : tone === "amber"
+        ? "border-amber-300/70 bg-amber-50/70"
+        : tone === "rose"
+          ? "border-rose-300/70 bg-rose-50/70"
+          : "border-[rgb(var(--border))] bg-[rgb(var(--card))]";
   return (
-    <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm">
+    <div className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
       <div className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">{label}</div>
       <div className="mt-1 text-xl font-bold text-[rgb(var(--fg))]">{value}</div>
       <div className="mt-1 text-xs text-[rgb(var(--muted))]">{detail}</div>
