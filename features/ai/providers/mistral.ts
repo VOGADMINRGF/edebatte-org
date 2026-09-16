@@ -1,11 +1,12 @@
 // features/ai/providers/mistral.ts
 import { withMetrics } from "../orchestrator_health";
+import { resolveProviderModel } from "../providerModelRegistry";
 
 const API_BASE = (process.env.MISTRAL_BASE_URL || "https://api.mistral.ai").replace(
   /\/+$/,
   "",
 );
-const MODEL = process.env.MISTRAL_MODEL || "mistral-large-latest";
+const MODEL = resolveProviderModel("mistral", process.env.MISTRAL_MODEL).effective;
 
 export type AskArgs = {
   prompt: string;
@@ -80,7 +81,7 @@ async function askMistral({
   if (!prompt) throw new Error("prompt darf nicht leer sein");
 
   const body = {
-    model: model ?? MODEL,
+    model: resolveProviderModel("mistral", model ?? MODEL).effective,
     max_tokens: maxOutputTokens,
     temperature: 0.2,
     response_format: { type: "json_object" },

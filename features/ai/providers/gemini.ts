@@ -1,28 +1,22 @@
 // features/ai/providers/gemini.ts
+import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
 import { withMetrics } from "../orchestrator_health";
+import {
+  fallbackProviderModel,
+  resolveProviderModel,
+} from "../providerModelRegistry";
 
 const API_BASE =
   process.env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com";
-const CURRENT_MODEL = "gemini-3.8-flash";
-const CURRENT_FALLBACK_MODEL = "gemini-3.6-flash";
-const RETIRED_MODEL_REPLACEMENTS = new Map<string, string>([
-  ["gemini-1.5-flash-latest", CURRENT_MODEL],
-  ["gemini-1.5-flash", CURRENT_MODEL],
-  ["gemini-2.0-flash", CURRENT_MODEL],
-  ["gemini-2.0-flash-lite", CURRENT_FALLBACK_MODEL],
-  ["gemini-2.5-flash", CURRENT_MODEL],
-]);
+const MODEL = resolveProviderModel("gemini", process.env.GEMINI_MODEL).effective;
+const FALLBACK_MODEL = resolveProviderModel(
+  "gemini",
+  process.env.GEMINI_MODEL_FALLBACK?.trim() || fallbackProviderModel("gemini"),
+).effective;
 
 export function resolveGeminiModelName(modelName?: string): string {
-  const normalized = modelName?.trim().replace(/^models\//, "");
-  if (!normalized) return CURRENT_MODEL;
-  return RETIRED_MODEL_REPLACEMENTS.get(normalized) ?? normalized;
+  return resolveProviderModel("gemini", modelName).effective;
 }
-
-const MODEL = resolveGeminiModelName(process.env.GEMINI_MODEL);
-const FALLBACK_MODEL = process.env.GEMINI_MODEL_FALLBACK?.trim()
-  ? resolveGeminiModelName(process.env.GEMINI_MODEL_FALLBACK)
-  : CURRENT_FALLBACK_MODEL;
 
 export type AskArgs = {
   prompt: string;
@@ -193,3 +187,66 @@ export const callGemini = withMetrics<Parameters<typeof askGemini>, AskResult>(
 );
 
 export default callGemini;
+
+export async function geminiProbe({ signal }: { signal?: AbortSignal } = {}): Promise<{
+  ok: boolean;
+  errorKind?: AiErrorKind;
+  status?: number;
+  durationMs: number;
+  configuredModel: string;
+  effectiveModel: string;
+  modelMigrated: boolean;
+}> {
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1_800);
+  const started = Date.now();
+  const resolution = resolveProviderModel("gemini", process.env.GEMINI_MODEL);
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/v1beta/models/${encodeURIComponent(resolution.effective)}?key=${encodeURIComponent(apiKey)}`,
+      { method: "GET", signal: signal ?? controller.signal },
+    );
+    const durationMs = Date.now() - started;
+    if (res.ok) {
+      return {
+        ok: true,
+        durationMs,
+        configuredModel: resolution.configured,
+        effectiveModel: resolution.effective,
+        modelMigrated: resolution.migrated,
+      };
+    }
+
+    let errorKind: AiErrorKind = "INTERNAL";
+    if (res.status === 401 || res.status === 403) errorKind = "UNAUTHORIZED";
+    else if (res.status === 404) errorKind = "MODEL_NOT_FOUND";
+    else if (res.status === 429) errorKind = "RATE_LIMIT";
+    // AiErrorKind intentionally has no provider-specific UNAVAILABLE member.
+    // Preserve 503 as INTERNAL while keeping the HTTP status for diagnostics.
+    else if (res.status === 503) errorKind = "INTERNAL";
+
+    return {
+      ok: false,
+      errorKind,
+      status: res.status,
+      durationMs,
+      configuredModel: resolution.configured,
+      effectiveModel: resolution.effective,
+      modelMigrated: resolution.migrated,
+    };
+  } catch (err: any) {
+    const durationMs = Date.now() - started;
+    return {
+      ok: false,
+      errorKind: err?.name === "AbortError" ? "TIMEOUT" : "INTERNAL",
+      durationMs,
+      configuredModel: resolution.configured,
+      effectiveModel: resolution.effective,
+      modelMigrated: resolution.migrated,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

@@ -2,6 +2,7 @@ import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
 import { sanitizeAiLogText } from "@core/telemetry/aiLogSanitization";
 import type { E150ProviderName, ProviderMatrixEntry } from "@features/ai/orchestratorE150";
 import { tryGetAiRuntimePolicy } from "@features/ai/aiRuntimePolicy";
+import { preferredProviderModel } from "@features/ai/providerModelRegistry";
 
 export const PROVIDER_ORDER: readonly E150ProviderName[] = [
   "openai",
@@ -341,13 +342,13 @@ export function defaultModelForProvider(provider: E150ProviderName): string {
   const policy = policyResult.ok ? policyResult.policy : null;
   switch (provider) {
     case "openai":
-      return policy?.openai.model ?? "gpt-5";
+      return policy?.openai.model ?? preferredProviderModel("openai");
     case "anthropic":
-      return policy?.anthropic.model ?? "claude-sonnet-4-20250514";
+      return policy?.anthropic.model ?? preferredProviderModel("anthropic");
     case "mistral":
-      return policy?.mistral.model ?? "mistral-large-latest";
+      return policy?.mistral.model ?? preferredProviderModel("mistral");
     case "gemini":
-      return policy?.gemini.model ?? "gemini-2.5-flash";
+      return policy?.gemini.model ?? preferredProviderModel("gemini");
     case "ari":
       return process.env.ARI_MODEL ?? "ari-main";
     default:

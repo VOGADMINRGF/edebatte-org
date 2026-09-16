@@ -1,33 +1,27 @@
 // features/ai/providers/anthropic.ts
 import { withMetrics } from "../orchestrator_health";
 import type { AiErrorKind } from "@core/telemetry/aiUsageTypes";
+import {
+  fallbackProviderModel,
+  resolveProviderModel,
+} from "../providerModelRegistry";
 
 const API_BASE = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(
   /\/+$/,
   "",
 );
-const CURRENT_MODEL = "claude-opus-5";
-const CURRENT_FALLBACK_MODEL = "claude-sonnet-5";
-const RETIRED_MODEL_REPLACEMENTS = new Map<string, string>([
-  ["claude-opus-4-1-20250805", CURRENT_MODEL],
-  ["claude-opus-4-20250514", CURRENT_MODEL],
-  ["claude-sonnet-4-20250514", CURRENT_FALLBACK_MODEL],
-  ["claude-3-7-sonnet", CURRENT_FALLBACK_MODEL],
-  ["claude-3-7-sonnet-20250219", CURRENT_FALLBACK_MODEL],
-  ["claude-3-5-sonnet-20240620", CURRENT_FALLBACK_MODEL],
-]);
+const configuredModel = process.env.ANTHROPIC_MODEL?.trim() || null;
+const MODEL_RESOLUTION = resolveProviderModel("anthropic", configuredModel);
+const MODEL = MODEL_RESOLUTION.effective;
+const FALLBACK_MODEL = resolveProviderModel(
+  "anthropic",
+  process.env.ANTHROPIC_MODEL_FALLBACK?.trim() || fallbackProviderModel("anthropic"),
+).effective;
+const VERSION = process.env.ANTHROPIC_VERSION || "2023-06-01";
 
 export function resolveAnthropicModelName(modelName?: string): string {
-  const normalized = modelName?.trim();
-  if (!normalized) return CURRENT_MODEL;
-  return RETIRED_MODEL_REPLACEMENTS.get(normalized) ?? normalized;
+  return resolveProviderModel("anthropic", modelName).effective;
 }
-
-const MODEL = resolveAnthropicModelName(process.env.ANTHROPIC_MODEL);
-const FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK?.trim()
-  ? resolveAnthropicModelName(process.env.ANTHROPIC_MODEL_FALLBACK)
-  : CURRENT_FALLBACK_MODEL;
-const VERSION = process.env.ANTHROPIC_VERSION || "2023-06-01";
 
 export type AskArgs = {
   prompt: string;
@@ -157,13 +151,17 @@ export async function anthropicProbe({ signal }: { signal?: AbortSignal } = {}):
   errorKind?: AiErrorKind;
   status?: number;
   durationMs: number;
+  configuredModel: string;
+  effectiveModel: string;
+  modelMigrated: boolean;
 }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1_800);
   const started = Date.now();
+  const resolution = resolveProviderModel("anthropic", process.env.ANTHROPIC_MODEL);
 
   try {
-    const res = await fetch(`${API_BASE}/v1/models`, {
+    const res = await fetch(`${API_BASE}/v1/models?limit=100`, {
       method: "GET",
       headers: {
         "anthropic-version": VERSION,
@@ -173,8 +171,31 @@ export async function anthropicProbe({ signal }: { signal?: AbortSignal } = {}):
     });
 
     const durationMs = Date.now() - started;
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      return { ok: true, durationMs };
+      const modelIds = new Set(
+        (Array.isArray(data?.data) ? data.data : [])
+          .map((entry: any) => (typeof entry?.id === "string" ? entry.id : null))
+          .filter((id: string | null): id is string => Boolean(id)),
+      );
+      if (modelIds.has(resolution.effective)) {
+        return {
+          ok: true,
+          durationMs,
+          configuredModel: resolution.configured,
+          effectiveModel: resolution.effective,
+          modelMigrated: resolution.migrated,
+        };
+      }
+      return {
+        ok: false,
+        errorKind: "MODEL_NOT_FOUND",
+        status: 404,
+        durationMs,
+        configuredModel: resolution.configured,
+        effectiveModel: resolution.effective,
+        modelMigrated: resolution.migrated,
+      };
     }
 
     let errorKind: AiErrorKind = "INTERNAL";
@@ -182,12 +203,26 @@ export async function anthropicProbe({ signal }: { signal?: AbortSignal } = {}):
     else if (res.status === 404) errorKind = "MODEL_NOT_FOUND";
     else if (res.status === 429) errorKind = "RATE_LIMIT";
 
-    return { ok: false, errorKind, status: res.status, durationMs };
+    return {
+      ok: false,
+      errorKind,
+      status: res.status,
+      durationMs,
+      configuredModel: resolution.configured,
+      effectiveModel: resolution.effective,
+      modelMigrated: resolution.migrated,
+    };
   } catch (err: any) {
     const durationMs = Date.now() - started;
-    const errorKind: AiErrorKind =
-      err?.name === "AbortError" ? "TIMEOUT" : "INTERNAL";
-    return { ok: false, errorKind, durationMs };
+    const errorKind: AiErrorKind = err?.name === "AbortError" ? "TIMEOUT" : "INTERNAL";
+    return {
+      ok: false,
+      errorKind,
+      durationMs,
+      configuredModel: resolution.configured,
+      effectiveModel: resolution.effective,
+      modelMigrated: resolution.migrated,
+    };
   } finally {
     clearTimeout(timeout);
   }
