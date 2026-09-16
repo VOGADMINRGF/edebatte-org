@@ -207,6 +207,17 @@ export function parseEdebateB2cMetadata(object: Record<string, unknown>) {
   return { userId, packageId, ...plan };
 }
 
+export function parseVogSupportMetadata(object: Record<string, unknown>) {
+  const metadata = stripeObjectMetadata(object);
+  if (metadata.source !== "vog_support_edebatte") return null;
+  const handoffHash = typeof metadata.edebatte_handoff_hash === "string" ? metadata.edebatte_handoff_hash : null;
+  const packageId = isStripeB2cPlanId(metadata.edebatte_package_id) ? metadata.edebatte_package_id : null;
+  if (!handoffHash || !/^[a-f0-9]{64}$/.test(handoffHash) || !packageId) return null;
+  const plan = resolveStripeB2cPlan(packageId);
+  if (metadata.edebatte_access_tier && metadata.edebatte_access_tier !== plan.accessTier) return null;
+  return { handoffHash, packageId, ...plan };
+}
+
 export function stripeObjectId(value: unknown, prefix: string) {
   const candidate = typeof value === "string" ? value : value && typeof value === "object" ? (value as Record<string, unknown>).id : null;
   return typeof candidate === "string" && candidate.startsWith(`${prefix}_`) ? candidate : null;
