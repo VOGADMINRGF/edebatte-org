@@ -7,19 +7,17 @@ export type StripeB2cAccessTier = "citizenPremium" | "citizenPro";
 
 export const STRIPE_B2C_PLANS: Record<
   StripeB2cPlanId,
-  { lookupKey: string; accessTier: StripeB2cAccessTier; label: string; minimumCredits: number }
+  { lookupKey: string; accessTier: StripeB2cAccessTier; label: string }
 > = {
   start: {
     lookupKey: "edebatte_plus_monthly",
     accessTier: "citizenPremium",
     label: "eDebatte Plus",
-    minimumCredits: 15,
   },
   pro: {
     lookupKey: "edebatte_pro_monthly",
     accessTier: "citizenPro",
     label: "eDebatte Pro",
-    minimumCredits: 38,
   },
 };
 
