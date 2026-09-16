@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
+import { getAiRuntimePolicy } from "@features/ai/aiRuntimePolicy";
 import { probeAllCoreProviderModels } from "@features/ai/providerModelLifecycleProbe";
 
 export const runtime = "nodejs";
@@ -12,7 +13,10 @@ export async function GET(req: NextRequest) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
-    const providers = await probeAllCoreProviderModels({ signal: controller.signal });
+    const [providers, policy] = await Promise.all([
+      probeAllCoreProviderModels({ signal: controller.signal }),
+      Promise.resolve(getAiRuntimePolicy()),
+    ]);
     const healthy = providers.every((entry) =>
       entry.status === "ok" || entry.status === "retired_migrated" || entry.status === "config_missing",
     );
@@ -22,6 +26,16 @@ export async function GET(req: NextRequest) {
       {
         ok: healthy,
         checkedAt: new Date().toISOString(),
+        routing: {
+          mode: policy.modelRoutingMode,
+          profiles: policy.profiles,
+          providers: {
+            openai: policy.openai.modelsByProfile,
+            anthropic: policy.anthropic.modelsByProfile,
+            mistral: policy.mistral.modelsByProfile,
+            gemini: policy.gemini.modelsByProfile,
+          },
+        },
         providers,
         drift,
       },
