@@ -69,12 +69,14 @@ describe("AI provider model governance", () => {
   });
 
   it("checks the explicitly routed model instead of silently probing the legacy provider model", async () => {
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [{ id: "gpt-5.6-sol" }] }), {
+    const seenUrls: string[] = [];
+    const fetchImpl = vi.fn(async (input: any) => {
+      seenUrls.push(String(input));
+      return new Response(JSON.stringify({ id: "gpt-5.6-sol" }), {
         status: 200,
         headers: { "content-type": "application/json" },
-      }),
-    ) as unknown as typeof fetch;
+      });
+    }) as unknown as typeof fetch;
 
     const result = await probeProviderModelLifecycle("openai", {
       env: {
@@ -89,25 +91,22 @@ describe("AI provider model governance", () => {
     expect(result.effectiveModel).toBe("gpt-5.6-sol");
     expect(result.modelAvailable).toBe(true);
     expect(result.status).toBe("ok");
+    expect(seenUrls).toEqual(["https://api.openai.com/v1/models/gpt-5.6-sol"]);
   });
 
-  it("loads a provider catalog once when validating several routed models", async () => {
-    const fetchImpl = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          data: [
-            { id: "gpt-5" },
-            { id: "gpt-5.6-luna" },
-            { id: "gpt-5.6-sol" },
-          ],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
-    ) as unknown as typeof fetch;
+  it("deduplicates direct lookups for repeated routed models", async () => {
+    const seenUrls: string[] = [];
+    const fetchImpl = vi.fn(async (input: any) => {
+      seenUrls.push(String(input));
+      return new Response(JSON.stringify({ object: "model" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
 
     const results = await probeProviderModelsLifecycle(
       "openai",
-      [undefined, "gpt-5.6-luna", "gpt-5.6-sol"],
+      [undefined, "gpt-5", "gpt-5.6-sol", "gpt-5.6-sol"],
       {
         env: {
           OPENAI_API_KEY: "test-key",
@@ -117,18 +116,42 @@ describe("AI provider model governance", () => {
       },
     );
 
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(results.map((entry) => entry.effectiveModel)).toEqual([
-      "gpt-5",
-      "gpt-5.6-luna",
-      "gpt-5.6-sol",
-    ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(new Set(seenUrls)).toEqual(new Set([
+      "https://api.openai.com/v1/models/gpt-5",
+      "https://api.openai.com/v1/models/gpt-5.6-sol",
+    ]));
     expect(results.every((entry) => entry.status === "ok")).toBe(true);
+  });
+
+  it("keeps the Gemini credential out of the URL and uses x-goog-api-key", async () => {
+    const seen: Array<{ url: string; headers: Headers }> = [];
+    const fetchImpl = vi.fn(async (input: any, init?: RequestInit) => {
+      seen.push({ url: String(input), headers: new Headers(init?.headers) });
+      return new Response(JSON.stringify({ name: "models/gemini-3.8-flash" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    const result = await probeProviderModelLifecycle("gemini", {
+      env: {
+        GEMINI_API_KEY: "super-secret-key",
+        GEMINI_MODEL: "gemini-3.8-flash",
+      },
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("ok");
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash");
+    expect(seen[0]!.url).not.toContain("super-secret-key");
+    expect(seen[0]!.headers.get("x-goog-api-key")).toBe("super-secret-key");
   });
 
   it("distinguishes healthy, degraded and blocked lifecycle states", async () => {
     const healthyFetch = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [{ id: "gpt-5" }] }), {
+      new Response(JSON.stringify({ id: "gpt-5" }), {
         status: 200,
         headers: { "content-type": "application/json" },
       }),
@@ -141,8 +164,8 @@ describe("AI provider model governance", () => {
     const degraded = await probeProviderModelLifecycle("anthropic", { env: {} });
 
     const blockedFetch = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [{ id: "gpt-5" }] }), {
-        status: 200,
+      new Response(JSON.stringify({ error: { message: "model not found" } }), {
+        status: 404,
         headers: { "content-type": "application/json" },
       }),
     ) as unknown as typeof fetch;
@@ -154,5 +177,19 @@ describe("AI provider model governance", () => {
     expect(deriveProviderModelLifecycleHealth([healthy])).toBe("healthy");
     expect(deriveProviderModelLifecycleHealth([healthy, degraded])).toBe("degraded");
     expect(deriveProviderModelLifecycleHealth([healthy, degraded, blocked])).toBe("blocked");
+  });
+
+  it("keeps automatic Vercel builds to production and explicit preview branches", () => {
+    const vercelConfig = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, "vercel.json"), "utf8"),
+    ) as {
+      git?: { deploymentEnabled?: Record<string, boolean> };
+    };
+    const rules = vercelConfig.git?.deploymentEnabled;
+
+    expect(rules?.["**"]).toBe(false);
+    expect(rules?.main).toBe(true);
+    expect(rules?.["preview-*"]).toBe(true);
+    expect(rules?.["preview/**"]).toBe(true);
   });
 });
