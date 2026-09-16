@@ -28,6 +28,7 @@ describe("parliamentary context dossier matching", () => {
 
     expect(matched.map((topic) => topic.id)).toEqual(["eu-csa-chatkontrolle"]);
     expect(matched[0]?.links.some((link) => link.publisher === "abgeordnetenwatch.de")).toBe(true);
+    expect(matched[0]?.links.some((link) => link.kind === "official")).toBe(true);
     expect(matched[0]?.polls).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -49,7 +50,9 @@ describe("parliamentary context dossier matching", () => {
 
     expect(matched.map((topic) => topic.id)).toEqual(["de-ifg-reform"]);
     expect(matched[0]?.polls).toEqual([]);
-    expect(matched[0]?.caveat).toContain("Organisationsposition");
+    expect(matched[0]?.links.some((link) => link.kind === "register")).toBe(true);
+    expect(matched[0]?.links.some((link) => link.kind === "position")).toBe(true);
+    expect(matched[0]?.caveat).toContain("Registereintrag");
   });
 
   it("does not inject pilot politics into unrelated dossiers", () => {
@@ -63,10 +66,10 @@ describe("parliamentary context dossier matching", () => {
     expect(matched).toEqual([]);
   });
 
-  it("keeps political self-statements separate from official procedure sources", () => {
+  it("keeps political self-statements separate from procedure and source provenance", () => {
     for (const topic of PARLIAMENTARY_CONTEXT_PILOT_TOPICS) {
       expect(topic.statements.length).toBeGreaterThan(0);
-      expect(topic.links.some((link) => link.kind === "official")).toBe(true);
+      expect(topic.links.length).toBeGreaterThan(0);
       expect(topic.caveat.length).toBeGreaterThan(40);
     }
   });
