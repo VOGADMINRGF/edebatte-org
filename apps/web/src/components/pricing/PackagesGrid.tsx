@@ -57,6 +57,7 @@ function PackagesGrid({ packages = [], tone = "default", locale = "de", compact 
   const items = packages;
   const text = labels || DEFAULT_LABELS[locale];
   const [pendingPackageId, setPendingPackageId] = useState<string | null>(null);
+  const [pendingVogPackageId, setPendingVogPackageId] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const gridColsClass =
     items.length === 1 ? "lg:grid-cols-1" : items.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3";
@@ -91,6 +92,37 @@ function PackagesGrid({ packages = [], tone = "default", locale = "de", compact 
     }
   }
 
+  async function startVogSupport(pkg: EDebattePackageDefinition) {
+    if (pkg.id !== "start" && pkg.id !== "pro") return;
+    setPendingVogPackageId(pkg.id);
+    setCheckoutError(null);
+    try {
+      const response = await fetch("/api/billing/vog/handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: pkg.id }),
+      });
+      if (response.status === 401) {
+        const next = `/pricing?via=vog&plan=${pkg.id}${locale === "en" ? "&lang=en" : ""}`;
+        window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      const data = await response.json().catch(() => null);
+      const target = typeof data?.url === "string" ? new URL(data.url) : null;
+      if (!response.ok || !target || !["voiceopengov.org", "www.voiceopengov.org", "localhost", "127.0.0.1"].includes(target.hostname)) {
+        throw new Error("vog_handoff_unavailable");
+      }
+      window.location.assign(target.toString());
+    } catch {
+      setCheckoutError(
+        locale === "en"
+          ? "The VoiceOpenGov support path is currently unavailable. You can still choose the eDebatte package directly."
+          : "Der VoiceOpenGov-Unterstützungspfad ist gerade nicht verfügbar. Du kannst das eDebatte-Paket weiterhin direkt wählen.",
+      );
+      setPendingVogPackageId(null);
+    }
+  }
+
   return (
     <div>
       {checkoutError ? (
@@ -103,6 +135,7 @@ function PackagesGrid({ packages = [], tone = "default", locale = "de", compact 
           const isAccent = tone === "journalism";
           const directCheckout = isDirectPaidB2c(pkg);
           const pending = pendingPackageId === pkg.id;
+          const vogPending = pendingVogPackageId === pkg.id;
           return (
             <article
               key={pkg.id}
@@ -167,7 +200,7 @@ function PackagesGrid({ packages = [], tone = "default", locale = "de", compact 
                 {directCheckout ? (
                   <button
                     type="button"
-                    disabled={pendingPackageId !== null}
+                    disabled={pendingPackageId !== null || pendingVogPackageId !== null}
                     onClick={() => void startCheckout(pkg)}
                     className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#0ea5e9,#22c55e)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(14,165,233,0.25)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
                   >
@@ -182,7 +215,16 @@ function PackagesGrid({ packages = [], tone = "default", locale = "de", compact 
                   </Link>
                 )}
 
-                {pkg.sekundarCtaHref && pkg.sekundarCtaText ? (
+                {directCheckout && pkg.sekundarCtaText ? (
+                  <button
+                    type="button"
+                    disabled={pendingPackageId !== null || pendingVogPackageId !== null}
+                    onClick={() => void startVogSupport(pkg)}
+                    className="inline-flex w-full items-center justify-center rounded-full border border-cyan-300/60 bg-cyan-50 px-5 py-3 text-sm font-semibold text-cyan-950 hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {vogPending ? (locale === "en" ? "Opening VoiceOpenGov…" : "VoiceOpenGov wird geöffnet …") : pkg.sekundarCtaText}
+                  </button>
+                ) : pkg.sekundarCtaHref && pkg.sekundarCtaText ? (
                   pkg.sekundarCtaHref.startsWith("http") ? (
                     <a href={pkg.sekundarCtaHref} target="_blank" rel="noreferrer" className="inline-flex w-full items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-5 py-3 text-sm font-semibold text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg))]">{pkg.sekundarCtaText}</a>
                   ) : (
