@@ -1,6 +1,7 @@
 // features/ai/providers/openai.ts
 import { withMetrics } from "../orchestrator_health";
 import { ANALYZE_JSON_SCHEMA } from "@features/analyze/schemas";
+import { resolveProviderModel } from "../providerModelRegistry";
 
 // ——— Low-level Responses API ———
 const API_BASE = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(
@@ -8,10 +9,7 @@ const API_BASE = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").re
   ""
 );
 
-// Standard-Modell; kannst du per ENV überschreiben (z.B. gpt-4.1, gpt-4.1-mini, gpt-5 usw.)
-// Default bewusst auf ein breit verfügbares Modell gesetzt, damit lokale Setups nicht "alle Provider failed" sehen,
-// wenn OPENAI_MODEL nicht gesetzt ist.
-const MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const MODEL = resolveProviderModel("openai", process.env.OPENAI_MODEL).effective;
 
 export type AskArgs = {
   prompt: string;
@@ -70,9 +68,8 @@ function supportsReasoningEffort(model: string): boolean {
   const normalized = model.trim().toLowerCase();
   if (!normalized) return false;
 
-  // Conservative allowlist: only enable reasoning.effort for known reasoning model family.
-  // For uncertain models, omit the parameter to avoid UNSUPPORTED_PARAMETER request failures.
-  if (normalized === "gpt-5" || normalized.startsWith("gpt-5-")) return true;
+  // Conservative allowlist: support the GPT-5 family, including dotted generations such as gpt-5.6-sol.
+  if (/^gpt-5(?:[.-]|$)/.test(normalized)) return true;
 
   // Explicitly keep common non-reasoning models out.
   if (normalized === "gpt-4.1" || normalized.startsWith("gpt-4.1-")) return false;
@@ -211,7 +208,7 @@ async function askOpenAI({
 }: AskArgs): Promise<AskResult> {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY fehlt");
 
-  const resolvedModel = model ?? MODEL;
+  const resolvedModel = resolveProviderModel("openai", model ?? MODEL).effective;
   const resolvedMaxTokens = max_tokens ?? maxOutputTokens;
   const envTimeout = Number(process.env.OPENAI_TIMEOUT_MS ?? "");
   const resolvedTimeoutMs =
