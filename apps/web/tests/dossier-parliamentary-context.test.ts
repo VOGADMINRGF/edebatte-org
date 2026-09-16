@@ -28,6 +28,15 @@ describe("parliamentary context dossier matching", () => {
 
     expect(matched.map((topic) => topic.id)).toEqual(["eu-csa-chatkontrolle"]);
     expect(matched[0]?.links.some((link) => link.publisher === "abgeordnetenwatch.de")).toBe(true);
+    expect(matched[0]?.polls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "aw-poll-6454",
+          apiUrl: "https://www.abgeordnetenwatch.de/api/v2/polls/6454",
+          votesApiUrl: "https://www.abgeordnetenwatch.de/api/v2/votes?poll=6454",
+        }),
+      ]),
+    );
   });
 
   it("matches the IFG/transparency pilot only for related dossier sources", () => {
@@ -39,6 +48,7 @@ describe("parliamentary context dossier matching", () => {
     );
 
     expect(matched.map((topic) => topic.id)).toEqual(["de-ifg-reform"]);
+    expect(matched[0]?.polls).toEqual([]);
     expect(matched[0]?.caveat).toContain("Organisationsposition");
   });
 
