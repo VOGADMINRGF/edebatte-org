@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId, getCol } from "@core/db/triMongo";
+import { setB2cEntitlementSource } from "@/lib/server/billing/b2cEntitlements";
 import {
   parseEdebateB2cMetadata,
   parseStripeB2cEvent,
+  parseVogSupportMetadata,
   stripeObjectId,
   verifyStripeB2cWebhookSignature,
 } from "@/lib/server/billing/stripeB2c";
+import { getVogHandoffByHash, markVogHandoff } from "@/lib/server/billing/vogBridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,125 +83,111 @@ async function setEventStatus(
   );
 }
 
-function subscriptionStatus(object: Record<string, unknown>, eventType: string) {
+function eventEntitlementStatus(eventType: string, object: Record<string, unknown>) {
+  if (eventType === "checkout.session.async_payment_failed") return "failed";
+  if (eventType === "checkout.session.completed" || eventType === "checkout.session.async_payment_succeeded") {
+    const paymentStatus = typeof object.payment_status === "string" ? object.payment_status : "unknown";
+    return paymentStatus === "paid" || paymentStatus === "no_payment_required" ? "active" : "pending";
+  }
+  if (eventType === "invoice.paid") return "active";
+  if (eventType === "invoice.payment_failed") return "past_due";
   if (eventType === "customer.subscription.deleted") return "canceled";
-  return typeof object.status === "string" ? object.status : "unknown";
+  if (eventType === "customer.subscription.updated") {
+    return typeof object.status === "string" ? object.status : "unknown";
+  }
+  return null;
 }
 
-async function updateUserFromEvent(eventType: string, object: Record<string, unknown>) {
-  const meta = parseEdebateB2cMetadata(object);
-  if (!meta || !ObjectId.isValid(meta.userId)) return;
-
-  const users = await getCol<any>("users");
-  const userId = new ObjectId(meta.userId);
+function stripeRelationshipIds(eventType: string, object: Record<string, unknown>) {
   const customerId = stripeObjectId(object.customer, "cus");
   const directSubscriptionId = stripeObjectId(object.subscription, "sub");
   const parent = object.parent as Record<string, unknown> | undefined;
   const subscriptionDetails = parent?.subscription_details as Record<string, unknown> | undefined;
   const parentSubscriptionId = stripeObjectId(subscriptionDetails?.subscription, "sub");
-  const subscriptionId =
-    eventType.startsWith("customer.subscription.")
-      ? stripeObjectId(object.id, "sub")
-      : directSubscriptionId || parentSubscriptionId;
+  const subscriptionId = eventType.startsWith("customer.subscription.")
+    ? stripeObjectId(object.id, "sub")
+    : directSubscriptionId || parentSubscriptionId;
+  return { customerId, subscriptionId };
+}
 
-  const baseSet: Record<string, unknown> = {
-    "billing.provider": "stripe",
-    "billing.updatedAt": new Date(),
-    ...(customerId ? { "billing.stripeCustomerId": customerId } : {}),
-    ...(subscriptionId ? { "billing.stripeSubscriptionId": subscriptionId } : {}),
-  };
+function planRank(planId: "start" | "pro") {
+  return planId === "pro" ? 2 : 1;
+}
 
-  if (eventType === "checkout.session.completed" || eventType === "checkout.session.async_payment_succeeded") {
-    const paymentStatus = typeof object.payment_status === "string" ? object.payment_status : "unknown";
-    if (paymentStatus === "paid" || paymentStatus === "no_payment_required") {
-      await users.updateOne(
-        { _id: userId },
-        {
-          $set: {
-            ...baseSet,
-            accessTier: meta.accessTier,
-            tier: meta.accessTier,
-            b2cPlanId: meta.packageId,
-            "billing.status": "active",
-            "billing.planId": meta.packageId,
-          },
-          $max: { "usage.contributionCredits": meta.minimumCredits },
-        },
-      );
-    }
-    return;
+async function updateDirectEntitlement(eventType: string, object: Record<string, unknown>) {
+  const meta = parseEdebateB2cMetadata(object);
+  if (!meta || !ObjectId.isValid(meta.userId)) return false;
+
+  const status = eventEntitlementStatus(eventType, object);
+  if (!status) return true;
+
+  // A redirect/Checkout event is not proof of an asynchronous payment. Do not disturb an existing entitlement until Stripe confirms it.
+  if (status === "pending" || status === "failed") return true;
+
+  const { customerId, subscriptionId } = stripeRelationshipIds(eventType, object);
+  await setB2cEntitlementSource({
+    userId: new ObjectId(meta.userId),
+    source: "direct",
+    planId: meta.packageId,
+    status,
+    customerId,
+    subscriptionId,
+  });
+  return true;
+}
+
+async function updateVogEntitlement(eventType: string, object: Record<string, unknown>) {
+  const meta = parseVogSupportMetadata(object);
+  if (!meta) return false;
+
+  const handoff = await getVogHandoffByHash(meta.handoffHash);
+  if (!handoff) {
+    // Capability is unknown or has been deliberately removed: never infer an account from email/customer data.
+    return true;
+  }
+  if (planRank(meta.packageId) < planRank(handoff.requestedPlanId)) {
+    throw new Error("vog_entitlement_below_requested_plan");
   }
 
-  if (eventType === "invoice.paid") {
-    await users.updateOne(
-      { _id: userId },
-      {
-        $set: {
-          ...baseSet,
-          accessTier: meta.accessTier,
-          tier: meta.accessTier,
-          b2cPlanId: meta.packageId,
-          "billing.status": "active",
-          "billing.planId": meta.packageId,
-        },
-        $max: { "usage.contributionCredits": meta.minimumCredits },
-      },
-    );
-    return;
+  const status = eventEntitlementStatus(eventType, object);
+  if (!status) return true;
+
+  if (status === "pending") return true;
+  if (status === "failed") {
+    await markVogHandoff({ handoffHash: meta.handoffHash, status: "failed", actualPlanId: meta.packageId });
+    return true;
   }
 
-  if (eventType === "invoice.payment_failed") {
-    await users.updateOne(
-      { _id: userId },
-      { $set: { ...baseSet, "billing.status": "past_due", "billing.planId": meta.packageId } },
-    );
-    return;
-  }
+  const { customerId, subscriptionId } = stripeRelationshipIds(eventType, object);
+  await setB2cEntitlementSource({
+    userId: handoff.userId,
+    source: "vog",
+    planId: meta.packageId,
+    status,
+    customerId,
+    subscriptionId,
+  });
 
-  if (eventType === "customer.subscription.updated" || eventType === "customer.subscription.deleted") {
-    const status = subscriptionStatus(object, eventType);
-    if (status === "active" || status === "trialing") {
-      await users.updateOne(
-        { _id: userId },
-        {
-          $set: {
-            ...baseSet,
-            accessTier: meta.accessTier,
-            tier: meta.accessTier,
-            b2cPlanId: meta.packageId,
-            "billing.status": status,
-            "billing.planId": meta.packageId,
-          },
-          $max: { "usage.contributionCredits": meta.minimumCredits },
-        },
-      );
-      return;
-    }
+  const handoffStatus = status === "active" || status === "trialing"
+    ? "active"
+    : status === "past_due"
+      ? "past_due"
+      : ["canceled", "unpaid", "incomplete_expired"].includes(status)
+        ? "canceled"
+        : "claimed";
+  await markVogHandoff({
+    handoffHash: meta.handoffHash,
+    status: handoffStatus,
+    actualPlanId: meta.packageId,
+    stripeCustomerId: customerId || undefined,
+    stripeSubscriptionId: subscriptionId || undefined,
+  });
+  return true;
+}
 
-    if (status === "past_due") {
-      await users.updateOne(
-        { _id: userId },
-        { $set: { ...baseSet, "billing.status": "past_due", "billing.planId": meta.packageId } },
-      );
-      return;
-    }
-
-    if (["canceled", "unpaid", "incomplete_expired"].includes(status)) {
-      await users.updateOne(
-        { _id: userId },
-        {
-          $set: {
-            ...baseSet,
-            accessTier: "citizenBasic",
-            tier: "citizenBasic",
-            b2cPlanId: "basis",
-            "billing.status": status,
-            "billing.planId": "basis",
-          },
-        },
-      );
-    }
-  }
+async function updateUserFromEvent(eventType: string, object: Record<string, unknown>) {
+  if (await updateDirectEntitlement(eventType, object)) return;
+  await updateVogEntitlement(eventType, object);
 }
 
 export async function POST(request: NextRequest) {
