@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
+import { ObjectId, getCol } from "@core/db/triMongo";
 import { readSession } from "@/utils/session";
 import { getAccountOverview } from "@features/account/service";
 import { getMembershipActivationTruth, PRICING_TRUST_LOOP_DE } from "@features/pricing";
 import { PaymentProfileForm } from "./PaymentProfileForm";
 import { MicroTransferVerificationForm } from "./MicroTransferVerificationForm";
+import { StripeBillingPortalButton } from "./StripeBillingPortalButton";
 
 export const metadata = {
   title: "Zahlungsprofil · eDebatte",
@@ -15,7 +17,7 @@ export default async function PaymentPage() {
   const session = await readSession();
   const userId = session?.uid ?? null;
 
-  if (!userId) {
+  if (!userId || !ObjectId.isValid(userId)) {
     redirect(`/login?next=${encodeURIComponent("/account/payment")}`);
   }
 
@@ -24,8 +26,15 @@ export default async function PaymentPage() {
     redirect(`/login?next=${encodeURIComponent("/account/payment")}`);
   }
 
+  const Users = await getCol<any>("users");
+  const billingDoc = await Users.findOne(
+    { _id: new ObjectId(userId) },
+    { projection: { billing: 1 } },
+  );
+
   const paymentProfile = (overview as any).paymentProfile ?? null;
   const payment = (overview as any).payment ?? {};
+  const billing = billingDoc?.billing ?? {};
   const membership = (overview as any).membership ?? (overview as any).membershipSnapshot ?? {};
   const membershipPayment = membership?.paymentInfo ?? {};
   const membershipStatus = membership?.status ?? null;
@@ -36,6 +45,7 @@ export default async function PaymentPage() {
   const contribution = membership?.contributionLabel ?? membership?.statusLabel ?? null;
   const note = payment.note ?? membershipPayment.reference ?? null;
   const paymentReference = membership?.paymentReference ?? null;
+  const hasStripeBilling = typeof billing?.stripeCustomerId === "string" && billing.stripeCustomerId.startsWith("cus_");
 
   return (
     <main className="min-h-screen bg-[rgb(var(--bg))] py-10">
@@ -44,7 +54,7 @@ export default async function PaymentPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-600">Zahlungsprofil</p>
           <h1 className="text-2xl font-semibold text-[rgb(var(--fg))]">Standardkonto &amp; Zahlungsart</h1>
           <p className="text-sm text-[rgb(var(--muted))]">
-            Hinterlegte Bankverbindung für Beiträge und Abrechnungen. Du kannst dein Standardkonto hier aktualisieren; bei Fragen helfen wir dir im Support.
+            Hinterlegte Bankverbindung für manuelle Beiträge und Abrechnungen. Kostenpflichtige eDebatte-Self-Service-Pakete werden getrennt über Stripe verwaltet.
           </p>
           <p className="text-xs text-[rgb(var(--muted))]">{ACTIVATION_TRUTH.paymentProfileHint}</p>
           <p className="text-xs text-[rgb(var(--muted))]">{PRICING_TRUST_LOOP_DE.context.registryVerificationHint}</p>
@@ -80,9 +90,21 @@ export default async function PaymentPage() {
             paymentReference={paymentReference}
           />
 
+          <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-800">eDebatte Self-Service über Stripe</p>
+            <p className="text-sm text-sky-950">
+              Plus- und Pro-Abos können über Stripe gekündigt, geändert und mit einer neuen Zahlungsart versehen werden.
+            </p>
+            {hasStripeBilling ? (
+              <StripeBillingPortalButton />
+            ) : (
+              <p className="text-xs text-sky-800">Noch kein aktives Stripe-Zahlungsprofil für dieses Konto.</p>
+            )}
+          </div>
+
           <div className="space-y-1 rounded-2xl bg-[rgb(var(--bg))] px-3 py-2">
             <p className="text-[11px] font-medium text-[rgb(var(--muted))]">Bevorzugte Zahlungsart</p>
-            <p className="text-sm text-[rgb(var(--fg))]">Aktuell Bankeinzug / Überweisung. Weitere Optionen (z.B. Karte) folgen.</p>
+            <p className="text-sm text-[rgb(var(--fg))]">Bankdaten gelten für manuelle Beitrags- und Abrechnungswege; eDebatte Plus/Pro nutzt Stripe Checkout.</p>
             <p className="mt-1 text-xs text-[rgb(var(--muted))]">{PRICING_TRUST_LOOP_DE.context.orderActivationHint}</p>
             <p className="mt-1 text-xs text-[rgb(var(--muted))]">{ACTIVATION_TRUTH.membershipScopeHint}</p>
           </div>
