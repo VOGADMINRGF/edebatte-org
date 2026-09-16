@@ -19,8 +19,8 @@ const STRINGS = {
   } as LocaleValue<string>,
 
   intro: {
-    de: "eDebatte ist eine neutrale Infrastruktur – keine Partei, kein Verein. Wir verarbeiten personenbezogene Daten so sparsam wie möglich und passen diese Hinweise an, sobald sich Funktionen oder rechtliche Rahmenbedingungen ändern. Diese Hinweise geben einen Überblick nach Art. 12 ff. DSGVO und ersetzen keine individuelle Rechtsberatung.",
-    en: "eDebatte is a neutral participation infrastructure – neither party nor association. We process personal data as sparingly as possible and update this notice whenever features or legal requirements change. This notice provides an overview under Arts. 12 et seq. GDPR and is not individual legal advice.",
+    de: "eDebatte ist eine neutrale Infrastruktur – keine Partei und derzeit keine eigene Gesellschaft. Wir verarbeiten personenbezogene Daten so sparsam wie möglich und passen diese Hinweise an, sobald sich Funktionen, Anbieter oder rechtliche Rahmenbedingungen ändern. Diese Hinweise geben einen Überblick nach Art. 12 ff. DSGVO und ersetzen keine individuelle Rechtsberatung.",
+    en: "eDebatte is a neutral participation infrastructure – not a political party and currently not a separate company. We process personal data as sparingly as possible and update this notice whenever features, providers or legal requirements change. This notice provides an overview under Arts. 12 et seq. GDPR and is not individual legal advice.",
   } as LocaleValue<string>,
 
   controllerTitle: {
@@ -30,14 +30,16 @@ const STRINGS = {
 
   controllerBody: {
     de: [
-      "Verantwortlich für diese Website und die angebundenen Dienste ist eDebatte.",
-      "Rechtliche Angaben und die ladungsfähige Anschrift findest du im Impressum.",
-      `E-Mail: ${BRAND.supportEmail}`,
+      "Verantwortlicher für eDebatte und die daran angebundenen Dienste ist derzeit Ricky G. Fleischer als natürliche Person.",
+      "eDebatte wird aktuell als Angebot innerhalb der Initiative VoiceOpenGov betrieben. Eine eDebatte.org GmbH, VOG Holding oder ein anderer separater Rechtsträger ist derzeit nicht Verantwortlicher, Anbieter oder Vertragspartner.",
+      "Die ladungsfähige Anschrift und die vollständigen Anbieterangaben findest du im Impressum.",
+      `E-Mail für Datenschutz- und Supportanfragen: ${BRAND.supportEmail}`,
     ].join("\n"),
     en: [
-      "The controller for this website and related services is eDebatte.",
-      "Legal details and the service address are listed in the imprint.",
-      `E-mail: ${BRAND.supportEmail}`,
+      "The controller for eDebatte and its connected services is currently Ricky G. Fleischer as a natural person.",
+      "eDebatte is currently operated as a service within the VoiceOpenGov initiative. No eDebatte.org GmbH, VOG Holding or other separate legal entity is currently the controller, provider or contractual partner.",
+      "The service address and full provider information are listed in the legal notice.",
+      `E-mail for privacy and support requests: ${BRAND.supportEmail}`,
     ].join("\n"),
   } as LocaleValue<string>,
 
@@ -64,9 +66,14 @@ const STRINGS = {
           "Inhalte, die du beisteuerst (Beiträge, Kommentare, Kontextkarten, Bewertungen) sowie deine Stimmen und Beteiligungsaktionen, soweit sie im System gespeichert werden. Öffentliche Inhalte sind für andere Nutzer:innen sichtbar.",
       },
       {
-        label: "Mitgliedschaften & Beiträge",
+        label: "Pakete, Verträge & Zahlungsstatus",
         description:
-          "Daten zu Unterstützungs- oder Mitgliedschaftsmodellen, z. B. gewähltes Paket, Laufzeit, Zahlungsinformationen und Zahlungsstatus. Bei Zahlungen über Zahlungsdienstleister (z. B. Bank, PayPal) gelten zusätzlich deren Datenschutzbestimmungen.",
+          "Bei kostenpflichtigen eDebatte-Paketen verarbeiten wir insbesondere gewähltes Paket, Laufzeit, Betrag, Vertrags- und Zahlungsstatus sowie technische Zahlungs- und Kund:innen-IDs. Die Zahlungsabwicklung erfolgt über Stripe. Wenn PayPal im Stripe-Checkout angeboten und von dir gewählt wird, werden die für die PayPal-Zahlung erforderlichen Daten zusätzlich im Rahmen der Stripe-/PayPal-Zahlungsabwicklung verarbeitet. eDebatte speichert keine vollständigen Karten- oder PayPal-Zugangsdaten.",
+      },
+      {
+        label: "Zahlungsdienstleister",
+        description:
+          "Zahlungsdaten werden zur Durchführung des Vertrags und zur Zahlungsabwicklung verarbeitet. Stripe verarbeitet Zahlungs- und Betrugspräventionsdaten nach seinen eigenen Datenschutzbestimmungen. Bei Auswahl von PayPal gelten zusätzlich die Datenschutzbestimmungen von PayPal. Welche Zahlungsart verfügbar ist, zeigt der konkrete Checkout.",
       },
       {
         label: "Kommunikation",
@@ -91,9 +98,14 @@ const STRINGS = {
           "Content you contribute (posts, comments, context cards, ratings) as well as your votes and participation actions to the extent they are stored in the system. Public content is visible to other users.",
       },
       {
-        label: "Memberships & contributions",
+        label: "Packages, contracts & payment status",
         description:
-          "Data relating to support or membership models, e.g. chosen package, term, payment information and payment status. For payments via payment service providers (e.g. bank, PayPal), their privacy policies also apply.",
+          "For paid eDebatte packages we process, in particular, the selected package, term, amount, contract and payment status, as well as technical payment and customer IDs. Payments are processed through Stripe. If PayPal is offered in Stripe Checkout and selected by you, the data required for that PayPal payment is also processed as part of the Stripe/PayPal payment flow. eDebatte does not store full card details or PayPal login credentials.",
+      },
+      {
+        label: "Payment service providers",
+        description:
+          "Payment data is processed to perform the contract and settle payments. Stripe processes payment and fraud-prevention data under its own privacy policy. If PayPal is selected, PayPal's privacy policy also applies. The payment methods actually available are shown in the specific checkout.",
       },
       {
         label: "Communication",
@@ -114,14 +126,14 @@ const STRINGS = {
       "",
       "Optionale Cookies bzw. Speichertechnologien – etwa für Komfortfunktionen oder einfache Reichweitenmessung – setzen wir nur ein, wenn du im Cookie-Banner ausdrücklich eingewilligt hast (§ 25 Abs. 1 TDDDG i. V. m. Art. 6 Abs. 1 lit. a DSGVO). Du kannst deine Einwilligung über die Einstellungen im Banner jederzeit mit Wirkung für die Zukunft widerrufen.",
       "",
-      "Wir verzichten aktuell auf Tracking-Cookies für Werbenetzwerke. Details zu den jeweils eingesetzten Diensten und Speicherdauern ergänzen wir, sobald neue Funktionen produktiv gehen.",
+      "Wir verzichten aktuell auf Tracking-Cookies für Werbenetzwerke. Für einen von dir gestarteten Zahlungsvorgang können Stripe und – bei Auswahl von PayPal – PayPal technisch erforderliche Cookies oder vergleichbare Technologien auf ihren Zahlungsseiten einsetzen. Details richten sich nach den Datenschutzhinweisen des jeweiligen Zahlungsdienstleisters.",
     ].join("\n"),
     en: [
       "We use technically necessary cookies and similar technologies (§ 25 (2) TDDDG) to operate this website, for example to enable logins, security features (such as CSRF protection) and load balancing.",
       "",
       "Optional cookies or storage technologies – for comfort features or simple reach measurement – are only used if you have explicitly consented via the cookie banner (§ 25 (1) TDDDG in conjunction with Art. 6 (1) (a) GDPR). You can withdraw your consent at any time with effect for the future via the banner settings.",
       "",
-      "We currently do not use tracking cookies for advertising networks. Details on specific services and storage periods will be added as new features go live.",
+      "We currently do not use tracking cookies for advertising networks. For a payment flow initiated by you, Stripe and – if PayPal is selected – PayPal may use technically necessary cookies or similar technologies on their payment pages. Details are governed by the privacy notices of the respective payment provider.",
     ].join("\n"),
   } as LocaleValue<string>,
 
@@ -175,12 +187,8 @@ const STRINGS = {
   } as LocaleValue<string[]>,
 
   rightsComplaintHint: {
-    de: [
-      "Du kannst dich außerdem bei einer Datenschutzaufsichtsbehörde beschweren, wenn du der Ansicht bist, dass die Verarbeitung der dich betreffenden personenbezogenen Daten gegen die DSGVO verstößt. Zuständig ist z. B. die Aufsichtsbehörde an deinem Wohnort oder der Berliner Beauftragte für Datenschutz und Informationsfreiheit.",
-    ].join("\n"),
-    en: [
-      "You also have the right to lodge a complaint with a data protection supervisory authority if you believe that the processing of personal data relating to you infringes the GDPR. You may contact, for example, the authority at your place of residence or the Berlin Commissioner for Data Protection and Freedom of Information.",
-    ].join("\n"),
+    de: "Du kannst dich außerdem bei einer Datenschutzaufsichtsbehörde beschweren, wenn du der Ansicht bist, dass die Verarbeitung der dich betreffenden personenbezogenen Daten gegen die DSGVO verstößt. Zuständig ist z. B. die Aufsichtsbehörde an deinem Wohnort oder der Berliner Beauftragte für Datenschutz und Informationsfreiheit.",
+    en: "You also have the right to lodge a complaint with a data protection supervisory authority if you believe that the processing of personal data relating to you infringes the GDPR. You may contact, for example, the authority at your place of residence or the Berlin Commissioner for Data Protection and Freedom of Information.",
   } as LocaleValue<string>,
 
   contactTitle: {
@@ -189,12 +197,8 @@ const STRINGS = {
   } as LocaleValue<string>,
 
   contactBody: {
-    de: [
-      "Wenn du eines deiner Rechte wahrnehmen oder Fragen zur Datenverarbeitung bei eDebatte stellen möchtest, wende dich bitte an uns. Die ladungsfähige Anschrift findest du im Impressum.",
-    ].join("\n"),
-    en: [
-      "If you wish to exercise any of your rights or have questions about data processing at eDebatte, please reach out to us. The service address is listed in the imprint.",
-    ].join("\n"),
+    de: "Wenn du eines deiner Rechte wahrnehmen oder Fragen zur Datenverarbeitung bei eDebatte stellen möchtest, wende dich bitte an uns. Die ladungsfähige Anschrift findest du im Impressum.",
+    en: "If you wish to exercise any of your rights or have questions about data processing at eDebatte, please reach out to us. The service address is listed in the legal notice.",
   } as LocaleValue<string>,
 
   contactEmail: {

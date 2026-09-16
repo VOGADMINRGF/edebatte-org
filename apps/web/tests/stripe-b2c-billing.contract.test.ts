@@ -22,6 +22,13 @@ describe("Stripe B2C billing contract", () => {
     expect(route).not.toContain("amountCents");
   });
 
+  it("keeps Stripe-hosted Checkout eligible for dynamic payment methods", () => {
+    const helper = source("lib/server/billing/stripeB2c.ts");
+    expect(helper).toContain('body.set("mode", "subscription")');
+    expect(helper).not.toContain("payment_method_types");
+    expect(helper).not.toContain('payment_method_types[]');
+  });
+
   it("provisions paid access only from signed, idempotent Stripe webhook events", () => {
     const webhook = source("app/api/billing/stripe/webhook/route.ts");
     expect(webhook).toContain("verifyStripeB2cWebhookSignature");
