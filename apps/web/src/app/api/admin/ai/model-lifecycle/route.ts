@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdminOrResponse(req);
-  if (auth instanceof NextResponse) return auth;
+  if (auth instanceof Response) return auth;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
