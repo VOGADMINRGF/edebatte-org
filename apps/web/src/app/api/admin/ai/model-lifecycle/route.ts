@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
 import { getAiRuntimePolicy, type AiRuntimeProfileName } from "@features/ai/aiRuntimePolicy";
 import {
-  probeAllCoreProviderModels,
-  probeProviderModelLifecycle,
+  deriveProviderModelLifecycleHealth,
+  probeProviderModelsLifecycle,
 } from "@features/ai/providerModelLifecycleProbe";
 import type { CoreModelProvider } from "@features/ai/providerModelRegistry";
 
@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
     const policy = getAiRuntimePolicy();
-    const providers = await probeAllCoreProviderModels({ signal: controller.signal });
     const modelsByProvider = {
       openai: policy.openai.modelsByProfile,
       anthropic: policy.anthropic.modelsByProfile,
@@ -28,33 +27,37 @@ export async function GET(req: NextRequest) {
       gemini: policy.gemini.modelsByProfile,
     } as const;
 
-    const routedTargets = CORE_PROVIDERS.flatMap((provider) => {
-      const profileModels = modelsByProvider[provider];
-      const uniqueModels = Array.from(new Set(Object.values(profileModels)));
-      return uniqueModels.map((model) => ({
-        provider,
-        model,
-        profiles: (Object.entries(profileModels) as Array<[AiRuntimeProfileName, string]>)
-          .filter(([, candidate]) => candidate === model)
-          .map(([profile]) => profile),
-      }));
-    });
+    const providerGroups = await Promise.all(
+      CORE_PROVIDERS.map(async (provider) => {
+        const profileModels = modelsByProvider[provider];
+        const uniqueModels = Array.from(new Set(Object.values(profileModels)));
+        const results = await probeProviderModelsLifecycle(
+          provider,
+          [undefined, ...uniqueModels],
+          { signal: controller.signal },
+        );
+        const [providerResult, ...routedResults] = results;
+        if (!providerResult) throw new Error(`provider lifecycle result missing for ${provider}`);
 
-    const routingChecks = await Promise.all(
-      routedTargets.map(async (target) => ({
-        ...target,
-        result: await probeProviderModelLifecycle(target.provider, {
-          signal: controller.signal,
-          configuredModelOverride: target.model,
-        }),
-      })),
+        return {
+          providerResult,
+          routingChecks: uniqueModels.map((model, index) => ({
+            provider,
+            model,
+            profiles: (Object.entries(profileModels) as Array<[AiRuntimeProfileName, string]>)
+              .filter(([, candidate]) => candidate === model)
+              .map(([profile]) => profile),
+            result: routedResults[index]!,
+          })),
+        };
+      }),
     );
 
-    const acceptedStatus = (status: string) =>
-      status === "ok" || status === "retired_migrated" || status === "config_missing";
-    const healthy =
-      providers.every((entry) => acceptedStatus(entry.status)) &&
-      routingChecks.every((entry) => acceptedStatus(entry.result.status));
+    const providers = providerGroups.map((group) => group.providerResult);
+    const routingChecks = providerGroups.flatMap((group) => group.routingChecks);
+    const allResults = [...providers, ...routingChecks.map((entry) => entry.result)];
+    const health = deriveProviderModelLifecycleHealth(allResults);
+    const ok = health !== "blocked";
     const drift = [
       ...providers.filter((entry) => entry.migrated || entry.status === "model_not_found"),
       ...routingChecks
@@ -68,7 +71,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       {
-        ok: healthy,
+        ok,
+        health,
         checkedAt: new Date().toISOString(),
         routing: {
           mode: policy.modelRoutingMode,
@@ -80,7 +84,7 @@ export async function GET(req: NextRequest) {
         drift,
       },
       {
-        status: healthy ? 200 : 503,
+        status: health === "blocked" ? 503 : 200,
         headers: { "cache-control": "no-store" },
       },
     );
