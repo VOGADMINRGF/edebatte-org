@@ -11,29 +11,59 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const WEBHOOK_EVENTS_COLLECTION = "stripe_b2c_webhook_events";
+const PROCESSING_STALE_AFTER_MS = 10 * 60_000;
 
 type WebhookEventDoc = {
   _id: string;
   type: string;
   status: "processing" | "processed" | "failed";
   createdAt: Date;
+  claimedAt: Date;
   processedAt?: Date;
   lastError?: string;
 };
 
 async function claimEvent(id: string, type: string) {
   const events = await getCol<WebhookEventDoc>(WEBHOOK_EVENTS_COLLECTION);
+  const now = new Date();
   try {
-    await events.insertOne({ _id: id, type, status: "processing", createdAt: new Date() });
+    await events.insertOne({
+      _id: id,
+      type,
+      status: "processing",
+      createdAt: now,
+      claimedAt: now,
+    });
     return { events, claimed: true } as const;
   } catch (error) {
-    if ((error as { code?: number })?.code === 11000) return { events, claimed: false } as const;
-    throw error;
+    if ((error as { code?: number })?.code !== 11000) throw error;
   }
+
+  const staleBefore = new Date(now.getTime() - PROCESSING_STALE_AFTER_MS);
+  const reclaimed = await events.findOneAndUpdate(
+    {
+      _id: id,
+      $or: [
+        { status: "failed" },
+        { status: "processing", claimedAt: { $lt: staleBefore } },
+      ],
+    },
+    {
+      $set: {
+        status: "processing",
+        type,
+        claimedAt: now,
+      },
+      $unset: { processedAt: "", lastError: "" },
+    },
+    { returnDocument: "after" },
+  );
+
+  return { events, claimed: Boolean(reclaimed) } as const;
 }
 
 async function setEventStatus(
-  events: Awaited<ReturnType<typeof getCol<WebhookEventDoc>>>,
+  events: any,
   id: string,
   status: "processed" | "failed",
   lastError?: string,
