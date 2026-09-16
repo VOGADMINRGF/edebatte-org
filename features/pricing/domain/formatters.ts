@@ -29,12 +29,14 @@ export function formatPackagePriceLabel(pkg: PriceLabelInput, locale: PricingLoc
 }
 
 export function formatPackageBillingModeLabel(pkg: BillingLabelInput, locale: PricingLocale = "de") {
+  const monthly = locale === "en" ? "monthly" : "monatlich";
   const monthlyPreferred = locale === "en" ? "monthly · annual billing preferred" : "monatlich · jährliche Zahlung bevorzugt";
   const yearly = locale === "en" ? "yearly" : "jährlich";
   const projectBased = locale === "en" ? "project-based / editorial operating model" : "projektbezogen / redaktionelles Betriebsmodell";
   const oneTimeOrClarification =
     locale === "en" ? "one-time or after clarification" : "einmalig oder nach Klärung";
 
+  if (pkg.id === "basis" || pkg.id === "start" || pkg.id === "pro") return monthly;
   if (pkg.id === "journal_basis" || pkg.id === "journal_pro") return projectBased;
   if (typeof pkg.preisJahr === "number") return yearly;
   if (typeof pkg.preisMonat === "number") return monthlyPreferred;
