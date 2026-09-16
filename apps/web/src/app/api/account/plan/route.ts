@@ -25,6 +25,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
   }
 
+  // Paid access is provisioned only after a verified billing-provider event.
+  // This endpoint intentionally cannot self-assign premium, pro, staff or institutional tiers.
+  if (parsed.data.planId !== "citizenBasic") {
+    return NextResponse.json(
+      { ok: false, error: "checkout_required", checkoutPath: "/pricing" },
+      { status: 409 },
+    );
+  }
+
   const plan = getPlanConfig(parsed.data.planId);
   if (!plan) {
     return NextResponse.json({ ok: false, error: "invalid_plan" }, { status: 400 });
@@ -38,7 +47,7 @@ export async function POST(req: NextRequest) {
     $set: {
       accessTier: plan.id,
       tier: plan.id,
-      b2cPlanId: plan.id,
+      b2cPlanId: "basis",
       updatedAt: new Date(),
     },
   };
@@ -46,9 +55,9 @@ export async function POST(req: NextRequest) {
     updateOps.$max = { "usage.contributionCredits": startingCredits };
   }
 
-  const { modifiedCount } = await Users.updateOne({ _id: oid }, updateOps);
+  const { matchedCount } = await Users.updateOne({ _id: oid }, updateOps);
 
-  if (!modifiedCount) {
+  if (!matchedCount) {
     return NextResponse.json({ ok: false, error: "user_not_found" }, { status: 404 });
   }
 
