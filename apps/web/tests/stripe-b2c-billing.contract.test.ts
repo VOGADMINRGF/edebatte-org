@@ -2,8 +2,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const WEB_ROOT = process.cwd().replace(/\\/g, "/").endsWith("/apps/web")
+  ? process.cwd()
+  : resolve(process.cwd(), "apps/web");
+const REPO_ROOT = resolve(WEB_ROOT, "../..");
+
 function source(path: string) {
-  return readFileSync(resolve(process.cwd(), "src", path), "utf8");
+  return readFileSync(resolve(WEB_ROOT, "src", path), "utf8");
 }
 
 describe("Stripe B2C billing contract", () => {
@@ -34,7 +39,7 @@ describe("Stripe B2C billing contract", () => {
   });
 
   it("keeps current public consumer prices aligned with Stripe", () => {
-    const pricing = readFileSync(resolve(process.cwd(), "../../features/pricing/domain/helpers.ts"), "utf8");
+    const pricing = readFileSync(resolve(REPO_ROOT, "features/pricing/domain/helpers.ts"), "utf8");
     expect(pricing).toContain('titel: "eDebatte Free"');
     expect(pricing).toContain("preisMonat: 7.99");
     expect(pricing).toContain("preisMonat: 19.99");
