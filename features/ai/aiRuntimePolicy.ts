@@ -1,3 +1,8 @@
+import {
+  preferredProviderModel,
+  resolveProviderModel,
+} from "./providerModelRegistry";
+
 export type AiCoreProviderName = "openai" | "anthropic" | "mistral" | "gemini";
 export type AiRuntimeProviderName = AiCoreProviderName | "ari";
 export type AiRuntimeMode = "test" | "development" | "preview" | "production";
@@ -16,10 +21,10 @@ type EnvMap = Record<string, string | undefined>;
 
 const CORE_PROVIDER_ALLOWLIST = ["openai", "anthropic", "mistral", "gemini"] as const;
 const DEFAULT_PROVIDER_ORDER: AiCoreProviderName[] = ["openai", "anthropic", "mistral", "gemini"];
-const OPENAI_DEFAULT_MODEL = "gpt-5";
-const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-20250514";
-const MISTRAL_DEFAULT_MODEL = "mistral-large-latest";
-const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
+const OPENAI_DEFAULT_MODEL = preferredProviderModel("openai");
+const ANTHROPIC_DEFAULT_MODEL = preferredProviderModel("anthropic");
+const MISTRAL_DEFAULT_MODEL = preferredProviderModel("mistral");
+const GEMINI_DEFAULT_MODEL = preferredProviderModel("gemini");
 const ARI_DEFAULT_MODEL = "ari-main";
 const OPENAI_TRACE_DEFAULT_MODEL = "gpt-4o-mini";
 const OPENAI_FAST_DEFAULT_MODEL = "gpt-4o-mini";
@@ -405,10 +410,22 @@ export function getAiRuntimePolicyFromEnv(env: EnvMap = process.env): AiRuntimeP
     max: CORE_PROVIDER_ALLOWLIST.length,
   });
   const providerOrder = normalizeProviderOrder(env, maxProviders);
-  const openaiModel = readTrimmed(env, "OPENAI_MODEL") ?? OPENAI_DEFAULT_MODEL;
-  const anthropicModel = readTrimmed(env, "ANTHROPIC_MODEL") ?? ANTHROPIC_DEFAULT_MODEL;
-  const mistralModel = readTrimmed(env, "MISTRAL_MODEL") ?? MISTRAL_DEFAULT_MODEL;
-  const geminiModel = readTrimmed(env, "GEMINI_MODEL") ?? GEMINI_DEFAULT_MODEL;
+  const openaiModel = resolveProviderModel(
+    "openai",
+    readTrimmed(env, "OPENAI_MODEL") ?? OPENAI_DEFAULT_MODEL,
+  ).effective;
+  const anthropicModel = resolveProviderModel(
+    "anthropic",
+    readTrimmed(env, "ANTHROPIC_MODEL") ?? ANTHROPIC_DEFAULT_MODEL,
+  ).effective;
+  const mistralModel = resolveProviderModel(
+    "mistral",
+    readTrimmed(env, "MISTRAL_MODEL") ?? MISTRAL_DEFAULT_MODEL,
+  ).effective;
+  const geminiModel = resolveProviderModel(
+    "gemini",
+    readTrimmed(env, "GEMINI_MODEL") ?? GEMINI_DEFAULT_MODEL,
+  ).effective;
   const ariModel = readTrimmed(env, "ARI_MODEL") ?? ARI_DEFAULT_MODEL;
   const defaultTimeoutMs = readPositiveInteger(env, "OPENAI_TIMEOUT_MS", {
     defaultValue: 18_000,
