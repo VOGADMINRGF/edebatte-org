@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
 import { probeAllCoreProviderModels } from "@features/ai/providerModelLifecycleProbe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const auth = await requireAdminOrResponse();
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminOrResponse(req);
   if (auth instanceof NextResponse) return auth;
 
   const controller = new AbortController();
