@@ -29,7 +29,7 @@ export function formatPackagePriceLabel(pkg: PriceLabelInput, locale: PricingLoc
 }
 
 export function formatPackageBillingModeLabel(pkg: BillingLabelInput, locale: PricingLocale = "de") {
-  const monthlyPreferred = locale === "en" ? "monthly · annual billing preferred" : "monatlich · jährliche Zahlung bevorzugt";
+  const monthly = locale === "en" ? "monthly" : "monatlich";
   const yearly = locale === "en" ? "yearly" : "jährlich";
   const projectBased = locale === "en" ? "project-based / editorial operating model" : "projektbezogen / redaktionelles Betriebsmodell";
   const oneTimeOrClarification =
@@ -37,10 +37,10 @@ export function formatPackageBillingModeLabel(pkg: BillingLabelInput, locale: Pr
 
   if (pkg.id === "journal_basis" || pkg.id === "journal_pro") return projectBased;
   if (typeof pkg.preisJahr === "number") return yearly;
-  if (typeof pkg.preisMonat === "number") return monthlyPreferred;
+  if (typeof pkg.preisMonat === "number") return monthly;
 
   const raw = typeof pkg.preisLabel === "string" ? pkg.preisLabel.toLowerCase() : "";
-  if (/monat|month/.test(raw)) return monthlyPreferred;
+  if (/monat|month/.test(raw)) return monthly;
   if (/jahr|year/.test(raw)) return yearly;
   if (/einmalig|one-time|projektbezogen|project-based|je einsatz|per engagement/.test(raw)) return oneTimeOrClarification;
   return oneTimeOrClarification;
