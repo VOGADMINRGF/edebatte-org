@@ -145,7 +145,7 @@ const TOPICS: ParliamentaryContextTopic[] = [
         label: "Politische Kontakte von abgeordnetenwatch",
         publisher: "abgeordnetenwatch.de",
         url: "https://www.abgeordnetenwatch.de/ueber-uns/transparenz-bei-abgeordnetenwatch",
-        date: "2026-09-10",
+        date: "2026-09-15",
         kind: "abgeordnetenwatch",
       },
     ],
