@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ObjectId, getCol } from "@core/db/triMongo";
 import { readSession } from "@/utils/session";
 import { getAccountOverview } from "@features/account/service";
 import { getMembershipActivationTruth, PRICING_TRUST_LOOP_DE } from "@features/pricing";
@@ -16,7 +17,7 @@ export default async function PaymentPage() {
   const session = await readSession();
   const userId = session?.uid ?? null;
 
-  if (!userId) {
+  if (!userId || !ObjectId.isValid(userId)) {
     redirect(`/login?next=${encodeURIComponent("/account/payment")}`);
   }
 
@@ -25,9 +26,15 @@ export default async function PaymentPage() {
     redirect(`/login?next=${encodeURIComponent("/account/payment")}`);
   }
 
+  const Users = await getCol<any>("users");
+  const billingDoc = await Users.findOne(
+    { _id: new ObjectId(userId) },
+    { projection: { billing: 1 } },
+  );
+
   const paymentProfile = (overview as any).paymentProfile ?? null;
   const payment = (overview as any).payment ?? {};
-  const billing = (overview as any).billing ?? {};
+  const billing = billingDoc?.billing ?? {};
   const membership = (overview as any).membership ?? (overview as any).membershipSnapshot ?? {};
   const membershipPayment = membership?.paymentInfo ?? {};
   const membershipStatus = membership?.status ?? null;
