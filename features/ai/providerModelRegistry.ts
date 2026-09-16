@@ -93,10 +93,12 @@ export function describeProviderModel(
   const normalized = configuredModel ? normalizeModelId(provider, configuredModel) : null;
   const effectiveModel = resolveProviderModel(provider, normalized);
   const retired = Boolean(normalized && registry.retiredReplacements[normalized]);
+  const registryManagedActive =
+    !normalized || normalized === registry.preferredModel || normalized === registry.fallbackModel;
   return {
     configuredModel: normalized,
     effectiveModel,
-    lifecycle: retired ? "retired" : normalized ? "unknown" : "active",
+    lifecycle: retired ? "retired" : registryManagedActive ? "active" : "unknown",
     migrated: retired,
     providerRecommendedReplacement:
       normalized && registry.providerRecommendedReplacements[normalized]
