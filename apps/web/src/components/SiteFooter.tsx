@@ -68,7 +68,8 @@ export default function SiteFooter() {
     "Fragen öffnen, Perspektiven sichtbar machen und gemeinsam zu einem nachvollziehbaren nächsten Schritt kommen.",
     "brand.copy",
   );
-  const donationLabel = t("Spenden:", "donation.label");
+  const supportLabel =
+    locale === "en" ? "Support VoiceOpenGov:" : t("VoiceOpenGov unterstützen:", "support.label");
 
   return (
     <footer data-site-footer="true" className={`mt-10 ${TOP_BORDER} ${FOOTER_BG}`} role="contentinfo">
@@ -152,7 +153,7 @@ export default function SiteFooter() {
               </a>
             </p>
             <p>
-              {donationLabel}{" "}
+              {supportLabel}{" "}
               <a
                 className="font-semibold text-[rgb(var(--fg))] underline decoration-[rgb(var(--border))] underline-offset-4 hover:decoration-[rgb(var(--grad-from))]"
                 href={VOG_SUPPORT_URL}
