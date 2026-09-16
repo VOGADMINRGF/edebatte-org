@@ -3,9 +3,26 @@ import { withMetrics } from "../orchestrator_health";
 
 const API_BASE =
   process.env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com";
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const FALLBACK_MODEL =
-  process.env.GEMINI_MODEL_FALLBACK || "gemini-2.5-flash";
+const CURRENT_MODEL = "gemini-3.8-flash";
+const CURRENT_FALLBACK_MODEL = "gemini-3.6-flash";
+const RETIRED_MODEL_REPLACEMENTS = new Map<string, string>([
+  ["gemini-1.5-flash-latest", CURRENT_MODEL],
+  ["gemini-1.5-flash", CURRENT_MODEL],
+  ["gemini-2.0-flash", CURRENT_MODEL],
+  ["gemini-2.0-flash-lite", CURRENT_FALLBACK_MODEL],
+  ["gemini-2.5-flash", CURRENT_MODEL],
+]);
+
+export function resolveGeminiModelName(modelName?: string): string {
+  const normalized = modelName?.trim().replace(/^models\//, "");
+  if (!normalized) return CURRENT_MODEL;
+  return RETIRED_MODEL_REPLACEMENTS.get(normalized) ?? normalized;
+}
+
+const MODEL = resolveGeminiModelName(process.env.GEMINI_MODEL);
+const FALLBACK_MODEL = process.env.GEMINI_MODEL_FALLBACK?.trim()
+  ? resolveGeminiModelName(process.env.GEMINI_MODEL_FALLBACK)
+  : CURRENT_FALLBACK_MODEL;
 
 export type AskArgs = {
   prompt: string;
@@ -41,7 +58,7 @@ function extractText(data: any): string {
 }
 
 function normalizeModelName(modelName: string): string {
-  return modelName.replace(/^models\//, "");
+  return resolveGeminiModelName(modelName);
 }
 
 async function post(
@@ -135,18 +152,18 @@ async function askGemini({
     }
   };
 
-  let selectedModel = model ?? MODEL;
+  let selectedModel = resolveGeminiModelName(model ?? MODEL);
   let data;
   try {
     data = await requestModel(selectedModel);
   } catch (err: any) {
+    const resolvedFallbackModel = resolveGeminiModelName(FALLBACK_MODEL);
     const canFallbackModel =
       err?.status === 404 &&
-      typeof FALLBACK_MODEL === "string" &&
-      FALLBACK_MODEL.length > 0 &&
-      normalizeModelName(FALLBACK_MODEL) !== normalizeModelName(selectedModel);
+      resolvedFallbackModel.length > 0 &&
+      normalizeModelName(resolvedFallbackModel) !== normalizeModelName(selectedModel);
     if (!canFallbackModel) throw err;
-    selectedModel = FALLBACK_MODEL;
+    selectedModel = resolvedFallbackModel;
     data = await requestModel(selectedModel);
   }
 
