@@ -29,6 +29,13 @@ type LifecycleRow = {
   reason: string | null;
 };
 
+type RoutingCheck = {
+  provider: ProviderName;
+  model: string;
+  profiles: ProfileName[];
+  result: LifecycleRow;
+};
+
 type LifecycleResponse = {
   ok: boolean;
   checkedAt: string;
@@ -36,9 +43,10 @@ type LifecycleResponse = {
     mode: "legacy" | "profiled";
     profiles: Record<ProfileName, { timeoutMs: number; maxOutputTokens?: number; modelTier: "economy" | "balanced" | "quality" }>;
     providers: Record<ProviderName, Record<ProfileName, string>>;
+    checks: RoutingCheck[];
   };
   providers: LifecycleRow[];
-  drift: LifecycleRow[];
+  drift: Array<LifecycleRow & { profiles?: ProfileName[]; routedModel?: string }>;
   error?: string;
 };
 
@@ -70,6 +78,10 @@ function lifecycleLabel(row: LifecycleRow): string {
   return "Aktiv";
 }
 
+function isBlocking(row: LifecycleRow): boolean {
+  return row.status === "model_not_found" || row.status === "provider_error";
+}
+
 export default function AiModelLifecyclePage() {
   const [data, setData] = useState<LifecycleResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,11 +109,20 @@ export default function AiModelLifecyclePage() {
     void load();
   }, [load]);
 
+  const routingHealthByKey = useMemo(() => {
+    const map = new Map<string, LifecycleRow>();
+    for (const check of data?.routing.checks ?? []) {
+      map.set(`${check.provider}:${check.model}`, check.result);
+    }
+    return map;
+  }, [data]);
+
   const driftCount = data?.drift.length ?? 0;
-  const missingCount = useMemo(
-    () => data?.providers.filter((row) => row.status === "model_not_found" || row.status === "provider_error").length ?? 0,
-    [data],
-  );
+  const missingCount = useMemo(() => {
+    const base = data?.providers.filter(isBlocking).length ?? 0;
+    const routed = data?.routing.checks.filter((check) => isBlocking(check.result)).length ?? 0;
+    return base + routed;
+  }, [data]);
 
   return (
     <main className="mx-auto flex max-w-[1280px] flex-col gap-6 px-4 py-8">
@@ -110,7 +131,7 @@ export default function AiModelLifecyclePage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">Admin · Telemetry · AI</p>
           <h1 className="text-2xl font-bold text-[rgb(var(--fg))]">Model Lifecycle & Routing</h1>
           <p className="max-w-3xl text-sm text-[rgb(var(--muted))]">
-            Zeigt konfigurierte und effektiv verwendete Modelle, Retirement-Migrationen und das aktive Kosten-/Qualitätsrouting. Ein erreichbarer Provider gilt nicht automatisch als gesund, wenn das effektive Modell fehlt.
+            Zeigt konfigurierte und effektiv verwendete Modelle, Retirement-Migrationen und das aktive Kosten-/Qualitätsrouting. Ein erreichbarer Provider gilt nicht automatisch als gesund, wenn eines der tatsächlich gerouteten Modelle fehlt.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -134,7 +155,7 @@ export default function AiModelLifecyclePage() {
 
       <section className="grid gap-3 md:grid-cols-3">
         <SummaryCard label="Routing Mode" value={data?.routing.mode ?? (loading ? "…" : "unbekannt")} detail={data?.routing.mode === "profiled" ? "Economy / Balanced / Quality aktiv" : "Bestehendes Single-Model-Verhalten"} />
-        <SummaryCard label="Konfigurationsdrift" value={loading ? "…" : String(driftCount)} detail="Retired-Konfiguration oder fehlendes effektives Modell" />
+        <SummaryCard label="Konfigurationsdrift" value={loading ? "…" : String(driftCount)} detail="Retired-Konfiguration oder fehlendes effektives/routetes Modell" />
         <SummaryCard label="Blockierende Modellfehler" value={loading ? "…" : String(missingCount)} detail="MODEL_NOT_FOUND oder Provider-Katalog nicht prüfbar" />
       </section>
 
@@ -187,7 +208,7 @@ export default function AiModelLifecyclePage() {
       <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-[rgb(var(--fg))]">Runtime-Profile</h2>
         <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-          Im Modus <code>legacy</code> bleiben alle Profile beim explizit konfigurierten bzw. bisherigen Default-Modell. <code>profiled</code> aktiviert die abgestufte Auswahl.
+          Im Modus <code>legacy</code> bleiben alle Profile beim explizit konfigurierten bzw. bisherigen Default-Modell. <code>profiled</code> aktiviert die abgestufte Auswahl. Jedes hier gezeigte Modell wird zusätzlich gegen den Provider-Katalog geprüft.
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full divide-y divide-[rgb(var(--border))] text-xs">
@@ -203,11 +224,20 @@ export default function AiModelLifecyclePage() {
                 <tr key={profile}>
                   <td className="px-3 py-2 font-semibold">{label}</td>
                   <td className="px-3 py-2">{data?.routing.profiles[profile]?.modelTier ?? "—"}</td>
-                  {PROVIDERS.map((provider) => (
-                    <td key={`${profile}-${provider}`} className="px-3 py-2 font-mono">
-                      {data?.routing.providers[provider]?.[profile] ?? "—"}
-                    </td>
-                  ))}
+                  {PROVIDERS.map((provider) => {
+                    const model = data?.routing.providers[provider]?.[profile] ?? null;
+                    const health = model ? routingHealthByKey.get(`${provider}:${model}`) ?? null : null;
+                    return (
+                      <td key={`${profile}-${provider}`} className="px-3 py-2 align-top">
+                        <div className="font-mono">{model ?? "—"}</div>
+                        {health ? (
+                          <span className={`mt-1 inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${statusClasses(health.status)}`}>
+                            {lifecycleLabel(health)}
+                          </span>
+                        ) : null}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
