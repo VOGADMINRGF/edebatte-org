@@ -54,6 +54,23 @@ function tierLabel(tier: NewsletterAudienceTier, isEnglish: boolean) {
   return isEnglish ? "Weekly briefing" : "Wochen-Briefing";
 }
 
+const ENGLISH_RELEVANCE_LABELS: Record<string, string> = {
+  "passt zu einem ausdrücklich gewählten Thema": "matches a topic you explicitly selected",
+  "passt zu einer ausdrücklich gewählten Region": "matches a region you explicitly selected",
+  "betrifft ein beobachtetes Thema": "affects a topic on your watchlist",
+  "betrifft eine beobachtete Region": "affects a region on your watchlist",
+  "betrifft ein eigenes Thema oder eine eigene Arbeit": "affects one of your own topics or contributions",
+  "betrifft die Region einer eigenen Arbeit": "affects the region of one of your own contributions",
+  "passt zur bevorzugten Sprache": "matches your preferred language",
+  "ist als wichtige plattformweite Information markiert": "is marked as an important platform-wide update",
+  "hat aktuell keinen erklärbaren Profilbezug": "has no explainable profile match and was selected as a general opted-in update",
+};
+
+function relevanceReasons(reasons: readonly string[], isEnglish: boolean) {
+  if (!isEnglish) return reasons;
+  return reasons.map((reason) => ENGLISH_RELEVANCE_LABELS[reason] ?? reason);
+}
+
 export function buildNewsletterDigestMail(input: NewsletterDigestMailInput): TransactionalMail {
   const isEnglish = String(input.locale ?? "de").toLowerCase().startsWith("en");
   const policy = resolveNewsletterBriefingPolicy(input.audienceTier);
@@ -64,8 +81,8 @@ export function buildNewsletterDigestMail(input: NewsletterDigestMailInput): Tra
   blocks.push({
     kind: "paragraph",
     text: isEnglish
-      ? `Here are the eDebatte developments that are most relevant to your selected topics, regions and activity. ${input.items.length} update${input.items.length === 1 ? "" : "s"} made it into this briefing.`
-      : `Hier sind die eDebatte-Entwicklungen, die zu deinen gewählten Themen, Regionen und Aktivitäten passen. ${input.items.length} Update${input.items.length === 1 ? "" : "s"} haben es in dieses Briefing geschafft.`,
+      ? `Here are the eDebatte developments that are most relevant to your selected topics, regions and activity. ${input.items.length} update${input.items.length === 1 ? "" : "s"} made it into this briefing. Reviewed source content can remain in its original language so its approved wording is not silently changed.`
+      : `Hier sind die eDebatte-Entwicklungen, die zu deinen gewählten Themen, Regionen und Aktivitäten passen. ${input.items.length} Update${input.items.length === 1 ? "" : "s"} haben es in dieses Briefing geschafft. Geprüfte Quellinhalte können in ihrer Originalsprache bleiben, damit freigegebene Formulierungen nicht still verändert werden.`,
   });
 
   for (const [index, item] of input.items.entries()) {
@@ -80,12 +97,12 @@ export function buildNewsletterDigestMail(input: NewsletterDigestMailInput): Tra
       details.push({ label: isEnglish ? "Topic" : "Thema", value: item.topicLabel });
     }
     if (item.regionLabel) {
-      details.push({ label: isEnglish ? "Region" : "Region", value: item.regionLabel });
+      details.push({ label: "Region", value: item.regionLabel });
     }
     if (policy.includeRelevanceExplanation && item.relevanceReasons?.length) {
       details.push({
         label: isEnglish ? "Why this is here" : "Warum für dich",
-        value: item.relevanceReasons.join(" · "),
+        value: relevanceReasons(item.relevanceReasons, isEnglish).join(" · "),
       });
     }
     if (policy.includeEvidencePointers && item.verificationLabel) {
