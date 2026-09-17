@@ -5,6 +5,7 @@ import type { Dossier } from "@features/dossier";
 import type { DossierPublicUpdateContext } from "@features/dossier/updateReadModel";
 import demoFallback from "@features/dossier/data/demoDossier";
 import DossierWorkspace from "@/components/dossier/DossierWorkspace";
+import DossierDecisionCockpit from "@/components/dossier/DossierDecisionCockpit";
 import ParliamentaryContextPanel from "@/components/dossier/ParliamentaryContextPanel";
 import {
   isRegionDraftDossierId,
@@ -110,7 +111,24 @@ export function DossierPagePublicBody({
   if (!dossier) return null;
 
   return (
-    <>
+    <div data-dossier-decision-surface={demo ? "demo" : "public"}>
+      {!demo ? (
+        <>
+          <style>{`
+            [data-dossier-decision-surface="public"] [data-dossier-workspace="true"] > header {
+              display: none;
+            }
+            [data-dossier-decision-surface="public"] [data-dossier-workspace="true"] {
+              padding-top: 1.25rem;
+            }
+          `}</style>
+          <DossierDecisionCockpit
+            dossier={dossier}
+            updateContext={updateContext}
+            sourceStatusLabel={sourceStatusLabel}
+          />
+        </>
+      ) : null}
       <DossierWorkspace
         dossier={dossier}
         updateContext={updateContext}
@@ -124,7 +142,7 @@ export function DossierPagePublicBody({
           </section>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
