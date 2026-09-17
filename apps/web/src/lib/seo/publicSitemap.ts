@@ -3,21 +3,50 @@ import {
   buildStaticPublicDiscoverySitemap,
   type PublicSitemapEntry,
 } from "@/lib/seo/publicDiscovery";
-import { listContentReleaseTargetsByType } from "@features/contentReleaseWorkbench";
-import { isPublicVisibilityState } from "@features/region/publicationRiskLadder";
+import {
+  listContentReleaseTargetsByType,
+  type ContentReleaseTargetType,
+} from "@features/contentReleaseWorkbench";
+import {
+  isPublicVisibilityState,
+  type RegionPublicationVisibilityState,
+} from "@features/region/publicationRiskLadder";
 
 const INDEXABLE_DYNAMIC_TARGET_TYPES = ["topic_page", "dossier"] as const;
 
-function canonicalPublicUrl(href: string): string | null {
+type SitemapReleaseRecord = {
+  targetType: ContentReleaseTargetType;
+  publicHref: string;
+  visibilityState: RegionPublicationVisibilityState;
+};
+
+function canonicalPublicUrl(href: string, baseUrl = BRAND.baseUrl): string | null {
   try {
-    const url = new URL(href, BRAND.baseUrl);
-    const base = new URL(BRAND.baseUrl);
+    const url = new URL(href, baseUrl);
+    const base = new URL(baseUrl);
     if (url.origin !== base.origin) return null;
     if (url.search || url.hash) return null;
     return url.toString();
   } catch {
     return null;
   }
+}
+
+export function buildIndexableReleaseUrls(
+  records: readonly SitemapReleaseRecord[],
+  baseUrl = BRAND.baseUrl,
+): string[] {
+  return Array.from(
+    new Set(
+      records
+        .filter((record) =>
+          (INDEXABLE_DYNAMIC_TARGET_TYPES as readonly string[]).includes(record.targetType),
+        )
+        .filter((record) => isPublicVisibilityState(record.visibilityState))
+        .map((record) => canonicalPublicUrl(record.publicHref, baseUrl))
+        .filter((url): url is string => Boolean(url)),
+    ),
+  ).sort();
 }
 
 async function listVisibleDynamicPublicUrls(): Promise<string[]> {
@@ -27,16 +56,7 @@ async function listVisibleDynamicPublicUrls(): Promise<string[]> {
         listContentReleaseTargetsByType(targetType),
       ),
     );
-
-    return Array.from(
-      new Set(
-        recordGroups
-          .flat()
-          .filter((record) => isPublicVisibilityState(record.visibilityState))
-          .map((record) => canonicalPublicUrl(record.publicHref))
-          .filter((url): url is string => Boolean(url)),
-      ),
-    ).sort();
+    return buildIndexableReleaseUrls(recordGroups.flat());
   } catch (error) {
     console.warn("Public sitemap dynamic discovery failed closed; serving static URLs only.", error);
     return [];
