@@ -5,7 +5,8 @@ import { ARCHITECTURE_CONCEPTS, DECISION_DOSSIER_ARCHITECTURE_OWNERS, EPISTEMIC_
 
 const reviewed = { classification: "material" as const, rationale: "Required by the reviewed system question.", basisReference: null, reviewStatus: "reviewed" as const, reviewedBy: "architecture-review", revision: "materiality-r1" };
 const resolution: CanonicalEvidenceResolution = { canonicalOwner: "AtomicClaim/EvidenceAssessment", publicationClassification: "publishable_as_externally_verified_fact", evidenceReference: "evidence-1", relationStatus: "resolved", assessmentStatus: "supported", reviewStatus: "verified", freshnessStatus: "verified_fresh", conflictStatus: "none", revision: "evidence-r1", resolutionReceiptReference: "receipt-1" };
-const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], evidenceResolution: resolution, reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
+const metricProvenance: StructuredProvenance = { sourceReference: "source-1", evidenceReference: "evidence-1", metricDefinitionReference: "metric-definition-1", period: "2025", populationScope: "insured people", unit: "%", denominator: "net income" };
+const complete = (key: MaterialDimension["key"]): MaterialDimension => ({ key, materiality: reviewed, status: "complete", evidenceReferences: ["evidence-1"], evidenceResolution: resolution, provenance: key === "metric" ? metricProvenance : undefined, reviewStatus: "reviewed", gap: null, freshness: "fresh", revision: "revision-1" });
 const completeSet = () => REQUIRED_DECISION_DIMENSIONS.map(complete);
 
 describe("decision dossier T0 architecture contract", () => {
@@ -51,7 +52,8 @@ describe("decision dossier T0 architecture contract", () => {
     expect(canPresentAsVerifiedFact("FACT", { ...resolution, conflictStatus: "open" })).toBe(false);
     expect(canPresentAsVerifiedFact("FACT", resolution)).toBe(true);
     expect(canPresentAsVerifiedFact("OPINION", resolution)).toBe(false);
-    expect(canPresentAsVerifiedMeasurement("MEASURED_VALUE", resolution)).toBe(true);
+    expect(canPresentAsVerifiedMeasurement("MEASURED_VALUE", resolution, metricProvenance)).toBe(true);
+    expect(canPresentAsVerifiedMeasurement("MEASURED_VALUE", resolution, undefined)).toBe(false);
     expect(hasCanonicalVerifiedEvidence({ ...resolution, resolutionReceiptReference: "" })).toBe(false);
   });
   it("fails closed across 2,500 adversarial resolution mutations", () => {
@@ -110,6 +112,7 @@ describe("decision dossier T0 architecture contract", () => {
     expect(decisionReady(replaceMetric({ materiality: { ...nonMaterial, reviewStatus: "rejected" } }))).toBe(false);
     expect(decisionReady(completeSet())).toBe(true);
     expect(decisionReady(replaceMetric({ evidenceResolution: undefined }))).toBe(false);
+    expect(decisionReady(replaceMetric({ provenance: undefined }))).toBe(false);
     expect(decisionReady(replaceMetric({ freshness: "stale" }))).toBe(false);
     expect(decisionReady(replaceMetric({ revision: null }))).toBe(false);
   });
@@ -132,7 +135,9 @@ describe("decision dossier T0 architecture contract", () => {
     const sweden = { jurisdiction: "Sweden", targetJurisdiction: "Germany", institutions: ["income pension"], contributionDefinition: "income-related contribution", benefitDefinition: "income pension", originalLanguage: "sv", readingLanguage: "de" };
     expect(evaluateComparator(sweden)).toEqual({ referenceable: true, transferability: "requires_review" });
     expect(evaluateComparator({ ...sweden, jurisdiction: "Germany" })).toEqual({ referenceable: true, transferability: "requires_review" });
+    expect(evaluateComparator({ ...sweden, targetJurisdiction: "" })).toEqual({ referenceable: false, transferability: "not_assessed" });
     expect(evaluateComparator({ ...sweden, institutions: [] })).toEqual({ referenceable: false, transferability: "not_assessed" });
+    expect(evaluateComparator({ ...sweden, institutions: ["   "] })).toEqual({ referenceable: false, transferability: "not_assessed" });
     expect(evaluateComparator({ ...sweden, originalLanguage: "" })).toEqual({ referenceable: false, transferability: "not_assessed" });
     expect(evaluateComparator({ ...sweden, readingLanguage: "" })).toEqual({ referenceable: false, transferability: "not_assessed" });
     expect(evaluateComparator({ ...sweden, jurisdiction: "Germany", benefitDefinition: "different statutory benefit definition" })).toEqual({ referenceable: true, transferability: "requires_review" });
@@ -184,6 +189,8 @@ describe("decision dossier T0 architecture contract", () => {
     expect(countStructuralLineageRoots([{ id: "a", parentId: "b" }, { id: "b", parentId: "a" }])).toEqual({ status: "invalid", reason: "cycle" });
     expect(countStructuralLineageRoots([{ id: "a", parentId: null }, { id: "a", parentId: null }])).toEqual({ status: "invalid", reason: "duplicate_id" });
     expect(countStructuralLineageRoots([{ id: "", parentId: null }])).toEqual({ status: "invalid", reason: "empty_id" });
+    expect(countStructuralLineageRoots([{ id: "   ", parentId: null }])).toEqual({ status: "invalid", reason: "empty_id" });
+    expect(countStructuralLineageRoots([{ id: "a", parentId: "   " }])).toEqual({ status: "invalid", reason: "empty_parent_id" });
     const chain = Array.from({ length: 512 }, (_, index) => ({ id: `source-${index}`, parentId: index === 0 ? null : `source-${index - 1}` }));
     expect(countStructuralLineageRoots(chain)).toEqual({ status: "ok", structuralRoots: 1 });
   });
