@@ -36,8 +36,9 @@ type CatalogProbeOptions = {
   env?: NodeJS.ProcessEnv;
   fetchImpl?: FetchLike;
   signal?: AbortSignal;
+  targetModels?: readonly string[];
 };
-type ProbeOptions = CatalogProbeOptions & {
+type ProbeOptions = Omit<CatalogProbeOptions, "targetModels"> & {
   /** Explicit model to verify, used by profiled routing health checks. */
   configuredModelOverride?: string | null;
 };
@@ -65,6 +66,20 @@ function normalizeListedModel(provider: CoreModelProvider, model: string): strin
   return provider === "gemini" ? trimmed.replace(/^models\//, "") : trimmed;
 }
 
+function extractEntryModelIds(provider: CoreModelProvider, entry: any): string[] {
+  const values: string[] = [];
+  const primary = [entry?.id, entry?.name, entry?.model, entry?.baseModelId, entry?.root];
+  for (const value of primary) {
+    if (typeof value === "string" && value.trim()) values.push(value);
+  }
+  if (Array.isArray(entry?.aliases)) {
+    for (const alias of entry.aliases) {
+      if (typeof alias === "string" && alias.trim()) values.push(alias);
+    }
+  }
+  return values.map((value) => normalizeListedModel(provider, value));
+}
+
 function extractModelIds(provider: CoreModelProvider, payload: any): string[] {
   const raw =
     provider === "gemini"
@@ -76,23 +91,14 @@ function extractModelIds(provider: CoreModelProvider, payload: any): string[] {
           : [];
   if (!Array.isArray(raw)) return [];
 
-  const values: string[] = [];
-  for (const entry of raw) {
-    const primary = [entry?.id, entry?.name, entry?.model, entry?.baseModelId, entry?.root];
-    for (const value of primary) {
-      if (typeof value === "string" && value.trim()) values.push(value);
-    }
-    if (Array.isArray(entry?.aliases)) {
-      for (const alias of entry.aliases) {
-        if (typeof alias === "string" && alias.trim()) values.push(alias);
-      }
-    }
-  }
-
-  return Array.from(new Set(values.map((value) => normalizeListedModel(provider, value))));
+  return Array.from(new Set(raw.flatMap((entry) => extractEntryModelIds(provider, entry))));
 }
 
-function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.ProcessEnv): { url: string; init: RequestInit } {
+function catalogRequestFor(
+  provider: CoreModelProvider,
+  key: string,
+  env: NodeJS.ProcessEnv,
+): { url: string; init: RequestInit } {
   switch (provider) {
     case "openai":
       return {
@@ -111,9 +117,37 @@ function requestFor(provider: CoreModelProvider, key: string, env: NodeJS.Proces
       };
     case "gemini":
       return {
-        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?pageSize=1000&key=${encodeURIComponent(key)}`,
-        init: {},
+        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?pageSize=1000`,
+        init: { headers: { "x-goog-api-key": key } },
       };
+  }
+}
+
+function targetedModelRequestFor(
+  provider: CoreModelProvider,
+  key: string,
+  env: NodeJS.ProcessEnv,
+  model: string,
+): { url: string; init: RequestInit } | null {
+  const normalized = normalizeListedModel(provider, model);
+  switch (provider) {
+    case "openai":
+      return {
+        url: `${(env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/models/${encodeURIComponent(normalized)}`,
+        init: { headers: { authorization: `Bearer ${key}` } },
+      };
+    case "anthropic":
+      return {
+        url: `${(env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "")}/v1/models/${encodeURIComponent(normalized)}`,
+        init: { headers: { "x-api-key": key, "anthropic-version": env.ANTHROPIC_VERSION || "2023-06-01" } },
+      };
+    case "gemini":
+      return {
+        url: `${(env.GOOGLE_GENAI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models/${encodeURIComponent(normalized)}`,
+        init: { headers: { "x-goog-api-key": key } },
+      };
+    case "mistral":
+      return null;
   }
 }
 
@@ -138,10 +172,30 @@ export async function fetchProviderModelCatalog(
     };
   }
 
+  const uniqueTargets = Array.from(
+    new Set((options.targetModels ?? []).map((model) => normalizeListedModel(provider, model)).filter(Boolean)),
+  );
+  const targetedRequest = uniqueTargets.length === 1
+    ? targetedModelRequestFor(provider, key, env, uniqueTargets[0]!)
+    : null;
+
   try {
-    const request = requestFor(provider, key, env);
+    const request = targetedRequest ?? catalogRequestFor(provider, key, env);
     const res = await fetchImpl(request.url, { ...request.init, signal: options.signal });
     const durationMs = Date.now() - started;
+
+    if (targetedRequest && res.status === 404) {
+      return {
+        provider,
+        credentialPresent: true,
+        providerReachable: true,
+        httpStatus: res.status,
+        durationMs,
+        modelIds: [],
+        reason: `targeted model ${uniqueTargets[0]} not found`,
+      };
+    }
+
     if (!res.ok) {
       return {
         provider,
@@ -150,18 +204,21 @@ export async function fetchProviderModelCatalog(
         httpStatus: res.status,
         durationMs,
         modelIds: null,
-        reason: `provider model catalog returned ${res.status}`,
+        reason: `provider model ${targetedRequest ? "lookup" : "catalog"} returned ${res.status}`,
       };
     }
 
     const payload = await res.json().catch(() => ({}));
+    const modelIds = targetedRequest
+      ? Array.from(new Set(extractEntryModelIds(provider, payload)))
+      : extractModelIds(provider, payload);
     return {
       provider,
       credentialPresent: true,
       providerReachable: true,
       httpStatus: res.status,
       durationMs,
-      modelIds: extractModelIds(provider, payload),
+      modelIds,
       reason: null,
     };
   } catch (error: any) {
@@ -235,24 +292,29 @@ export function evaluateProviderModelLifecycle(
       ? modelState.migrated
         ? `configured retired model migrated to ${effectiveModel}`
         : null
-      : `effective model ${effectiveModel} not present in provider catalog`,
+      : catalog.reason ?? `effective model ${effectiveModel} not present in provider catalog`,
   };
 }
 
 export async function probeProviderModelsLifecycle(
   provider: CoreModelProvider,
   configuredModels: readonly (string | null | undefined)[],
-  options: CatalogProbeOptions = {},
+  options: Omit<CatalogProbeOptions, "targetModels"> = {},
 ): Promise<ProviderModelProbeResult[]> {
   if (configuredModels.length === 0) return [];
   const env = options.env ?? process.env;
-  const catalog = await fetchProviderModelCatalog(provider, options);
-  return configuredModels.map((override) => {
-    const configuredModel = override !== undefined
+  const normalizedConfiguredModels = configuredModels.map((override) =>
+    override !== undefined
       ? override?.trim() || null
-      : configuredModelFor(provider, env);
-    return evaluateProviderModelLifecycle(provider, configuredModel, catalog);
-  });
+      : configuredModelFor(provider, env),
+  );
+  const targetModels = normalizedConfiguredModels.map((configuredModel) =>
+    resolveProviderModel(provider, configuredModel),
+  );
+  const catalog = await fetchProviderModelCatalog(provider, { ...options, targetModels });
+  return normalizedConfiguredModels.map((configuredModel) =>
+    evaluateProviderModelLifecycle(provider, configuredModel, catalog),
+  );
 }
 
 export async function probeProviderModelLifecycle(

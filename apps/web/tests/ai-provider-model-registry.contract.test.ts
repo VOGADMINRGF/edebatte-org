@@ -93,10 +93,10 @@ describe("runtime model routing policy", () => {
 });
 
 describe("provider model lifecycle probe", () => {
-  it("fails closed when the effective model is absent from the provider catalog", async () => {
+  it("fails closed when a targeted effective model is absent", async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [{ id: "claude-sonnet-5" }] }), {
-        status: 200,
+      new Response(JSON.stringify({ error: { message: "model not found" } }), {
+        status: 404,
         headers: { "content-type": "application/json" },
       }),
     ) as unknown as typeof fetch;
@@ -114,9 +114,9 @@ describe("provider model lifecycle probe", () => {
     expect(result.status).toBe("model_not_found");
   });
 
-  it("marks a retired configured id as migrated only when its effective model exists", async () => {
+  it("marks a retired configured id as migrated only when its targeted effective model exists", async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [{ id: "claude-opus-5" }] }), {
+      new Response(JSON.stringify({ id: "claude-opus-5", display_name: "Claude Opus 5" }), {
         status: 200,
         headers: { "content-type": "application/json" },
       }),
@@ -137,12 +137,15 @@ describe("provider model lifecycle probe", () => {
     expect(result.status).toBe("retired_migrated");
   });
 
-  it("normalizes Gemini models/ prefixes returned by the catalog", async () => {
+  it("normalizes Gemini models/ prefixes returned by a targeted lookup", async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ models: [{ name: "models/gemini-3.8-flash" }] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({ name: "models/gemini-3.8-flash", baseModelId: "gemini-3.8-flash" }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
     ) as unknown as typeof fetch;
 
     const result = await probeProviderModelLifecycle("gemini", {
