@@ -53,9 +53,31 @@ export async function GET(req: NextRequest) {
   });
 }
 
+async function tokenFromPost(req: NextRequest) {
+  const queryToken = req.nextUrl.searchParams.get("token")?.trim() ?? "";
+  const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
+
+  if (contentType.includes("application/json")) {
+    const body = (await req.json().catch(() => ({}))) as { token?: unknown };
+    return typeof body.token === "string" ? body.token : "";
+  }
+
+  const raw = await req.text().catch(() => "");
+  const params = new URLSearchParams(raw);
+  const oneClick = params.get("List-Unsubscribe") === "One-Click";
+  if (queryToken && oneClick) return queryToken;
+
+  return "";
+}
+
 /**
  * POST performs the actual canonical unsubscribe. It is idempotent and does
  * not expose whether an address exists in the subscriber collection.
+ *
+ * Two explicit mutation modes are supported:
+ * - JSON `{ token }` from the human confirmation surface.
+ * - RFC 8058 one-click POST with the signed token in the URL and
+ *   `List-Unsubscribe=One-Click` form body from supporting mail clients.
  */
 export async function POST(req: NextRequest) {
   if (!unsubscribeSecret()) {
@@ -65,8 +87,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as { token?: unknown };
-  const token = typeof body.token === "string" ? body.token : "";
+  const token = await tokenFromPost(req);
   const result = verify(token);
   if (!result.ok) {
     return NextResponse.json(
