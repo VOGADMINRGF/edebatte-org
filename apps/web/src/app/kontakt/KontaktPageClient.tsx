@@ -11,9 +11,15 @@ type Props = {
   sent: boolean;
   error?: string;
   challenge: HumanChallenge;
+  professionalOfferLabel?: string;
 };
 
-export default function KontaktPageClient({ sent, error, challenge }: Props) {
+export default function KontaktPageClient({
+  sent,
+  error,
+  challenge,
+  professionalOfferLabel,
+}: Props) {
   const { locale } = useLocale();
   const t = useAutoTranslateText({ locale, namespace: "kontakt-page" });
 
@@ -26,10 +32,17 @@ export default function KontaktPageClient({ sent, error, challenge }: Props) {
               {t("Kontakt & Support", "kicker")}
             </p>
             <h1 className="headline-grad text-3xl font-extrabold leading-tight md:text-4xl">
-              {t("Der schnellste Weg zu uns.", "title")}
+              {professionalOfferLabel
+                ? t("Lass uns über deinen Pilot sprechen.", "professional.title")
+                : t("Der schnellste Weg zu uns.", "title")}
             </h1>
             <p className="text-sm leading-relaxed text-[rgb(var(--muted))] md:text-base">
-              {t("Per Formular oder direkt per E-Mail.", "lead")}
+              {professionalOfferLabel
+                ? t(
+                    `Du interessierst dich für ${professionalOfferLabel}. Schreib uns kurz, welches Thema oder welchen Einsatz du im Blick hast.`,
+                    "professional.lead",
+                  )
+                : t("Per Formular oder direkt per E-Mail.", "lead")}
             </p>
           </header>
 

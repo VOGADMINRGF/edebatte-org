@@ -1,5 +1,6 @@
 import type { BucketBlock } from "@/components/landing/ExamplesBackdrop";
 import HomeGoToMarketLanding from "@/features/home/HomeGoToMarketLanding";
+import ProfessionalServicesSection from "@/features/home/ProfessionalServicesSection";
 import type { StartExperienceModel } from "@/features/start/startExperience";
 
 type LandingStartProps = {
@@ -34,5 +35,10 @@ export default function LandingStart({
   experience = DEFAULT_START_EXPERIENCE,
 }: LandingStartProps) {
   void blocks;
-  return <HomeGoToMarketLanding experience={experience} />;
+  return (
+    <>
+      <HomeGoToMarketLanding experience={experience} />
+      <ProfessionalServicesSection />
+    </>
+  );
 }

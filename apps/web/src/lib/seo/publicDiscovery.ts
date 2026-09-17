@@ -11,6 +11,10 @@ export const PUBLIC_DISCOVERY_PATHS = [
   "/factcheck",
   "/pricing",
   "/pricing/institutionen",
+  "/leistungen",
+  "/leistungen/decision-dossier",
+  "/leistungen/topic-intelligence",
+  "/leistungen/organisationen",
 ] as const;
 
 export const NOINDEX_ROBOTS = {
@@ -76,7 +80,7 @@ export function buildPublicDiscoverySitemap(): SitemapEntry[] {
   return PUBLIC_DISCOVERY_PATHS.map((path) => ({
     url: new URL(path, BRAND.baseUrl).toString(),
     changeFrequency: path === "/" ? "daily" : "weekly",
-    priority: path === "/" ? 1 : 0.7,
+    priority: path === "/" ? 1 : path.startsWith("/leistungen") ? 0.8 : 0.7,
   }));
 }
 
