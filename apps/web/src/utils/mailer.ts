@@ -57,9 +57,7 @@ export type MailFailureCategory =
   | "smtp_response_error"
   | "smtp_unknown_error";
 
-export function mailFailureMetadata(
-  result: SendMailResult,
-) {
+export function mailFailureMetadata(result: SendMailResult) {
   if (!("code" in result)) {
     throw new Error("mail_failure_metadata_requires_failure");
   }
@@ -82,11 +80,32 @@ const RESERVED_PLACEHOLDER_DOMAINS = new Set([
 const EMAIL_PATTERN =
   /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
+function normalizeOptionalHeaders(value?: Record<string, string>) {
+  if (!value) return { ok: true as const, headers: undefined };
+  const headers: Record<string, string> = {};
+  for (const [rawName, rawValue] of Object.entries(value)) {
+    const name = rawName.trim();
+    const headerValue = rawValue.trim();
+    if (
+      !name ||
+      !headerValue ||
+      /[\r\n]/.test(name) ||
+      /[\r\n]/.test(headerValue) ||
+      !/^[A-Za-z0-9-]+$/.test(name)
+    ) {
+      return { ok: false as const, headers: undefined };
+    }
+    headers[name] = headerValue;
+  }
+  return { ok: true as const, headers };
+}
+
 export async function sendMail(opts: {
   to: string | string[];
   mail: TransactionalMail;
   delivery: MailDeliveryRequirement;
   tag?: string;
+  headers?: Record<string, string>;
 }): Promise<SendMailResult> {
   const recipients = recipientsToArray(opts.to);
   const recipient = recipients[0] ?? "";
@@ -157,6 +176,15 @@ export async function sendMail(opts: {
     }
   }
 
+  const normalizedHeaders = normalizeOptionalHeaders(opts.headers);
+  if (!normalizedHeaders.ok) {
+    return logFailure(
+      "mail_transport_unavailable",
+      "mail_content_invalid",
+      emptyFailureCounts(recipients.length),
+    );
+  }
+
   if (!wantsSmtp) {
     return logFailure(
       "mail_transport_unavailable",
@@ -192,6 +220,7 @@ export async function sendMail(opts: {
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
+          headers: normalizedHeaders.headers,
         }),
       ),
     );
@@ -259,7 +288,7 @@ export async function sendMail(opts: {
             (error.name === "CriticalProductionWebRuntimeEnvError" ||
               error.message === "mail_cta_url_invalid")
           ? "sender_configuration_invalid"
-        : classifyTransportError(error);
+          : classifyTransportError(error);
     return logFailure(
       "mail_transport_error",
       category,
