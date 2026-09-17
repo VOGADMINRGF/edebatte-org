@@ -42,6 +42,36 @@ describe("newsletter profile signal adapter", () => {
     expect(signal.ownWorkRegionKeys).toEqual(["DE:BB"]);
   });
 
+  it("honors source opt-outs while retaining explicit newsletter choices", () => {
+    const signal = buildNewsletterProfileSignal({
+      account: {
+        profile: {
+          topTopics: [{ key: "energy" }],
+          publicLocation: { region: "DE:BE", countryCode: "DE" },
+        },
+      },
+      preferences: {
+        topicKeys: ["health"],
+        regionKeys: ["DE:BB"],
+      },
+      activity: {
+        watchlistTopicKeys: ["climate"],
+        ownWorkTopicKeys: ["mobility"],
+      },
+      personalizationSources: {
+        profileTopics: false,
+        profileRegion: false,
+        watchlistActivity: false,
+        ownWorkActivity: true,
+      },
+    });
+
+    expect(signal.topicKeys).toEqual(["health"]);
+    expect(signal.regionKeys).toEqual(["DE:BB"]);
+    expect(signal.watchlistTopicKeys).toEqual([]);
+    expect(signal.ownWorkTopicKeys).toEqual(["mobility"]);
+  });
+
   it("does not invent profile signals when none are present", () => {
     expect(buildNewsletterProfileSignal({})).toEqual({
       topicKeys: [],
