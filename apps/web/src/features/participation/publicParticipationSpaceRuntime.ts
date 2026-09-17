@@ -1,4 +1,5 @@
 import {
+  getParticipationSpacePublishBlockers,
   getParticipationSpacePublishStatusLabel,
   getParticipationSpacePublicVisibilityLabel,
   type ParticipationSpacePublishRecord,
@@ -165,6 +166,12 @@ export function isPublicParticipationSpace(
     record.status === "published" &&
     record.visibility === "public" &&
     record.spaceVisibility === "public_read_only" &&
+    record.questionGuard?.releaseState === "draft_allowed" &&
+    Boolean(record.approvedForActivationAt) &&
+    Boolean(record.approvedForActivationBy) &&
+    Boolean(record.approvedForPublicationAt) &&
+    Boolean(record.approvedForPublicationBy) &&
+    getParticipationSpacePublishBlockers(record, "publication").length === 0 &&
     Boolean(record.participationSpaceId) &&
     Boolean(record.participationSpaceSlug)
   );
