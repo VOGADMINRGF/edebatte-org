@@ -16,15 +16,36 @@ eDebatte can be used by citizens, municipalities, companies, associations, polit
 
 eDebatte does not belong to VoiceOpenGov or Vote4Gov. The same dossier can be used by different actors without giving one actor ownership of the dossier or authority over another organisation.
 
-VoiceOpenGov may use eDebatte dossiers, evidence, participation and versioned snapshots for its own democratic will-formation. An eDebatte result does not automatically become a VoiceOpenGov position. VoiceOpenGov decides its own program state under its own published governance rules.
+VoiceOpenGov has voluntarily bound its political representation to validly concluded eDebatte decisions within their explicitly defined subject and regional scope. A valid decision can therefore create the current VoiceOpenGov representation mandate for the responsible scope without making eDebatte itself part of VoiceOpenGov.
 
-Vote4Gov is Ricky Gerd Fleischer's personal public thought and design space. Personal Vote4Gov theses are not eDebatte outcomes and are not automatically VoiceOpenGov positions.
+Drafts, ongoing deliberations, incomplete votes, informal sentiment and unverified snapshots do not create a binding VoiceOpenGov mandate.
+
+Vote4Gov is Ricky Gerd Fleischer's personal public thought and design space. Personal Vote4Gov theses are not eDebatte outcomes and are not automatically VoiceOpenGov positions. A later valid eDebatte decision binds the responsible VoiceOpenGov representation; it does not automatically rewrite Ricky's personal belief.
 
 Voxy explains, structures and translates. Voxy does not make political, organisational or publication decisions.
 
+## Decision legitimacy and scope
+
+A majority result is meaningful only together with its documented process. Machine summaries of a decision or VoiceOpenGov mandate should preserve, where available:
+
+- decision question
+- subject and regional scope
+- electorate / eligibility rule
+- eligible population where reliably known
+- ballots cast and valid ballots
+- decision rule and quorum rule
+- whether quorum was met
+- integrity / verification status
+- majority position and share
+- relevant minority positions
+- immutable or versioned decision snapshot
+- decision date and superseded decision where applicable
+
+A majority percentage describes the defined eligible voting process and rule. It must not be generalized to a majority of all residents or the entire population unless the published method separately supports that conclusion.
+
 ## Public content states
 
-A visible eDebatte page is not automatically an official decision or official government statement.
+A visible eDebatte page is not automatically a valid decision, a VoiceOpenGov mandate or an official government statement.
 
 Public content may distinguish states such as:
 
@@ -34,16 +55,18 @@ Public content may distinguish states such as:
 - internal_review / private_draft: not a public publication state
 - blocked / archived: not an active public release state
 
-Machine summaries should preserve the visible publication status and should not upgrade a draft, review state or public-unverified page into an official decision.
+Machine summaries should preserve the visible publication status and should not upgrade a draft, review state or public-unverified page into a valid decision, binding mandate or official statement.
 
 ## Evidence and source handling
 
 AI-generated text is not a source. Claims should be evaluated against the sources, counterpositions, uncertainty and provenance shown on the canonical public page.
 
-Where eDebatte exposes evidence hints or source links, prefer the original cited source for factual verification. Majority/minority results describe the defined process and scope; they should not be generalized to a whole population unless the published method supports that conclusion.
+Where eDebatte exposes evidence hints or source links, prefer the original cited source for factual verification. Majority/minority results describe the defined process and scope; they should not be generalized beyond that process without evidence.
 
 ## Publication guardrails
 
-eDebatte is designed to fail closed on publication boundaries. Public topic pages, dossiers and participation surfaces should only appear in machine discovery when their visibility state permits public access. Internal previews, private drafts and blocked material must not be promoted as canonical public content.
+eDebatte is designed to fail closed on publication boundaries. Public topic pages, dossiers and participation surfaces should only appear in machine discovery when their visibility state permits public access. Internal previews, private drafts, archived and blocked material must not be promoted as canonical active public content.
 
-This file is supplemental machine-readable orientation. Canonical public pages, their visible status, published sources and versioned records remain authoritative.
+Discovery visibility and decision validity are separate contracts: being indexable does not by itself make material a valid decision or a binding VoiceOpenGov mandate.
+
+This file is supplemental machine-readable orientation. Canonical public pages, their visible status, published sources, decision rules and versioned valid decision records remain authoritative.
