@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  bindQuestionGuardToCurrentContract,
   holdQuestionGuardForSerializedReview,
+  isCurrentPublicQuestionGuardContractVersion,
+  isQuestionGuardBoundToCurrentContract,
   normalizeWorkflowRecordVersion,
   persistQuestionGuardReviewFailClosed,
+  PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF,
+  PUBLIC_QUESTION_GUARD_CONTRACT_VERSION,
 } from "@/features/create/safety/questionGuardReviewPersistence";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 
@@ -20,6 +25,48 @@ function allowedGuard() {
 }
 
 describe("question guard review persistence contract", () => {
+  it("binds persisted guard evidence to one canonical G1 policy version", () => {
+    expect(PUBLIC_QUESTION_GUARD_CONTRACT_VERSION).toBe(
+      "public_question_guard.v1",
+    );
+    expect(PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF).toBe(
+      "question-guard-contract:public_question_guard.v1",
+    );
+    expect(
+      isCurrentPublicQuestionGuardContractVersion(
+        PUBLIC_QUESTION_GUARD_CONTRACT_VERSION,
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentPublicQuestionGuardContractVersion("public_question_guard.v0"),
+    ).toBe(false);
+
+    const unbound = allowedGuard();
+    expect(isQuestionGuardBoundToCurrentContract(unbound)).toBe(false);
+    expect(isQuestionGuardBoundToCurrentContract(undefined)).toBe(false);
+
+    const bound = bindQuestionGuardToCurrentContract(unbound);
+    expect(isQuestionGuardBoundToCurrentContract(bound)).toBe(true);
+    expect(bound.evidenceRefs).toContain("actor-graph:1");
+    expect(bound.evidenceRefs).toContain(
+      PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF,
+    );
+
+    const rebound = bindQuestionGuardToCurrentContract({
+      ...bound,
+      evidenceRefs: [
+        ...bound.evidenceRefs,
+        "question-guard-contract:public_question_guard.v0",
+      ],
+    });
+    expect(rebound.evidenceRefs).toContain(
+      PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF,
+    );
+    expect(rebound.evidenceRefs).not.toContain(
+      "question-guard-contract:public_question_guard.v0",
+    );
+  });
+
   it("normalizes workflow versions conservatively", () => {
     expect(normalizeWorkflowRecordVersion(3)).toBe(3);
     expect(normalizeWorkflowRecordVersion("4")).toBe(4);
