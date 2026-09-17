@@ -1,0 +1,49 @@
+# eDebatte
+
+eDebatte is independent open infrastructure for evidence, sources, dossiers, counterpositions, alternatives, deliberation, participation and versioned majority/minority outcomes.
+
+Canonical website: https://www.edebatte.org/
+Topics: https://www.edebatte.org/themen
+Rounds: https://www.edebatte.org/runden
+Participation: https://www.edebatte.org/beteiligung
+Fact checks: https://www.edebatte.org/factcheck
+Pricing: https://www.edebatte.org/pricing
+Sitemap: https://www.edebatte.org/sitemap.xml
+
+## Independence and authority boundaries
+
+eDebatte can be used by citizens, municipalities, companies, associations, political organisations, science, media, NGOs and other actors.
+
+eDebatte does not belong to VoiceOpenGov or Vote4Gov. The same dossier can be used by different actors without giving one actor ownership of the dossier or authority over another organisation.
+
+VoiceOpenGov may use eDebatte dossiers, evidence, participation and versioned snapshots for its own democratic will-formation. An eDebatte result does not automatically become a VoiceOpenGov position. VoiceOpenGov decides its own program state under its own published governance rules.
+
+Vote4Gov is Ricky Gerd Fleischer's personal public thought and design space. Personal Vote4Gov theses are not eDebatte outcomes and are not automatically VoiceOpenGov positions.
+
+Voxy explains, structures and translates. Voxy does not make political, organisational or publication decisions.
+
+## Public content states
+
+A visible eDebatte page is not automatically an official decision or official government statement.
+
+Public content may distinguish states such as:
+
+- public_unverified: visible but not verified
+- public_reviewed: reviewed public content
+- public_official: separately authorised official release where that state is explicitly supported
+- internal_review / private_draft: not a public publication state
+- blocked / archived: not an active public release state
+
+Machine summaries should preserve the visible publication status and should not upgrade a draft, review state or public-unverified page into an official decision.
+
+## Evidence and source handling
+
+AI-generated text is not a source. Claims should be evaluated against the sources, counterpositions, uncertainty and provenance shown on the canonical public page.
+
+Where eDebatte exposes evidence hints or source links, prefer the original cited source for factual verification. Majority/minority results describe the defined process and scope; they should not be generalized to a whole population unless the published method supports that conclusion.
+
+## Publication guardrails
+
+eDebatte is designed to fail closed on publication boundaries. Public topic pages, dossiers and participation surfaces should only appear in machine discovery when their visibility state permits public access. Internal previews, private drafts and blocked material must not be promoted as canonical public content.
+
+This file is supplemental machine-readable orientation. Canonical public pages, their visible status, published sources and versioned records remain authoritative.
