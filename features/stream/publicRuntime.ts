@@ -13,6 +13,7 @@ import type {
   StreamFollowUpUpdate,
   StreamPublicInputDoc,
   StreamSessionDoc,
+  StreamSessionStatus,
 } from "./types";
 import { resolveSessionStatus } from "./types";
 
@@ -24,6 +25,8 @@ type StreamContextRoom = {
   status: string | null;
   isPublic: boolean;
 };
+
+type StreamMediaStatus = "none" | "livestream" | "replay" | "video_available";
 
 export type StreamPublicInputEntry = {
   id: string;
@@ -42,6 +45,10 @@ export type StreamPublicRuntime = {
   session: StreamSessionDoc & {
     id: string;
     slugOrId: string;
+    eventStatus: StreamSessionStatus;
+    eventStatusLabel: string;
+    mediaStatus: StreamMediaStatus;
+    mediaStatusLabel: string;
     resolvedStatus: StreamPublicRuntimeStatus;
     statusLabel: string;
     statusDescription: string;
@@ -96,6 +103,17 @@ export type PublicStreamLinkSummary = {
 function normalizeString(value: unknown): string | null {
   const normalized = String(value ?? "").trim();
   return normalized || null;
+}
+
+function normalizeHttpsPlayerUrl(value: unknown): string | null {
+  const raw = normalizeString(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function toHexMaybe(value: unknown): string | null {
@@ -162,14 +180,49 @@ function visibilityLabel(value: StreamPublicInputDoc["visibilityState"]) {
   return "reviewpflichtig";
 }
 
-function publicVisibilityMarkerFor(doc: StreamPublicInputDoc) {
-  if (doc.visibilityState === "public_reviewed" || doc.visibilityState === "public_official") {
-    return "public_reviewed" as const;
+function isPublicInput(doc: StreamPublicInputDoc) {
+  return (
+    doc.visibilityState === "public_unverified" ||
+    doc.visibilityState === "public_reviewed" ||
+    doc.visibilityState === "public_official"
+  );
+}
+
+function eventStatusLabel(status: StreamSessionStatus) {
+  switch (status) {
+    case "scheduled":
+      return "Geplant";
+    case "live":
+      return "Läuft gerade";
+    case "ended":
+      return "Abgeschlossen";
+    case "cancelled":
+      return "Abgesagt";
+    case "draft":
+    default:
+      return "Entwurf";
   }
-  if (doc.visibilityState === "public_unverified") {
-    return "public_unverified" as const;
+}
+
+function resolveMediaStatus(status: StreamSessionStatus, playerUrl: string | null): StreamMediaStatus {
+  if (!playerUrl) return "none";
+  if (status === "live") return "livestream";
+  if (status === "ended") return "replay";
+  return "video_available";
+}
+
+function mediaStatusLabel(status: StreamMediaStatus) {
+  switch (status) {
+    case "livestream":
+      return "Livestream verfügbar";
+    case "replay":
+      return "Replay verfügbar";
+    case "video_available":
+      return "Video verfügbar";
+    case "none":
+    default:
+      return "Kein Video verfügbar";
   }
-  return "review_only" as const;
 }
 
 async function fetchSessionBySlugOrId(slugOrId: string): Promise<StreamSessionDoc | null> {
@@ -289,6 +342,11 @@ export async function buildStreamPublicRuntime(slugOrId: string): Promise<Stream
   const session = await fetchSessionBySlugOrId(slugOrId);
   if (!session) return null;
 
+  const eventStatus = resolveSessionStatus(session);
+  const playerUrl = normalizeHttpsPlayerUrl(session.playerUrl);
+  const mediaStatus = resolveMediaStatus(eventStatus, playerUrl);
+  const releasedForPublic = session.visibility === "public" && eventStatus !== "draft";
+
   const relatedRoom = await findRelatedRoom(session);
   const dossierId = relatedRoom?.dossierId ?? null;
   const [inputDocs, dossier, dossierUpdates, socialQueue] = await Promise.all([
@@ -302,18 +360,21 @@ export async function buildStreamPublicRuntime(slugOrId: string): Promise<Stream
     loadSocialDistributionQueueReadModel({ limit: 60 }).catch(() => null),
   ]);
 
-  const pendingCount = inputDocs.filter((doc) => doc.reviewState === "needs_review" || doc.reviewState === "needs_region_review").length;
+  const publicInputDocs = inputDocs.filter(isPublicInput);
+  const pendingCount = inputDocs.filter(
+    (doc) => doc.reviewState === "needs_review" || doc.reviewState === "needs_region_review",
+  ).length;
   const hasFollowUpUpdates = Array.isArray(session.followUp?.updates) && session.followUp.updates.length > 0;
   const hasDossierUpdateSuggestion = Boolean(dossierUpdates?.summary.reviewRequired);
   const resolvedStatus = resolveStreamPublicRuntimeStatus({
     session: {
-      status: resolveSessionStatus(session),
+      status: eventStatus,
       isLive: session.isLive,
       endedAt: session.endedAt,
       startsAt: session.startsAt,
       updatedAt: session.updatedAt,
     },
-    hasPublicInputPath: true,
+    hasPublicInputPath: releasedForPublic,
     pendingInputCount: pendingCount,
     hasFollowUpUpdates,
     hasDossierUpdateSuggestion,
@@ -328,12 +389,18 @@ export async function buildStreamPublicRuntime(slugOrId: string): Promise<Stream
   const latestSocial = socialItems[0] ?? null;
   const latestFollowUp = session.followUp?.updates?.[0] ?? null;
   const slug = derivedSlugOrId(session);
+  const sharingAllowed = releasedForPublic && shareEnabledForStatus(resolvedStatus);
 
   return {
     session: {
       ...session,
+      playerUrl,
       id: session._id?.toHexString?.() ?? "",
       slugOrId: slug,
+      eventStatus,
+      eventStatusLabel: eventStatusLabel(eventStatus),
+      mediaStatus,
+      mediaStatusLabel: mediaStatusLabel(mediaStatus),
       resolvedStatus,
       statusLabel: statusMeta.label,
       statusDescription: statusMeta.description,
@@ -350,17 +417,19 @@ export async function buildStreamPublicRuntime(slugOrId: string): Promise<Stream
       swipesHref: session.topicKey
         ? `/swipes?topic=${encodeURIComponent(session.topicKey)}&fromStream=1&stream=${encodeURIComponent(slug)}`
         : "/swipes?fromStream=1",
-      shareEnabled: shareEnabledForStatus(resolvedStatus),
-      qrEnabled: shareEnabledForStatus(resolvedStatus),
+      shareEnabled: sharingAllowed,
+      qrEnabled: sharingAllowed,
     },
     participation: {
-      openForInput: participationOpenForStatus(resolvedStatus),
+      openForInput: releasedForPublic && participationOpenForStatus(resolvedStatus),
       pendingCount,
-      visibleCount: inputDocs.filter((doc) => doc.visibilityState === "public_unverified" || doc.visibilityState === "public_reviewed").length,
-      questionCount: inputDocs.filter((doc) => doc.kind === "question").length,
-      sourceHintCount: inputDocs.filter((doc) => doc.kind === "source_hint" || doc.kind === "correction").length,
-      latestAt: toIso(inputDocs[0]?.createdAt),
-      items: inputDocs.map((doc) => ({
+      visibleCount: publicInputDocs.length,
+      questionCount: publicInputDocs.filter((doc) => doc.kind === "question").length,
+      sourceHintCount: publicInputDocs.filter(
+        (doc) => doc.kind === "source_hint" || doc.kind === "correction",
+      ).length,
+      latestAt: toIso(publicInputDocs[0]?.createdAt),
+      items: publicInputDocs.map((doc) => ({
         id: doc.inputId,
         kind: doc.kind,
         kindLabel: inputKindLabel(doc.kind),
@@ -414,10 +483,12 @@ export async function listPublicStreamLinksByTopicKeys(topicKeys: string[]): Pro
   const map = new Map<string, PublicStreamLinkSummary>();
   for (const session of sessions) {
     const topicKey = normalizeString(session.topicKey);
-    if (!topicKey || map.has(topicKey)) continue;
+    const eventStatus = resolveSessionStatus(session);
+    if (!topicKey || map.has(topicKey) || eventStatus === "draft") continue;
+
     const resolvedStatus = resolveStreamPublicRuntimeStatus({
       session: {
-        status: resolveSessionStatus(session),
+        status: eventStatus,
         isLive: session.isLive,
         endedAt: session.endedAt,
         startsAt: session.startsAt,
