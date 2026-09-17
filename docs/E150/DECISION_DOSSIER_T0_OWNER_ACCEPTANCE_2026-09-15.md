@@ -11,8 +11,8 @@ ACCEPTED_CODE_HEAD=7dbfe3f4204c76f444014c1fdba9870dd8bb1092
 ACCEPTED_CODE_HEAD_WEB_CI_RUN=2547
 ACCEPTED_CODE_HEAD_WEB_CI_RUN_ID=35271192995
 ACCEPTED_MERGE_CONTEXT_SHA=914b9460099e1ac4719238dbf317694e1db26955
-T0_GLOBAL_DONE=true
-T0_STATUS=done_pending_merge
+T0_GLOBAL_DONE=false
+T0_STATUS=accepted_pending_merge
 T1_STATUS=blocked_until_t0_merge
 ```
 
@@ -28,6 +28,10 @@ implying transferability.
 The accepted code head then passed exact PR merge-context Web CI against the
 contemporary `main` state. This file records that owner decision; later
 status/documentation commits do not change the accepted code head above.
+
+`T0_GLOBAL_DONE` remains false until the accepted slice is actually merged into
+`main`. This prevents a documentation-only owner decision from becoming a false
+implementation-completion signal.
 
 ## Scope of acceptance
 
@@ -79,7 +83,10 @@ implementation.
 
 ## Acceptance boundary
 
-This acceptance closes T0 as an architecture task **once its accepted slice is
-merged**. Until that merge lands, T1 remains blocked. No statement in this file
-turns T0 into an AI/provider test or a production E2E acceptance; those are
-separate downstream gates under the T-track and Production Definition of Done.
+This acceptance closes the human-owner gate for T0. T0 becomes globally done
+only when this accepted slice is merged into `main` and the post-merge status
+truth records that fact. Until then T1 remains blocked.
+
+No statement in this file turns T0 into an AI/provider test or a production E2E
+acceptance; those are separate downstream gates under the T-track and Production
+Definition of Done.
