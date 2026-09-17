@@ -31,6 +31,25 @@ Not allowed as relevance inputs:
 - demographic proxies for political persuasion
 - premium status as a relevance-score boost
 
+## User control / preference center
+
+N3 adds a granular preference-center contract. Users can independently enable or disable whether these enrichment sources participate in relevance:
+
+- profile topics
+- profile region
+- watchlist activity
+- own-work activity
+
+Explicit newsletter topic/region choices remain separate because they were selected specifically for the communication channel.
+
+The preference-center foundation also contains:
+
+- frequency choice (`important_only`, `daily`, `weekly`)
+- quiet hours
+- timezone
+- relevance-explanation preference
+- category-level newsletter preferences already present in the canonical subscription model
+
 ## Relevance behavior
 
 The relevance resolver returns:
@@ -90,6 +109,7 @@ This is a diversity/fatigue mechanism, not ideological balancing or political ra
 N3 also provides a pure delivery-policy guard, without scheduler or send runtime:
 
 - candidate-ID duplicate protection
+- `important_only` blocks non-critical items fail-closed
 - quiet-hours guard
 - daily fatigue cap
 - weekly fatigue cap
@@ -102,14 +122,14 @@ Before production delivery, add:
 
 1. idempotent delivery keys and delivery ledger
 2. per-topic recency/de-duplication window beyond candidate ID
-3. user-editable quiet hours and timezone
-4. preview / "Warum bekomme ich das?" explanations in UI and email
-5. preference center with category-level opt-out
-6. bounce/complaint suppression and provider feedback loop
-7. send-volume/rate protection and retry policy
-8. digest observability: selected, skipped, deduped, suppressed, failed, delivered
+3. provider-backed bounce/complaint suppression feedback loop
+4. send-volume/rate protection and retry policy
+5. digest observability: selected, skipped, deduped, suppressed, failed, delivered
+6. actual UI and email rendering of "Warum bekomme ich das?"
+7. runtime preference-center API/UI connected to the canonical subscription record
+8. retention limits and cleanup jobs for personalization event data
 9. A/B testing only for format/usability, never political persuasion or viewpoint targeting
-10. retention limits for personalization event data
+10. real scheduler/delivery only after N1-N4 acceptance and operational review
 
 ## Track boundary
 
@@ -128,9 +148,10 @@ N3 is contract-complete when:
 
 - profile/preference/activity inputs normalize deterministically
 - relevance decisions are explainable
+- personalization enrichment sources can be disabled independently
 - no political preference inference exists
 - audience tier does not alter relevance score
 - briefing diversity cap is deterministic
-- duplicate and quiet-hour guards are deterministic
+- duplicate, important-only, quiet-hour and cadence guards are deterministic
 - tests cover the above behavior
 - no C/T/G owner files are changed
