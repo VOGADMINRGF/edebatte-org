@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import MandatDetailPage from "@/app/mandat/[id]/page";
 
-async function renderMandat(id = "vog-mandat-001") {
+async function renderMandat(id = "responsibility-record-001") {
   const element = await MandatDetailPage({
     params: Promise.resolve({ id }),
   });
@@ -10,42 +10,44 @@ async function renderMandat(id = "vog-mandat-001") {
 }
 
 describe("/mandat/[id] read-only public surface", () => {
-  it("renders mandate identity, references and transparency blocks", async () => {
-    const html = await renderMandat("vog-mandat-001");
+  it("renders neutral responsibility identity, authority and references", async () => {
+    const html = await renderMandat();
 
-    expect(html).toContain("VoiceOpenGov Mandatsregister");
-    expect(html).toContain("Mandatsgegenstand");
+    expect(html).toContain("eDebatte Verantwortungsregister");
+    expect(html).toContain("Verantwortungsgegenstand");
+    expect(html).toContain("Autorisierung");
+    expect(html).toContain("Aussteller");
     expect(html).toContain("Bezug zu Dossier / Runde / Anlassraum");
     expect(html).toContain("dossier-31");
     expect(html).toContain("round-energie-2026-01");
     expect(html).toContain("anlass-energie-2030");
-    expect(html).toContain("Verantwortung");
-    expect(html).toContain("Repräsentant:in");
     expect(html).toContain("Herkunft / Provenienz");
     expect(html).toContain("Letzte Aktualisierung");
     expect(html).toContain("Transparenzhinweis");
   });
 
-  it("stays explicitly read-only without edit/auto-assign/auto-membership behavior", async () => {
-    const html = await renderMandat("vog-mandat-001");
+  it("stays explicitly read-only and refuses authority derivation", async () => {
+    const html = await renderMandat();
     const lower = html.toLowerCase();
 
     expect(lower).toContain("öffentlich lesbar und read-only");
     expect(lower).toContain("keine bearbeitungsfunktion");
     expect(lower).toContain("keine automatische zuordnung");
     expect(lower).toContain("keine automatische mitgliedschaftsübernahme");
+    expect(lower).toContain("keine automatische ableitung von mandaten oder weisungen");
     expect(html).toContain("supportsMembershipHandoff: false");
     expect(html).toContain("supportsAutomaticAssignment: false");
+    expect(html).toContain("supportsAuthorityDerivationFromEDebatte: false");
     expect(html).toContain("supportsMandateEditInPublicSurface: false");
   });
 
-  it("avoids parties-book wording and avoids implying party representation", async () => {
-    const html = await renderMandat("vog-mandat-001");
+  it("does not present the register as owned by VoiceOpenGov", async () => {
+    const html = await renderMandat();
     const lower = html.toLowerCase();
 
-    expect(lower).not.toContain("parteienbuch");
-    expect(lower).not.toContain("dynamisches parteienbuch");
+    expect(lower).not.toContain("voiceopengov mandatsregister");
+    expect(lower).not.toContain("vog-mandat-");
+    expect(lower).not.toContain("dossier_round_outcome");
     expect(lower).not.toContain("spricht für eine partei");
-    expect(lower).not.toContain("automatische parteizugehörigkeit");
   });
 });
