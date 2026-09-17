@@ -308,7 +308,7 @@ describe("decision dossier T0 depth retention regression", () => {
           expect(decisionReady(replaceKey(values, target, (value) => ({ ...value, materiality: { ...value.materiality, reviewStatus: "pending" } })))).toBe(false);
           break;
         case 10:
-          expect(decisionReady(replaceKey(values, target, (value) => ({ ...value, revision: null }))).toBe(false);
+          expect(decisionReady(replaceKey(values, target, (value) => ({ ...value, revision: null })))).toBe(false);
           break;
         default:
           expect(decisionReady(replaceKey(values, target, (value) => ({ ...value, status: "unknown", gap: "unknown material state" })))).toBe(false);
