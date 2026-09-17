@@ -1,13 +1,13 @@
-# Newsletter N1/N2 — Subscription SSOT Contract
+# Newsletter N1/N2/N3 — Subscription SSOT + Explainable Profile Relevance
 
 Date: 2026-09-17
-Status: N1 foundation + N2 reconciliation/unsubscribe safety; no automatic user delivery enabled
+Status: N1-N3 foundation; no automatic user delivery enabled
 
 ## Goal
 
 Create a conflict-safe foundation for future eDebatte user briefings without touching the active C, T or G implementation tracks.
 
-This track defines the canonical subscription, consent and preference contract and reconciles legacy newsletter state. It does not enable scheduled user sends, does not auto-publish content, and does not alter Create, Decision Dossier or Public Guard runtime behavior.
+This track defines canonical subscription, consent, preference, reconciliation and explainable profile-relevance contracts. It does not enable scheduled user sends, does not auto-publish content, and does not alter Create, Decision Dossier or Public Guard runtime behavior.
 
 ## Track boundary
 
@@ -20,7 +20,10 @@ N may own:
 - frequency and preference semantics
 - eligibility rules
 - unsubscribe/suppression semantics
-- adapters for public updates and account settings
+- reconciliation of legacy opt-in state
+- explainable profile relevance
+- briefing depth/diversity policy
+- delivery fatigue/quiet-hour guards
 - future digest scheduling and delivery monitoring
 
 N must not modify as part of this work:
@@ -42,8 +45,10 @@ N must not modify as part of this work:
 6. User-facing package names are not used as runtime permission truth. Communication maps package/access identifiers to stable audience tiers.
 7. Personalization may change relevance, ordering, depth and cadence, but not factual truth or democratic rights.
 8. Premium tiers receive additional convenience/depth, never political weighting or preferential democratic treatment.
-9. `public_updates_subscribers` is the canonical newsletter subscription source for N2 reads.
+9. `public_updates_subscribers` is the canonical newsletter subscription source for N2+ reads.
 10. Legacy `users.newsletterOptIn` is reconciliation input only and may never silently promote a recipient to `active`.
+11. Profile relevance must be explainable from explicit selections or visible product activity and may not infer ideology, party preference or voting intention.
+12. Audience tier may change presentation depth/capacity, but never relevance score or political selection truth.
 
 ## Audience tiers
 
@@ -69,6 +74,8 @@ Initial preferences:
 - important alerts
 - explicit topic keys
 - explicit region keys
+
+N3 adds source-level personalization controls for profile topics, profile region, watchlist activity and own-work activity, plus quiet-hours/timezone foundations and relevance-explanation preference.
 
 Default frequency is weekly.
 
@@ -106,62 +113,117 @@ Safety rules:
 
 Future digest delivery must generate these tokens and place the confirmed unsubscribe action in every marketing/briefing email.
 
-## Remaining N2/N3 boundary
+## N3 explainable relevance
+
+N3 adds a pure/read-only relevance layer with these allowed inputs:
+
+- explicit newsletter topic/region selections
+- account profile top topics
+- account profile region/country
+- watchlist topic/region activity
+- own-work topic/region activity
+- preferred/reading locale
+
+The result contains a deterministic score plus reason codes and human-readable explanations.
+
+No ideology, party preference, voting intention, political camp or demographic persuasion proxy is inferred.
+
+## N3 user control
+
+Personalization enrichment sources can be disabled independently:
+
+- profile topics
+- profile region
+- watchlist activity
+- own-work activity
+
+Explicit newsletter topic/region choices remain separate because they were selected specifically for this communication channel.
+
+## N3 Plus / Pro behavior
+
+`public/member`:
+
+- compact briefing
+- up to 4 items
+
+`plus`:
+
+- standard briefing
+- up to 6 items
+- relevance explanation
+- change summary
+
+`pro/organization/staff`:
+
+- deep briefing
+- up to 10 items
+- relevance explanation
+- change summary
+- evidence/source pointers
+
+The content truth remains shared; paid tiers receive more depth and convenience, not different democratic facts or political weighting.
+
+## N3 diversity and fatigue guards
+
+The foundation includes:
+
+- per-topic diversity caps for non-critical briefing items
+- critical-item bypass of the topic cap
+- candidate-ID duplicate protection
+- `important_only` blocks non-critical delivery fail-closed
+- quiet-hours guard
+- daily fatigue cap
+- weekly fatigue cap
+
+Critical alerts may bypass quiet hours/fatigue intervals, but do not bypass subscription consent, suppression or eligibility.
+
+## Remaining before external delivery
 
 Still intentionally not enabled:
 
-- automatic legacy reconfirmation mail blast;
-- automatic newsletter/digest scheduler;
-- profile settings writes directly into canonical newsletter preferences;
-- automatic topic/watchlist/region relevance selection;
-- external user delivery.
+- automatic legacy reconfirmation mail blast
+- automatic newsletter/digest scheduler
+- runtime preference-center API/UI writes into the canonical subscription record
+- live watchlist/own-work signal ingestion into the delivery job
+- external user delivery
 
-These are held back so they do not collide with concurrent C/T/G work and so consent remains explicit.
+These remain held back so they do not collide with concurrent C/T/G work and so consent/review boundaries remain explicit.
 
 ## Next slices
 
-### N3 — Profile relevance model
+### N4 — Digest composition and preview
 
-Inputs may include:
-
-- top topics
-- region
-- watchlist
-- own contributions/dossiers
-- language
-- package/access tier
-- explicit user preferences
-
-No opaque political profiling. Relevance must be explainable from explicit product activity and user-selected preferences.
-
-### N4 — Digest composition
-
-- general weekly update
-- Plus briefing
-- Pro briefing
-- important-event alerts
-- no automatic publication of editorial content
+- canonical candidate schema from reviewable output only
+- digest composition without auto-publish
+- actual `Warum bekomme ich das?` rendering
+- preference-center/admin preview
+- per-topic recency window and semantic de-duplication
+- no political viewpoint targeting
 
 ### N5 — Delivery and operations
 
 - scheduler/cron
 - idempotent delivery keys
-- per-recipient delivery log
-- bounce/suppression handling
+- per-recipient delivery ledger
+- bounce/complaint suppression feedback
 - admin monitoring
-- retry policy
-- rate limits
+- retry/rate policy
+- retention/cleanup policy
 
-## Acceptance
+## Acceptance through N3
 
-N1/N2 is ready for review when:
+N1-N3 is ready for review when:
 
-- contract compiles;
-- contract/reconciliation/unsubscribe-token tests pass;
+- contracts compile;
+- contract/reconciliation/unsubscribe/relevance/policy tests pass;
 - inactive/expired/suppressed subscriptions fail closed;
 - legacy opt-in can never become active without canonical consent;
 - package identifiers resolve to stable communication tiers;
 - preference defaults are deterministic;
 - unsubscribe requires a valid signed token and explicit POST;
+- profile relevance is deterministic and explainable;
+- personalization source opt-outs are honored;
+- audience tier changes depth, not relevance score;
+- duplicate/important-only/quiet-hour/cadence guards are deterministic;
 - no C/T/G runtime file is changed;
 - no automatic external user notification is enabled.
