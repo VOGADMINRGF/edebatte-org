@@ -33,10 +33,20 @@ export const MandateResponsibilitySchema = z
 
 export type MandateResponsibility = z.infer<typeof MandateResponsibilitySchema>;
 
+export const MandateAuthoritySchema = z
+  .object({
+    issuerId: z.string().trim().min(1),
+    issuerLabel: z.string().trim().min(1),
+    decisionReference: z.string().trim().min(1),
+  })
+  .strict();
+
+export type MandateAuthority = z.infer<typeof MandateAuthoritySchema>;
+
 export const MandateProvenanceSchema = z
   .object({
-    registerLabel: z.literal("VoiceOpenGov Mandatsregister"),
-    origin: z.enum(["dossier_round_outcome", "manual_register_entry", "hosted_room_followup"]),
+    registerLabel: z.literal("eDebatte Verantwortungsregister"),
+    origin: z.enum(["external_authority_record", "manual_register_entry", "hosted_room_followup"]),
     sourceLabel: z.string().trim().min(1),
   })
   .strict();
@@ -64,6 +74,7 @@ export const MandateSchema = z
     consentStatus: z.enum(CONSENT_STATUSES),
     verificationStatus: z.enum(VERIFICATION_STATUSES),
     responsibility: MandateResponsibilitySchema,
+    authority: MandateAuthoritySchema,
     provenance: MandateProvenanceSchema,
     transparency: MandateTransparencySchema,
     sourceDossierId: z.string().trim().min(1).nullable(),
@@ -80,11 +91,11 @@ export type Mandate = z.infer<typeof MandateSchema>;
 
 export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
   {
-    id: "vog-mandat-001",
+    id: "responsibility-record-001",
     title: "Energetische Sanierung kommunaler Gebäude",
-    subject: "Mandatsgegenstand: Reduktion des Energieverbrauchs um 15 % bis 2027",
+    subject: "Verantwortungsgegenstand: Reduktion des Energieverbrauchs um 15 % bis 2027",
     publicSummary:
-      "Das Mandat dokumentiert Verantwortung, Status und Nachvollziehbarkeit für die beschlossene Umsetzung.",
+      "Der Eintrag dokumentiert eine extern legitimierte Verantwortung, ihren Status und die dazu referenzierten Arbeitsgrundlagen.",
     status: "in_umsetzung",
     visibility: "public_readonly",
     consentStatus: "granted",
@@ -93,20 +104,25 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
       holderId: "person-keller-01",
       holderKind: "person",
       holderLabel: "Lea Keller",
-      roleLabel: "Repräsentant:in für Klima und Gebäude",
+      roleLabel: "Umsetzungsverantwortliche für Klima und Gebäude",
+    },
+    authority: {
+      issuerId: "kommune-beispielstadt",
+      issuerLabel: "Beispielstadt",
+      decisionReference: "Extern dokumentierter Beschluss 2026-03",
     },
     provenance: {
-      registerLabel: "VoiceOpenGov Mandatsregister",
-      origin: "dossier_round_outcome",
-      sourceLabel: "Beschluss nach Dossier/Runde mit öffentlicher Dokumentation",
+      registerLabel: "eDebatte Verantwortungsregister",
+      origin: "external_authority_record",
+      sourceLabel: "Externe Entscheidung mit verknüpfter Dossier- und Rundendokumentation",
     },
     transparency: {
       publicNote:
-        "Dieses Mandat ist öffentlich lesbar. Bearbeitungsrechte und Statuswechsel werden in einem späteren Slice separat geregelt.",
+        "eDebatte dokumentiert diesen Verantwortungsstand read-only. Die zugrunde liegende Autorisierung entsteht außerhalb von eDebatte.",
       scopeNote:
-        "Diese Ansicht zeigt keine Parteizugehörigkeit und leitet keine politische Gruppierung automatisch ab.",
+        "Ein Dossier, eine Runde oder ein Mehrheitsbild in eDebatte erzeugt selbst weder ein Mandat noch eine organisatorische Weisung.",
       confidentialHintBoundary:
-        "Vertrauliche Hinweise werden nicht automatisch an die verantwortliche Organisation weitergeleitet.",
+        "Vertrauliche Hinweise werden nicht automatisch an die verantwortliche Person oder Organisation weitergeleitet.",
     },
     sourceDossierId: "dossier-31",
     sourceRoundId: "round-energie-2026-01",
@@ -117,11 +133,11 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
     isReadOnlyPublic: true,
   },
   {
-    id: "vog-mandat-002",
+    id: "responsibility-record-002",
     title: "Sichere Schulwege im Quartier Nord",
-    subject: "Mandatsgegenstand: Querungshilfen, Beleuchtung und Temporeduktion",
+    subject: "Verantwortungsgegenstand: Querungshilfen, Beleuchtung und Temporeduktion",
     publicSummary:
-      "Mandat mit nachvollziehbarer Zuständigkeit und öffentlichem Status, ohne automatische Zuordnung zu Organisationen oder Mitgliedschaften.",
+      "Der Eintrag macht Zuständigkeit und Status nachvollziehbar, ohne aus eDebatte-Inhalten automatisch politische oder organisatorische Autorität abzuleiten.",
     status: "aktiv",
     visibility: "public_readonly",
     consentStatus: "granted",
@@ -132,18 +148,23 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
       holderLabel: "Ordnungsamt Beispielstadt",
       roleLabel: "Verantwortliche Organisation für Verkehrsmaßnahmen",
     },
+    authority: {
+      issuerId: "kommune-beispielstadt",
+      issuerLabel: "Beispielstadt",
+      decisionReference: "Extern dokumentierte Zuständigkeitszuweisung 2026-04",
+    },
     provenance: {
-      registerLabel: "VoiceOpenGov Mandatsregister",
+      registerLabel: "eDebatte Verantwortungsregister",
       origin: "hosted_room_followup",
-      sourceLabel: "Folgebeschluss aus Hosted Room und öffentlicher Runde",
+      sourceLabel: "Dokumentierter Folgestand mit externer Zuständigkeit und öffentlicher Runde als Referenz",
     },
     transparency: {
       publicNote:
-        "Diese Mandatsansicht dient der öffentlichen Nachvollziehbarkeit. Sie ist keine Bearbeitungsoberfläche.",
+        "Diese Ansicht dient der öffentlichen Nachvollziehbarkeit. Sie ist keine Bearbeitungs- oder Autorisierungsoberfläche.",
       scopeNote:
-        "Mitgliedschaften in VoiceOpenGov werden hier weder behauptet noch automatisch erzeugt.",
+        "Organisationen, Mitgliedschaften oder politische Zugehörigkeiten werden hier weder erzeugt noch automatisch abgeleitet.",
       confidentialHintBoundary:
-        "Vertrauliche Hinweise bleiben geschützt und folgen einem separaten, später zu definierenden Freigabepfad.",
+        "Vertrauliche Hinweise bleiben geschützt und folgen einem separaten, ausdrücklich freizugebenden Pfad.",
     },
     sourceDossierId: "dossier-47",
     sourceRoundId: "round-schulweg-2026-04",
@@ -201,6 +222,10 @@ export function supportsMembershipHandoff(): false {
 }
 
 export function supportsAutomaticAssignment(): false {
+  return false;
+}
+
+export function supportsAuthorityDerivationFromEDebatte(): false {
   return false;
 }
 
