@@ -10,11 +10,13 @@ export function LoginPageShell({
   initialStep,
   initialMethod,
   forceTwoFactor,
+  registerHref = "/register",
 }: {
   redirectTo?: string;
   initialStep?: LoginStep;
   initialMethod?: TwoFactorMethod | null;
   forceTwoFactor?: boolean;
+  registerHref?: string;
 }) {
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const [identifier, setIdentifier] = useState("");
@@ -148,7 +150,7 @@ export function LoginPageShell({
           </button>
           <p className="text-center text-sm text-[rgb(var(--muted))]">
             Noch kein Konto?{" "}
-            <Link href="/register" className="font-semibold text-sky-700 underline-offset-2 hover:underline">
+            <Link href={registerHref} className="font-semibold text-sky-700 underline-offset-2 hover:underline">
               Jetzt registrieren
             </Link>
             <br />

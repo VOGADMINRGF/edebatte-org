@@ -12,7 +12,47 @@ vi.mock("@/hooks/useLoginFlow", () => ({
 import { LoginPageShell } from "@/components/auth/LoginPageShell";
 import { HeaderLoginInline } from "@/components/auth/HeaderLoginInline";
 
+function credentialsFlowState() {
+  return {
+    step: "credentials",
+    method: null,
+    availableMethods: [],
+    expiresAt: null,
+    loading: false,
+    requestingEmail: false,
+    switchingMethod: false,
+    allowEmailFallback: false,
+    error: null,
+    verificationState: "idle",
+    submitCredentials: vi.fn(),
+    submitTwoFactor: vi.fn(),
+    selectTwoFactorMethod: vi.fn().mockResolvedValue(true),
+    requestEmailCode: vi.fn().mockResolvedValue(true),
+    reset: vi.fn(),
+  };
+}
+
 describe("login page shell", () => {
+  it("preserves the supplied registration continuation in the nested credentials CTA", () => {
+    mocks.useLoginFlow.mockReturnValue(credentialsFlowState());
+
+    const html = renderToStaticMarkup(
+      <LoginPageShell registerHref="/register?next=%2Fcreate%3FnextAction%3Dguest-adoption-resume" />,
+    );
+
+    expect(html).toContain(
+      'href="/register?next=%2Fcreate%3FnextAction%3Dguest-adoption-resume"',
+    );
+  });
+
+  it("keeps the ordinary registration fallback when no continuation is supplied", () => {
+    mocks.useLoginFlow.mockReturnValue(credentialsFlowState());
+
+    const html = renderToStaticMarkup(<LoginPageShell />);
+
+    expect(html).toContain('href="/register"');
+  });
+
   it("shows an explicit choice between authenticator app and email code", () => {
     mocks.useLoginFlow.mockReturnValue({
       step: "twofactor",
