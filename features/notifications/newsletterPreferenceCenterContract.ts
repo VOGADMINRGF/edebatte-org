@@ -25,6 +25,13 @@ export type NewsletterPreferenceCenter = {
   showRelevanceExplanation: boolean;
 };
 
+export type NewsletterPreferenceCenterInput = {
+  preferences?: Partial<NewsletterPreferences> | null;
+  personalizationSources?: Partial<NewsletterPersonalizationSources> | null;
+  quietHours?: Partial<NewsletterQuietHours> | null;
+  showRelevanceExplanation?: boolean | null;
+};
+
 export const DEFAULT_PERSONALIZATION_SOURCES: NewsletterPersonalizationSources = {
   profileTopics: true,
   profileRegion: true,
@@ -52,7 +59,7 @@ function timezone(value: unknown, fallback: string) {
 }
 
 export function mergeNewsletterPreferenceCenter(
-  value?: Partial<NewsletterPreferenceCenter> | null,
+  value?: NewsletterPreferenceCenterInput | null,
 ): NewsletterPreferenceCenter {
   return {
     preferences: mergeNewsletterPreferences(
