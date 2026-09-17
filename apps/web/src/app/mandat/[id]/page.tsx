@@ -50,6 +50,13 @@ function formatDateTime(dateIso: string | null): string {
   });
 }
 
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 function buildReferenceItems(mandate: Mandate): Array<{ label: string; value: string; href: string | null }> {
   return [
     {
@@ -82,6 +89,10 @@ export default async function MandatDetailPage({ params }: PageProps) {
 
   const references = buildReferenceItems(mandate);
   const bindsVog = isBindingVoiceOpenGovRepresentationMandate(mandate);
+  const legitimacy = mandate.decision.legitimacy;
+  const turnout = legitimacy.eligiblePopulation
+    ? legitimacy.ballotsCast / legitimacy.eligiblePopulation
+    : null;
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-10 space-y-6">
@@ -103,7 +114,9 @@ export default async function MandatDetailPage({ params }: PageProps) {
       <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-3">
         <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Gültiger Entscheid</h2>
         <p className="text-sm text-[rgb(var(--muted))]">Frage: {mandate.decision.question}</p>
-        <p className="text-sm font-semibold text-[rgb(var(--fg))]">Mehrheitsposition: {mandate.decision.majorityPosition}</p>
+        <p className="text-sm font-semibold text-[rgb(var(--fg))]">
+          Mehrheitsposition: {mandate.decision.majorityPosition} · {formatPercent(mandate.decision.majorityShare)} der gültigen Stimmen nach der dokumentierten Entscheidungsregel
+        </p>
         <p className="text-sm text-[rgb(var(--muted))]">
           Minderheitenpositionen: {mandate.decision.minorityPositions.length > 0 ? mandate.decision.minorityPositions.join(" · ") : "keine dokumentiert"}
         </p>
@@ -115,6 +128,28 @@ export default async function MandatDetailPage({ params }: PageProps) {
         <p className="text-sm text-[rgb(var(--muted))]">Snapshot: {mandate.decision.snapshotId}</p>
         <p className="text-sm font-semibold text-[rgb(var(--fg))]">
           VoiceOpenGov-Bindung: {bindsVog ? "verbindlicher Repräsentationsauftrag" : "keine Bindung"}
+        </p>
+      </section>
+
+      <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-3">
+        <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Legitimation & Reichweite</h2>
+        <p className="text-sm text-[rgb(var(--fg))]">{legitimacy.electorateDescription}</p>
+        <div className="grid gap-2 md:grid-cols-2">
+          <p className="text-sm text-[rgb(var(--muted))]">Eligibility-Regel: {legitimacy.eligibilityRuleId}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Quorum-Regel: {legitimacy.quorumRuleId}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Abgegebene Stimmen: {legitimacy.ballotsCast}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Gültige Stimmen: {legitimacy.validBallots}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">
+            Abstimmungsberechtigte Grundgesamtheit: {legitimacy.eligiblePopulation ?? "nicht belastbar bestimmt"}
+          </p>
+          <p className="text-sm text-[rgb(var(--muted))]">
+            Beteiligung: {turnout === null ? "nicht belastbar berechenbar" : formatPercent(turnout)}
+          </p>
+          <p className="text-sm text-[rgb(var(--muted))]">Quorum erreicht: {legitimacy.quorumMet ? "ja" : "nein"}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Ergebnisintegrität: {legitimacy.integrityStatus}</p>
+        </div>
+        <p className="text-sm text-[rgb(var(--muted))]">
+          Die ausgewiesene Mehrheit bezieht sich auf den dokumentierten Abstimmungskreis und die geltende Entscheidungsregel. Eine statistische Mehrheit aller Einwohnerinnen und Einwohner wird nur behauptet, wenn sie dafür gesondert belegt ist.
         </p>
       </section>
 
@@ -165,7 +200,7 @@ export default async function MandatDetailPage({ params }: PageProps) {
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.transparency.scopeNote}</p>
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.transparency.confidentialHintBoundary}</p>
         <p className="text-sm text-[rgb(var(--muted))]">
-          Diese Oberfläche ist öffentlich lesbar und read-only. Entwurf, laufende Debatte oder unvollständige Abstimmung erzeugen keine automatische VoiceOpenGov-Bindung. Nur ein gültig abgeschlossener Entscheidungssnapshot innerhalb seines definierten Geltungsbereichs bindet die VoiceOpenGov-Repräsentation.
+          Diese Oberfläche ist öffentlich lesbar und read-only. Entwurf, laufende Debatte oder unvollständige Abstimmung erzeugen keine automatische VoiceOpenGov-Bindung. Nur ein gültig abgeschlossener Entscheidungssnapshot mit erfülltem Quorum und verifizierter Ergebnisintegrität innerhalb seines definierten Geltungsbereichs bindet die VoiceOpenGov-Repräsentation.
         </p>
       </section>
 
