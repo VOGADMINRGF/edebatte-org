@@ -24,7 +24,7 @@ describe("stream status contract", () => {
     expect(getStreamPublicStatusMeta(status).label).toBe("Fragen möglich");
   });
 
-  it("maps live sessions with open input to collecting_input", () => {
+  it("keeps a running event live even when participation is open", () => {
     const status = resolveStreamPublicRuntimeStatus({
       session: {
         status: "live",
@@ -39,8 +39,9 @@ describe("stream status contract", () => {
       hasDossierUpdateSuggestion: false,
     });
 
-    expect(status).toBe("collecting_input");
-    expect(getStreamPublicStatusMeta(status).label).toBe("Hinweise werden gesammelt");
+    expect(status).toBe("live");
+    expect(getStreamPublicStatusMeta(status).label).toBe("Event läuft");
+    expect(getStreamPublicStatusMeta(status).nextAction).not.toContain("Livestream");
   });
 
   it("maps ended sessions with dossier follow-up to dossier_update_suggested", () => {

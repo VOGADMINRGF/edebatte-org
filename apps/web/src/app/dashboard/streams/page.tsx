@@ -9,9 +9,25 @@ type SessionSummary = {
   description?: string | null;
   isLive: boolean;
   visibility: "public" | "unlisted";
+  status?: "draft" | "scheduled" | "live" | "ended" | "cancelled";
   updatedAt?: string;
   startsAt?: string | null;
 };
+
+function creationErrorMessage(value: unknown) {
+  const code = String(value ?? "");
+  if (code === "topic_not_registered") {
+    return "Thema nicht im System. Bitte erst einmal den Workflow durchlaufen.";
+  }
+  if (code === "public_requires_schedule") {
+    return "Öffentliche Events brauchen eine zukünftige Startzeit. Ohne Termin bleibt die Session ein nicht gelisteter Entwurf.";
+  }
+  if (code === "unsafe_player_url") {
+    return "Die Player-URL ist nicht zulässig. Verwende eine HTTPS-Adresse eines vertrauenswürdigen Players oder Videos.";
+  }
+  if (code === "rate_limited") return "Zu viele neue Sessions in kurzer Zeit. Bitte später erneut versuchen.";
+  return code || "Session konnte nicht erstellt werden";
+}
 
 export default function StreamsDashboardPage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -67,6 +83,7 @@ export default function StreamsDashboardPage() {
   async function createSession() {
     const name = title.trim();
     if (!name) return;
+    setError(null);
     setLoading(true);
     try {
       const payload: Record<string, any> = {
@@ -88,12 +105,9 @@ export default function StreamsDashboardPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg = body?.error || res.statusText;
-        if (msg === "topic_not_registered") {
-          throw new Error("Thema nicht im System. Bitte erst einmal den Workflow durchlaufen.");
-        }
-        throw new Error(msg);
+        throw new Error(creationErrorMessage(body?.error || res.statusText));
       }
+      const createdStatus: SessionSummary["status"] = payload.startsAt ? "scheduled" : "draft";
       setTitle("");
       setTopicKey("");
       setRegionCode("");
@@ -107,6 +121,7 @@ export default function StreamsDashboardPage() {
           description: "",
           isLive: false,
           visibility,
+          status: createdStatus,
           startsAt: payload.startsAt ?? null,
         },
         ...prev,
@@ -126,10 +141,13 @@ export default function StreamsDashboardPage() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">Streams</p>
-        <h1 className="text-2xl font-bold text-[rgb(var(--fg))]">Live-Sessions &amp; Overlays</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">Events</p>
+        <h1 className="text-2xl font-bold text-[rgb(var(--fg))]">Event-Sessions &amp; Overlays</h1>
         <p className="text-sm text-[rgb(var(--muted))]">
-          Verwalte deine Live-Streams, Agenda und Polls. Nutze das OBS-Overlay für sendefertige Anzeigen.
+          Bereite Event-Kontext, Player, Agenda und Polls vor. Eine Session ohne zukünftige Startzeit bleibt Entwurf und wird nicht öffentlich gelistet.
+        </p>
+        <p className="mt-2 text-xs text-[rgb(var(--muted))]">
+          Ein Player ist optional. „Live“ oder „Replay“ wird öffentlich nur dort angezeigt, wo der jeweilige Zustand tatsächlich vorliegt.
         </p>
         <p className="mt-2 text-xs text-[rgb(var(--muted))]">
           Onboarding:{" "}
@@ -170,7 +188,7 @@ export default function StreamsDashboardPage() {
           />
           <input
             className="rounded-xl border border-[rgb(var(--border))] px-3 py-2 text-sm"
-            placeholder="Player-URL / Embed"
+            placeholder="Optionale HTTPS-Player-URL"
             value={playerUrl}
             onChange={(e) => setPlayerUrl(e.target.value)}
           />
@@ -190,10 +208,15 @@ export default function StreamsDashboardPage() {
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as "public" | "unlisted")}
             >
-              <option value="public">Öffentlich</option>
-              <option value="unlisted">Nicht gelistet</option>
+              <option value="unlisted">Entwurf / nicht gelistet</option>
+              <option value="public">Öffentlich geplant</option>
             </select>
           </label>
+          {visibility === "public" && !startsAt ? (
+            <p className="text-xs text-amber-700 md:col-span-2">
+              Für „Öffentlich geplant“ ist eine zukünftige Startzeit erforderlich. Ohne Termin bitte „Entwurf / nicht gelistet“ verwenden.
+            </p>
+          ) : null}
           <label className="flex items-center gap-2 rounded-xl border border-[rgb(var(--border))] px-3 py-2 text-sm md:col-span-2">
             <input
               type="checkbox"
@@ -205,11 +228,11 @@ export default function StreamsDashboardPage() {
           </label>
         </div>
         <button
-          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
           onClick={createSession}
-          disabled={loading}
+          disabled={loading || (visibility === "public" && !startsAt)}
         >
-          Anlegen
+          {visibility === "public" ? "Event planen" : "Entwurf anlegen"}
         </button>
         {error && <p className="text-sm text-rose-600">{error}</p>}
       </div>
@@ -222,33 +245,40 @@ export default function StreamsDashboardPage() {
           <p className="text-sm text-[rgb(var(--muted))]">Noch keine Sessions angelegt.</p>
         ) : (
           <ul className="space-y-2">
-            {sessions.map((session) => (
-              <li
-                key={session._id}
-                className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-base font-semibold text-[rgb(var(--fg))]">{session.title}</p>
-                  <p className="text-xs text-[rgb(var(--muted))]">
-                    {session.isLive ? "Live" : "Offline"} · {session.visibility}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <Link href={`/stream/${session._id}`} className="text-sky-700 underline">
-                      Viewer
-                    </Link>
-                    <Link href={`/overlay/stream/${session._id}`} className="text-sky-700 underline">
-                      Overlay
-                    </Link>
-                  </div>
-                </div>
-                <Link
-                  href={`/dashboard/streams/${session._id}`}
-                  className="rounded-full border border-[rgb(var(--border))] px-3 py-1 text-sm font-semibold text-[rgb(var(--muted))]"
+            {sessions.map((session) => {
+              const publicViewerAvailable = session.status !== "draft" && session.status !== "cancelled";
+              return (
+                <li
+                  key={session._id}
+                  className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm flex items-center justify-between"
                 >
-                  Öffnen
-                </Link>
-              </li>
-            ))}
+                  <div>
+                    <p className="text-base font-semibold text-[rgb(var(--fg))]">{session.title}</p>
+                    <p className="text-xs text-[rgb(var(--muted))]">
+                      {session.isLive ? "Event läuft" : session.status === "draft" ? "Entwurf" : session.status ?? "Offline"} · {session.visibility}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      {publicViewerAvailable ? (
+                        <Link href={`/stream/${session._id}`} className="text-sky-700 underline">
+                          Öffentliche Eventansicht
+                        </Link>
+                      ) : (
+                        <span className="text-[rgb(var(--muted))]">Noch keine öffentliche Eventansicht</span>
+                      )}
+                      <Link href={`/overlay/stream/${session._id}`} className="text-sky-700 underline">
+                        Overlay
+                      </Link>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/dashboard/streams/${session._id}`}
+                    className="rounded-full border border-[rgb(var(--border))] px-3 py-1 text-sm font-semibold text-[rgb(var(--muted))]"
+                  >
+                    Öffnen
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
