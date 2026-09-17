@@ -23,7 +23,7 @@ Exactly one remaining runtime defect is authorized for repair: the nested creden
 Runtime files authorized:
 
 - `apps/web/src/app/login/LoginPageClient.tsx`
-- `apps/web/src/app/login/LoginPageShell.tsx`
+- `apps/web/src/components/auth/LoginPageShell.tsx`
 
 Focused existing auth/login shell tests may be extended or added only as required to prove this contract.
 
