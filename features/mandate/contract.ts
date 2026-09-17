@@ -220,6 +220,11 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
 
 const MANDATE_FIXTURE_MAP = new Map(MANDATE_REGISTER_FIXTURES.map((mandate) => [mandate.id, mandate]));
 
+const LEGACY_MANDATE_ID_ALIASES = new Map<string, string>([
+  ["vog-mandat-001", "decision-mandate-001"],
+  ["vog-mandat-002", "decision-mandate-002"],
+]);
+
 function normalizeEnum<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]): T[number] {
   if (typeof value !== "string") return fallback;
   const normalized = value.trim().toLowerCase();
@@ -248,7 +253,8 @@ export function parseMandate(value: unknown): Mandate {
 }
 
 export function getMandateById(id: string): Mandate | null {
-  return MANDATE_FIXTURE_MAP.get(id) ?? null;
+  const canonicalId = LEGACY_MANDATE_ID_ALIASES.get(id) ?? id;
+  return MANDATE_FIXTURE_MAP.get(canonicalId) ?? null;
 }
 
 export function listMandates(): readonly Mandate[] {
