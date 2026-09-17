@@ -25,6 +25,9 @@ export const DECISION_SCOPE_LEVELS = [
 ] as const;
 export type DecisionScopeLevel = (typeof DECISION_SCOPE_LEVELS)[number];
 
+export const DECISION_INTEGRITY_STATUSES = ["pending", "verified", "failed"] as const;
+export type DecisionIntegrityStatus = (typeof DECISION_INTEGRITY_STATUSES)[number];
+
 export const MANDATE_VISIBILITIES = ["public_readonly", "restricted", "internal"] as const;
 export type MandateVisibility = (typeof MANDATE_VISIBILITIES)[number];
 
@@ -45,6 +48,37 @@ export const MandateResponsibilitySchema = z
 
 export type MandateResponsibility = z.infer<typeof MandateResponsibilitySchema>;
 
+export const DecisionLegitimacySchema = z
+  .object({
+    eligibilityRuleId: z.string().trim().min(1),
+    electorateDescription: z.string().trim().min(1),
+    eligiblePopulation: z.number().int().positive().nullable(),
+    ballotsCast: z.number().int().positive(),
+    validBallots: z.number().int().positive(),
+    quorumRuleId: z.string().trim().min(1),
+    quorumMet: z.boolean(),
+    integrityStatus: z.enum(DECISION_INTEGRITY_STATUSES),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.validBallots > value.ballotsCast) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["validBallots"],
+        message: "valid_ballots_must_not_exceed_ballots_cast",
+      });
+    }
+    if (value.eligiblePopulation !== null && value.ballotsCast > value.eligiblePopulation) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ballotsCast"],
+        message: "ballots_cast_must_not_exceed_known_eligible_population",
+      });
+    }
+  });
+
+export type DecisionLegitimacy = z.infer<typeof DecisionLegitimacySchema>;
+
 export const DecisionMandateSchema = z
   .object({
     status: z.enum(DECISION_STATUSES),
@@ -54,7 +88,9 @@ export const DecisionMandateSchema = z
     scopeKey: z.string().trim().min(1),
     question: z.string().trim().min(1),
     majorityPosition: z.string().trim().min(1),
+    majorityShare: z.number().gt(0).lte(1),
     minorityPositions: z.array(z.string().trim().min(1)),
+    legitimacy: DecisionLegitimacySchema,
     decidedAt: z.string().datetime({ offset: true }).nullable(),
     supersedesMandateId: z.string().trim().min(1).nullable(),
   })
@@ -65,6 +101,20 @@ export const DecisionMandateSchema = z
         code: z.ZodIssueCode.custom,
         path: ["decidedAt"],
         message: "valid_decision_requires_decided_at",
+      });
+    }
+    if (value.status === "valid" && !value.legitimacy.quorumMet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["legitimacy", "quorumMet"],
+        message: "valid_decision_requires_quorum",
+      });
+    }
+    if (value.status === "valid" && value.legitimacy.integrityStatus !== "verified") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["legitimacy", "integrityStatus"],
+        message: "valid_decision_requires_verified_integrity",
       });
     }
   });
@@ -136,7 +186,18 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
       scopeKey: "kommune-beispielstadt",
       question: "Soll der Energieverbrauch kommunaler Gebäude bis 2027 um 15 % reduziert werden?",
       majorityPosition: "Ja",
+      majorityShare: 0.62,
       minorityPositions: ["Nein", "Ziel später erreichen"],
+      legitimacy: {
+        eligibilityRuleId: "verified-residents-v1",
+        electorateDescription: "Für diese kommunale Beispielentscheidung verifizierte abstimmungsberechtigte Personen im definierten Gebiet.",
+        eligiblePopulation: 2500,
+        ballotsCast: 475,
+        validBallots: 468,
+        quorumRuleId: "ten-percent-v1",
+        quorumMet: true,
+        integrityStatus: "verified",
+      },
       decidedAt: "2026-03-01T18:00:00.000Z",
       supersedesMandateId: null,
     },
@@ -155,7 +216,7 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
       publicNote:
         "Das eDebatte-Ergebnis ist innerhalb seines definierten Geltungsbereichs der verbindliche Repräsentationsauftrag für VoiceOpenGov.",
       scopeNote:
-        "Entwürfe, laufende Debatten und unvollständige Abstimmungen erzeugen keinen bindenden Repräsentationsauftrag.",
+        "Der Auftrag beschreibt das gültige Ergebnis des definierten Abstimmungskreises. Er behauptet ohne entsprechenden Nachweis keine statistische Mehrheit aller Einwohnerinnen und Einwohner.",
       confidentialHintBoundary:
         "Vertrauliche Hinweise werden nicht automatisch an die verantwortliche Person oder Organisation weitergeleitet.",
     },
@@ -185,7 +246,18 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
       scopeKey: "quartier-nord",
       question: "Sollen Querungshilfen, Beleuchtung und Temporeduktion gemeinsam umgesetzt werden?",
       majorityPosition: "Ja",
+      majorityShare: 0.57,
       minorityPositions: ["Nur Querungshilfen und Beleuchtung"],
+      legitimacy: {
+        eligibilityRuleId: "verified-residents-v1",
+        electorateDescription: "Für diese regionale Beispielentscheidung verifizierte abstimmungsberechtigte Personen im definierten Quartier.",
+        eligiblePopulation: 1800,
+        ballotsCast: 322,
+        validBallots: 316,
+        quorumRuleId: "ten-percent-v1",
+        quorumMet: true,
+        integrityStatus: "verified",
+      },
       decidedAt: "2026-04-10T19:30:00.000Z",
       supersedesMandateId: null,
     },
@@ -204,7 +276,7 @@ export const MANDATE_REGISTER_FIXTURES: readonly Mandate[] = [
       publicNote:
         "Mehrheitsauftrag und relevante Minderheitenposition bleiben gemeinsam öffentlich nachvollziehbar.",
       scopeNote:
-        "Eine spätere gültige Entscheidung kann diesen Stand ersetzen; die Versionshistorie bleibt erhalten.",
+        "Eine spätere gültige Entscheidung kann diesen Stand ersetzen; Abstimmungskreis, Beteiligung und Versionshistorie bleiben nachvollziehbar.",
       confidentialHintBoundary:
         "Vertrauliche Hinweise bleiben geschützt und folgen einem separaten, ausdrücklich freizugebenden Pfad.",
     },
@@ -269,7 +341,15 @@ export function isBindingVoiceOpenGovRepresentationMandate(mandate: Mandate): bo
   return (
     mandate.decision.status === "valid" &&
     mandate.provenance.origin === "dossier_round_outcome" &&
-    Boolean(mandate.decision.snapshotId && mandate.decision.scopeKey && mandate.decision.ruleId)
+    mandate.decision.legitimacy.quorumMet &&
+    mandate.decision.legitimacy.integrityStatus === "verified" &&
+    Boolean(
+      mandate.decision.snapshotId &&
+        mandate.decision.scopeKey &&
+        mandate.decision.ruleId &&
+        mandate.decision.legitimacy.eligibilityRuleId &&
+        mandate.decision.legitimacy.quorumRuleId,
+    )
   );
 }
 
