@@ -40,6 +40,11 @@ jobs:
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
 
+      - name: Focused AI and public discovery contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/ai-public-discovery.contract.test.ts
+
       - name: Focused organization registry contracts
         run: >-
           pnpm -C apps/web exec vitest run
@@ -125,3 +130,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node scripts/ci/check-web-critical-guardrails.mjs
+
+  indexnow-production:
+    name: Post-deploy search discovery
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web-contracts, web-quality, web-security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+      - name: Notify IndexNow only after exact Vercel production success
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node apps/web/scripts/submit-indexnow-after-vercel.mjs
