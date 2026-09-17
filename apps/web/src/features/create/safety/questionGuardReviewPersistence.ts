@@ -5,19 +5,50 @@ import type { PublicQuestionGeneralizationResult } from "@/features/create/safet
 /**
  * Canonical G1 policy epoch for persisted Public Question Guard evidence.
  *
- * Producers may persist this value alongside their guard result to prove which
- * shared G1 contract evaluated the record. When G1 semantics change in a way
- * that can affect release decisions, this constant must be bumped. Consumers
- * must fail closed on missing or non-current values rather than silently
- * treating historical `draft_allowed` evidence as current.
+ * When G1 semantics change in a way that can affect release decisions, this
+ * value must be bumped. Producer integrations persist the derived evidence ref
+ * inside the existing G1 result; consumers fail closed when that binding is
+ * missing or stale.
  */
 export const PUBLIC_QUESTION_GUARD_CONTRACT_VERSION =
   "public_question_guard.v1" as const;
+
+export const PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_PREFIX =
+  "question-guard-contract:" as const;
+
+export const PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF =
+  `${PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_PREFIX}${PUBLIC_QUESTION_GUARD_CONTRACT_VERSION}`;
 
 export function isCurrentPublicQuestionGuardContractVersion(
   value: unknown,
 ): value is typeof PUBLIC_QUESTION_GUARD_CONTRACT_VERSION {
   return value === PUBLIC_QUESTION_GUARD_CONTRACT_VERSION;
+}
+
+export function bindQuestionGuardToCurrentContract(
+  guard: PublicQuestionGeneralizationResult,
+): PublicQuestionGeneralizationResult {
+  return {
+    ...guard,
+    evidenceRefs: [
+      ...guard.evidenceRefs.filter(
+        (ref) => !ref.startsWith(PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_PREFIX),
+      ),
+      PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF,
+    ],
+  };
+}
+
+export function isQuestionGuardBoundToCurrentContract(
+  guard:
+    | Pick<PublicQuestionGeneralizationResult, "evidenceRefs">
+    | null
+    | undefined,
+): boolean {
+  return (
+    guard?.evidenceRefs.includes(PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF) ===
+    true
+  );
 }
 
 type PersistQuestionGuardReviewFailClosedInput<TRecord, TAuditEntry> = {
