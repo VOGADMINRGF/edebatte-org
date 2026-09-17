@@ -71,11 +71,11 @@ export const ECOSYSTEM_BRANDS = [
   {
     id: "voiceopengov",
     displayName: "VoiceOpenGov",
-    canonicalRole: "Politische und gesellschaftliche Bewegung mit eigener Governance",
+    canonicalRole: "Politische Repräsentations- und Umsetzungsschicht",
     description:
-      "VoiceOpenGov organisiert regionale Präsenz, eigene demokratische Willensbildung, einen versionierten Programmstand und politische Repräsentation.",
+      "VoiceOpenGov organisiert regionale Präsenz und politische Verantwortlichkeit für gültige eDebatte-Mehrheitsmandate innerhalb ihres definierten Geltungsbereichs.",
     relationshipToEDebatte:
-      "VoiceOpenGov kann eDebatte-Dossiers, Quellen, Beteiligung und versionierte Snapshots für die eigene Willensbildung nutzen. Ein eDebatte-Ergebnis wird jedoch nicht automatisch zu einer VoiceOpenGov-Position; Übernahme, Änderung oder Ablehnung folgen den eigenen veröffentlichten VoiceOpenGov-Governance-Regeln.",
+      "VoiceOpenGov besitzt eDebatte nicht. Es verpflichtet seine politische Repräsentation jedoch an gültig abgeschlossene eDebatte-Entscheidungen innerhalb ihres definierten sachlichen und regionalen Geltungsbereichs. Entwürfe, laufende Debatten, unvollständige Abstimmungen und informelle Stimmungsbilder binden nicht.",
     target: availableExternalTarget(VOG_HOME_URL),
   },
   {
@@ -85,7 +85,7 @@ export const ECOSYSTEM_BRANDS = [
     description:
       "Ricky Gerd Fleischers persönliche öffentliche Stimme für Thesen, historische Herleitungen, Systemkritik, internationale Vergleiche und einen eigenen überprüfbaren Gegenentwurf.",
     relationshipToEDebatte:
-      "Vote4Gov kann Thesen zur offenen Prüfung an eDebatte übergeben. Persönliche Vote4Gov-Positionen sind weder eDebatte-Ergebnisse noch automatisch VoiceOpenGov-Positionen.",
+      "Vote4Gov kann Thesen zur offenen Prüfung an eDebatte übergeben. Persönliche Vote4Gov-Positionen sind weder eDebatte-Ergebnisse noch automatisch VoiceOpenGov-Positionen; ein später gültig abgeschlossenes eDebatte-Ergebnis bindet die zuständige VoiceOpenGov-Repräsentation, nicht automatisch Rickys persönliche Überzeugung.",
     target: availableExternalTarget(VOTE4GOV_URL),
   },
   {
