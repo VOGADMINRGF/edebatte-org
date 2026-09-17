@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import DossierPageClient from "./ui";
 import { buildShareMetadata } from "@/features/share/metadata";
+import { getPublicEditorialDossier } from "@/features/dossier/publicEditorialDossiers";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -8,11 +9,14 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
+  const editorialDossier = getPublicEditorialDossier(id);
   return buildShareMetadata({
     objectType: "dossier",
     pathOrUrl: `/dossier/${id}`,
-    title: `Dossier ${id}`,
-    description: "Dossier-Ansicht mit Kontext, Einordnung und offenen Anschlussfragen.",
+    title: editorialDossier?.meta.title ?? `Dossier ${id}`,
+    description:
+      editorialDossier?.analyze.report.summary ??
+      "Dossier-Ansicht mit Kontext, Einordnung und offenen Anschlussfragen.",
     ogType: "article",
   });
 }
