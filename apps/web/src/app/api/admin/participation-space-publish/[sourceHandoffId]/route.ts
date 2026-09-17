@@ -5,6 +5,7 @@ import {
   activateApprovedParticipationSpace,
   approveParticipationSpaceActivation,
   approveParticipationSpacePublication,
+  getParticipationSpacePublishRecord,
   publishApprovedParticipationSpace,
   rejectParticipationSpaceActivation,
   rejectParticipationSpacePublication,
@@ -74,6 +75,13 @@ const BodySchema = z.discriminatedUnion("action", [
   ReviewActionSchema,
 ]);
 
+const RELEASE_ACTIONS_REQUIRING_CURRENT_GUARD = new Set([
+  "approveParticipationSpaceActivation",
+  "activateApprovedParticipationSpace",
+  "approveParticipationSpacePublication",
+  "publishApprovedParticipationSpace",
+]);
+
 export async function POST(
   req: NextRequest,
   context: {
@@ -96,6 +104,19 @@ export async function POST(
   try {
     const { sourceHandoffId } = await context.params;
     const body = BodySchema.parse(await req.json());
+
+    if (RELEASE_ACTIONS_REQUIRING_CURRENT_GUARD.has(body.action)) {
+      const currentRecord = await getParticipationSpacePublishRecord(sourceHandoffId);
+      if (!currentRecord) {
+        throw new Error("participation_space_publish_record_not_found");
+      }
+      if (
+        currentRecord.questionGuard.candidatePublicQuestion !==
+        currentRecord.participationQuestion
+      ) {
+        throw new Error("participation_space_question_guard_stale");
+      }
+    }
 
     const result =
       body.action === "reviewParticipationSpaceQuestionGuard"
@@ -144,13 +165,14 @@ export async function POST(
         ? error.message
         : "participation_space_publish_action_failed";
     const status =
-      message === "participation_space_publish_state_conflict"
+      message === "participation_space_publish_state_conflict" ||
+      message === "participation_space_question_guard_stale"
         ? 409
         : message === "participation_space_publish_record_not_found"
-        ? 404
-        : message === "participation_space_missing"
-          ? 409
-          : 400;
+          ? 404
+          : message === "participation_space_missing"
+            ? 409
+            : 400;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
