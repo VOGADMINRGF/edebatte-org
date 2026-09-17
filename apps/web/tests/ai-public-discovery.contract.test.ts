@@ -7,18 +7,21 @@ function read(path: string) {
 }
 
 describe("AI and public discovery contract", () => {
-  it("keeps the ecosystem on independent eDebatte and VOG-owned governance", () => {
+  it("keeps eDebatte independent while preserving binding VOG representation mandates", () => {
     const ecosystem = read("src/config/ecosystem.ts");
     const llms = read("public/llms.txt");
 
-    expect(ecosystem).toContain("Politische und gesellschaftliche Bewegung mit eigener Governance");
-    expect(ecosystem).toContain("Ein eDebatte-Ergebnis wird jedoch nicht automatisch zu einer VoiceOpenGov-Position");
-    expect(ecosystem).not.toContain("gültige eDebatte-Mehrheitsmandate");
-    expect(ecosystem).not.toContain("verpflichtet seine politische Repräsentation");
+    expect(ecosystem).toContain("Politische Repräsentations- und Umsetzungsschicht");
+    expect(ecosystem).toContain("gültige eDebatte-Mehrheitsmandate");
+    expect(ecosystem).toContain("verpflichtet seine politische Repräsentation");
+    expect(ecosystem).toContain("Entwürfe, laufende Debatten, unvollständige Abstimmungen und informelle Stimmungsbilder binden nicht");
+    expect(ecosystem).not.toContain("Ein eDebatte-Ergebnis wird jedoch nicht automatisch zu einer VoiceOpenGov-Position");
 
-    expect(llms).toContain("An eDebatte result does not automatically become a VoiceOpenGov position.");
-    expect(llms).toContain("VoiceOpenGov decides its own program state under its own published governance rules.");
-    expect(llms).toContain("Machine summaries should preserve the visible publication status");
+    expect(llms).toContain("VoiceOpenGov has voluntarily bound its political representation to validly concluded eDebatte decisions");
+    expect(llms).toContain("Drafts, ongoing deliberations, incomplete votes, informal sentiment and unverified snapshots do not create a binding VoiceOpenGov mandate.");
+    expect(llms).toContain("A majority percentage describes the defined eligible voting process and rule.");
+    expect(llms).toContain("Discovery visibility and decision validity are separate contracts");
+    expect(llms).not.toContain("VoiceOpenGov decides its own program state under its own published governance rules.");
   });
 
   it("uses canonical cross-domain ecosystem hosts", () => {
