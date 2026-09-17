@@ -17,6 +17,17 @@ describe("newsletter delivery policy", () => {
     ).toEqual({ allowed: false, reason: "duplicate" });
   });
 
+  it("allows only critical items for important-only frequency", () => {
+    expect(
+      resolveNewsletterDeliveryPolicy({
+        frequency: "important_only",
+        audienceTier: "pro",
+        now,
+        candidateId: "normal-1",
+      }),
+    ).toEqual({ allowed: false, reason: "important_only" });
+  });
+
   it("blocks non-critical delivery during quiet hours", () => {
     expect(
       resolveNewsletterDeliveryPolicy({
