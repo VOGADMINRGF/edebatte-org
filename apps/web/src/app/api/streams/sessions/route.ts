@@ -27,6 +27,15 @@ const CreateSessionBodySchema = z.object({
   autofillAgenda: z.boolean().optional(),
 });
 
+const TRUSTED_EMBED_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "youtube-nocookie.com",
+  "www.youtube-nocookie.com",
+  "player.vimeo.com",
+  "player.twitch.tv",
+]);
+
 function slugify(value: string) {
   return String(value || "")
     .trim()
@@ -49,6 +58,20 @@ function normalizePlayerUrl(value: unknown): string | null | undefined {
       return undefined;
     }
     if (parsed.username || parsed.password) return undefined;
+
+    const host = parsed.hostname.toLowerCase();
+    const looksLikeKnownEmbed =
+      parsed.pathname.includes("youtube.com/embed") ||
+      parsed.pathname.includes("player.vimeo.com") ||
+      parsed.pathname.includes("player.twitch.tv") ||
+      parsed.search.includes("youtube.com/embed") ||
+      parsed.search.includes("player.vimeo.com") ||
+      parsed.search.includes("player.twitch.tv");
+
+    // The public viewer recognizes known embeds by string pattern. Reject host-confusion
+    // payloads that could otherwise smuggle those markers through an unrelated HTTPS host.
+    if (looksLikeKnownEmbed && !TRUSTED_EMBED_HOSTS.has(host)) return undefined;
+
     return parsed.toString();
   } catch {
     return undefined;
