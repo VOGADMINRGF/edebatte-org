@@ -61,38 +61,39 @@ export const ECOSYSTEM_BRANDS = [
   {
     id: "edebatte",
     displayName: BRAND.name,
-    canonicalRole: "Offene Infrastruktur",
+    canonicalRole: "Unabhängige offene Infrastruktur",
     description:
-      "Offene Infrastruktur für nachvollziehbare Erkenntnis, Orientierung und Beteiligung.",
+      "Offene Infrastruktur für nachvollziehbare Evidenz, Dossiers, Gegenpositionen, Beteiligung und Orientierung.",
     relationshipToEDebatte:
-      "eDebatte bleibt offen für Bürger, Kommunen, Unternehmen, Vereine, Parteien, Wissenschaft, Medien und NGOs.",
+      "eDebatte bleibt für Bürger, Kommunen, Unternehmen, Vereine, Parteien, Wissenschaft, Medien, NGOs und andere Akteure unabhängig nutzbar.",
     target: availableInternalTarget(eDebatteBaseUrl.pathname),
   },
   {
     id: "voiceopengov",
     displayName: "VoiceOpenGov",
-    canonicalRole: "Internationale Mitgliederbewegung",
+    canonicalRole: "Politische und gesellschaftliche Bewegung im Aufbau",
     description:
-      "Internationale Mitgliederbewegung, die offene demokratische Zusammenarbeit organisiert.",
-    relationshipToEDebatte: "VoiceOpenGov nutzt eDebatte, besitzt eDebatte aber nicht.",
+      "VoiceOpenGov organisiert Community, regionale Präsenz, eigene Governance und einen versionierten dynamischen Programmstand.",
+    relationshipToEDebatte:
+      "VoiceOpenGov kann eDebatte als Evidenz-, Dossier- und Beteiligungsschicht nutzen, besitzt eDebatte aber nicht. eDebatte-Ergebnisse binden VoiceOpenGov nicht automatisch.",
     target: availableExternalTarget(VOG_SUPPORT_URL),
   },
   {
     id: "vote4gov",
     displayName: "Vote4Gov",
-    canonicalRole: "Gesellschaftliche Denkwerkstatt",
+    canonicalRole: "Persönlicher Denk- und Entwurfsraum",
     description:
-      "Gesellschaftliche Denkwerkstatt für die Weiterentwicklung demokratischer Repräsentation und Beteiligung.",
+      "Ricky Gerd Fleischers persönliche öffentliche Stimme für Thesen, historische Herleitungen, Systemkritik, internationale Vergleiche und einen eigenen überprüfbaren Gegenentwurf.",
     relationshipToEDebatte:
-      "Vote4Gov ist eigenständig und ersetzt weder eDebatte noch VoiceOpenGov.",
+      "Vote4Gov kann Thesen zur offenen Prüfung an eDebatte übergeben. Persönliche Vote4Gov-Positionen werden dadurch weder zu eDebatte-Wahrheiten noch automatisch zu VoiceOpenGov-Positionen.",
     target: UNAVAILABLE_TARGET,
   },
   {
     id: "voxy",
     displayName: "Voxy",
-    canonicalRole: "Transparente Begleitung",
+    canonicalRole: "Erklär- und Übersetzungsschicht",
     description:
-      "Transparente Begleitung, die Orientierung gibt und nächste Schritte nachvollziehbar macht.",
+      "Voxy erklärt, strukturiert und übersetzt Inhalte und Unsicherheiten, ohne politische oder organisatorische Entscheidungen zu treffen.",
     relationshipToEDebatte:
       "Voxy begleitet eDebatte und ist weder Eigentümer, Entscheider noch Veröffentlichungsautomatismus.",
     target: UNAVAILABLE_TARGET,
