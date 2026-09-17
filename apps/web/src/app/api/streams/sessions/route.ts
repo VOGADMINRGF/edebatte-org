@@ -39,6 +39,22 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizePlayerUrl(value: unknown): string | null | undefined {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    const localDev = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+    if (parsed.protocol !== "https:" && !(localDev && parsed.protocol === "http:")) {
+      return undefined;
+    }
+    if (parsed.username || parsed.password) return undefined;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 async function isTopicRegistered(topicKey: string): Promise<boolean> {
   if (TOPIC_CHOICES.some((t) => t.key === topicKey)) return true;
   const col = await coreCol("statements");
@@ -108,11 +124,22 @@ export async function POST(req: NextRequest) {
   const startsAtIso = typeof body.startsAt === "string" ? body.startsAt.trim() : null;
   const startsAt = startsAtIso ? new Date(startsAtIso) : null;
   const parsedStartsAt = startsAt && !isNaN(startsAt.getTime()) ? startsAt : null;
-  const playerUrl = typeof body.playerUrl === "string" ? body.playerUrl.trim() || null : null;
+  const playerUrl = normalizePlayerUrl(body.playerUrl);
+  if (playerUrl === undefined) {
+    return NextResponse.json({ ok: false, error: "unsafe_player_url" }, { status: 400 });
+  }
+
   const visibility: StreamVisibility =
     body.visibility === "public" || body.visibility === "unlisted" ? body.visibility : "unlisted";
   const status: StreamSessionStatus =
     parsedStartsAt && parsedStartsAt > new Date() ? "scheduled" : "draft";
+
+  if (visibility === "public" && status === "draft") {
+    return NextResponse.json(
+      { ok: false, error: "public_requires_schedule" },
+      { status: 400 },
+    );
+  }
 
   if (topicKey && !(await isTopicRegistered(topicKey))) {
     return NextResponse.json(
