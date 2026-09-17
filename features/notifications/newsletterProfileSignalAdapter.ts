@@ -11,7 +11,7 @@ export type NewsletterAccountProfileSource = {
   readingLocale?: string | null;
   regionKeys?: readonly string[] | null;
   profile?: {
-    topTopics?: readonly Array<{ key?: string | null } | string> | null;
+    topTopics?: ReadonlyArray<{ key?: string | null } | string> | null;
     publicLocation?: {
       city?: string | null;
       region?: string | null;
