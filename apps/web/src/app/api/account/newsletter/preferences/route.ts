@@ -5,6 +5,7 @@ import {
   getNewsletterPreferenceStateForUser,
   updateNewsletterPreferenceStateForUser,
 } from "@/features/newsletter/newsletterRuntime";
+import { mergeNewsletterPreferenceCenter } from "@features/notifications/newsletterPreferenceCenterContract";
 import { readSession } from "@/utils/session";
 
 export const runtime = "nodejs";
@@ -75,7 +76,33 @@ export async function PATCH(req: NextRequest) {
       { status: 400 },
     );
   }
-  const result = await updateNewsletterPreferenceStateForUser(uid, parsed.data);
+
+  const current = await getNewsletterPreferenceStateForUser(uid);
+  if (!current) {
+    return NextResponse.json({ ok: false, error: "user_or_email_not_found" }, { status: 404 });
+  }
+  if (current.status === "not_subscribed") {
+    return NextResponse.json({ ok: false, error: "subscription_required" }, { status: 409 });
+  }
+
+  const normalized = mergeNewsletterPreferenceCenter({
+    preferences: {
+      ...current.center.preferences,
+      ...(parsed.data.preferences ?? {}),
+    },
+    personalizationSources: {
+      ...current.center.personalizationSources,
+      ...(parsed.data.personalizationSources ?? {}),
+    },
+    quietHours: {
+      ...current.center.quietHours,
+      ...(parsed.data.quietHours ?? {}),
+    },
+    showRelevanceExplanation:
+      parsed.data.showRelevanceExplanation ?? current.center.showRelevanceExplanation,
+  });
+
+  const result = await updateNewsletterPreferenceStateForUser(uid, normalized);
   if (!result.ok) {
     const status = result.error === "subscription_required" ? 409 : 400;
     return NextResponse.json(result, { status });
