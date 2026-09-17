@@ -1,10 +1,22 @@
+import { readdir, readFile } from "node:fs/promises";
+
 const repo = process.env.GITHUB_REPOSITORY;
 const sha = process.env.GITHUB_SHA;
-const key = "7d25c37db2725130802bfd3a126b42a6";
 const site = "https://www.edebatte.org";
 const host = "www.edebatte.org";
-const keyLocation = `${site}/${key}.txt`;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const publicDir = new URL("../public/", import.meta.url);
+const candidateFiles = (await readdir(publicDir)).filter((name) => /^[a-f0-9]{32}\.txt$/i.test(name));
+if (candidateFiles.length !== 1) {
+  throw new Error(`IndexNow: expected exactly one public 32-hex verification file, found ${candidateFiles.length}.`);
+}
+const verificationFile = candidateFiles[0];
+const key = (await readFile(new URL(`../public/${verificationFile}`, import.meta.url), "utf8")).trim();
+if (`${key}.txt` !== verificationFile) {
+  throw new Error("IndexNow: public verification filename/content mismatch.");
+}
+const keyLocation = `${site}/${verificationFile}`;
 
 if (!repo || !sha) {
   console.log("IndexNow: no exact GitHub commit context; no URLs submitted.");
