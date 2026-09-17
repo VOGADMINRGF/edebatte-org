@@ -39,6 +39,18 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeHttpsPlayerUrl(value: unknown): string | null | undefined {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 async function isTopicRegistered(topicKey: string): Promise<boolean> {
   if (TOPIC_CHOICES.some((t) => t.key === topicKey)) return true;
   const col = await coreCol("statements");
@@ -103,16 +115,37 @@ export async function POST(req: NextRequest) {
   if (!title) {
     return NextResponse.json({ ok: false, error: "TITLE_REQUIRED" }, { status: 400 });
   }
+
   const topicKey = typeof body.topicKey === "string" ? body.topicKey.trim() || null : null;
   const regionCode = typeof body.regionCode === "string" ? body.regionCode.trim() || null : null;
   const startsAtIso = typeof body.startsAt === "string" ? body.startsAt.trim() : null;
   const startsAt = startsAtIso ? new Date(startsAtIso) : null;
   const parsedStartsAt = startsAt && !isNaN(startsAt.getTime()) ? startsAt : null;
-  const playerUrl = typeof body.playerUrl === "string" ? body.playerUrl.trim() || null : null;
+  const playerUrl = normalizeHttpsPlayerUrl(body.playerUrl);
+  if (playerUrl === undefined) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_player_url", hint: "player_url_must_be_https" },
+      { status: 400 },
+    );
+  }
+
   const visibility: StreamVisibility =
     body.visibility === "public" || body.visibility === "unlisted" ? body.visibility : "unlisted";
+  const now = new Date();
   const status: StreamSessionStatus =
-    parsedStartsAt && parsedStartsAt > new Date() ? "scheduled" : "draft";
+    parsedStartsAt && parsedStartsAt > now ? "scheduled" : "draft";
+
+  // Fail closed: an unfinished draft is never silently turned into a public announcement.
+  if (visibility === "public" && status === "draft") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "public_requires_future_start",
+        hint: "Setze eine zukünftige Startzeit oder lege die Session zunächst nicht gelistet an.",
+      },
+      { status: 400 },
+    );
+  }
 
   if (topicKey && !(await isTopicRegistered(topicKey))) {
     return NextResponse.json(
@@ -121,7 +154,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const now = new Date();
   const doc: StreamSessionDoc = {
     creatorId: ctx.userId,
     slug: slugify(title) || null,
@@ -160,6 +192,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     sessionId,
+    status,
+    visibility,
     autofillError,
   });
 }
