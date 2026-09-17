@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { coreCol, votesCol } from "@core/db/triMongo";
 import chatkontrolleDossier from "@features/dossier/data/chatkontrolleDossier";
@@ -26,8 +27,9 @@ type VoteBody = {
 };
 
 type DossierVoteDoc = {
+  _id: string;
   dossierId: string;
-  userId: string;
+  voterKey: string;
   optionId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +38,20 @@ type DossierVoteDoc = {
 function readId(value: string | null | undefined) {
   const trimmed = String(value ?? "").trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildVoterKey(dossierId: string, userId: string | null) {
+  if (!userId) return null;
+  const secret =
+    process.env.VOTE_ID_SALT ?? process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET ?? null;
+  if (!secret) return null;
+  return createHmac("sha256", secret)
+    .update(`dossier-vote\u0000${dossierId}\u0000${userId}`)
+    .digest("hex");
+}
+
+function buildVoteDocumentId(dossierId: string, voterKey: string) {
+  return `${dossierId}:${voterKey}`;
 }
 
 async function loadPublicDossier(dossierId: string) {
@@ -49,7 +65,7 @@ async function loadPublicDossier(dossierId: string) {
   return stored?.dossier ?? null;
 }
 
-async function buildSummary(dossierId: string, userId: string | null, optionIds: string[]) {
+async function buildSummary(dossierId: string, voterKey: string | null, optionIds: string[]) {
   const col = await votesCol<DossierVoteDoc>(DOSSIER_VOTES);
   const grouped = await col
     .aggregate<{ _id: string; count: number }>([
@@ -59,7 +75,9 @@ async function buildSummary(dossierId: string, userId: string | null, optionIds:
     .toArray();
   const counts = new Map(grouped.map((row) => [String(row._id), Number(row.count) || 0]));
   const totalVotes = optionIds.reduce((sum, optionId) => sum + (counts.get(optionId) ?? 0), 0);
-  const mine = userId ? await col.findOne({ dossierId, userId }) : null;
+  const mine = voterKey
+    ? await col.findOne({ _id: buildVoteDocumentId(dossierId, voterKey) })
+    : null;
 
   return {
     totalVotes,
@@ -89,9 +107,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
     const policy = resolvePublicDossierVotePolicy(dossier);
     const userId = req.cookies.get("u_id")?.value ?? null;
+    const voterKey = buildVoterKey(dossierId, userId);
     const summary = await buildSummary(
       dossierId,
-      userId,
+      voterKey,
       policy.options.map((option) => option.id),
     );
     return NextResponse.json({
@@ -158,6 +177,18 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
   }
 
+  const voterKey = buildVoterKey(dossierId, String(userId));
+  if (!voterKey) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "vote_identity_unavailable",
+        message: "Die pseudonyme Stimmspeicherung ist derzeit nicht konfiguriert.",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const dossier = await loadPublicDossier(dossierId);
     if (!dossier) {
@@ -180,20 +211,20 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     const now = new Date();
     const col = await votesCol<DossierVoteDoc>(DOSSIER_VOTES);
-    const key = { dossierId, userId: String(userId) };
-    const existing = await col.findOne(key, { projection: { optionId: 1 } });
+    const voteDocumentId = buildVoteDocumentId(dossierId, voterKey);
+    const existing = await col.findOne({ _id: voteDocumentId }, { projection: { optionId: 1 } });
     await col.updateOne(
-      key,
+      { _id: voteDocumentId },
       {
-        $set: { optionId, updatedAt: now },
-        $setOnInsert: { dossierId, userId: String(userId), createdAt: now },
+        $set: { dossierId, voterKey, optionId, updatedAt: now },
+        $setOnInsert: { _id: voteDocumentId, createdAt: now },
       },
       { upsert: true },
     );
 
     const summary = await buildSummary(
       dossierId,
-      String(userId),
+      voterKey,
       options.map((option) => option.id),
     );
 
