@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { updateAccountSettings } from "@features/account/service";
+import { getAccountOverview, updateAccountSettings } from "@features/account/service";
 import type { AccountSettingsUpdate } from "@features/account/types";
 import { ACCOUNT_FEATURE_INTEREST_KEYS } from "@features/account/types";
+import { syncAccountNewsletterSubscription } from "@features/notifications/newsletterSubscriptions";
 import { isSupportedLocale } from "@core/locale/locales";
 import { readSession } from "@/utils/session";
 
@@ -83,6 +84,39 @@ export async function PATCH(req: NextRequest) {
     newsletterOptIn: parsed.data.newsletterOptIn,
     featureInterests: parsed.data.featureInterests,
   };
+
+  if (typeof parsed.data.newsletterOptIn === "boolean") {
+    const current = await getAccountOverview(userId);
+    if (!current) {
+      return NextResponse.json({ ok: false, error: "user_not_found" }, { status: 404 });
+    }
+
+    try {
+      await syncAccountNewsletterSubscription({
+        userId,
+        email: current.email,
+        name:
+          typeof parsed.data.displayName === "string"
+            ? parsed.data.displayName
+            : current.displayName,
+        locale:
+          parsed.data.readingLocale ??
+          parsed.data.preferredLocale ??
+          parsed.data.uiLocale ??
+          current.readingLocale,
+        optIn: parsed.data.newsletterOptIn,
+      });
+    } catch (error) {
+      console.error("[newsletter] canonical account preference sync failed", {
+        userId,
+        error: error instanceof Error ? error.message : "unknown_error",
+      });
+      return NextResponse.json(
+        { ok: false, error: "newsletter_preference_sync_failed" },
+        { status: 503 },
+      );
+    }
+  }
 
   const overview = await updateAccountSettings(userId, payload);
   if (!overview) {
