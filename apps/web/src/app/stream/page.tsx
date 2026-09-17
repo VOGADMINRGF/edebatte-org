@@ -60,7 +60,7 @@ export default function StreamPage() {
         </div>
 
         <div className="min-w-0 overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-[0_20px_60px_rgba(15,23,42,0.08)] md:p-6">
-          <StreamList showViews={canSeeViews} showToolbar={false} statusSections />
+          <StreamList showViews={canSeeViews} showToolbar={false} />
           <div className="mt-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3 text-sm text-[rgb(var(--muted))]">
             Aktuell kein passendes öffentliches Event? Anlassraum, Dossier und Swipes bleiben als
             Beteiligungsflächen verfügbar.
