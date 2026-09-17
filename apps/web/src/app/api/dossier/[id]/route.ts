@@ -4,6 +4,7 @@ import demoDossier from "@features/dossier/data/demoDossier";
 import type { MaterialLink, StoredDossier } from "@features/dossier/infra/types";
 import { findDossierByAnyId } from "@features/dossier/lookup";
 import { buildDossierUpdateReadModel } from "@features/dossier/updateReadModel";
+import { getPublicEditorialDossier } from "@/features/dossier/publicEditorialDossiers";
 import {
   getDossierPublicationRuntimeHint,
   getPublishedDossierBySlugOrId,
@@ -21,6 +22,21 @@ export async function GET(_: NextRequest, { params }: RouteParams) {
   const id = rawId ?? "demo";
   if (id === "demo" || id === demoDossier.meta.id) {
     return NextResponse.json({ ok: true, dossier: demoDossier, materialLinks: [] }, { status: 200 });
+  }
+
+  const editorialDossier = getPublicEditorialDossier(id);
+  if (editorialDossier) {
+    return NextResponse.json(
+      {
+        ok: true,
+        dossier: editorialDossier,
+        materialLinks: [],
+        updateContext: null,
+        sourceStatusLabel: "Öffentlich dokumentierter Redaktionsstand · Quellen einzeln nachvollziehbar",
+        updateSummary: null,
+      },
+      { status: 200 },
+    );
   }
 
   try {
