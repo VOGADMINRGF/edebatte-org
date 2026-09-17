@@ -6,7 +6,10 @@ import {
   type ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
-import { isPublicParticipationSpace } from "@/features/participation/publicParticipationSpaceRuntime";
+import {
+  isParticipationQuestionGuardCurrent,
+  isPublicParticipationSpace,
+} from "@/features/participation/publicParticipationSpaceRuntime";
 
 function audit(
   action: ParticipationSpacePublishAuditEntry["action"],
@@ -116,9 +119,17 @@ function buildRecord(
     createdAt: "2026-09-17T09:00:00.000Z",
     updatedAt: publishedAt,
     auditTrail: [
-      audit("activation_approved", "approved_for_activation", activationApprovedAt),
+      audit(
+        "activation_approved",
+        "approved_for_activation",
+        activationApprovedAt,
+      ),
       audit("activated_internal", "activated", activatedAt),
-      audit("publication_approved", "approved_for_publication", publicationApprovedAt),
+      audit(
+        "publication_approved",
+        "approved_for_publication",
+        publicationApprovedAt,
+      ),
       audit("published_public", "published", publishedAt),
     ],
     approvedForActivationAt: activationApprovedAt,
@@ -161,9 +172,9 @@ describe("G2 participation release audit contract", () => {
     };
 
     expect(canActivateParticipationSpace(withAudit)).toBe(true);
-    expect(getParticipationSpacePublishBlockers(withAudit, "activation")).not.toContain(
-      "release_audit_missing",
-    );
+    expect(
+      getParticipationSpacePublishBlockers(withAudit, "activation"),
+    ).not.toContain("release_audit_missing");
   });
 
   it("fails public read closed when any release audit evidence is missing", () => {
@@ -177,11 +188,13 @@ describe("G2 participation release audit contract", () => {
       "published_public",
     ] as const) {
       const missingOne = buildRecord({
-        auditTrail: fullyAudited.auditTrail.filter((entry) => entry.action !== action),
+        auditTrail: fullyAudited.auditTrail.filter(
+          (entry) => entry.action !== action,
+        ),
       });
-      expect(getParticipationSpacePublishBlockers(missingOne, "publication")).toContain(
-        "release_audit_missing",
-      );
+      expect(
+        getParticipationSpacePublishBlockers(missingOne, "publication"),
+      ).toContain("release_audit_missing");
       expect(isPublicParticipationSpace(missingOne)).toBe(false);
     }
   });
@@ -209,5 +222,20 @@ describe("G2 participation release audit contract", () => {
     expect(getParticipationSpacePublishBlockers(record, "activation")).toContain(
       "release_audit_missing",
     );
+  });
+
+  it("rejects a published record when the guarded candidate no longer matches the participation question", () => {
+    const current = buildRecord();
+    expect(isParticipationQuestionGuardCurrent(current)).toBe(true);
+    expect(isPublicParticipationSpace(current)).toBe(true);
+
+    const staleGuard = buildRecord({
+      participationQuestion:
+        "Welche vollständig andere Maßnahme soll stattdessen umgesetzt werden?",
+    });
+
+    expect(staleGuard.questionGuard.releaseState).toBe("draft_allowed");
+    expect(isParticipationQuestionGuardCurrent(staleGuard)).toBe(false);
+    expect(isPublicParticipationSpace(staleGuard)).toBe(false);
   });
 });
