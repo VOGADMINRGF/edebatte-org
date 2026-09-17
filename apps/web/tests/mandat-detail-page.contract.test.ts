@@ -27,13 +27,28 @@ describe("/mandat/[id] read-only public surface", () => {
     expect(html).toContain("anlass-energie-2030");
   });
 
-  it("stays read-only and refuses binding from draft/open processes", async () => {
+  it("shows electorate, turnout, quorum and integrity instead of overstating social reach", async () => {
+    const html = await renderMandat();
+    const lower = html.toLowerCase();
+
+    expect(html).toContain("Legitimation &amp; Reichweite");
+    expect(html).toContain("verified-residents-v1");
+    expect(html).toContain("ten-percent-v1");
+    expect(html).toContain("Abgegebene Stimmen: 475");
+    expect(html).toContain("Gültige Stimmen: 468");
+    expect(html).toContain("Abstimmungsberechtigte Grundgesamtheit: 2500");
+    expect(html).toContain("Quorum erreicht: ja");
+    expect(html).toContain("Ergebnisintegrität: verified");
+    expect(lower).toContain("statistische mehrheit aller einwohnerinnen und einwohner");
+  });
+
+  it("stays read-only and refuses binding from draft/open/unverified processes", async () => {
     const html = await renderMandat();
     const lower = html.toLowerCase();
 
     expect(lower).toContain("öffentlich lesbar und read-only");
     expect(lower).toContain("entwurf, laufende debatte oder unvollständige abstimmung");
-    expect(lower).toContain("nur ein gültig abgeschlossener entscheidungssnapshot");
+    expect(lower).toContain("erfülltem quorum und verifizierter ergebnisintegrität");
     expect(html).toContain("supportsMembershipHandoff: false");
     expect(html).toContain("supportsAutomaticAssignment: false");
     expect(html).toContain("supportsAutomaticBindingFromDraftOrOpenProcess: false");
