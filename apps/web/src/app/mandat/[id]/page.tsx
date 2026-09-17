@@ -4,6 +4,7 @@ import {
   getMandateById,
   isPublicReadOnlyMandate,
   type Mandate,
+  supportsAuthorityDerivationFromEDebatte,
   supportsAutomaticAssignment,
   supportsMandateEditInPublicSurface,
   supportsMembershipHandoff,
@@ -73,13 +74,13 @@ export default async function MandatDetailPage({ params }: PageProps) {
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-10 space-y-6">
       <header className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-6 shadow-sm space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-          VoiceOpenGov Mandatsregister
+          eDebatte Verantwortungsregister
         </p>
         <h1 className="text-2xl font-semibold text-[rgb(var(--fg))]">{mandate.title}</h1>
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.subject}</p>
         <p className="text-sm text-[rgb(var(--fg))]">{mandate.publicSummary}</p>
         <div className="flex flex-wrap gap-2 text-xs text-[rgb(var(--muted))]">
-          <span className="vog-chip vog-chip--status">Mandat</span>
+          <span className="vog-chip vog-chip--status">Verantwortungsnachweis</span>
           <span className="vog-chip vog-chip--status">Status: {statusLabels[mandate.status]}</span>
           <span className="vog-chip vog-chip--status">Verifikation: {verificationLabels[mandate.verificationStatus]}</span>
           <span className="vog-chip vog-chip--status">Letzte Aktualisierung: {formatDate(mandate.lastUpdatedAt)}</span>
@@ -101,12 +102,21 @@ export default async function MandatDetailPage({ params }: PageProps) {
         </article>
 
         <article className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-2">
-          <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Herkunft / Provenienz</h2>
-          <p className="text-sm text-[rgb(var(--muted))]">Register: {mandate.provenance.registerLabel}</p>
-          <p className="text-sm text-[rgb(var(--muted))]">{mandate.provenance.sourceLabel}</p>
-          <p className="text-sm text-[rgb(var(--muted))]">Consent-Status: {mandate.consentStatus}</p>
-          <p className="text-sm text-[rgb(var(--muted))]">Sichtbarkeit: {mandate.visibility}</p>
+          <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Autorisierung</h2>
+          <p className="text-sm text-[rgb(var(--muted))]">Aussteller: {mandate.authority.issuerLabel}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Referenz: {mandate.authority.decisionReference}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">
+            eDebatte dokumentiert diese Autorisierung nur. Sie entsteht nicht durch ein Dossier, eine Runde oder ein Mehrheitsbild in eDebatte.
+          </p>
         </article>
+      </section>
+
+      <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-2">
+        <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Herkunft / Provenienz</h2>
+        <p className="text-sm text-[rgb(var(--muted))]">Register: {mandate.provenance.registerLabel}</p>
+        <p className="text-sm text-[rgb(var(--muted))]">{mandate.provenance.sourceLabel}</p>
+        <p className="text-sm text-[rgb(var(--muted))]">Consent-Status: {mandate.consentStatus}</p>
+        <p className="text-sm text-[rgb(var(--muted))]">Sichtbarkeit: {mandate.visibility}</p>
       </section>
 
       <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-3">
@@ -133,15 +143,14 @@ export default async function MandatDetailPage({ params }: PageProps) {
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.transparency.scopeNote}</p>
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.transparency.confidentialHintBoundary}</p>
         <p className="text-sm text-[rgb(var(--muted))]">
-          Diese Oberfläche ist öffentlich lesbar und read-only.
-          {" "}
-          Es gibt hier keine Bearbeitungsfunktion, keine automatische Zuordnung und keine automatische Mitgliedschaftsübernahme.
+          Diese Oberfläche ist öffentlich lesbar und read-only. Es gibt hier keine Bearbeitungsfunktion, keine automatische Zuordnung,
+          keine automatische Mitgliedschaftsübernahme und keine automatische Ableitung von Mandaten oder Weisungen aus eDebatte-Ergebnissen.
         </p>
       </section>
 
       <section className="flex flex-wrap gap-3">
         <Link href="/mandat" className="btn-secondary text-sm">
-          Zurück zur Mandatsübersicht
+          Zurück zur Übersicht
         </Link>
         <Link href="/howtoworks/edebatte/mandat" className="btn-ghost text-sm">
           Produktkontext ansehen
@@ -151,6 +160,7 @@ export default async function MandatDetailPage({ params }: PageProps) {
       <section className="sr-only">
         <p>supportsMembershipHandoff: {String(supportsMembershipHandoff())}</p>
         <p>supportsAutomaticAssignment: {String(supportsAutomaticAssignment())}</p>
+        <p>supportsAuthorityDerivationFromEDebatte: {String(supportsAuthorityDerivationFromEDebatte())}</p>
         <p>supportsMandateEditInPublicSurface: {String(supportsMandateEditInPublicSurface())}</p>
       </section>
     </main>
