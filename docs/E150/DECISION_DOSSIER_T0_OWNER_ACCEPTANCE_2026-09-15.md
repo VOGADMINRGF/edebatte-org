@@ -11,9 +11,15 @@ ACCEPTED_CODE_HEAD=7dbfe3f4204c76f444014c1fdba9870dd8bb1092
 ACCEPTED_CODE_HEAD_WEB_CI_RUN=2547
 ACCEPTED_CODE_HEAD_WEB_CI_RUN_ID=35271192995
 ACCEPTED_MERGE_CONTEXT_SHA=914b9460099e1ac4719238dbf317694e1db26955
-T0_GLOBAL_DONE=false
-T0_STATUS=accepted_pending_merge
-T1_STATUS=blocked_until_t0_merge
+FINAL_PR_HEAD=4c169f0ecbe568a6848753247442480d5ad62065
+FINAL_PR_WEB_CI_RUN=2556
+FINAL_PR_WEB_CI_RUN_ID=35272256453
+MERGE_PR=859
+MERGED_MAIN_SHA=70e99a3be2ef2327e7c01df3aef711eef79f8f07
+T0_GLOBAL_DONE=true
+T0_STATUS=done
+T1_STATUS=blocked_pending_master_hardening
+NEXT_AUTHORIZED_WORK=WAVE2_CREATE_OWNERSHIP
 ```
 
 The project owner granted T0 acceptance on the condition that any remaining
@@ -25,13 +31,14 @@ identifiers and duplicate/conflicting independence resolutions fail closed; and
 comparators require explicit non-blank source/target context while never
 implying transferability.
 
-The accepted code head then passed exact PR merge-context Web CI against the
-contemporary `main` state. This file records that owner decision; later
-status/documentation commits do not change the accepted code head above.
+The accepted code head passed exact merge-context Web CI, and the final PR head
+also passed Web CI run `#2556` before PR `#859` was merged. The accepted slice
+landed on `main` as `70e99a3be2ef2327e7c01df3aef711eef79f8f07` on 2026-09-17.
+Later status/documentation commits do not change the accepted code head above.
 
-`T0_GLOBAL_DONE` remains false until the accepted slice is actually merged into
-`main`. This prevents a documentation-only owner decision from becoming a false
-implementation-completion signal.
+`T0_GLOBAL_DONE=true` now records both required facts: human owner acceptance and
+actual integration into `main`. This is the post-merge status truth for the T0
+architecture slice.
 
 ## Scope of acceptance
 
@@ -83,9 +90,13 @@ implementation.
 
 ## Acceptance boundary
 
-This acceptance closes the human-owner gate for T0. T0 becomes globally done
-only when this accepted slice is merged into `main` and the post-merge status
-truth records that fact. Until then T1 remains blocked.
+This acceptance closes the human-owner gate for T0, and the merge of PR `#859`
+closes the implementation/integration gate. T0 is therefore globally done for
+its bounded architecture-contract scope.
+
+This does **not** authorize feature T1 yet. The repository-hardening master
+sequence remains in force; the next authorized work is Wave 2 Create ownership.
+T1 stays blocked until that hardening sequence explicitly releases feature work.
 
 No statement in this file turns T0 into an AI/provider test or a production E2E
 acceptance; those are separate downstream gates under the T-track and Production
