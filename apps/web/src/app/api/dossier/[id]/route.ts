@@ -5,6 +5,7 @@ import chatkontrolleDossier from "@features/dossier/data/chatkontrolleDossier";
 import type { MaterialLink, StoredDossier } from "@features/dossier/infra/types";
 import { findDossierByAnyId } from "@features/dossier/lookup";
 import { buildDossierUpdateReadModel } from "@features/dossier/updateReadModel";
+import { withPublicDossierVoteConfig } from "@/components/dossier/publicVotingContract";
 import {
   getDossierPublicationRuntimeHint,
   getPublishedDossierBySlugOrId,
@@ -27,7 +28,7 @@ export async function GET(_: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         ok: true,
-        dossier: chatkontrolleDossier,
+        dossier: withPublicDossierVoteConfig(chatkontrolleDossier),
         materialLinks: [],
         updateContext: null,
         sourceStatusLabel: "Redaktioneller Quellenstand · 17.09.2026",
