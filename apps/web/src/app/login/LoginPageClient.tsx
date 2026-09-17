@@ -27,6 +27,7 @@ export default function LoginPageClient() {
         initialStep={initialStep}
         initialMethod={initialMethod}
         forceTwoFactor={forceTwoFactor}
+        registerHref={registerHref}
       />
 
       <p className="mt-4 text-center text-xs text-[rgb(var(--muted))]">
