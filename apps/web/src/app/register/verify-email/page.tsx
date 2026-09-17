@@ -1,6 +1,5 @@
 "use client";
 
-import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
@@ -49,7 +48,7 @@ export default function VerifyEmailPage() {
       setMessage("E-Mail bestätigt. Weiter geht's mit der Verifikation …");
       const channelTarget = normalizeInternalRedirectPath(payload.next) ?? "/register/identity";
       setTimeout(() => {
-        router.push(channelTarget as Route);
+        router.push(channelTarget as Parameters<typeof router.push>[0]);
       }, 600);
     };
     channel.addEventListener("message", onMessage);
@@ -100,7 +99,7 @@ export default function VerifyEmailPage() {
         });
       }
       setTimeout(() => {
-        router.push(resolvedTarget as Route);
+        router.push(resolvedTarget as Parameters<typeof router.push>[0]);
       }, 1200);
     } catch (err: any) {
       setState("error");
