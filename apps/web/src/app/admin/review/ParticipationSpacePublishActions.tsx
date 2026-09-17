@@ -99,10 +99,19 @@ export default function ParticipationSpacePublishActions({ record }: Props) {
     }
   }
 
-  const canApproveActivation = canApproveParticipationSpaceActivation(record);
-  const canActivate = canActivateParticipationSpace(record);
-  const canApprovePublication = canApproveParticipationSpacePublication(record);
-  const canPublish = canPublishParticipationSpace(record);
+  const questionGuardCurrent =
+    record.questionGuard.candidatePublicQuestion === record.participationQuestion;
+  const needsQuestionGuardReview =
+    record.questionGuard.releaseState === "review_required" ||
+    (record.questionGuard.releaseState === "draft_allowed" &&
+      !questionGuardCurrent);
+  const canApproveActivation =
+    questionGuardCurrent && canApproveParticipationSpaceActivation(record);
+  const canActivate =
+    questionGuardCurrent && canActivateParticipationSpace(record);
+  const canApprovePublication =
+    questionGuardCurrent && canApproveParticipationSpacePublication(record);
+  const canPublish = questionGuardCurrent && canPublishParticipationSpace(record);
 
   return (
     <div className="mt-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4">
@@ -120,7 +129,17 @@ export default function ParticipationSpacePublishActions({ record }: Props) {
         und keinen Auto-Merge.
       </p>
 
-      {record.questionGuard.releaseState === "review_required" ? (
+      {!questionGuardCurrent ? (
+        <p
+          className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"
+          data-testid={`participation-space-question-guard-stale-${record.sourceHandoffId}`}
+        >
+          Die Beteiligungsfrage hat sich seit der Guard-Prüfung geändert. Eine
+          neue evidenzgebundene Guard-Prüfung ist vor jeder Freigabe nötig.
+        </p>
+      ) : null}
+
+      {needsQuestionGuardReview ? (
         <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3">
           <label
             className="block text-xs font-semibold text-amber-950"
