@@ -37,6 +37,11 @@ jobs:
       - run: node scripts/ci/check-repository-integrity-guards.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
       - run: pnpm -C apps/web run test:repository-integrity-guards
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
+      - name: VOG multilingual ballot interaction regression
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/vog-public-ballot.language-switch.contract.test.ts
+          tests/vog-public-ballot.language-switch.interaction.test.tsx
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
 

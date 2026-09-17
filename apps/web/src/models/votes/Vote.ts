@@ -23,6 +23,18 @@ export type VoteDoc = {
   agendaItemId?: string | ObjectId | null;
   qrSetId?: string | ObjectId | null;
   qrQuestionId?: string | ObjectId | null;
+  participationClass?: "open_guest" | "verified_vog_member";
+  attributionMode?: "hidden";
+  legitimacyClass?: "open_public_consultation" | "verified_vog_member_decision";
+  originMetadata?: {
+    source?: "vote4gov" | "voiceopengov" | "direct";
+    origin?: "voiceopengov" | "vote4gov" | "edebatte";
+    originId?: string;
+    originalLocale?: string;
+    readingLocale?: string;
+    uiLocale?: string;
+    outputLocale?: string;
+  };
 };
 
 export async function VoteModel(): Promise<Collection<VoteDoc>> {
