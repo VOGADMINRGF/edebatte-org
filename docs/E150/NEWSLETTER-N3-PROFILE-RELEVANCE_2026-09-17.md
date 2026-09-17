@@ -116,6 +116,18 @@ N3 also provides a pure delivery-policy guard, without scheduler or send runtime
 - critical alerts may bypass quiet hours/fatigue interval
 - critical alerts do not bypass consent/suppression/eligibility gates
 
+## What is already optimized in N3
+
+- transparent reason codes instead of black-box relevance
+- explicit source-level personalization opt-outs
+- Plus/Pro depth without premium relevance-score boosts
+- topic diversity to reduce single-topic flooding
+- duplicate suppression
+- important-only fail-closed behavior
+- quiet-hour and cadence guard foundation
+- language match kept deliberately weak so it cannot dominate substantive relevance
+- critical platform alerts separated from profile matching
+
 ## Optimizations retained for N4/N5
 
 Before production delivery, add:
@@ -125,7 +137,7 @@ Before production delivery, add:
 3. provider-backed bounce/complaint suppression feedback loop
 4. send-volume/rate protection and retry policy
 5. digest observability: selected, skipped, deduped, suppressed, failed, delivered
-6. actual UI and email rendering of "Warum bekomme ich das?"
+6. actual UI and email rendering of `Warum bekomme ich das?`
 7. runtime preference-center API/UI connected to the canonical subscription record
 8. retention limits and cleanup jobs for personalization event data
 9. A/B testing only for format/usability, never political persuasion or viewpoint targeting
