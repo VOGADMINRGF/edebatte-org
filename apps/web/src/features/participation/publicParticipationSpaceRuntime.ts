@@ -14,7 +14,10 @@ import {
   canShowParticipationPlacePublicly,
   getParticipationPlaceDisplayModeLabel,
 } from "@/features/participation/placeFuture";
-import { isParticipationSpaceFeedbackPublic, summarizeParticipationSpaceReadiness } from "@/features/participation/spaceContainer";
+import {
+  isParticipationSpaceFeedbackPublic,
+  summarizeParticipationSpaceReadiness,
+} from "@/features/participation/spaceContainer";
 
 export type PublicParticipationSpaceRuntimeSource =
   | "runtime"
@@ -46,7 +49,10 @@ export type PublicParticipationSpaceRuntimeItem = {
   minorityPositionCount: number;
   nextStepCount: number;
   updatedAt: string;
-  source: Extract<PublicParticipationSpaceRuntimeSource, "runtime" | "fixture_fallback">;
+  source: Extract<
+    PublicParticipationSpaceRuntimeSource,
+    "runtime" | "fixture_fallback"
+  >;
 };
 
 type PublicParticipationSpaceRuntimePlace = {
@@ -128,7 +134,9 @@ export function summarizePublicParticipationSpaceRuntimeState(input: {
   });
 }
 
-export function getPublicParticipationSourceLabel(source: PublicParticipationSpaceRuntimeSource) {
+export function getPublicParticipationSourceLabel(
+  source: PublicParticipationSpaceRuntimeSource,
+) {
   switch (source) {
     case "runtime":
       return "Veröffentlicht";
@@ -143,11 +151,15 @@ export function getPublicParticipationSourceLabel(source: PublicParticipationSpa
   }
 }
 
-function runtimeSourceBadgeLabel(source: PublicParticipationSpaceRuntimeItem["source"]) {
+function runtimeSourceBadgeLabel(
+  source: PublicParticipationSpaceRuntimeItem["source"],
+) {
   return getPublicParticipationSourceLabel(source);
 }
 
-function buildRuntimeSourceNotice(source: PublicParticipationSpaceRuntimeItem["source"]) {
+function buildRuntimeSourceNotice(
+  source: PublicParticipationSpaceRuntimeItem["source"],
+) {
   return source === "runtime"
     ? "Die öffentliche Route bleibt read-only und zeigt nur ausdrücklich freigegebene Beteiligungsräume. Review-, Audit-, Abuse- und Trust-Details bleiben verborgen."
     : "Dieser Eintrag bleibt als klar gekennzeichnete Vorschau sichtbar, bis eine veröffentlichte Fassung vorliegt.";
@@ -159,6 +171,15 @@ function buildPublicLabel(source: PublicParticipationSpaceRuntimeItem["source"])
     : "Dieser Vorschau-Raum bleibt als Beispiel sichtbar, bis eine veröffentlichte Fassung vorliegt.";
 }
 
+export function isParticipationQuestionGuardCurrent(
+  record: ParticipationSpacePublishRecord,
+): boolean {
+  return (
+    Boolean(record.questionGuard?.candidatePublicQuestion) &&
+    record.questionGuard.candidatePublicQuestion === record.participationQuestion
+  );
+}
+
 export function isPublicParticipationSpace(
   record: ParticipationSpacePublishRecord,
 ): boolean {
@@ -167,6 +188,7 @@ export function isPublicParticipationSpace(
     record.visibility === "public" &&
     record.spaceVisibility === "public_read_only" &&
     record.questionGuard?.releaseState === "draft_allowed" &&
+    isParticipationQuestionGuardCurrent(record) &&
     Boolean(record.approvedForActivationAt) &&
     Boolean(record.approvedForActivationBy) &&
     Boolean(record.approvedForPublicationAt) &&
@@ -179,7 +201,10 @@ export function isPublicParticipationSpace(
 
 export function stripInternalParticipationSpaceFields(
   record: ParticipationSpacePublishRecord,
-): Omit<PublicParticipationSpaceRuntimeDetail, "source" | "place" | "topicSummaries" | "openQuestions" | "minorityPositions" | "nextSteps"> {
+): Omit<
+  PublicParticipationSpaceRuntimeDetail,
+  "source" | "place" | "topicSummaries" | "openQuestions" | "minorityPositions" | "nextSteps"
+> {
   return {
     id: String(record.participationSpaceId ?? record.id),
     slug: String(record.participationSpaceSlug ?? record.id),
