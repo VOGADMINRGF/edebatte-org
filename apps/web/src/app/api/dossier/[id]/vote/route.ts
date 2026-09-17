@@ -119,6 +119,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
         ok: false,
         error: "vote_runtime_unavailable",
         message: "Für dieses Dossier ist derzeit keine öffentliche Abstimmung freigegeben.",
+        dossierId,
+        retryable: true,
       },
       { status: 503 },
     );
@@ -141,6 +143,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
         ok: false,
         error: "vote_runtime_unavailable",
         message: "Die Abstimmungsdaten sind aktuell nicht verfügbar.",
+        dossierId,
+        retryable: true,
       },
       { status: 503 },
     );
@@ -177,6 +181,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
         ok: false,
         error: "vote_runtime_unavailable",
         message: "Die Abstimmungsruntime für dieses Dossier ist aktuell nicht verfügbar.",
+        dossierId,
+        retryable: true,
       },
       { status: 503 },
     );
@@ -190,6 +196,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
         ok: false,
         error: "vote_not_released",
         message: "Die Abstimmung ist für diesen Dossierstand noch nicht freigegeben.",
+        dossierId,
+        retryable: false,
       },
       { status: 409 },
     );
@@ -238,6 +246,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
         ok: false,
         error: "vote_runtime_unavailable",
         message: "Die Stimme konnte aktuell nicht gespeichert werden.",
+        dossierId,
+        retryable: true,
       },
       { status: 503 },
     );
