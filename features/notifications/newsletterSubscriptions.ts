@@ -23,6 +23,11 @@ type CanonicalSubscriberDoc = {
   status?: NewsletterSubscriptionStatus | string | null;
   source?: string | null;
   userId?: string | null;
+  consentVersion?: string | null;
+  confirmedAt?: Date | null;
+  unsubscribedAt?: Date | null;
+  confirmTokenHash?: string | null;
+  confirmTokenExpiresAt?: Date | null;
 };
 
 type LegacyUserDoc = {
@@ -30,6 +35,7 @@ type LegacyUserDoc = {
   email?: string | null;
   name?: string | null;
   createdAt?: Date | null;
+  updatedAt?: Date | null;
   accessTier?: string | null;
   tier?: string | null;
   b2cPlanId?: string | null;
@@ -226,7 +232,7 @@ export async function setAdminNewsletterSubscription(input: {
           status: "active",
           source: "admin_recorded",
           consentVersion: "admin_recorded_v1",
-          confirmedAt: existingCanonical?.status === "active" ? (existingCanonical as any).confirmedAt ?? now : now,
+          confirmedAt: existingCanonical?.status === "active" ? existingCanonical.confirmedAt ?? now : now,
           updatedAt: now,
         },
         $setOnInsert: { createdAt: now },
