@@ -5,6 +5,7 @@ import type { Dossier } from "@features/dossier";
 import type { DossierPublicUpdateContext } from "@features/dossier/updateReadModel";
 import demoFallback from "@features/dossier/data/demoDossier";
 import DossierWorkspace from "@/components/dossier/DossierWorkspace";
+import ParliamentaryContextPanel from "@/components/dossier/ParliamentaryContextPanel";
 import {
   isRegionDraftDossierId,
   shouldAllowDemoDossierFallback,
@@ -109,12 +110,21 @@ export function DossierPagePublicBody({
   if (!dossier) return null;
 
   return (
-    <DossierWorkspace
-      dossier={dossier}
-      updateContext={updateContext}
-      sourceStatusLabel={sourceStatusLabel}
-      demo={demo}
-    />
+    <>
+      <DossierWorkspace
+        dossier={dossier}
+        updateContext={updateContext}
+        sourceStatusLabel={sourceStatusLabel}
+        demo={demo}
+      />
+      {!demo ? (
+        <div className="mx-auto w-full max-w-[1180px] px-4 pb-12 sm:px-6 lg:px-8">
+          <section className="rounded-[2rem] border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 sm:p-7">
+            <ParliamentaryContextPanel sources={dossier.sourceSet} />
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }
 
