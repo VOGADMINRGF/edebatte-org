@@ -1,4 +1,16 @@
-import type { MailFailureCategory } from "../../apps/web/src/utils/mailer";
+export type NewsletterMailFailureCategory =
+  | "recipient_invalid"
+  | "recipient_placeholder_domain"
+  | "recipient_test_domain_blocked"
+  | "recipient_domain_not_allowed"
+  | "mail_content_invalid"
+  | "sender_configuration_invalid"
+  | "smtp_unconfigured"
+  | "smtp_auth_error"
+  | "smtp_connection_error"
+  | "smtp_timeout"
+  | "smtp_response_error"
+  | "smtp_unknown_error";
 
 export type NewsletterRetryDecision = {
   allowed: boolean;
@@ -53,7 +65,7 @@ export function resolveNewsletterRetryDecision(input: {
   return { allowed: true, reason: "retry_allowed", nextAttemptAt };
 }
 
-export function shouldSuppressNewsletterRecipient(category: MailFailureCategory) {
+export function shouldSuppressNewsletterRecipient(category: NewsletterMailFailureCategory) {
   return category === "recipient_invalid" || category === "recipient_placeholder_domain";
 }
 
