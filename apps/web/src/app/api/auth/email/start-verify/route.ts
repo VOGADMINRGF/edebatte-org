@@ -14,12 +14,14 @@ import {
   beginPublicAuthMailControl,
   finishPublicAuthMailControl,
 } from "@/utils/publicAuthMailControl";
+import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
   email: z.string().email(),
+  next: z.string().max(2048).optional(),
 });
 
 const PUBLIC_VERIFY_RESPONSE = { ok: true } as const;
@@ -32,6 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   const email = parsed.data.email.trim().toLowerCase();
+  const continuationTarget = normalizeInternalRedirectPath(parsed.data.next) ?? null;
   const control = await beginPublicAuthMailControl(req, "verify", email);
 
   try {
@@ -52,7 +55,11 @@ export async function POST(req: NextRequest) {
       );
 
       if (user?._id instanceof ObjectId) {
-        const { rawToken } = await createEmailVerificationToken(user._id, email);
+        const { rawToken } = await createEmailVerificationToken(
+          user._id,
+          email,
+          continuationTarget,
+        );
         await logIdentityEvent("identity_email_verify_start", {
           userId: String(user._id),
           meta: { email },

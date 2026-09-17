@@ -8,6 +8,7 @@ import { sendMail } from "@/utils/mailer";
 import { buildAccountWelcomeMail } from "@/utils/emailTemplates";
 import { publicOrigin } from "@/utils/publicOrigin";
 import { mailLocaleFromUser } from "@/utils/mailRenderer";
+import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,5 +80,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, next: "/register/identity" });
+  const continuationTarget = normalizeInternalRedirectPath(consumption.continuationTarget);
+  const next = continuationTarget
+    ? `/register/identity?next=${encodeURIComponent(continuationTarget)}`
+    : "/register/identity";
+
+  return NextResponse.json({ ok: true, next });
 }

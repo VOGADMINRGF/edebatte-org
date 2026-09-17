@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
 import { RegisterStepper } from "../RegisterStepper";
 
 const TOKEN_VALIDITY_HOURS = 24;
@@ -10,12 +11,7 @@ const CHANNEL_NAME = "edb-email-verify";
 type State = "idle" | "pending" | "success" | "error";
 
 function sanitizeNext(value: string | null) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("/")) return null;
-  if (trimmed.startsWith("//")) return null;
-  if (trimmed.includes("://")) return null;
-  return trimmed;
+  return normalizeInternalRedirectPath(value);
 }
 
 export default function VerifyEmailPage() {
@@ -25,8 +21,8 @@ export default function VerifyEmailPage() {
   const tokenParam = search.get("token");
   const mailStatusParam = search.get("mail");
   const nextParam = useMemo(() => sanitizeNext(search.get("next")), [search]);
-  const nextAfterVerify = useMemo(
-    () => (nextParam ? `/register/identity?next=${encodeURIComponent(nextParam)}` : "/register/identity"),
+  const sameTabNextAfterVerify = useMemo(
+    () => (nextParam ? `/register/identity?next=${encodeURIComponent(nextParam)}` : null),
     [nextParam],
   );
   const [token, setToken] = useState(tokenParam ?? "");
@@ -50,13 +46,14 @@ export default function VerifyEmailPage() {
       if (payload.email && emailParam && payload.email !== emailParam) return;
       setState("success");
       setMessage("E-Mail bestätigt. Weiter geht's mit der Verifikation …");
+      const channelTarget = normalizeInternalRedirectPath(payload.next) ?? "/register/identity";
       setTimeout(() => {
-        router.push(payload.next || nextAfterVerify);
+        router.push(channelTarget);
       }, 600);
     };
     channel.addEventListener("message", onMessage);
     return () => channel.removeEventListener("message", onMessage);
-  }, [channel, emailParam, nextAfterVerify, router]);
+  }, [channel, emailParam, router]);
 
   useEffect(() => {
     if (!tokenParam) return;
@@ -90,17 +87,19 @@ export default function VerifyEmailPage() {
         }
         throw new Error(friendly);
       }
+      const serverTarget = normalizeInternalRedirectPath(body?.next);
+      const resolvedTarget = sameTabNextAfterVerify ?? serverTarget ?? "/register/identity";
       setState("success");
       setMessage("E-Mail bestätigt. Weiter geht's mit der Verifikation …");
       if (channel) {
         channel.postMessage({
           type: "edb-email-verify-success",
           email: emailParam || undefined,
-          next: nextAfterVerify,
+          next: resolvedTarget,
         });
       }
       setTimeout(() => {
-        router.push(nextAfterVerify || body?.next || "/register/identity");
+        router.push(resolvedTarget);
       }, 1200);
     } catch (err: any) {
       setState("error");
@@ -119,7 +118,10 @@ export default function VerifyEmailPage() {
       await fetch("/api/auth/email/start-verify", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: emailParam }),
+        body: JSON.stringify({
+          email: emailParam,
+          next: nextParam ?? undefined,
+        }),
       });
       setResendState("sent");
       setMessage(`Wir haben dir eine neue E-Mail gesendet. Der Link ist ${TOKEN_VALIDITY_HOURS} Stunden gültig.`);

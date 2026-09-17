@@ -18,6 +18,7 @@ import { ensureFounderWelcomeForUser } from "@/lib/onboarding/founderWelcome";
 import { logOnboardingEvent } from "@/lib/onboarding/events";
 import { refreshUserPreferenceSnapshot } from "@/lib/onboarding/preferenceSnapshot";
 import { runContentTranslationProduction } from "@/features/i18n/contentTranslationProduction";
+import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
 import {
   LEGACY_REGISTER_HONEYPOT_FIELD_NAME,
   REGISTER_HONEYPOT_FIELD_NAME,
@@ -62,6 +63,7 @@ const schema = z.object({
   hp_register: z.string().optional(),
   reg_guardian_reference: z.string().optional(),
   inviteCode: z.string().trim().max(128).optional(),
+  next: z.string().max(2048).optional(),
 });
 
 const RATE_LIMIT_MAX = 6;
@@ -364,6 +366,7 @@ export async function POST(req: NextRequest) {
   const displayName = body.name.trim();
   const inviteFromQuery = sanitizeInviteCode(req.nextUrl.searchParams.get("invite"));
   const inviteCode = sanitizeInviteCode(body.inviteCode) ?? inviteFromQuery;
+  const continuationTarget = normalizeInternalRedirectPath(body.next) ?? null;
 
   if (!isPasswordStrong(body.password)) {
     return NextResponse.json({ error: "weak_password" }, { status: 400 });
@@ -621,7 +624,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tokenResult = await createEmailVerificationToken(userId, email);
+    const tokenResult = await createEmailVerificationToken(
+      userId,
+      email,
+      continuationTarget,
+    );
     rawToken = tokenResult.rawToken;
   } catch (err) {
     emailVerification = { status: "pending", reason: "token_create_failed" };
