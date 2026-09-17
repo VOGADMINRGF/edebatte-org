@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PUBLICATION_CLASSIFICATIONS,
+  resolvePublicationClassification,
+  type AtomicClaim,
+  type EvidenceAssessment,
+} from "@features/analyze/atomicClaimSourceRelationContract";
+import {
   REQUIRED_DECISION_DIMENSIONS,
+  canPresentAsVerifiedFact,
   canPresentAsVerifiedMeasurement,
   countStructuralLineageRoots,
   countVerifiedIndependentEvidenceFamilies,
@@ -180,5 +187,61 @@ describe("decision dossier T0 final semantic edge hardening", () => {
     expect(evaluateComparator({ ...comparator, jurisdiction: "Germany" }).transferability).toBe(
       "requires_review",
     );
+  });
+
+  it("consumes the canonical publication classification instead of inventing a T0 publication truth", () => {
+    const claim: AtomicClaim = {
+      id: "t0-publication-boundary",
+      type: "factual_claim",
+      text: "A factual claim without canonical source support.",
+      originalLocale: "en",
+      scope: {
+        subject: "subject",
+        predicate: "is",
+        object: "object",
+        timeScope: null,
+        jurisdictionScope: "DE",
+        populationScope: "people",
+        quantification: null,
+      },
+    };
+    const assessment: EvidenceAssessment = {
+      sourceSegmentFidelity: "high",
+      speakerAttributionConfidence: "high",
+      transcriptionConfidence: "not_applicable",
+      claimEntailmentStrength: "strong",
+      sourceReliabilityForClaim: "high",
+      sourceIndependence: "verified",
+      externalVerificationStatus: "verified",
+      generalizabilityScope: "bounded",
+      counterevidenceStatus: "none_found",
+      freshnessStatus: "current",
+      humanReviewStatus: "reviewed",
+    };
+
+    const canonicalResult = resolvePublicationClassification({
+      claim,
+      relations: [],
+      sourceSegments: [],
+      assessment,
+    });
+
+    expect(canonicalResult).toBe("blocked_source_integrity");
+    expect(PUBLICATION_CLASSIFICATIONS).toContain(canonicalResult);
+    expect(
+      canPresentAsVerifiedFact("FACT", {
+        ...resolution,
+        publicationClassification: canonicalResult,
+      }),
+    ).toBe(false);
+
+    for (const classification of PUBLICATION_CLASSIFICATIONS) {
+      expect(
+        canPresentAsVerifiedFact("FACT", {
+          ...resolution,
+          publicationClassification: classification,
+        }),
+      ).toBe(classification === "publishable_as_externally_verified_fact");
+    }
   });
 });
