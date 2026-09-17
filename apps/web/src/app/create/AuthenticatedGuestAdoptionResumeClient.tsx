@@ -124,8 +124,7 @@ export default function AuthenticatedGuestAdoptionResumeClient({
               <button
                 type="button"
                 onClick={() => void resume()}
-                disabled={inFlight.current}
-                className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
+                className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-black"
               >
                 {copy.retry}
               </button>
