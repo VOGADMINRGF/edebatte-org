@@ -2,6 +2,24 @@
 
 import type { PublicQuestionGeneralizationResult } from "@/features/create/safety/publicQuestionGeneralization";
 
+/**
+ * Canonical G1 policy epoch for persisted Public Question Guard evidence.
+ *
+ * Producers may persist this value alongside their guard result to prove which
+ * shared G1 contract evaluated the record. When G1 semantics change in a way
+ * that can affect release decisions, this constant must be bumped. Consumers
+ * must fail closed on missing or non-current values rather than silently
+ * treating historical `draft_allowed` evidence as current.
+ */
+export const PUBLIC_QUESTION_GUARD_CONTRACT_VERSION =
+  "public_question_guard.v1" as const;
+
+export function isCurrentPublicQuestionGuardContractVersion(
+  value: unknown,
+): value is typeof PUBLIC_QUESTION_GUARD_CONTRACT_VERSION {
+  return value === PUBLIC_QUESTION_GUARD_CONTRACT_VERSION;
+}
+
 type PersistQuestionGuardReviewFailClosedInput<TRecord, TAuditEntry> = {
   reviewReservation: TRecord;
   auditEntry: TAuditEntry;
