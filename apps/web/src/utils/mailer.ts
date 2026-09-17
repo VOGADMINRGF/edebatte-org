@@ -100,6 +100,24 @@ function normalizeOptionalHeaders(value?: Record<string, string>) {
   return { ok: true as const, headers };
 }
 
+function deriveNewsletterListHeaders(tag: string | undefined, mail: TransactionalMail) {
+  if (tag !== "newsletter_personalized_digest") return undefined;
+  const source = `${mail.text}\n${mail.html}`;
+  const match = source.match(/https:\/\/[^\s<>"']+\/updates\/unsubscribe\?token=[A-Za-z0-9._%~-]+/);
+  if (!match?.[0]) return undefined;
+  try {
+    const url = new URL(match[0]);
+    if (url.protocol !== "https:") return undefined;
+    url.pathname = "/api/public/updates/unsubscribe";
+    return {
+      "List-Unsubscribe": `<${url.toString()}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function sendMail(opts: {
   to: string | string[];
   mail: TransactionalMail;
@@ -196,6 +214,8 @@ export async function sendMail(opts: {
   try {
     const envelope = resolveMailEnvelopeForRuntime();
     const mail = ensureTransactionalMail(opts.mail);
+    const effectiveHeaders =
+      normalizedHeaders.headers ?? deriveNewsletterListHeaders(opts.tag, mail);
 
     if (!transporter) {
       transporter = process.env.SMTP_URL
@@ -220,7 +240,7 @@ export async function sendMail(opts: {
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
-          headers: normalizedHeaders.headers,
+          headers: effectiveHeaders,
         }),
       ),
     );
