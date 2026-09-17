@@ -1,3 +1,5 @@
+// @repository-integrity-classification: runtime-bridge
+
 import type { PublicQuestionGeneralizationResult } from "@/features/create/safety/publicQuestionGeneralization";
 
 type PersistQuestionGuardReviewFailClosedInput<TRecord, TAuditEntry> = {
