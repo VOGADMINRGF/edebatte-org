@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   holdQuestionGuardForSerializedReview,
+  isCurrentPublicQuestionGuardContractVersion,
   normalizeWorkflowRecordVersion,
   persistQuestionGuardReviewFailClosed,
+  PUBLIC_QUESTION_GUARD_CONTRACT_VERSION,
 } from "@/features/create/safety/questionGuardReviewPersistence";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 
@@ -20,6 +22,22 @@ function allowedGuard() {
 }
 
 describe("question guard review persistence contract", () => {
+  it("exposes one canonical policy version and fails stale evidence closed", () => {
+    expect(PUBLIC_QUESTION_GUARD_CONTRACT_VERSION).toBe(
+      "public_question_guard.v1",
+    );
+    expect(
+      isCurrentPublicQuestionGuardContractVersion(
+        PUBLIC_QUESTION_GUARD_CONTRACT_VERSION,
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentPublicQuestionGuardContractVersion("public_question_guard.v0"),
+    ).toBe(false);
+    expect(isCurrentPublicQuestionGuardContractVersion(undefined)).toBe(false);
+    expect(isCurrentPublicQuestionGuardContractVersion(null)).toBe(false);
+  });
+
   it("normalizes workflow versions conservatively", () => {
     expect(normalizeWorkflowRecordVersion(3)).toBe(3);
     expect(normalizeWorkflowRecordVersion("4")).toBe(4);
