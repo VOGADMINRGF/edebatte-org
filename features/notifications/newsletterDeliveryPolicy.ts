@@ -21,6 +21,7 @@ export type NewsletterDeliveryPolicyDecision = {
   reason:
     | "allowed"
     | "duplicate"
+    | "important_only"
     | "quiet_hours"
     | "daily_cap"
     | "weekly_cap";
@@ -49,13 +50,17 @@ function insideQuietHours(input: NonNullable<NewsletterDeliveryPolicyInput["quie
 /**
  * This policy is pure/read-only. It does not schedule or send anything.
  * Audience tier can affect briefing depth later, but not bypass consent,
- * duplicate protection or quiet-hour safeguards.
+ * duplicate protection, frequency choice or quiet-hour safeguards.
  */
 export function resolveNewsletterDeliveryPolicy(
   input: NewsletterDeliveryPolicyInput,
 ): NewsletterDeliveryPolicyDecision {
   if ((input.lastCandidateIds ?? []).includes(input.candidateId)) {
     return { allowed: false, reason: "duplicate" };
+  }
+
+  if (input.frequency === "important_only" && !input.isCritical) {
+    return { allowed: false, reason: "important_only" };
   }
 
   if (!input.isCritical && input.quietHours && insideQuietHours(input.quietHours)) {
