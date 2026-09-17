@@ -383,16 +383,14 @@ export async function listPublishedParticipationSpaces(input?: {
       };
     }
   } catch {
-    if (!allowFixtureFallback) {
-      return {
-        items: [],
-        status: summarizePublicParticipationSpaceRuntimeState({
-          source: "error",
-          totalVisible: 0,
-          totalRuntimePublished: 0,
-        }),
-      };
-    }
+    return {
+      items: [],
+      status: summarizePublicParticipationSpaceRuntimeState({
+        source: "error",
+        totalVisible: 0,
+        totalRuntimePublished: 0,
+      }),
+    };
   }
 
   const fixtures = allowFixtureFallback
@@ -460,16 +458,14 @@ export async function getPublishedParticipationSpaceBySlugOrId(
       };
     }
   } catch {
-    if (!allowFixtureFallback) {
-      return {
-        detail: null,
-        status: summarizePublicParticipationSpaceRuntimeState({
-          source: "error",
-          totalVisible: 0,
-          totalRuntimePublished: 0,
-        }),
-      };
-    }
+    return {
+      detail: null,
+      status: summarizePublicParticipationSpaceRuntimeState({
+        source: "error",
+        totalVisible: 0,
+        totalRuntimePublished: 0,
+      }),
+    };
   }
 
   const fixture = getPublicParticipationSpaceFixtureBySlug(slugOrId);
