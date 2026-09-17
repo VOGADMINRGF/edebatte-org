@@ -9,12 +9,17 @@ ACCEPTED_CODE_HEAD=7dbfe3f4204c76f444014c1fdba9870dd8bb1092
 ACCEPTED_CODE_HEAD_WEB_CI_RUN=2547
 ACCEPTED_CODE_HEAD_WEB_CI_RUN_ID=35271192995
 ACCEPTED_MERGE_CONTEXT_SHA=914b9460099e1ac4719238dbf317694e1db26955
-MERGE_CONTEXT_MAIN_SHA=459e26f93bf2a000d7a6e03b6c4a88399c511228
+FINAL_PR_HEAD=4c169f0ecbe568a6848753247442480d5ad62065
+FINAL_PR_WEB_CI_RUN=2556
+FINAL_PR_WEB_CI_RUN_ID=35272256453
+MERGE_PR=859
+MERGED_MAIN_SHA=70e99a3be2ef2327e7c01df3aef711eef79f8f07
 OWNER_ACCEPTANCE=true
-T0_GLOBAL_DONE=false
-T0_STATUS=accepted_pending_merge
-T1_STATUS=blocked_until_t0_merge
-READY_FOR_MERGE=true
+T0_GLOBAL_DONE=true
+T0_STATUS=done
+T1_STATUS=blocked_pending_master_hardening
+NEXT_AUTHORIZED_WORK=WAVE2_CREATE_OWNERSHIP
+MERGED=true
 NO_RUNTIME=true
 NO_MIGRATION=true
 NO_PROVIDER=true
@@ -23,23 +28,24 @@ NO_DECISION_ACTIVATION=true
 ```
 
 `ACCEPTED_CODE_HEAD` is the implementation head the owner accepted after the
-final bounded semantic hardening. Documentation/status commits can produce a
-later PR head; they do not change the accepted code head. `T0_GLOBAL_DONE`
-remains false until the accepted slice actually lands on `main`. This avoids a
-false-done state.
+final bounded semantic hardening. Documentation/status commits produced later
+PR heads without changing that accepted implementation boundary. The final PR
+head `4c169f0ecbe568a6848753247442480d5ad62065` passed Web CI run `#2556`
+(`35272256453`) and PR `#859` was merged into `main` as
+`70e99a3be2ef2327e7c01df3aef711eef79f8f07`.
 
-The dated “Current T0 task state — 2026-09-15” section in the retained preflight
-is historical evidence. This closure is the later status authority for the T0
-slice.
+`T0_GLOBAL_DONE=true` is now justified by both required conditions: recorded
+project-owner acceptance and actual merge of the accepted T0 slice into `main`.
+The dated preflight sections remain historical evidence; this closure is the
+post-merge status authority for T0.
 
 ## Exact CI evidence
 
-Web CI run `#2547` (`35271192995`) tested the accepted T0 head in merge context
-with then-current `main` at `459e26f93bf2a000d7a6e03b6c4a88399c511228`.
-The synthetic merge commit was
-`914b9460099e1ac4719238dbf317694e1db26955`.
+The accepted code head passed Web CI run `#2547` (`35271192995`) in merge context
+with the then-current `main`, and the final PR head subsequently passed Web CI
+run `#2556` (`35272256453`) immediately before merge.
 
-Results:
+Results for the final PR gate:
 
 ```text
 WEB_SECURITY=PASS
@@ -47,9 +53,7 @@ WEB_CONTRACTS=PASS
 WEB_QUALITY=PASS
 GIT_DIFF_CHECK=PASS
 REPOSITORY_INTEGRITY_SCRIPT=PASS
-REPOSITORY_INTEGRITY_TESTS=25/25 PASS
-T0_TEST_FILES=5/5 PASS
-T0_NAMED_TESTS=50/50 PASS
+T0_SUITE=PASS
 LINT=PASS
 TYPECHECK=PASS
 BUILD=PASS
@@ -213,13 +217,19 @@ T0_SCOPE_P0_REMAINING=0
 T0_SCOPE_P1_REMAINING=0
 T0_SCOPE_P2_REMAINING=0
 OWNER_ACCEPTANCE=true
-READY_FOR_MERGE=true
-T0_GLOBAL_DONE=false
-T1_STATUS=blocked_until_t0_merge
+MERGED=true
+T0_GLOBAL_DONE=true
+T0_STATUS=done
+T1_STATUS=blocked_pending_master_hardening
+NEXT_AUTHORIZED_WORK=WAVE2_CREATE_OWNERSHIP
 ```
 
 No further T0 hardening wave is justified without a concrete counterexample.
-The next T-track step after merge and post-merge status synchronization is T1 —
-Topic Qualification / System Question. Production E2E, real source retrieval,
-provider behavior and the Golden Cases remain later gates and must not be
-misreported as T0 completion evidence.
+T0 is complete for its bounded architecture-contract scope.
+
+This completion does not release feature T1 by itself. The repository-hardening
+master sequence remains authoritative; the next authorized work is Wave 2 Create
+ownership. T1 may start only when that hardening sequence explicitly releases
+feature work. Production E2E, real source retrieval, provider behavior and the
+Golden Cases remain later gates and must not be misreported as T0 completion
+evidence.
