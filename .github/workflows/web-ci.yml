@@ -36,6 +36,7 @@ jobs:
       - run: git diff --check
       - run: node scripts/ci/check-repository-integrity-guards.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
       - run: pnpm -C apps/web run test:repository-integrity-guards
+      - run: pnpm -C apps/web run test:decision-dossier
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
