@@ -2,11 +2,14 @@ import type {
   NewsletterAudienceTier,
   NewsletterPreferences,
 } from "./newsletterSubscriptionContract";
+import type { NewsletterPersonalizationSources } from "./newsletterPreferenceCenterContract";
+import { DEFAULT_PERSONALIZATION_SOURCES } from "./newsletterPreferenceCenterContract";
 import type { NewsletterProfileSignal } from "./newsletterProfileRelevance";
 
 export type NewsletterAccountProfileSource = {
   preferredLocale?: string | null;
   readingLocale?: string | null;
+  regionKeys?: readonly string[] | null;
   profile?: {
     topTopics?: readonly Array<{ key?: string | null } | string> | null;
     publicLocation?: {
@@ -45,38 +48,55 @@ function profileTopicKeys(source?: NewsletterAccountProfileSource | null) {
 
 function profileRegionKeys(source?: NewsletterAccountProfileSource | null) {
   const location = source?.profile?.publicLocation;
-  if (!location) return [];
-  return normalize([location.region, location.countryCode]);
+  return normalize([
+    ...(source?.regionKeys ?? []),
+    location?.region,
+    location?.countryCode,
+  ]);
 }
 
 /**
  * Builds the explicit, inspectable profile signal used by N3 relevance.
- * Subscription preferences and profile selections are additive; no hidden
- * ideology, demographic or voting-preference inference is performed here.
+ * Explicit newsletter topic/region preferences always remain available because
+ * the user selected them for this communication channel. Account/activity
+ * enrichment can be disabled source-by-source.
  */
 export function buildNewsletterProfileSignal(input: {
   account?: NewsletterAccountProfileSource | null;
   preferences?: Partial<NewsletterPreferences> | null;
   activity?: NewsletterActivitySignalSource | null;
+  personalizationSources?: Partial<NewsletterPersonalizationSources> | null;
   audienceTier?: NewsletterAudienceTier | null;
 }): NewsletterProfileSignal {
   const account = input.account ?? null;
   const preferences = input.preferences ?? null;
   const activity = input.activity ?? null;
+  const sources: NewsletterPersonalizationSources = {
+    ...DEFAULT_PERSONALIZATION_SOURCES,
+    ...(input.personalizationSources ?? {}),
+  };
 
   return {
     topicKeys: normalize([
       ...(preferences?.topicKeys ?? []),
-      ...profileTopicKeys(account),
+      ...(sources.profileTopics ? profileTopicKeys(account) : []),
     ]),
     regionKeys: normalize([
       ...(preferences?.regionKeys ?? []),
-      ...profileRegionKeys(account),
+      ...(sources.profileRegion ? profileRegionKeys(account) : []),
     ]),
-    watchlistTopicKeys: normalize(activity?.watchlistTopicKeys ?? []),
-    watchlistRegionKeys: normalize(activity?.watchlistRegionKeys ?? []),
-    ownWorkTopicKeys: normalize(activity?.ownWorkTopicKeys ?? []),
-    ownWorkRegionKeys: normalize(activity?.ownWorkRegionKeys ?? []),
+    watchlistTopicKeys: sources.watchlistActivity
+      ? normalize(activity?.watchlistTopicKeys ?? [])
+      : [],
+    watchlistRegionKeys: sources.watchlistActivity
+      ? normalize(activity?.watchlistRegionKeys ?? [])
+      : [],
+    ownWorkTopicKeys: sources.ownWorkActivity
+      ? normalize(activity?.ownWorkTopicKeys ?? [])
+      : [],
+    ownWorkRegionKeys: sources.ownWorkActivity
+      ? normalize(activity?.ownWorkRegionKeys ?? [])
+      : [],
     locale:
       account?.readingLocale?.trim() ||
       account?.preferredLocale?.trim() ||
