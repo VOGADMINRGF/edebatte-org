@@ -5,6 +5,7 @@ import type { Dossier } from "@features/dossier";
 import type { DossierPublicUpdateContext } from "@features/dossier/updateReadModel";
 import demoFallback from "@features/dossier/data/demoDossier";
 import DossierWorkspace from "@/components/dossier/DossierWorkspace";
+import DossierDecisionCockpit from "@/components/dossier/DossierDecisionCockpit";
 import ParliamentaryContextPanel from "@/components/dossier/ParliamentaryContextPanel";
 import {
   isRegionDraftDossierId,
@@ -109,22 +110,44 @@ export function DossierPagePublicBody({
 
   if (!dossier) return null;
 
-  return (
-    <>
+  if (demo) {
+    return (
       <DossierWorkspace
         dossier={dossier}
         updateContext={updateContext}
         sourceStatusLabel={sourceStatusLabel}
-        demo={demo}
+        demo
       />
-      {!demo ? (
-        <div className="mx-auto w-full max-w-[1180px] px-4 pb-12 sm:px-6 lg:px-8">
-          <section className="rounded-[2rem] border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 sm:p-7">
-            <ParliamentaryContextPanel sources={dossier.sourceSet} />
-          </section>
-        </div>
-      ) : null}
-    </>
+    );
+  }
+
+  return (
+    <div data-public-dossier-cockpit="true">
+      <style>{`
+        [data-public-dossier-cockpit="true"] [data-dossier-workspace="true"] > header:first-of-type {
+          display: none;
+        }
+        [data-public-dossier-cockpit="true"] [data-dossier-workspace="true"] {
+          padding-top: 1.25rem;
+        }
+      `}</style>
+      <DossierDecisionCockpit
+        dossier={dossier}
+        updateContext={updateContext}
+        sourceStatusLabel={sourceStatusLabel}
+      />
+      <DossierWorkspace
+        dossier={dossier}
+        updateContext={updateContext}
+        sourceStatusLabel={sourceStatusLabel}
+        demo={false}
+      />
+      <div className="mx-auto w-full max-w-[1560px] px-4 pb-12 sm:px-6 lg:px-8 xl:px-10">
+        <section className="rounded-[2rem] border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 sm:p-7">
+          <ParliamentaryContextPanel sources={dossier.sourceSet} />
+        </section>
+      </div>
+    </div>
   );
 }
 
