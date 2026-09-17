@@ -2,14 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   mapDossierToPublicDossier,
 } from "@/features/dossier/publicRuntime";
+import {
+  CHATKONTROLLE_DOSSIER,
+  CHATKONTROLLE_DOSSIER_ITEM,
+  getPublicEditorialDossier,
+} from "@/features/dossier/publicEditorialDossiers";
+import { getParliamentaryContextTopics } from "@/components/dossier/parliamentaryContext";
 import { buildDossierWorkspaceModel } from "@/components/dossier/workspaceModel";
 import type { DossierPublicationRecord } from "@/features/create/dossierPublishWorkflow";
-import type {
-  DossierClaimDoc,
-  DossierDoc,
-  DossierFindingDoc,
-  DossierSourceDoc,
-  OpenQuestionDoc,
+import {
+  DossierSchema,
+  type DossierClaimDoc,
+  type DossierDoc,
+  type DossierFindingDoc,
+  type DossierSourceDoc,
+  type OpenQuestionDoc,
 } from "@features/dossier";
 
 function buildPublicationRecord(
@@ -245,5 +252,36 @@ describe("dossier public route runtime", () => {
         .find((claim) => claim.id === "claim-1")
         ?.sourceLinks.map((link) => link.sourceId),
     ).toEqual(["source-1", "source-2"]);
+  });
+
+  it("serves chatkontrolle as a schema-valid public dossier instead of a demo fallback", () => {
+    expect(DossierSchema.safeParse(CHATKONTROLLE_DOSSIER).success).toBe(true);
+    expect(getPublicEditorialDossier("chatkontrolle")).toBe(CHATKONTROLLE_DOSSIER);
+    expect(getPublicEditorialDossier("chat-control")).toBe(CHATKONTROLLE_DOSSIER);
+    expect(getPublicEditorialDossier("verkehr")).toBeNull();
+    expect(CHATKONTROLLE_DOSSIER_ITEM.slug).toBe("chatkontrolle");
+    expect(CHATKONTROLLE_DOSSIER.meta.status).toBe("published");
+    expect(JSON.stringify(CHATKONTROLLE_DOSSIER)).not.toContain("demoFallback");
+  });
+
+  it("keeps facts, political self-statements and abgeordnetenwatch voting data distinct", () => {
+    const workspace = buildDossierWorkspaceModel(
+      CHATKONTROLLE_DOSSIER,
+      CHATKONTROLLE_DOSSIER_ITEM.sourceStatusLabel,
+    );
+    const parliamentaryTopics = getParliamentaryContextTopics(CHATKONTROLLE_DOSSIER.sourceSet);
+    const chatControl = parliamentaryTopics.find((topic) => topic.id === "eu-csa-chatkontrolle");
+
+    expect(workspace.title).toBe("EU-Chatkontrolle / CSA-Verordnung");
+    expect(workspace.claims.length).toBeGreaterThanOrEqual(6);
+    expect(workspace.sources.length).toBeGreaterThanOrEqual(5);
+    expect(workspace.positions.pro).toHaveLength(1);
+    expect(workspace.positions.contra).toHaveLength(1);
+    expect(workspace.questions.length).toBeGreaterThanOrEqual(4);
+    expect(chatControl).toBeTruthy();
+    expect(chatControl?.polls[0]?.id).toBe("aw-poll-6454");
+    expect(chatControl?.polls[0]?.apiUrl).toContain("/api/v2/polls/6454");
+    expect(chatControl?.polls[0]?.votesApiUrl).toContain("/api/v2/votes?poll=6454");
+    expect(chatControl?.caveat).toContain("Eigenaussagen");
   });
 });
