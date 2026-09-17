@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   getMandateById,
+  isBindingVoiceOpenGovRepresentationMandate,
   isPublicReadOnlyMandate,
   type Mandate,
-  supportsAuthorityDerivationFromEDebatte,
   supportsAutomaticAssignment,
+  supportsAutomaticBindingFromDraftOrOpenProcess,
   supportsMandateEditInPublicSurface,
   supportsMembershipHandoff,
 } from "@features/mandate";
@@ -35,6 +36,17 @@ function formatDate(dateIso: string): string {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+  });
+}
+
+function formatDateTime(dateIso: string | null): string {
+  if (!dateIso) return "nicht abgeschlossen";
+  return new Date(dateIso).toLocaleString("de-DE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -69,27 +81,46 @@ export default async function MandatDetailPage({ params }: PageProps) {
   }
 
   const references = buildReferenceItems(mandate);
+  const bindsVog = isBindingVoiceOpenGovRepresentationMandate(mandate);
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-10 space-y-6">
       <header className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-6 shadow-sm space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-          eDebatte Verantwortungsregister
+          eDebatte Entscheidungsmandat
         </p>
         <h1 className="text-2xl font-semibold text-[rgb(var(--fg))]">{mandate.title}</h1>
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.subject}</p>
         <p className="text-sm text-[rgb(var(--fg))]">{mandate.publicSummary}</p>
         <div className="flex flex-wrap gap-2 text-xs text-[rgb(var(--muted))]">
-          <span className="vog-chip vog-chip--status">Verantwortungsnachweis</span>
-          <span className="vog-chip vog-chip--status">Status: {statusLabels[mandate.status]}</span>
+          <span className="vog-chip vog-chip--status">Entscheidungsstatus: {mandate.decision.status}</span>
+          <span className="vog-chip vog-chip--status">Umsetzung: {statusLabels[mandate.status]}</span>
           <span className="vog-chip vog-chip--status">Verifikation: {verificationLabels[mandate.verificationStatus]}</span>
           <span className="vog-chip vog-chip--status">Letzte Aktualisierung: {formatDate(mandate.lastUpdatedAt)}</span>
         </div>
       </header>
 
+      <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-3">
+        <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Gültiger Entscheid</h2>
+        <p className="text-sm text-[rgb(var(--muted))]">Frage: {mandate.decision.question}</p>
+        <p className="text-sm font-semibold text-[rgb(var(--fg))]">Mehrheitsposition: {mandate.decision.majorityPosition}</p>
+        <p className="text-sm text-[rgb(var(--muted))]">
+          Minderheitenpositionen: {mandate.decision.minorityPositions.length > 0 ? mandate.decision.minorityPositions.join(" · ") : "keine dokumentiert"}
+        </p>
+        <p className="text-sm text-[rgb(var(--muted))]">Regel: {mandate.decision.ruleId}</p>
+        <p className="text-sm text-[rgb(var(--muted))]">
+          Geltungsbereich: {mandate.decision.scopeLevel} · {mandate.decision.scopeKey}
+        </p>
+        <p className="text-sm text-[rgb(var(--muted))]">Entschieden: {formatDateTime(mandate.decision.decidedAt)}</p>
+        <p className="text-sm text-[rgb(var(--muted))]">Snapshot: {mandate.decision.snapshotId}</p>
+        <p className="text-sm font-semibold text-[rgb(var(--fg))]">
+          VoiceOpenGov-Bindung: {bindsVog ? "verbindlicher Repräsentationsauftrag" : "keine Bindung"}
+        </p>
+      </section>
+
       <section className="grid gap-4 md:grid-cols-2">
         <article className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-2">
-          <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Verantwortung</h2>
+          <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Politische / operative Verantwortung</h2>
           <p className="text-sm text-[rgb(var(--muted))]">
             Verantwortliche {mandate.responsibility.holderKind === "person" ? "Person" : "Organisation"}
           </p>
@@ -102,21 +133,12 @@ export default async function MandatDetailPage({ params }: PageProps) {
         </article>
 
         <article className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-2">
-          <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Autorisierung</h2>
-          <p className="text-sm text-[rgb(var(--muted))]">Aussteller: {mandate.authority.issuerLabel}</p>
-          <p className="text-sm text-[rgb(var(--muted))]">Referenz: {mandate.authority.decisionReference}</p>
-          <p className="text-sm text-[rgb(var(--muted))]">
-            eDebatte dokumentiert diese Autorisierung nur. Sie entsteht nicht durch ein Dossier, eine Runde oder ein Mehrheitsbild in eDebatte.
-          </p>
+          <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Herkunft / Provenienz</h2>
+          <p className="text-sm text-[rgb(var(--muted))]">Register: {mandate.provenance.registerLabel}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">{mandate.provenance.sourceLabel}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Consent-Status: {mandate.consentStatus}</p>
+          <p className="text-sm text-[rgb(var(--muted))]">Sichtbarkeit: {mandate.visibility}</p>
         </article>
-      </section>
-
-      <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-2">
-        <h2 className="text-base font-semibold text-[rgb(var(--fg))]">Herkunft / Provenienz</h2>
-        <p className="text-sm text-[rgb(var(--muted))]">Register: {mandate.provenance.registerLabel}</p>
-        <p className="text-sm text-[rgb(var(--muted))]">{mandate.provenance.sourceLabel}</p>
-        <p className="text-sm text-[rgb(var(--muted))]">Consent-Status: {mandate.consentStatus}</p>
-        <p className="text-sm text-[rgb(var(--muted))]">Sichtbarkeit: {mandate.visibility}</p>
       </section>
 
       <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm space-y-3">
@@ -143,8 +165,7 @@ export default async function MandatDetailPage({ params }: PageProps) {
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.transparency.scopeNote}</p>
         <p className="text-sm text-[rgb(var(--muted))]">{mandate.transparency.confidentialHintBoundary}</p>
         <p className="text-sm text-[rgb(var(--muted))]">
-          Diese Oberfläche ist öffentlich lesbar und read-only. Es gibt hier keine Bearbeitungsfunktion, keine automatische Zuordnung,
-          keine automatische Mitgliedschaftsübernahme und keine automatische Ableitung von Mandaten oder Weisungen aus eDebatte-Ergebnissen.
+          Diese Oberfläche ist öffentlich lesbar und read-only. Entwurf, laufende Debatte oder unvollständige Abstimmung erzeugen keine automatische VoiceOpenGov-Bindung. Nur ein gültig abgeschlossener Entscheidungssnapshot innerhalb seines definierten Geltungsbereichs bindet die VoiceOpenGov-Repräsentation.
         </p>
       </section>
 
@@ -160,7 +181,7 @@ export default async function MandatDetailPage({ params }: PageProps) {
       <section className="sr-only">
         <p>supportsMembershipHandoff: {String(supportsMembershipHandoff())}</p>
         <p>supportsAutomaticAssignment: {String(supportsAutomaticAssignment())}</p>
-        <p>supportsAuthorityDerivationFromEDebatte: {String(supportsAuthorityDerivationFromEDebatte())}</p>
+        <p>supportsAutomaticBindingFromDraftOrOpenProcess: {String(supportsAutomaticBindingFromDraftOrOpenProcess())}</p>
         <p>supportsMandateEditInPublicSurface: {String(supportsMandateEditInPublicSurface())}</p>
       </section>
     </main>
