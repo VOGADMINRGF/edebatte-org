@@ -189,6 +189,69 @@ export async function listCanonicalNewsletterSubscribers(options?: {
   return options?.includeInactive ? merged : merged.filter((entry) => entry.status === "active");
 }
 
+export async function syncAccountNewsletterSubscription(input: {
+  userId: string;
+  email: string;
+  name?: string | null;
+  locale?: string | null;
+  optIn: boolean;
+}): Promise<void> {
+  const email = normalizeNewsletterEmail(input.email);
+  if (!email) throw new Error("invalid_email");
+
+  const subscribers = await getCol<CanonicalSubscriberDoc>("public_updates_subscribers");
+  const now = new Date();
+
+  if (input.optIn) {
+    await subscribers.updateOne(
+      { email },
+      {
+        $set: {
+          email,
+          name: input.name?.trim() || null,
+          locale: input.locale?.trim() || null,
+          userId: input.userId,
+          status: "active",
+          source: "account_settings",
+          consentVersion: "account_newsletter_v1",
+          confirmedAt: now,
+          updatedAt: now,
+        },
+        $setOnInsert: { createdAt: now },
+        $unset: {
+          unsubscribedAt: "",
+          confirmTokenHash: "",
+          confirmTokenExpiresAt: "",
+        },
+      },
+      { upsert: true },
+    );
+    return;
+  }
+
+  await subscribers.updateOne(
+    { email },
+    {
+      $set: {
+        email,
+        name: input.name?.trim() || null,
+        locale: input.locale?.trim() || null,
+        userId: input.userId,
+        status: "unsubscribed",
+        source: "account_settings",
+        unsubscribedAt: now,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+      $unset: {
+        confirmTokenHash: "",
+        confirmTokenExpiresAt: "",
+      },
+    },
+    { upsert: true },
+  );
+}
+
 export async function setAdminNewsletterSubscription(input: {
   email: string;
   name?: string | null;
