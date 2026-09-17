@@ -61,9 +61,9 @@ export const ECOSYSTEM_BRANDS = [
   {
     id: "edebatte",
     displayName: BRAND.name,
-    canonicalRole: "Unabhängige offene Infrastruktur",
+    canonicalRole: "Unabhängiger Evidenz-, Beteiligungs- und Entscheidungsraum",
     description:
-      "Offene Infrastruktur für nachvollziehbare Evidenz, Dossiers, Gegenpositionen, Beteiligung und Orientierung.",
+      "Offene Infrastruktur für Quellen, Dossiers, Gegenpositionen, Alternativen, Beteiligung sowie versionierte Mehrheits- und Minderheitenentscheidungen.",
     relationshipToEDebatte:
       "eDebatte bleibt für Bürger, Kommunen, Unternehmen, Vereine, Parteien, Wissenschaft, Medien, NGOs und andere Akteure unabhängig nutzbar.",
     target: availableInternalTarget(eDebatteBaseUrl.pathname),
@@ -71,11 +71,11 @@ export const ECOSYSTEM_BRANDS = [
   {
     id: "voiceopengov",
     displayName: "VoiceOpenGov",
-    canonicalRole: "Politische und gesellschaftliche Bewegung im Aufbau",
+    canonicalRole: "Politische Repräsentations- und Umsetzungsschicht",
     description:
-      "VoiceOpenGov organisiert Community, regionale Präsenz, eigene Governance und einen versionierten dynamischen Programmstand.",
+      "VoiceOpenGov organisiert regionale Präsenz und politische Verantwortlichkeit für gültige eDebatte-Mehrheitsmandate.",
     relationshipToEDebatte:
-      "VoiceOpenGov kann eDebatte als Evidenz-, Dossier- und Beteiligungsschicht nutzen, besitzt eDebatte aber nicht. eDebatte-Ergebnisse binden VoiceOpenGov nicht automatisch.",
+      "VoiceOpenGov besitzt eDebatte nicht, verpflichtet seine politische Repräsentation aber an gültig abgeschlossene eDebatte-Entscheidungen innerhalb ihres definierten Geltungsbereichs. Entwürfe oder laufende Debatten binden nicht.",
     target: availableExternalTarget(VOG_SUPPORT_URL),
   },
   {
@@ -85,7 +85,7 @@ export const ECOSYSTEM_BRANDS = [
     description:
       "Ricky Gerd Fleischers persönliche öffentliche Stimme für Thesen, historische Herleitungen, Systemkritik, internationale Vergleiche und einen eigenen überprüfbaren Gegenentwurf.",
     relationshipToEDebatte:
-      "Vote4Gov kann Thesen zur offenen Prüfung an eDebatte übergeben. Persönliche Vote4Gov-Positionen werden dadurch weder zu eDebatte-Wahrheiten noch automatisch zu VoiceOpenGov-Positionen.",
+      "Vote4Gov kann Thesen zur offenen Prüfung an eDebatte übergeben. Persönliche Vote4Gov-Positionen sind vor einer gültigen Entscheidung keine Position der eDebatte-Gemeinschaft oder von VoiceOpenGov.",
     target: UNAVAILABLE_TARGET,
   },
   {
