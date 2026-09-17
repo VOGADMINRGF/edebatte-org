@@ -45,15 +45,16 @@ const MandateHandoffProvenanceSchema = z
     sourceDossierId: z.string().trim().min(1).nullable(),
     sourceRoundId: z.string().trim().min(1).nullable(),
     sourceAnlassraumId: z.string().trim().min(1).nullable(),
+    sourceDecisionSnapshotId: z.string().trim().min(1),
     preparedByRole: z.enum(MANDATE_REGISTER_ROLE_TYPES),
     preparedByReferenceId: z.string().trim().min(1),
   })
   .strict();
 
-const MandateHandoffMembershipSchema = z
+const MandateHandoffAccessBoundarySchema = z
   .object({
-    createMembershipEntry: z.boolean(),
-    registerVisibility: z.enum(["public", "restricted"]),
+    createMembershipEntry: z.literal(false),
+    createSupporterEntry: z.literal(false),
     implicitTransfer: z.literal(false),
     implicitRoleInference: z.literal(false),
   })
@@ -76,7 +77,8 @@ export const MandateRegisterHandoffSchema = z
     roleLabel: z.string().trim().min(1),
     consent: MandateHandoffConsentSchema,
     provenance: MandateHandoffProvenanceSchema,
-    membership: MandateHandoffMembershipSchema,
+    accessBoundary: MandateHandoffAccessBoundarySchema,
+    registerVisibility: z.enum(["public", "restricted"]),
     revocation: MandateHandoffRevocationSchema.nullable(),
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
@@ -119,7 +121,6 @@ export type BuildMandateRegisterHandoffInput = {
   consentTextVersion: string;
   consentCapturedAt: string;
   origin: MandateHandoffOrigin;
-  createMembershipEntry: boolean;
   registerVisibility: "public" | "restricted";
   createdAt: string;
 };
@@ -167,15 +168,17 @@ export function buildMandateRegisterHandoff(
       sourceDossierId: input.mandate.sourceDossierId,
       sourceRoundId: input.mandate.sourceRoundId,
       sourceAnlassraumId: input.mandate.sourceAnlassraumId,
+      sourceDecisionSnapshotId: input.mandate.decision.snapshotId,
       preparedByRole: input.roleType,
       preparedByReferenceId: input.preparedByReferenceId,
     },
-    membership: {
-      createMembershipEntry: input.createMembershipEntry,
-      registerVisibility: input.registerVisibility,
+    accessBoundary: {
+      createMembershipEntry: false,
+      createSupporterEntry: false,
       implicitTransfer: false,
       implicitRoleInference: false,
     },
+    registerVisibility: input.registerVisibility,
     revocation: null,
     createdAt: input.createdAt,
     updatedAt: input.createdAt,
@@ -210,6 +213,10 @@ export function supportsAutomaticMandateRegisterTransfer(): false {
   return false;
 }
 
+export function supportsMembershipCreationFromMandate(): false {
+  return false;
+}
+
 export function supportsImplicitMembershipActivationFromMandate(): false {
   return false;
 }
@@ -227,7 +234,11 @@ export function buildMandateRegisterHandoffDisclosure(handoff: MandateRegisterHa
   return {
     consentVisible: handoff.consent.optInGranted,
     roleVisible: Boolean(handoff.roleType && handoff.roleLabel),
-    provenanceVisible: Boolean(handoff.provenance.origin && handoff.provenance.sourceMandateId),
+    provenanceVisible: Boolean(
+      handoff.provenance.origin &&
+        handoff.provenance.sourceMandateId &&
+        handoff.provenance.sourceDecisionSnapshotId,
+    ),
     revocationVisible: handoff.consent.revocable,
   };
 }
