@@ -50,6 +50,7 @@ export const PARTICIPATION_SPACE_PUBLISH_BLOCKERS = [
   "public_copy_missing",
   "moderation_policy_missing",
   "public_question_guard_blocked",
+  "release_audit_missing",
   "unsafe_auto_publish",
   "insufficient_audit_context",
 ] as const;
@@ -474,6 +475,80 @@ export function reviewParticipationSpaceQuestionGuard(
   };
 }
 
+function hasMatchingReleaseAudit(
+  record: ParticipationSpacePublishRecord,
+  input: {
+    action: ParticipationSpacePublishAuditEntry["action"];
+    status: ParticipationSpacePublishStatus;
+    at?: string | null;
+    actorUserId?: string | null;
+    notBefore?: string | null;
+    notAfter?: string | null;
+  },
+) {
+  return record.auditTrail.some((entry) => {
+    if (entry.action !== input.action || entry.status !== input.status) return false;
+    if (entry.blockers.length > 0) return false;
+    if (input.at && entry.at !== input.at) return false;
+    if (input.actorUserId && entry.actorUserId !== input.actorUserId) return false;
+    if (input.notBefore && entry.at.localeCompare(input.notBefore) < 0) return false;
+    if (input.notAfter && entry.at.localeCompare(input.notAfter) > 0) return false;
+    return true;
+  });
+}
+
+export function hasParticipationSpaceActivationApprovalAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.approvedForActivationAt || !record.approvedForActivationBy) {
+    return false;
+  }
+  return hasMatchingReleaseAudit(record, {
+    action: "activation_approved",
+    status: "approved_for_activation",
+    at: record.approvedForActivationAt,
+    actorUserId: record.approvedForActivationBy,
+  });
+}
+
+export function hasParticipationSpaceActivationReleaseAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.approvedForActivationAt) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "activated_internal",
+    status: "activated",
+    notBefore: record.approvedForActivationAt,
+    notAfter: record.approvedForPublicationAt ?? null,
+  });
+}
+
+export function hasParticipationSpacePublicationApprovalAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.approvedForPublicationAt || !record.approvedForPublicationBy) {
+    return false;
+  }
+  return hasMatchingReleaseAudit(record, {
+    action: "publication_approved",
+    status: "approved_for_publication",
+    at: record.approvedForPublicationAt,
+    actorUserId: record.approvedForPublicationBy,
+  });
+}
+
+export function hasParticipationSpacePublishedAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.auditContext.actorUserId) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "published_public",
+    status: "published",
+    at: record.updatedAt,
+    actorUserId: record.auditContext.actorUserId,
+  });
+}
+
 function getBaseBlockers(
   draft: ParticipationSpacePublishDraft | ParticipationSpacePublishRecord,
   phase: PublishPhase,
@@ -540,6 +615,53 @@ function getBaseBlockers(
   ) {
     blockers.push("insufficient_audit_context");
   }
+
+  if ("auditTrail" in draft) {
+    const record = draft as ParticipationSpacePublishRecord;
+    const activationOrLater = [
+      "approved_for_activation",
+      "activated",
+      "approved_for_publication",
+      "published",
+    ].includes(record.status);
+    const activatedOrLater = [
+      "activated",
+      "approved_for_publication",
+      "published",
+    ].includes(record.status);
+    const publicationApprovedOrLater = [
+      "approved_for_publication",
+      "published",
+    ].includes(record.status);
+
+    if (
+      activationOrLater &&
+      phase !== "activation_approval" &&
+      !hasParticipationSpaceActivationApprovalAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+    if (
+      activatedOrLater &&
+      !hasParticipationSpaceActivationReleaseAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+    if (
+      publicationApprovedOrLater &&
+      phase !== "publication_approval" &&
+      !hasParticipationSpacePublicationApprovalAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+    if (
+      record.status === "published" &&
+      !hasParticipationSpacePublishedAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+  }
+
   if (blocksUnsafePublicVisibility(draft)) blockers.push("unsafe_auto_publish");
 
   return blockers;
@@ -922,6 +1044,8 @@ export function getParticipationSpacePublishBlockerLabel(
       return "Moderations- und Freigaberahmen fehlt.";
     case "public_question_guard_blocked":
       return "Die Beteiligungsfrage ist durch den Public-Question-Guard blockiert.";
+    case "release_audit_missing":
+      return "Freigabe oder Release ist nicht durch passende dauerhafte Audit-Evidenz an diese Revision gebunden.";
     case "unsafe_auto_publish":
       return "Öffentliche Sichtbarkeit als Side Effect bleibt gesperrt.";
     case "insufficient_audit_context":
