@@ -11,6 +11,7 @@ import {
   rejectParticipationSpacePublication,
   reviewParticipationSpaceQuestionGuard,
 } from "@/features/create/participationSpaceRuntimeServer";
+import { isParticipationQuestionGuardCurrent } from "@/features/create/participationSpacePublishWorkflow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,10 +111,7 @@ export async function POST(
       if (!currentRecord) {
         throw new Error("participation_space_publish_record_not_found");
       }
-      if (
-        currentRecord.questionGuard.candidatePublicQuestion !==
-        currentRecord.participationQuestion
-      ) {
+      if (!isParticipationQuestionGuardCurrent(currentRecord)) {
         throw new Error("participation_space_question_guard_stale");
       }
     }
