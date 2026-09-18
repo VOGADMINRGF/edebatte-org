@@ -87,7 +87,7 @@ export type PublicQuestionActorExtraction = {
   humanReviewFinding?: "actor_contexts_supplied" | "no_named_actors";
 };
 
-export type PublicQuestionReleaseState = "draft_allowed" | "review_required" | "blocked";
+export const PUBLIC_QUESTION_GUARD_CONTRACT_VERSION = "public_question_guard.v1" as const;\n\nexport type PublicQuestionReleaseState = "draft_allowed" | "review_required" | "blocked";
 
 export type PublicQuestionGeneralizationResult = {
   originalInput: string;
