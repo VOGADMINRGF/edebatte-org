@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnlassraumActivationRecord } from "@/features/create/anlassraumActivationWorkflow";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 const mocks = vi.hoisted(() => ({
   room: {
@@ -36,11 +38,32 @@ function buildProjectionRecord(input: {
     version: input.version,
     status: input.status,
     title: "Anlassraum Sichere Schulwege",
+    trigger: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
     description: "Sicherheitsgeprüfter Anlassraum.",
     updatedAt: `2026-07-01T10:${String(input.version).padStart(2, "0")}:00.000Z`,
-    questionGuard: {
-      releaseState: input.releaseState,
-    },
+    questionGuard:
+      input.releaseState === "draft_allowed"
+        ? bindQuestionGuardToCurrentContract(
+            evaluatePublicQuestionGeneralization({
+              originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+              candidatePublicQuestion:
+                "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+              actorContexts: [],
+              actorExtraction: {
+                status: "complete",
+                source: "human_review",
+                independentFromCandidateProvider: true,
+                evidenceRefs: ["human-review:visibility-projection"],
+                humanReviewFinding: "no_named_actors",
+              },
+            }),
+          )
+        : evaluatePublicQuestionGeneralization({
+            originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+            candidatePublicQuestion:
+              "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+            actorContexts: [],
+          }),
   } as AnlassraumActivationRecord;
 }
 
@@ -117,6 +140,7 @@ describe("anlassraum visibility projection concurrency", () => {
         status: "published",
         releaseState: "draft_allowed",
       }),
+      { allowPublicRelease: true },
     );
     expect(mocks.room.isPublic).toBe(true);
 
@@ -159,6 +183,7 @@ describe("anlassraum visibility projection concurrency", () => {
         status: "published",
         releaseState: "draft_allowed",
       }),
+      { allowPublicRelease: true },
     );
     expect(mocks.room).toMatchObject({
       isPublic: true,
