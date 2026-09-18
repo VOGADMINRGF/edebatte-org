@@ -37,7 +37,7 @@ export function deriveRundenFlowDraft(input: string): RundenFlowDraft {
   const question = sentence
     ? `Soll im Anlassraum priorisiert werden: ${shorten(sentence, 90)}?`
     : "Soll der Anlassraum dieses Thema als nächsten Arbeitsschritt priorisieren?";
-  const questionGuard = evaluatePublicQuestionGeneralization({
+  const questionGuard = bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
     originalInput: input,
     candidatePublicQuestion: question,
     actorContexts: [],
@@ -47,7 +47,7 @@ export function deriveRundenFlowDraft(input: string): RundenFlowDraft {
       independentFromCandidateProvider: false,
       evidenceRefs: [],
     },
-  });
+  }));
 
   return {
     occasion,
