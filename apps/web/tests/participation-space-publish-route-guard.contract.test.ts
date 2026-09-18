@@ -159,6 +159,23 @@ describe("G2 participation publish route guard", () => {
     });
   });
 
+  it("rejects client-asserted registry or graph review provenance", async () => {
+    for (const actorExtractionSource of ["entity_registry", "actor_graph"]) {
+      const response = await POST(
+        requestFor({
+          action: "reviewParticipationSpaceQuestionGuard",
+          actorExtractionSource,
+          evidenceRefs: ["self-asserted:unverified"],
+        }),
+        context(),
+      );
+
+      expect(response.status).toBe(400);
+    }
+
+    expect(mocks.reviewParticipationSpaceQuestionGuard).not.toHaveBeenCalled();
+  });
+
   it("keeps guard re-review available so stale state can be repaired with new evidence", async () => {
     mocks.getParticipationSpacePublishRecord.mockResolvedValue(
       currentRecord("Welche alte Maßnahme soll zuerst umgesetzt werden?"),
