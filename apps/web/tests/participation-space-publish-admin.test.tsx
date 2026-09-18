@@ -295,7 +295,7 @@ describe("participation space publish admin ui", () => {
     );
 
     expect(staleMarkup).toContain(
-      'data-testid="participation-space-question-guard-stale-handoff-1"',
+      'data-testid="participation-space-question-guard-stale-handoff-1" role="status" aria-live="polite"',
     );
     expect(staleMarkup).toContain(
       'data-testid="review-participation-space-question-guard-handoff-1" disabled=""',
