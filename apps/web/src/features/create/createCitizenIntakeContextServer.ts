@@ -3,7 +3,12 @@
 import {
   buildOfficialRegionsFromDirectory,
 } from "@features/region";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
 import {
+  applyCreateJurisdictionConfirmation,
+  applyCreateRegionPriority,
+  buildCreateJurisdictionCandidate,
+  buildCreateJurisdictionCandidateKey,
   hasCreateExplicitPlaceMention,
   normalizeCreateMunicipalityLabel,
   resolveCreateCitizenIntakeContext,
@@ -60,7 +65,12 @@ function officialPlaceIndex(): OfficialPlaceIndex {
       state: region.federalState ?? null,
       country: region.country ?? "DE",
       registryId: official.ags ?? official.ars ?? null,
-      authorityName: region.officialBody?.label ?? official.administrativeSeat ?? null,
+      authorityName:
+        region.officialBody?.label ?? official.administrativeSeat ?? null,
+      administrativeUnitType:
+        region.administrativeUnitType ?? official.administrativeUnitType ?? null,
+      rawAdministrativeUnitLabel: official.rawAdministrativeUnitLabel ?? null,
+      administrativeSeat: official.administrativeSeat ?? null,
     };
 
     addIndexEntry(entriesByLabel, label, entry);
@@ -115,6 +125,64 @@ function findOfficialDirectoryEntries(text: string): CreateRegionDirectoryEntry[
   });
 }
 
+function findUniqueOfficialEntryByLabel(
+  label: string | null | undefined,
+): CreateRegionDirectoryEntry | null {
+  const normalized = normalizeOfficialPlaceSearchText(String(label ?? ""));
+  if (!normalized) return null;
+  const entries = officialPlaceIndex().entriesByLabel.get(normalized) ?? [];
+  return entries.length === 1 ? entries[0]! : null;
+}
+
+function attachOfficialProfileIdentity(
+  context: CreateCitizenIntakeContext,
+  entry: CreateRegionDirectoryEntry,
+): CreateCitizenIntakeContext {
+  const selected = context.placeResolution.selectedCandidate;
+  if (!selected) return context;
+  const enriched = {
+    ...selected,
+    id: entry.id,
+    registryId: entry.registryId ?? null,
+    state: entry.state ?? null,
+    country: entry.country ?? "DE",
+    administrativeUnitType: entry.administrativeUnitType ?? null,
+    rawAdministrativeUnitLabel: entry.rawAdministrativeUnitLabel ?? null,
+    administrativeSeat: entry.administrativeSeat ?? null,
+    authorityName: entry.authorityName ?? null,
+  };
+  const traffic =
+    /\b(tempo|verkehr|straße|strasse|radweg|gehweg|parken)\b/iu.test(
+      context.placeResolution.normalizedInput,
+    );
+  const jurisdictionCandidates = [
+    buildCreateJurisdictionCandidate({ selectedRegion: enriched, traffic }),
+  ];
+  const jurisdictionConfirmation = {
+    status: "unconfirmed" as const,
+    candidateKey: null,
+  };
+  return {
+    ...context,
+    regionHierarchy: [
+      enriched.city,
+      enriched.state ?? "",
+      enriched.country ?? "",
+    ].filter(Boolean),
+    jurisdictionCandidates,
+    jurisdictionConfirmation,
+    placeResolution: {
+      ...context.placeResolution,
+      selectedCandidate: enriched,
+      candidates: context.placeResolution.candidates.map((candidate) =>
+        candidate === selected ? enriched : candidate,
+      ),
+      jurisdictionCandidates,
+      jurisdictionConfirmation,
+    },
+  };
+}
+
 export function resolveCreateCitizenIntakeContextFromOfficialDirectory(input: {
   text: string;
   locale?: string | null;
@@ -124,4 +192,55 @@ export function resolveCreateCitizenIntakeContextFromOfficialDirectory(input: {
     locale: input.locale,
     directoryEntries: findOfficialDirectoryEntries(input.text),
   });
+}
+
+export function resolveCreateCitizenIntakeContextForServer(input: {
+  text: string;
+  locale?: string | null;
+  profileRegion?: string | null;
+}): CreateCitizenIntakeContext {
+  const contributionContext =
+    resolveCreateCitizenIntakeContextFromOfficialDirectory(input);
+  if (
+    contributionContext.regionSource === "contribution_text" ||
+    contributionContext.regionStatus === "not_location_bound" ||
+    !String(input.profileRegion ?? "").trim()
+  ) {
+    return contributionContext;
+  }
+
+  const withProfile = applyCreateRegionPriority(contributionContext, {
+    profileRegion: input.profileRegion,
+  });
+  const officialProfile = findUniqueOfficialEntryByLabel(input.profileRegion);
+  return officialProfile
+    ? attachOfficialProfileIdentity(withProfile, officialProfile)
+    : withProfile;
+}
+
+export function validateCreateJurisdictionConfirmation(input: {
+  sourceText: string;
+  candidateKey: string;
+  locale?: string | null;
+  profileRegion?: string | null;
+}): CreateCitizenIntakeContext | null {
+  const candidateKey = String(input.candidateKey ?? "").trim();
+  if (!candidateKey || candidateKey.length > 240) return null;
+
+  const context = resolveCreateCitizenIntakeContextForServer({
+    text: input.sourceText,
+    locale: input.locale,
+    profileRegion: input.profileRegion,
+  });
+  const candidate = context.jurisdictionCandidates.find(
+    (entry) =>
+      entry.level !== "unknown" &&
+      buildCreateJurisdictionCandidateKey(entry) === candidateKey,
+  );
+  if (!candidate) return null;
+
+  const confirmed = applyCreateJurisdictionConfirmation(context, candidateKey);
+  return confirmed.jurisdictionConfirmation.status === "confirmed"
+    ? confirmed
+    : null;
 }
