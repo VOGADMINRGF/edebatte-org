@@ -6,6 +6,7 @@ import {
   evaluatePublicQuestionGeneralization,
   type PublicQuestionGeneralizationResult,
 } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 export const MANUAL_ANLASSRAUM_SCOPE_VALUES = [
   "public",
@@ -208,7 +209,7 @@ export function sanitizeManualAnlassraumSetup(
     votingQuestion,
     description: normalizeManualAnlassraumText(input.description),
     options: optionSlots,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: votingQuestion,
       candidatePublicQuestion: votingQuestion,
       actorContexts: [],
@@ -218,7 +219,7 @@ export function sanitizeManualAnlassraumSetup(
         independentFromCandidateProvider: false,
         evidenceRefs: [],
       },
-    }),
+    })),
   };
 }
 
