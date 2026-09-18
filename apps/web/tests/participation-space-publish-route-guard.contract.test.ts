@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF } from "@/features/create/safety/questionGuardReviewPersistence";
 
 const mocks = vi.hoisted(() => ({
   requireAdminOrResponse: vi.fn(),
@@ -57,13 +58,17 @@ function context() {
   return { params: Promise.resolve({ sourceHandoffId: SOURCE_HANDOFF_ID }) };
 }
 
-function currentRecord(candidatePublicQuestion = CURRENT_QUESTION) {
+function currentRecord(
+  candidatePublicQuestion = CURRENT_QUESTION,
+  evidenceRefs = [PUBLIC_QUESTION_GUARD_CONTRACT_EVIDENCE_REF],
+) {
   return {
     sourceHandoffId: SOURCE_HANDOFF_ID,
     participationQuestion: CURRENT_QUESTION,
     questionGuard: {
       candidatePublicQuestion,
       releaseState: "draft_allowed",
+      evidenceRefs,
     },
   };
 }
@@ -91,6 +96,24 @@ describe("G2 participation publish route guard", () => {
   it("fails closed before an activation approval when the G1 candidate is stale", async () => {
     mocks.getParticipationSpacePublishRecord.mockResolvedValue(
       currentRecord("Welche alte Maßnahme soll zuerst umgesetzt werden?"),
+    );
+
+    const response = await POST(
+      requestFor({ action: "approveParticipationSpaceActivation" }),
+      context(),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "participation_space_question_guard_stale",
+    });
+    expect(mocks.approveParticipationSpaceActivation).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the question matches but G1 contract evidence is missing", async () => {
+    mocks.getParticipationSpacePublishRecord.mockResolvedValue(
+      currentRecord(CURRENT_QUESTION, []),
     );
 
     const response = await POST(
