@@ -1,3 +1,5 @@
+// @repository-integrity-classification: runtime-bridge
+
 import type { ExistingMatchUserDecision } from "@/features/create/createContributionPackageContract";
 import type { CreateHandoffDraftTarget } from "@/features/create/createHandoffDrafts";
 
