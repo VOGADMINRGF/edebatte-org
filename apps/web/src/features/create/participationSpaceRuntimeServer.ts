@@ -1279,11 +1279,11 @@ export async function reviewParticipationSpaceQuestionGuard(input: {
     actorUserId: input.actorUserId,
     note:
       trimOrNull(input.note) ??
-      `Public-Question-Guard erneut bewertet: ${reviewedRecord.questionGuard.releaseState}.`,
+      `Public-Question-Guard fachlich neu bewertet; berechneter Ausgang: ${reviewedRecord.questionGuard.releaseState}. Wirksam wird eine Freigabe erst nach erfolgreicher finaler CAS-Persistenz.`,
     blockers: reviewedRecord.blockers,
     status: reviewedRecord.status,
     participationSpaceId: reviewedRecord.participationSpaceId,
-    questionGuardReleaseState: reviewedRecord.questionGuard.releaseState,
+    questionGuardReleaseState: "review_required",
     questionGuardActorExtractionSource: input.actorExtractionSource,
     questionGuardEvidenceRefs: reviewedRecord.questionGuard.evidenceRefs,
     questionGuardActorContexts: reviewedRecord.questionGuard.actorContexts,
