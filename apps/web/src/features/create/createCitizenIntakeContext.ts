@@ -17,6 +17,9 @@ export type CreateRegionDirectoryEntry = {
   country?: string | null;
   registryId?: string | null;
   authorityName?: string | null;
+  administrativeUnitType?: string | null;
+  rawAdministrativeUnitLabel?: string | null;
+  administrativeSeat?: string | null;
 };
 
 export type ResolveCreateCitizenIntakeContextInput = {
@@ -68,6 +71,16 @@ const LEXICALLY_AMBIGUOUS_PLACE_LABELS = new Set([
 ]);
 const PLACE_COMPARISON_RE =
   /\b(?:vergleich[\p{L}]*|verglich[\p{L}]*|gegenüberstell(?:en|ung)|zwischen|beide[nrms]?|gemeinsam)\b/iu;
+const MUNICIPAL_ADMINISTRATIVE_UNIT_TYPES = new Set([
+  "kreisfreie_stadt",
+  "stadtkreis",
+  "stadtstaat",
+  "kreisangehoerige_gemeinde",
+  "stadt",
+  "markt",
+  "grosse_kreisstadt",
+  "grosse_kreisangehoerige_stadt",
+]);
 
 function clean(value?: string | null): string | null {
   const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -163,6 +176,10 @@ function toPlaceCandidate(
     state: clean(entry.state),
     country: clean(entry.country) ?? "DE",
     registryId: clean(entry.registryId),
+    administrativeUnitType: clean(entry.administrativeUnitType),
+    rawAdministrativeUnitLabel: clean(entry.rawAdministrativeUnitLabel),
+    administrativeSeat: clean(entry.administrativeSeat),
+    authorityName: clean(entry.authorityName),
     matchType: ambiguous ? "ambiguous" : "exact",
     confidence: ambiguous ? 0.58 : 0.96,
     reason: ambiguous
@@ -219,19 +236,12 @@ function jurisdictionFor(params: {
   }
   if (params.selectedRegion) {
     const traffic = /\b(tempo|verkehr|straße|strasse|radweg|gehweg|parken)\b/iu.test(params.text);
-    return [{
-      level: "municipality",
-      label: traffic
-        ? `Kommunale Straßenverkehrsbehörde für ${params.selectedRegion.city} (wahrscheinlich)`
-        : `Kommune ${params.selectedRegion.city} (wahrscheinlich)`,
-      authorityName: traffic
-        ? `Straßenverkehrsbehörde der Stadt ${params.selectedRegion.city}`
-        : `Stadtverwaltung ${params.selectedRegion.city}`,
-      topicDependency: traffic ? "Straßenverkehr und Verkehrssicherheit" : null,
-      confidence: traffic ? 0.76 : 0.68,
-      reason: "Zuständigkeit wird aus Ort und Thema vorgeschlagen und muss bestätigt werden.",
-      needsReview: true,
-    }];
+    return [
+      buildCreateJurisdictionCandidate({
+        selectedRegion: params.selectedRegion,
+        traffic,
+      }),
+    ];
   }
   if (params.regionStatus === "needs_clarification" || MUNICIPAL_SIGNAL_RE.test(params.text)) {
     return [{
@@ -243,6 +253,134 @@ function jurisdictionFor(params: {
     }];
   }
   return [];
+}
+
+export function buildCreateJurisdictionCandidate(input: {
+  selectedRegion: PlaceResolutionCandidate;
+  traffic: boolean;
+}): JurisdictionCandidate {
+  const administrativeUnitType = clean(input.selectedRegion.administrativeUnitType);
+  const rawAdministrativeUnitLabel = clean(input.selectedRegion.rawAdministrativeUnitLabel);
+  const administrativeSeat = clean(input.selectedRegion.administrativeSeat);
+  const authorityName = clean(input.selectedRegion.authorityName);
+  const metadata = {
+    administrativeUnitType,
+    rawAdministrativeUnitLabel,
+    administrativeSeat,
+  };
+  const city = input.selectedRegion.city;
+  const officialUnitLabel =
+    rawAdministrativeUnitLabel &&
+    !city.toLocaleLowerCase("de").startsWith(rawAdministrativeUnitLabel.toLocaleLowerCase("de"))
+      ? `${rawAdministrativeUnitLabel} ${city}`
+      : city;
+
+  if (
+    administrativeUnitType === "landkreis" ||
+    administrativeUnitType === "kreis" ||
+    administrativeUnitType === "regionalverband"
+  ) {
+    return {
+      level: "district",
+      label: `${officialUnitLabel} (wahrscheinlich)`,
+      authorityName: authorityName ?? administrativeSeat ?? officialUnitLabel,
+      topicDependency: input.traffic ? "Straßenverkehr und Verkehrssicherheit" : null,
+      confidence: input.traffic ? 0.76 : 0.68,
+      reason:
+        "Zuständigkeit wird aus amtlicher Verwaltungsebene, Ort und Thema vorgeschlagen und muss bestätigt werden.",
+      needsReview: true,
+      ...metadata,
+    };
+  }
+
+  if (administrativeUnitType === "land") {
+    return {
+      level: "state",
+      label: `${officialUnitLabel} (wahrscheinlich)`,
+      authorityName: authorityName ?? administrativeSeat ?? officialUnitLabel,
+      topicDependency: null,
+      confidence: 0.68,
+      reason:
+        "Zuständigkeit wird aus amtlicher Verwaltungsebene und Thema vorgeschlagen und muss bestätigt werden.",
+      needsReview: true,
+      ...metadata,
+    };
+  }
+
+  if (
+    administrativeUnitType &&
+    !MUNICIPAL_ADMINISTRATIVE_UNIT_TYPES.has(administrativeUnitType)
+  ) {
+    return {
+      level: "unknown",
+      label: `${officialUnitLabel} · Zuständigkeit prüfen`,
+      authorityName: authorityName ?? administrativeSeat ?? officialUnitLabel,
+      topicDependency: input.traffic ? "Straßenverkehr und Verkehrssicherheit" : null,
+      confidence: 0.5,
+      reason:
+        "Die amtliche Verwaltungseinheit ist bekannt, aber keiner bestätigbaren kanonischen Zuständigkeitsebene zugeordnet.",
+      needsReview: true,
+      ...metadata,
+    };
+  }
+
+  return {
+    level: "municipality",
+    label: input.traffic
+      ? `Kommunale Straßenverkehrsbehörde für ${city} (wahrscheinlich)`
+      : `Kommune ${city} (wahrscheinlich)`,
+    authorityName:
+      authorityName ??
+      administrativeSeat ??
+      (input.traffic
+        ? `Straßenverkehrsbehörde der Stadt ${city}`
+        : `Stadtverwaltung ${city}`),
+    topicDependency: input.traffic ? "Straßenverkehr und Verkehrssicherheit" : null,
+    confidence: input.traffic ? 0.76 : 0.68,
+    reason:
+      administrativeUnitType
+        ? "Zuständigkeit wird aus amtlicher Verwaltungsebene, Ort und Thema vorgeschlagen und muss bestätigt werden."
+        : "Zuständigkeit wird aus Ort und Thema vorgeschlagen und muss bestätigt werden.",
+    needsReview: true,
+    ...metadata,
+  };
+}
+
+export function buildCreateJurisdictionCandidateKey(
+  candidate: JurisdictionCandidate,
+): string {
+  return `${candidate.level}:${candidate.label.trim().toLocaleLowerCase("de")}`;
+}
+
+export function applyCreateJurisdictionConfirmation(
+  context: CreateCitizenIntakeContext,
+  candidateKey: string | null | undefined,
+): CreateCitizenIntakeContext {
+  const normalizedKey = String(candidateKey ?? "").trim();
+  const candidate = context.jurisdictionCandidates.find(
+    (entry) =>
+      entry.level !== "unknown" &&
+      buildCreateJurisdictionCandidateKey(entry) === normalizedKey,
+  );
+  const jurisdictionConfirmation = {
+    status:
+      context.jurisdictionCandidates.length === 0
+        ? ("not_required" as const)
+        : candidate
+          ? ("confirmed" as const)
+          : ("unconfirmed" as const),
+    candidateKey: candidate
+      ? buildCreateJurisdictionCandidateKey(candidate)
+      : null,
+  };
+  return {
+    ...context,
+    jurisdictionConfirmation,
+    placeResolution: {
+      ...context.placeResolution,
+      jurisdictionConfirmation,
+    },
+  };
 }
 
 export function applyCreateRegionPriority(
@@ -293,6 +431,10 @@ export function applyCreateRegionPriority(
         ? context.clarificationQuestion
         : null,
     jurisdictionCandidates,
+    jurisdictionConfirmation: {
+      status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+      candidateKey: null,
+    },
     placeResolution: {
       ...context.placeResolution,
       candidates: [selectedCandidate],
@@ -300,6 +442,10 @@ export function applyCreateRegionPriority(
       needsUserConfirmation: !confirmedRegion,
       confidence: confirmedRegion ? "high" : "low",
       jurisdictionCandidates,
+      jurisdictionConfirmation: {
+        status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+        candidateKey: null,
+      },
     },
   };
 }
@@ -440,6 +586,10 @@ export function resolveCreateCitizenIntakeContext(
         : []),
     ],
     jurisdictionCandidates,
+    jurisdictionConfirmation: {
+      status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+      candidateKey: null,
+    },
   };
 
   const base: CreateCitizenIntakeContext = {
@@ -454,6 +604,10 @@ export function resolveCreateCitizenIntakeContext(
     detectedStreetName,
     placeResolution,
     jurisdictionCandidates,
+    jurisdictionConfirmation: {
+      status: jurisdictionCandidates.length > 0 ? "unconfirmed" : "not_required",
+      candidateKey: null,
+    },
     desiredChange: REQUEST_RE.test(text) ? text : null,
     safety: {
       decision: safetyResult.decision,
