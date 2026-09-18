@@ -20,7 +20,10 @@ import {
   persistQuestionGuardReviewFailClosed,
 } from "@/features/create/safety/questionGuardReviewPersistence";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
-import { createInMemoryParticipationSpaceRuntimeRepository } from "@/features/create/participationSpaceRuntimeServer";
+import {
+  buildParticipationSpaceQuestionGuardReviewAuditEntry,
+  createInMemoryParticipationSpaceRuntimeRepository,
+} from "@/features/create/participationSpaceRuntimeServer";
 
 const ADMIN = "admin-1";
 const ACTIVATION_APPROVED_AT = "2026-06-30T09:20:00.000Z";
@@ -448,6 +451,32 @@ describe("participation space publish workflow", () => {
     expect(getParticipationSpacePublishBlockers(published, "publication")).toEqual(
       [],
     );
+  });
+
+  it("keeps the durable review audit blocked until the final reviewed record CAS succeeds", () => {
+    const record = buildRecord();
+    const reviewed = reviewParticipationSpaceQuestionGuard(record, {
+      actorExtractionSource: "human_review",
+      evidenceRefs: ["human-review:audit-state"],
+      noNamedActorsConfirmed: true,
+      reviewedAt: "2026-06-30T10:00:00.000Z",
+    });
+
+    expect(reviewed.questionGuard.releaseState).toBe("draft_allowed");
+
+    const auditEntry = buildParticipationSpaceQuestionGuardReviewAuditEntry({
+      reviewedRecord: reviewed,
+      reviewedAt: "2026-06-30T10:00:00.000Z",
+      actorUserId: ADMIN,
+      actorExtractionSource: "human_review",
+    });
+
+    expect(auditEntry.questionGuardReleaseState).toBe("review_required");
+    expect(auditEntry.questionGuardEvidenceRefs).toEqual(
+      reviewed.questionGuard.evidenceRefs,
+    );
+    expect(auditEntry.note).toContain("berechneter Ausgang: draft_allowed");
+    expect(auditEntry.note).toContain("finaler CAS-Persistenz");
   });
 
   it("serializes review against stale approval, activation and publication writes", async () => {
