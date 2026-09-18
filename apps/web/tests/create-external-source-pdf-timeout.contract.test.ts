@@ -6,9 +6,7 @@ import {
   extractCreatePdfText,
 } from "@/features/create/externalSourceIntake";
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+afterEach(() => vi.useRealTimers());
 
 describe("C8 PDF extraction bounds", () => {
   it("caps parser pages and extracted text", async () => {
@@ -21,29 +19,23 @@ describe("C8 PDF extraction bounds", () => {
       Buffer.from("%PDF-1.7"),
       async () => ({ getText, destroy }),
     );
-
     expect(getText).toHaveBeenCalledWith({ first: CREATE_EXTERNAL_PDF_MAX_PAGES });
-    expect(result.pageCount).toBe(150);
+    expect(result).toMatchObject({ pageCount: 150 });
     expect(result.text).toHaveLength(CREATE_EXTERNAL_PDF_MAX_TEXT_LENGTH);
-    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(destroy).toHaveBeenCalledOnce();
   });
 
-  it("fails closed on the parser timeout and destroys the parser", async () => {
+  it("fails closed on parser timeout and destroys the parser", async () => {
     vi.useFakeTimers();
     const destroy = vi.fn(async () => undefined);
-    const getText = vi.fn(
-      async () => new Promise<{ text: string; total: number }>(() => {}),
-    );
+    const getText = vi.fn(async () => new Promise<{ text: string; total: number }>(() => {}));
     const pending = extractCreatePdfText(
       Buffer.from("%PDF-1.7"),
       async () => ({ getText, destroy }),
     );
-    const assertion = expect(pending).rejects.toThrow(
-      "external_source_pdf_parse_timeout",
-    );
-
+    const assertion = expect(pending).rejects.toThrow("external_source_pdf_parse_timeout");
     await vi.advanceTimersByTimeAsync(CREATE_EXTERNAL_PDF_PARSE_TIMEOUT_MS + 1);
     await assertion;
-    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(destroy).toHaveBeenCalledOnce();
   });
 });
