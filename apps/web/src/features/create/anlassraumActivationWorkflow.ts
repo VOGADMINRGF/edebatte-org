@@ -11,7 +11,11 @@ import {
   type PublicQuestionActorContext,
   type PublicQuestionGeneralizationResult,
 } from "@/features/create/safety/publicQuestionGeneralization";
-import { normalizeWorkflowRecordVersion } from "@/features/create/safety/questionGuardReviewPersistence";
+import {
+  bindQuestionGuardToCurrentContract,
+  isQuestionGuardBoundToCurrentContract,
+  normalizeWorkflowRecordVersion,
+} from "@/features/create/safety/questionGuardReviewPersistence";
 
 export const ANLASSRAUM_ACTIVATION_STATUSES = [
   "draft",
@@ -321,6 +325,15 @@ function requiresPublicationApproval(status: AnlassraumActivationStatus) {
   return !["approved_for_publication", "published"].includes(status);
 }
 
+export function isAnlassraumQuestionGuardCurrent(
+  record: Pick<AnlassraumActivationDraft, "trigger" | "questionGuard">,
+): boolean {
+  return (
+    record.questionGuard.candidatePublicQuestion === record.trigger &&
+    isQuestionGuardBoundToCurrentContract(record.questionGuard)
+  );
+}
+
 function hasPublishLeak(record: AnlassraumActivationDraft) {
   return (
     record.status === "published" &&
@@ -368,7 +381,13 @@ export function getAnlassraumActivationBlockers(
         evidenceRefs: [],
       },
     });
-  if (questionGuard.releaseState !== "draft_allowed") {
+  if (
+    questionGuard.releaseState !== "draft_allowed" ||
+    !isAnlassraumQuestionGuardCurrent({
+      trigger: record.trigger,
+      questionGuard,
+    })
+  ) {
     blockers.add("public_question_guard_blocked");
   }
   if (
@@ -450,7 +469,7 @@ export function buildAnlassraumActivationDraft(
   const questionGuard =
     input.questionGuard ??
     input.runtimeRecord.questionGuard ??
-    evaluatePublicQuestionGeneralization({
+    bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: input.runtimeRecord.description,
       candidatePublicQuestion: input.runtimeRecord.trigger,
       actorContexts: [],
@@ -460,7 +479,7 @@ export function buildAnlassraumActivationDraft(
         independentFromCandidateProvider: false,
         evidenceRefs: input.runtimeRecord.graphReferences,
       },
-    });
+    }));
 
   const draft: AnlassraumActivationDraft = {
     version: normalizeWorkflowRecordVersion(input.version),
@@ -540,7 +559,7 @@ export function reviewAnlassraumQuestionGuard(
   ) {
     throw new Error("public_question_guard_actor_finding_required");
   }
-  const questionGuard = evaluatePublicQuestionGeneralization({
+  const questionGuard = bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
     originalInput: record.questionGuard.originalInput,
     candidatePublicQuestion: record.trigger,
     actorContexts,
@@ -568,7 +587,7 @@ export function reviewAnlassraumQuestionGuard(
             decision: "approved_after_human_review",
           }
         : null,
-  });
+  }));
   return withBlockers({
     ...record,
     status: "draft",
@@ -585,6 +604,76 @@ export function reviewAnlassraumQuestionGuard(
   });
 }
 
+function hasMatchingReleaseAudit(
+  record: AnlassraumActivationRecord,
+  input: {
+    action: AnlassraumActivationAuditEntry["action"];
+    status: AnlassraumActivationStatus;
+    at?: string | null;
+    actorUserId?: string | null;
+    notBefore?: string | null;
+    notAfter?: string | null;
+  },
+): boolean {
+  return record.auditTrail.some((entry) => {
+    if (entry.action !== input.action || entry.status !== input.status) return false;
+    if (entry.blockers.length > 0) return false;
+    if (input.at && entry.at !== input.at) return false;
+    if (input.actorUserId && entry.actorUserId !== input.actorUserId) return false;
+    if (input.notBefore && entry.at.localeCompare(input.notBefore) < 0) return false;
+    if (input.notAfter && entry.at.localeCompare(input.notAfter) > 0) return false;
+    return true;
+  });
+}
+
+export function hasAnlassraumActivationApprovalAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.approvedForActivationAt || !record.approvedForActivationBy) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "activation_approved",
+    status: "approved_for_activation",
+    at: record.approvedForActivationAt,
+    actorUserId: record.approvedForActivationBy,
+  });
+}
+
+export function hasAnlassraumActivationReleaseAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.approvedForActivationAt) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "activated_internal",
+    status: "activated",
+    notBefore: record.approvedForActivationAt,
+    notAfter: record.approvedForPublicationAt ?? null,
+  });
+}
+
+export function hasAnlassraumPublicationApprovalAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.approvedForPublicationAt || !record.approvedForPublicationBy) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "publication_approved",
+    status: "approved_for_publication",
+    at: record.approvedForPublicationAt,
+    actorUserId: record.approvedForPublicationBy,
+  });
+}
+
+export function hasAnlassraumPublishedAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.auditContext.actorUserId) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "published_public",
+    status: "published",
+    at: record.updatedAt,
+    actorUserId: record.auditContext.actorUserId,
+  });
+}
+
 export function isAnlassraumPubliclyReleased(
   record: AnlassraumActivationRecord,
 ): boolean {
@@ -594,10 +683,15 @@ export function isAnlassraumPubliclyReleased(
     record.publicAccessMode === "public_read_only" &&
     record.roomIsPublic === true &&
     record.questionGuard?.releaseState === "draft_allowed" &&
+    isAnlassraumQuestionGuardCurrent(record) &&
     Boolean(record.approvedForActivationAt) &&
     Boolean(record.approvedForActivationBy) &&
     Boolean(record.approvedForPublicationAt) &&
     Boolean(record.approvedForPublicationBy) &&
+    hasAnlassraumActivationApprovalAudit(record) &&
+    hasAnlassraumActivationReleaseAudit(record) &&
+    hasAnlassraumPublicationApprovalAudit(record) &&
+    hasAnlassraumPublishedAudit(record) &&
     getAnlassraumActivationBlockers(record).length === 0
   );
 }
@@ -625,6 +719,7 @@ export function canActivateAnlassraum(
   ) {
     return false;
   }
+  if (!hasAnlassraumActivationApprovalAudit(record)) return false;
   const blockers = getAnlassraumActivationBlockers(record).filter(
     (blocker) =>
       blocker !== "publication_not_approved" &&
@@ -639,6 +734,7 @@ export function canApproveAnlassraumPublication(
   if (!["activated", "approved_for_publication"].includes(record.status)) {
     return false;
   }
+  if (!hasAnlassraumActivationReleaseAudit(record)) return false;
   const blockers = getAnlassraumActivationBlockers(record).filter(
     (blocker) =>
       blocker !== "publication_not_approved" &&
@@ -657,6 +753,7 @@ export function canPublishAnlassraum(
   ) {
     return false;
   }
+  if (!hasAnlassraumPublicationApprovalAudit(record)) return false;
   return getAnlassraumActivationBlockers(record).length === 0;
 }
 
