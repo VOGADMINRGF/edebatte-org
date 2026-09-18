@@ -9,6 +9,16 @@ import type {
   ParticipationSpaceRuntimeStatus,
   ParticipationSpaceRuntimeVisibility,
 } from "@/features/create/participationSpaceRuntime";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionActorContext,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+import {
+  bindQuestionGuardToCurrentContract,
+  isQuestionGuardBoundToCurrentContract,
+  normalizeWorkflowRecordVersion,
+} from "@/features/create/safety/questionGuardReviewPersistence";
 
 export const PARTICIPATION_SPACE_PUBLISH_STATUSES = [
   "draft",
@@ -43,6 +53,8 @@ export const PARTICIPATION_SPACE_PUBLISH_BLOCKERS = [
   "anlassraum_context_pending",
   "public_copy_missing",
   "moderation_policy_missing",
+  "public_question_guard_blocked",
+  "release_audit_missing",
   "unsafe_auto_publish",
   "insufficient_audit_context",
 ] as const;
@@ -110,14 +122,28 @@ export type ParticipationSpacePublishAuditEntry = {
     | "publication_requested"
     | "publication_approved"
     | "publication_rejected"
+    | "question_guard_reviewed"
     | "published_public";
   actorUserId: string | null;
   note: string | null;
   blockers: ParticipationSpacePublishBlocker[];
   status: ParticipationSpacePublishStatus;
+  questionGuardReleaseState?: PublicQuestionGeneralizationResult["releaseState"] | null;
+  questionGuardActorExtractionSource?:
+    | "entity_registry"
+    | "actor_graph"
+    | "human_review"
+    | null;
+  questionGuardEvidenceRefs?: string[];
+  questionGuardActorContexts?: PublicQuestionActorContext[];
+  questionGuardHumanReviewFinding?:
+    | "actor_contexts_supplied"
+    | "no_named_actors"
+    | null;
 };
 
 export type ParticipationSpacePublishDraft = {
+  version: number;
   id: string;
   sourceHandoffId: string;
   sourceReviewItemId: string;
@@ -132,6 +158,7 @@ export type ParticipationSpacePublishDraft = {
   workingTitle: string;
   description: string;
   participationQuestion: string;
+  questionGuard: PublicQuestionGeneralizationResult;
   publicHeadline: string;
   publicSummary: string;
   moderationPolicy: string | null;
@@ -179,6 +206,7 @@ type PublishPhase =
   | "publication";
 
 type BuildDraftInput = {
+  version?: number;
   runtimeRecord: ParticipationSpaceRuntimeRecord;
   createdSpace: {
     id: string | null;
@@ -191,6 +219,7 @@ type BuildDraftInput = {
     updatedAt?: string | null;
   } | null;
   creationAudited: boolean;
+  questionGuard?: PublicQuestionGeneralizationResult | null;
   status?: ParticipationSpacePublishStatus;
   visibility?: ParticipationSpacePublicVisibility;
   publicHeadline?: string | null;
@@ -205,6 +234,14 @@ type BuildDraftInput = {
   rejectedBy?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+};
+
+export type ParticipationSpaceQuestionGuardReviewInput = {
+  actorExtractionSource: "entity_registry" | "actor_graph" | "human_review";
+  evidenceRefs: string[];
+  actorContexts?: PublicQuestionActorContext[];
+  noNamedActorsConfirmed?: boolean;
+  reviewedAt?: string | null;
 };
 
 function nowIso() {
@@ -270,6 +307,18 @@ function isPublicationPhase(phase: PublishPhase) {
   );
 }
 
+export function isParticipationQuestionGuardCurrent(
+  record: Pick<
+    ParticipationSpacePublishDraft,
+    "participationQuestion" | "questionGuard"
+  >,
+): boolean {
+  return (
+    record.questionGuard.candidatePublicQuestion === record.participationQuestion &&
+    isQuestionGuardBoundToCurrentContract(record.questionGuard)
+  );
+}
+
 export function buildParticipationSpacePublishDraft(
   input: BuildDraftInput,
 ): ParticipationSpacePublishDraft {
@@ -282,7 +331,22 @@ export function buildParticipationSpacePublishDraft(
     trimOrNull(input.createdSpace?.updatedAt) ??
     trimOrNull(input.runtimeRecord.updatedAt) ??
     createdAt;
+  const questionGuard =
+    input.questionGuard ??
+    input.runtimeRecord.questionGuard ??
+    bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+      originalInput: input.runtimeRecord.description,
+      candidatePublicQuestion: input.runtimeRecord.participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: input.runtimeRecord.graphReferences,
+      },
+    }));
   const draft: ParticipationSpacePublishDraft = {
+    version: normalizeWorkflowRecordVersion(input.version),
     id: `participation-space-publish:${input.runtimeRecord.sourceHandoffId}`,
     sourceHandoffId: input.runtimeRecord.sourceHandoffId,
     sourceReviewItemId: input.runtimeRecord.sourceReviewItemId,
@@ -305,6 +369,7 @@ export function buildParticipationSpacePublishDraft(
     participationQuestion: String(
       input.runtimeRecord.participationQuestion || "",
     ).trim(),
+    questionGuard,
     publicHeadline:
       trimOrNull(input.publicHeadline) ??
       trimOrNull(input.createdSpace?.publicHeadline) ??
@@ -357,6 +422,149 @@ export function buildParticipationSpacePublishDraft(
   };
 }
 
+export function reviewParticipationSpaceQuestionGuard(
+  record: ParticipationSpacePublishRecord,
+  input: ParticipationSpaceQuestionGuardReviewInput,
+): ParticipationSpacePublishRecord {
+  if (
+    !["entity_registry", "actor_graph", "human_review"].includes(
+      input.actorExtractionSource,
+    )
+  ) {
+    throw new Error("public_question_guard_review_source_invalid");
+  }
+  const evidenceRefs = unique(input.evidenceRefs);
+  if (evidenceRefs.length === 0) {
+    throw new Error("public_question_guard_review_evidence_required");
+  }
+  const actorContexts = input.actorContexts ?? record.questionGuard.actorContexts;
+  if (
+    input.actorExtractionSource === "human_review" &&
+    actorContexts.length === 0 &&
+    input.noNamedActorsConfirmed !== true
+  ) {
+    throw new Error("public_question_guard_actor_finding_required");
+  }
+  const questionGuard = bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+    originalInput: record.questionGuard.originalInput,
+    candidatePublicQuestion: record.participationQuestion,
+    actorContexts,
+    actorExtraction: {
+      status: "complete",
+      source: input.actorExtractionSource,
+      independentFromCandidateProvider: true,
+      evidenceRefs,
+      ...(input.actorExtractionSource === "human_review"
+        ? {
+            humanReviewFinding:
+              actorContexts.length > 0
+                ? ("actor_contexts_supplied" as const)
+                : ("no_named_actors" as const),
+          }
+        : {}),
+    },
+    procedure: record.questionGuard.procedure,
+    procedureReviewResolution:
+      record.questionGuard.outcome ===
+        "entity_specific_procedure_review_required" &&
+      input.actorExtractionSource === "human_review"
+        ? {
+            previousOutcome: "entity_specific_procedure_review_required",
+            decision: "approved_after_human_review",
+          }
+        : null,
+  }));
+  const reviewed = {
+    ...record,
+    status: "draft" as const,
+    visibility: "editorial_workspace" as const,
+    questionGuard,
+    approvedForActivationAt: null,
+    approvedForActivationBy: null,
+    approvedForPublicationAt: null,
+    approvedForPublicationBy: null,
+    updatedAt: trimOrNull(input.reviewedAt) ?? nowIso(),
+  };
+  return {
+    ...reviewed,
+    blockers: getParticipationSpacePublishBlockers(reviewed),
+  };
+}
+
+function hasMatchingReleaseAudit(
+  record: ParticipationSpacePublishRecord,
+  input: {
+    action: ParticipationSpacePublishAuditEntry["action"];
+    status: ParticipationSpacePublishStatus;
+    at?: string | null;
+    actorUserId?: string | null;
+    notBefore?: string | null;
+    notAfter?: string | null;
+  },
+) {
+  return record.auditTrail.some((entry) => {
+    if (entry.action !== input.action || entry.status !== input.status) return false;
+    if (entry.blockers.length > 0) return false;
+    if (input.at && entry.at !== input.at) return false;
+    if (input.actorUserId && entry.actorUserId !== input.actorUserId) return false;
+    if (input.notBefore && entry.at.localeCompare(input.notBefore) < 0) return false;
+    if (input.notAfter && entry.at.localeCompare(input.notAfter) > 0) return false;
+    return true;
+  });
+}
+
+export function hasParticipationSpaceActivationApprovalAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.approvedForActivationAt || !record.approvedForActivationBy) {
+    return false;
+  }
+  return hasMatchingReleaseAudit(record, {
+    action: "activation_approved",
+    status: "approved_for_activation",
+    at: record.approvedForActivationAt,
+    actorUserId: record.approvedForActivationBy,
+  });
+}
+
+export function hasParticipationSpaceActivationReleaseAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.approvedForActivationAt) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "activated_internal",
+    status: "activated",
+    notBefore: record.approvedForActivationAt,
+    notAfter: record.approvedForPublicationAt ?? null,
+  });
+}
+
+export function hasParticipationSpacePublicationApprovalAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.approvedForPublicationAt || !record.approvedForPublicationBy) {
+    return false;
+  }
+  return hasMatchingReleaseAudit(record, {
+    action: "publication_approved",
+    status: "approved_for_publication",
+    at: record.approvedForPublicationAt,
+    actorUserId: record.approvedForPublicationBy,
+  });
+}
+
+export function hasParticipationSpacePublishedAudit(
+  record: ParticipationSpacePublishRecord,
+) {
+  if (!record.auditContext.actorUserId) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "published_public",
+    status: "published",
+    at: record.updatedAt,
+    actorUserId: record.auditContext.actorUserId,
+  });
+}
+
 function getBaseBlockers(
   draft: ParticipationSpacePublishDraft | ParticipationSpacePublishRecord,
   phase: PublishPhase,
@@ -379,6 +587,28 @@ function getBaseBlockers(
   if (!hasText(draft.title)) blockers.push("missing_title");
   if (!hasText(draft.participationQuestion)) blockers.push("missing_question");
   if (!hasText(draft.description)) blockers.push("missing_description");
+  const questionGuard =
+    draft.questionGuard ??
+    bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+      originalInput: draft.description,
+      candidatePublicQuestion: draft.participationQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "not_available",
+        independentFromCandidateProvider: false,
+        evidenceRefs: [],
+      },
+    }));
+  if (
+    questionGuard.releaseState !== "draft_allowed" ||
+    !isParticipationQuestionGuardCurrent({
+      participationQuestion: draft.participationQuestion,
+      questionGuard,
+    })
+  ) {
+    blockers.push("public_question_guard_blocked");
+  }
   if (draft.sourceStatus === "source_review_pending") {
     blockers.push("source_review_pending");
   }
@@ -407,6 +637,53 @@ function getBaseBlockers(
   ) {
     blockers.push("insufficient_audit_context");
   }
+
+  if ("auditTrail" in draft) {
+    const record = draft as ParticipationSpacePublishRecord;
+    const activationOrLater = [
+      "approved_for_activation",
+      "activated",
+      "approved_for_publication",
+      "published",
+    ].includes(record.status);
+    const activatedOrLater = [
+      "activated",
+      "approved_for_publication",
+      "published",
+    ].includes(record.status);
+    const publicationApprovedOrLater = [
+      "approved_for_publication",
+      "published",
+    ].includes(record.status);
+
+    if (
+      activationOrLater &&
+      phase !== "activation_approval" &&
+      !hasParticipationSpaceActivationApprovalAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+    if (
+      activatedOrLater &&
+      !hasParticipationSpaceActivationReleaseAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+    if (
+      publicationApprovedOrLater &&
+      phase !== "publication_approval" &&
+      !hasParticipationSpacePublicationApprovalAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+    if (
+      record.status === "published" &&
+      !hasParticipationSpacePublishedAudit(record)
+    ) {
+      blockers.push("release_audit_missing");
+    }
+  }
+
   if (blocksUnsafePublicVisibility(draft)) blockers.push("unsafe_auto_publish");
 
   return blockers;
@@ -464,6 +741,13 @@ export function canApproveParticipationSpaceActivation(
 export function canActivateParticipationSpace(
   record: ParticipationSpacePublishRecord,
 ) {
+  if (
+    record.status !== "approved_for_activation" ||
+    !record.approvedForActivationAt ||
+    !record.approvedForActivationBy
+  ) {
+    return false;
+  }
   return getParticipationSpacePublishBlockers(record, "activation").length === 0;
 }
 
@@ -477,6 +761,13 @@ export function canApproveParticipationSpacePublication(
 export function canPublishParticipationSpace(
   record: ParticipationSpacePublishRecord,
 ) {
+  if (
+    record.status !== "approved_for_publication" ||
+    !record.approvedForPublicationAt ||
+    !record.approvedForPublicationBy
+  ) {
+    return false;
+  }
   return getParticipationSpacePublishBlockers(record, "publication").length === 0;
 }
 
@@ -538,6 +829,18 @@ export function activateParticipationSpaceAfterReview(
   record: ParticipationSpacePublishRecord,
   input?: Partial<ParticipationSpacePublishAuditContext>,
 ) {
+  if (!canActivateParticipationSpace(record)) {
+    return {
+      ok: false as const,
+      error: "blocked" as const,
+      blockers: unique([
+        ...getParticipationSpacePublishBlockers(record, "activation"),
+        "activation_not_approved",
+      ]) as ParticipationSpacePublishBlocker[],
+      message:
+        "Interne Aktivierung bleibt blockiert, bis eine neue explizite Freigabe nach dem Guard-Review vorliegt.",
+    };
+  }
   const activatedAt = trimOrNull(input?.approvedAt) ?? nowIso();
   const candidate: ParticipationSpacePublishRecord = {
     ...record,
@@ -620,6 +923,18 @@ export function publishParticipationSpaceAfterReview(
   record: ParticipationSpacePublishRecord,
   input?: Partial<ParticipationSpacePublishAuditContext>,
 ) {
+  if (!canPublishParticipationSpace(record)) {
+    return {
+      ok: false as const,
+      error: "blocked" as const,
+      blockers: unique([
+        ...getParticipationSpacePublishBlockers(record, "publication"),
+        "publication_not_approved",
+      ]) as ParticipationSpacePublishBlocker[],
+      message:
+        "Veröffentlichung bleibt blockiert, bis eine neue explizite Freigabe nach dem Guard-Review vorliegt.",
+    };
+  }
   const publishedAt = trimOrNull(input?.approvedAt) ?? nowIso();
   const candidate: ParticipationSpacePublishRecord = {
     ...record,
@@ -749,6 +1064,10 @@ export function getParticipationSpacePublishBlockerLabel(
       return "Öffentliche Kurzbeschreibung oder Headline fehlt.";
     case "moderation_policy_missing":
       return "Moderations- und Freigaberahmen fehlt.";
+    case "public_question_guard_blocked":
+      return "Die Beteiligungsfrage ist durch den Public-Question-Guard blockiert.";
+    case "release_audit_missing":
+      return "Freigabe oder Release ist nicht durch passende dauerhafte Audit-Evidenz an diese Revision gebunden.";
     case "unsafe_auto_publish":
       return "Öffentliche Sichtbarkeit als Side Effect bleibt gesperrt.";
     case "insufficient_audit_context":
