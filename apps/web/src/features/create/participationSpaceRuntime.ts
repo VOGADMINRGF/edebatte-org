@@ -4,6 +4,7 @@ import {
   evaluatePublicQuestionGeneralization,
   type PublicQuestionGeneralizationResult,
 } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 import {
   buildPersistedCreateHandoffSuggestedTitle,
   buildPersistedCreateHandoffSummary,
@@ -560,7 +561,7 @@ export function buildParticipationSpaceRuntimeDraftFromAnlassraum(
     workingTitle: String(context.title || "").trim(),
     description: String(context.description || "").trim(),
     participationQuestion,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: context.description,
       candidatePublicQuestion: participationQuestion,
       actorContexts: [],
@@ -570,7 +571,7 @@ export function buildParticipationSpaceRuntimeDraftFromAnlassraum(
         independentFromCandidateProvider: false,
         evidenceRefs: context.graphReferences ?? [],
       },
-    }),
+    })),
     relatedAnlassraumId: context.anlassraumId,
     relatedDossierId: trimOrNull(context.relatedDossierId),
     recognizedStandpoints: unique(context.recognizedStandpoints ?? []),
@@ -634,7 +635,7 @@ export function buildParticipationSpaceRuntimeDraftFromDossier(
     workingTitle: String(context.title || "").trim(),
     description: String(context.summary || "").trim(),
     participationQuestion,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: context.summary,
       candidatePublicQuestion: participationQuestion,
       actorContexts: [],
@@ -644,7 +645,7 @@ export function buildParticipationSpaceRuntimeDraftFromDossier(
         independentFromCandidateProvider: false,
         evidenceRefs: context.graphReferences ?? [],
       },
-    }),
+    })),
     relatedAnlassraumId: trimOrNull(context.relatedAnlassraumId),
     relatedDossierId: context.dossierId,
     recognizedStandpoints: unique(context.recognizedStandpoints ?? []),
@@ -725,7 +726,7 @@ export function buildParticipationSpaceRuntimeDraftFromHandoff(
     ),
     description: buildPersistedCreateHandoffSummary(record),
     participationQuestion,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: record.sourceText,
       candidatePublicQuestion: participationQuestion,
       actorContexts: [],
@@ -735,7 +736,7 @@ export function buildParticipationSpaceRuntimeDraftFromHandoff(
         independentFromCandidateProvider: false,
         evidenceRefs: graphReferences,
       },
-    }),
+    })),
     relatedAnlassraumId:
       trimOrNull(record.anlassraumId) ??
       trimOrNull(record.graphMatches.matchedAnlassraeume[0]),
@@ -806,7 +807,7 @@ export function buildParticipationSpaceRuntimeDraftFromReviewItem(
     workingTitle: item.title,
     description: item.summary,
     participationQuestion,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: item.summary,
       candidatePublicQuestion: participationQuestion,
       actorContexts: [],
@@ -816,7 +817,7 @@ export function buildParticipationSpaceRuntimeDraftFromReviewItem(
         independentFromCandidateProvider: false,
         evidenceRefs: [],
       },
-    }),
+    })),
     relatedAnlassraumId: null,
     relatedDossierId: null,
     recognizedStandpoints: item.authorStandpoint ? [item.authorStandpoint] : [],
