@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 const mocks = vi.hoisted(() => ({ fetchTranscript: vi.fn() }));
 vi.mock("youtube-transcript", () => ({
   YoutubeTranscript: {
@@ -7,10 +6,8 @@ vi.mock("youtube-transcript", () => ({
   },
 }));
 import { fetchYoutubeTranscript } from "@features/ai/sources/youtube";
-
 describe("YouTube C8 transcript truth", () => {
   beforeEach(() => vi.clearAllMocks());
-
   it("returns language and segment count only for a real transcript", async () => {
     mocks.fetchTranscript.mockResolvedValue([{ text: "first" }, { text: "second" }]);
     await expect(fetchYoutubeTranscript("https://youtu.be/abcdefghijk", ["de"])).resolves.toEqual({
@@ -21,7 +18,6 @@ describe("YouTube C8 transcript truth", () => {
       failureReason: null,
     });
   });
-
   it.each([
     ["YoutubeTranscriptDisabledError", "disabled"],
     ["VideoUnavailableError", "video_unavailable"],
@@ -32,7 +28,6 @@ describe("YouTube C8 transcript truth", () => {
     const result = await fetchYoutubeTranscript("abcdefghijk", ["de"]);
     expect(result).toMatchObject({ text: "", segmentCount: 0, lang: null, failureReason });
   });
-
   it("preserves rate-limit truth across language fallback", async () => {
     const error = new Error("limited");
     error.name = "TooManyRequestError";
