@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AnlassraumActivationRecord } from "@/features/create/anlassraumActivationWorkflow";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -30,7 +31,7 @@ function buildRecord(
     title: "Anlassraum Sichere Schulwege",
     workingTitle: "Anlassraum Sichere Schulwege",
     trigger,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: trigger,
       actorContexts: [],
       actorExtraction: {
@@ -40,7 +41,7 @@ function buildRecord(
         evidenceRefs: ["human-review:anlassraum-activation-1"],
         humanReviewFinding: "no_named_actors",
       },
-    }),
+    })),
     description:
       "1 Aussage · 1 offene Frage. Sichere Schulwege sollen sichtbar, aber erst nach separater Freigabe öffentlich werden.",
     relatedDossierId: "dossier-sichere-schulwege",
@@ -184,6 +185,41 @@ describe("anlassraum activation admin ui", () => {
           approvedForActivationBy: "admin-1",
           approvedForPublicationAt: "2026-07-01T09:40:00.000Z",
           approvedForPublicationBy: "admin-1",
+          auditTrail: [
+            {
+              id: "audit-activation-approved-ui",
+              sourceHandoffId: "handoff-2",
+              anlassraumId: "65a111111111111111111110",
+              at: "2026-07-01T09:20:00.000Z",
+              action: "activation_approved",
+              actorUserId: "admin-1",
+              note: "Aktivierung freigegeben.",
+              blockers: [],
+              status: "approved_for_activation",
+            },
+            {
+              id: "audit-activated-ui",
+              sourceHandoffId: "handoff-2",
+              anlassraumId: "65a111111111111111111110",
+              at: "2026-07-01T09:30:00.000Z",
+              action: "activated_internal",
+              actorUserId: "admin-1",
+              note: "Intern aktiviert.",
+              blockers: [],
+              status: "activated",
+            },
+            {
+              id: "audit-publication-approved-ui",
+              sourceHandoffId: "handoff-2",
+              anlassraumId: "65a111111111111111111110",
+              at: "2026-07-01T09:40:00.000Z",
+              action: "publication_approved",
+              actorUserId: "admin-1",
+              note: "Veröffentlichung freigegeben.",
+              blockers: [],
+              status: "approved_for_publication",
+            },
+          ],
         })}
       />,
     );
