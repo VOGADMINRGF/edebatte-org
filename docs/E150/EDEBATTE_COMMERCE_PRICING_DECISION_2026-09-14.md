@@ -15,6 +15,12 @@ Kosten- und Missbrauchsgrenzen bleiben intern, fair, erklärbar und für alle Pl
 Faktencheck, Quellenprüfung, Community-Wissen und normale Recherche werden nicht als einzelne
 Wahrheitsprodukte verkauft.
 
+## Kanonizität und Alt-Dokumente
+
+Dieser Contract ist ab 2026-09-14 die maßgebliche Produkt- und Pricing-Entscheidung für eDebatte B2C. Die älteren Dokumente `docs/E150/Part03_AccessTiers_Pricing_B2C.md` und `docs/E150/Part19_Pricing_Packaging.md` sind hinsichtlich Preisständen, sichtbaren Beitrags-/Anlassraumquoten und davon abgeleiteten Planregeln **Legacy-Evidenz** und dürfen nicht mehr als aktuelle Produktwahrheit verwendet werden.
+
+Die operative Aufgabe `EDEBATTE-B2C-PRICING-ENTITLEMENTS-01` muss diese Alt-Dokumente vor ihrem Abschluss harmonisieren oder dauerhaft und eindeutig als superseded kennzeichnen. Bis dahin gewinnt bei Widersprüchen dieser Contract; Checkout bleibt davon unberührt und weiterhin separat gegated.
+
 ## VoiceOpenGov-Handoff
 
 Aktive laufende VoiceOpenGov-Unterstützung ab 4,99 €/Monat kann eDebatte Plus bereitstellen;
