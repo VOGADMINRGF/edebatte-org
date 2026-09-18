@@ -22,6 +22,8 @@ vi.mock("next/navigation", async () => {
 
 import PublicParticipationSpacePage from "@/app/beteiligung/[slug]/page";
 import type { ParticipationSpacePublishRecord } from "@/features/create/participationSpacePublishWorkflow";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 function buildRecord(
   overrides: Partial<ParticipationSpacePublishRecord> = {},
@@ -40,7 +42,20 @@ function buildRecord(
     title: "Beteiligungsraum Sichere Schulwege",
     workingTitle: "Beteiligungsraum Sichere Schulwege",
     description: "Öffentliche Runtime-Beschreibung für sichere Schulwege.",
-    participationQuestion: "Welche Kreuzungen sind zuerst kritisch?",
+    participationQuestion: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+    questionGuard: bindQuestionGuardToCurrentContract(
+      evaluatePublicQuestionGeneralization({
+        originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+        actorContexts: [],
+        actorExtraction: {
+          status: "complete",
+          source: "human_review",
+          independentFromCandidateProvider: true,
+          evidenceRefs: ["human-review:sichere-schulwege:1"],
+          humanReviewFinding: "no_named_actors",
+        },
+      }),
+    ),
     publicHeadline: "Sichere Schulwege im Blick",
     publicSummary: "Der Beteiligungsraum bündelt veröffentlichte Hinweise und Einordnungen.",
     moderationPolicy:
@@ -95,7 +110,52 @@ function buildRecord(
     },
     createdAt: "2026-06-30T08:00:00.000Z",
     updatedAt: "2026-06-30T09:50:00.000Z",
-    auditTrail: [],
+    auditTrail: [
+      {
+        id: "audit-activation-approved",
+        sourceHandoffId: "handoff-1",
+        participationSpaceId: "participation-space-1",
+        at: "2026-06-30T09:20:00.000Z",
+        action: "activation_approved",
+        actorUserId: "admin-1",
+        note: "Aktivierung explizit freigegeben.",
+        blockers: [],
+        status: "approved_for_activation",
+      },
+      {
+        id: "audit-activated",
+        sourceHandoffId: "handoff-1",
+        participationSpaceId: "participation-space-1",
+        at: "2026-06-30T09:30:00.000Z",
+        action: "activated_internal",
+        actorUserId: "admin-1",
+        note: "Intern aktiviert.",
+        blockers: [],
+        status: "activated",
+      },
+      {
+        id: "audit-publication-approved",
+        sourceHandoffId: "handoff-1",
+        participationSpaceId: "participation-space-1",
+        at: "2026-06-30T09:40:00.000Z",
+        action: "publication_approved",
+        actorUserId: "admin-1",
+        note: "Veröffentlichung explizit freigegeben.",
+        blockers: [],
+        status: "approved_for_publication",
+      },
+      {
+        id: "audit-published",
+        sourceHandoffId: "handoff-1",
+        participationSpaceId: "participation-space-1",
+        at: "2026-06-30T09:50:00.000Z",
+        action: "published_public",
+        actorUserId: "admin-1",
+        note: "Explizit veröffentlicht.",
+        blockers: [],
+        status: "published",
+      },
+    ],
     approvedForActivationAt: "2026-06-30T09:20:00.000Z",
     approvedForActivationBy: "admin-1",
     approvedForPublicationAt: "2026-06-30T09:40:00.000Z",
