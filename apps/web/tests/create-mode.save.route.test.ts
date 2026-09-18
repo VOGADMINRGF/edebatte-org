@@ -409,7 +409,6 @@ describe("create mode split - save route", () => {
         textPrepared: "In Wuppertal sollte der Schulweg sicherer werden.",
         source: "create_followup",
         createMode: "source",
-        confirmedJurisdictionKey: "municipality:frei erfundene behörde",
         analysis: {
           intelligentFollowup: {
             meta: {
@@ -470,8 +469,6 @@ describe("create mode split - save route", () => {
         textPrepared: "In Wuppertal sollte der Schulweg sicherer werden.",
         source: "create_followup",
         createMode: "source",
-        confirmedJurisdictionKey:
-          "municipality:kommune wuppertal (wahrscheinlich)",
         analysis: {
           intelligentFollowup: {
             meta: {
@@ -479,7 +476,8 @@ describe("create mode split - save route", () => {
                 selectedRegionLabel: "Manipuliert",
                 jurisdictionConfirmation: {
                   status: "confirmed",
-                  candidateKey: "municipality:client-manipulation",
+                  candidateKey:
+                    "municipality:kommune wuppertal (wahrscheinlich)",
                 },
               },
             },
