@@ -13,6 +13,7 @@ import {
   isAnlassraumPubliclyReleased,
   publishAnlassraumAfterReview,
   reviewAnlassraumQuestionGuard,
+  type AnlassraumActivationAuditEntry,
   type AnlassraumActivationRecord,
 } from "@/features/create/anlassraumActivationWorkflow";
 import {
@@ -22,6 +23,7 @@ import {
 import type { PersistedCreateHandoffRecord } from "@/features/create/persistedHandoffReviewQueue";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
 import {
+  bindQuestionGuardToCurrentContract,
   holdQuestionGuardForSerializedReview,
   persistQuestionGuardReviewFailClosed,
 } from "@/features/create/safety/questionGuardReviewPersistence";
@@ -118,7 +120,7 @@ function buildRuntimeRecord(
 
   return {
     ...draft,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: handoff.sourceText,
       candidatePublicQuestion: draft.trigger,
       actorContexts: [],
@@ -128,7 +130,7 @@ function buildRuntimeRecord(
         independentFromCandidateProvider: true,
         evidenceRefs: ["actor-graph-review:anlassraum-activation-1"],
       },
-    }),
+    })),
     auditTrail: [
       {
         id: "runtime-created-1",
@@ -186,7 +188,7 @@ function buildActivationRecord(
 }
 
 function buildProcedureQuestionGuard() {
-  return evaluatePublicQuestionGeneralization({
+  return bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
     originalInput: "Die Stadtwerke GmbH beantragt ein formales Genehmigungsverfahren.",
     candidatePublicQuestion:
       "Soll der Stadtwerke GmbH die Genehmigung für das beantragte Wärmenetz erteilt werden?",
@@ -210,7 +212,33 @@ function buildProcedureQuestionGuard() {
       independentFromCandidateProvider: true,
       evidenceRefs: ["actor-graph:stadtwerke:1"],
     },
-  });
+  }));
+}
+
+function releaseAudit(
+  action: AnlassraumActivationAuditEntry["action"],
+  status: AnlassraumActivationRecord["status"],
+  at: string,
+  actorUserId = "admin-1",
+): AnlassraumActivationAuditEntry {
+  return {
+    id: `audit:${action}:${at}`,
+    sourceHandoffId: "handoff-anlassraum-activation-1",
+    anlassraumId: "65a111111111111111111110",
+    at,
+    action,
+    actorUserId,
+    note: "G3 durable release evidence",
+    blockers: [],
+    status,
+  };
+}
+
+function withReleaseAudit(
+  record: AnlassraumActivationRecord,
+  entry: AnlassraumActivationAuditEntry,
+): AnlassraumActivationRecord {
+  return { ...record, auditTrail: [...record.auditTrail, entry] };
 }
 
 describe("anlassraum activation workflow", () => {
