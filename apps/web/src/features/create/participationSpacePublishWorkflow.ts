@@ -14,7 +14,11 @@ import {
   type PublicQuestionActorContext,
   type PublicQuestionGeneralizationResult,
 } from "@/features/create/safety/publicQuestionGeneralization";
-import { normalizeWorkflowRecordVersion } from "@/features/create/safety/questionGuardReviewPersistence";
+import {
+  bindQuestionGuardToCurrentContract,
+  isQuestionGuardBoundToCurrentContract,
+  normalizeWorkflowRecordVersion,
+} from "@/features/create/safety/questionGuardReviewPersistence";
 
 export const PARTICIPATION_SPACE_PUBLISH_STATUSES = [
   "draft",
@@ -303,6 +307,18 @@ function isPublicationPhase(phase: PublishPhase) {
   );
 }
 
+export function isParticipationQuestionGuardCurrent(
+  record: Pick<
+    ParticipationSpacePublishDraft,
+    "participationQuestion" | "questionGuard"
+  >,
+): boolean {
+  return (
+    record.questionGuard.candidatePublicQuestion === record.participationQuestion &&
+    isQuestionGuardBoundToCurrentContract(record.questionGuard)
+  );
+}
+
 export function buildParticipationSpacePublishDraft(
   input: BuildDraftInput,
 ): ParticipationSpacePublishDraft {
@@ -318,7 +334,7 @@ export function buildParticipationSpacePublishDraft(
   const questionGuard =
     input.questionGuard ??
     input.runtimeRecord.questionGuard ??
-    evaluatePublicQuestionGeneralization({
+    bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: input.runtimeRecord.description,
       candidatePublicQuestion: input.runtimeRecord.participationQuestion,
       actorContexts: [],
@@ -328,7 +344,7 @@ export function buildParticipationSpacePublishDraft(
         independentFromCandidateProvider: false,
         evidenceRefs: input.runtimeRecord.graphReferences,
       },
-    });
+    }));
   const draft: ParticipationSpacePublishDraft = {
     version: normalizeWorkflowRecordVersion(input.version),
     id: `participation-space-publish:${input.runtimeRecord.sourceHandoffId}`,
@@ -429,7 +445,7 @@ export function reviewParticipationSpaceQuestionGuard(
   ) {
     throw new Error("public_question_guard_actor_finding_required");
   }
-  const questionGuard = evaluatePublicQuestionGeneralization({
+  const questionGuard = bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
     originalInput: record.questionGuard.originalInput,
     candidatePublicQuestion: record.participationQuestion,
     actorContexts,
@@ -457,7 +473,7 @@ export function reviewParticipationSpaceQuestionGuard(
             decision: "approved_after_human_review",
           }
         : null,
-  });
+  }));
   const reviewed = {
     ...record,
     status: "draft" as const,
@@ -573,7 +589,7 @@ function getBaseBlockers(
   if (!hasText(draft.description)) blockers.push("missing_description");
   const questionGuard =
     draft.questionGuard ??
-    evaluatePublicQuestionGeneralization({
+    bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: draft.description,
       candidatePublicQuestion: draft.participationQuestion,
       actorContexts: [],
@@ -583,8 +599,14 @@ function getBaseBlockers(
         independentFromCandidateProvider: false,
         evidenceRefs: [],
       },
-    });
-  if (questionGuard.releaseState !== "draft_allowed") {
+    }));
+  if (
+    questionGuard.releaseState !== "draft_allowed" ||
+    !isParticipationQuestionGuardCurrent({
+      participationQuestion: draft.participationQuestion,
+      questionGuard,
+    })
+  ) {
     blockers.push("public_question_guard_blocked");
   }
   if (draft.sourceStatus === "source_review_pending") {
