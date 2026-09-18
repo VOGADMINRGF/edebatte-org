@@ -380,6 +380,19 @@ export async function listPublishedParticipationSpaces(input?: {
         }),
       };
     }
+
+    if (records.length > 0) {
+      return {
+        items: [],
+        status: summarizePublicParticipationSpaceRuntimeState({
+          source: "empty",
+          totalVisible: 0,
+          totalRuntimePublished: 0,
+          message:
+            "Vorhandene Beteiligungsräume bleiben unsichtbar, bis ihre Runtime-Freigabe vollständig und aktuell belegt ist.",
+        }),
+      };
+    }
   } catch {
     return {
       items: [],
@@ -445,13 +458,17 @@ export async function getPublishedParticipationSpaceBySlugOrId(
       };
     }
 
-    if (published.length > 0 || !allowFixtureFallback) {
+    if (records.length > 0 || !allowFixtureFallback) {
       return {
         detail: null,
         status: summarizePublicParticipationSpaceRuntimeState({
           source: published.length > 0 ? "runtime" : "empty",
           totalVisible: published.length,
           totalRuntimePublished: published.length,
+          message:
+            records.length > 0
+              ? "Ein vorhandener Runtime-Raum bleibt unsichtbar, bis seine Freigabe vollständig und aktuell belegt ist."
+              : undefined,
         }),
       };
     }
