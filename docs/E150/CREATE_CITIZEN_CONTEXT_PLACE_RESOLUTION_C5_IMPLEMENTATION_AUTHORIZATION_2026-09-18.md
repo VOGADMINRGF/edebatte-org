@@ -40,6 +40,8 @@ No other runtime or test file is authorized.
 
 - Use `52baa748c157810d4fd30ac1fe57d00fc342733b` as the last explicit pre-C7 C5 baseline.
 - Extract only C5 place-index / lexical-ambiguity hunks from `287482c3277c7237504d8e8d5eabc8efac1091f8`.
+- Extract C5 intake-classification hardening from `93a9b6314088071511e6ae8a6209d4e2708a8b54` only: locale-aware DE/EN emergency detection, sentence-leading place evidence, lexical ambiguity additions and comparison handling. Any non-C5 hunks remain excluded.
+- Extract C5 quality-regression hardening from `4e21a5131a29ffad53299e20f4bd32f664c6cf58` only: municipal-signal additions, lexical false-positive hardening and sentence-leading place constraints. Any non-C5 hunks remain excluded.
 - Extract only the C5 emergency hunk from `9a183863df906d1d3b29f5ffc0a3d1d8f94123c4`; C6 relation-inference hunks remain excluded.
 - Extract only C5 citizen-context preservation from `d0444a90761cdfdcdb54cb838221138467cf3add`; jurisdiction-trust hunks remain C7 and excluded.
 - C7 confirmation/candidate-key/UI hunks from `a12978a5fc7f22f4f5281d393a26834cadd36204` are explicitly forbidden here.
