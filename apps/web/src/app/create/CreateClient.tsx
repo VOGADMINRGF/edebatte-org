@@ -116,6 +116,7 @@ import {
   type CreateVoxyLocale,
 } from "@/features/create/createVoxySupportCopy";
 import type { CreateSupportHandoffPublic } from "@/features/support/createSupportTicketContract";
+import { applyCreateRegionPriority } from "@/features/create/createCitizenIntakeContext";
 import {
   isCreateIntelligentFollowupAbortError,
   resolveCreateIntakeTiming,
@@ -1550,6 +1551,26 @@ export default function CreateClient({
       : surfaceTexts.startBusyStatus;
   const showStartChatPreview =
     Boolean(followupSnapshot) && hasStarted && !showIntelligentFollowup && !showLinkClarification;
+  const citizenContext = React.useMemo(() => {
+    const detected = intelligentFollowup?.meta?.citizenContext ?? null;
+    if (!detected) return null;
+    const profileRegion =
+      overview.profile?.publicLocation?.city ??
+      overview.profile?.publicLocation?.region ??
+      null;
+    const confirmedRegion =
+      initialIntakeContext?.reviewState === "confirmed"
+        ? initialIntakeContext.region
+        : null;
+    return applyCreateRegionPriority(detected, {
+      confirmedRegion,
+      profileRegion,
+    });
+  }, [
+    initialIntakeContext,
+    intelligentFollowup?.meta?.citizenContext,
+    overview.profile,
+  ]);
   const startChatAssistantTitle = isStarting
     ? surfaceLocale === "en"
       ? "I’m organizing this briefly"
@@ -3269,6 +3290,15 @@ export default function CreateClient({
                 inputPlaceholder={workspaceComposerPlaceholder}
                 onInputChange={handleWorkspaceComposerChange}
                 onAttachmentsChange={setComposerAttachments}
+                citizenContext={citizenContext}
+                onEditCitizenRegion={() => {
+                  setWorkspaceActionMode("edit");
+                  setActionNotice(
+                    surfaceLocale === "en"
+                      ? "You can change the place or region directly in your contribution."
+                      : "Du kannst Ort oder Region direkt in deinem Beitrag ändern.",
+                  );
+                }}
                 onStart={hasStarted ? handleContinueConversation : handleStart}
                 startLabel={workspaceComposerStartLabel}
                 startDisabled={workspaceComposerStartDisabled}

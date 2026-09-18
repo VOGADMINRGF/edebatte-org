@@ -19,6 +19,7 @@ import {
   ensureCreateSupportTicket,
   type CreateSupportHandoffPublic,
 } from "@/features/support/createSupportTickets";
+import { scheduleSupportTicketNotification } from "@/features/operator/operatorNotifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,12 @@ function supportFailureMessage(locale: string) {
     : "Dein Beitrag ist gespeichert. Bitte versuche es erneut und nutze die technische Fehlerreferenz, falls das Problem bestehen bleibt.";
 }
 
+function supportRecordedMessage(locale: string, ticketNumber: string) {
+  return locale.toLowerCase().startsWith("en")
+    ? `Your contribution is saved. A technical case (${ticketNumber}) was recorded for QA/Auth review.`
+    : `Dein Beitrag ist gespeichert. Der technische Fall ${ticketNumber} wurde für QA/Auth erfasst.`;
+}
+
 async function createSupportHandoff(input: {
   actor: VerifiedCreateUserActor;
   requestId: string;
@@ -73,28 +80,27 @@ async function createSupportHandoff(input: {
   technicalErrorCodeOverride?: string;
 }): Promise<CreateSupportHandoffPublic> {
   try {
+    const technicalErrorCode =
+      input.technicalErrorCodeOverride ??
+      (input.analysisState === "fetch_failed" ? "CREATE_FETCH_FAILED" : "CREATE_AI_FAILED");
+    const provider = input.planner?.plannerDebug?.attemptedProvider ?? null;
+    const reason = input.reasonOverride ?? input.planner?.degradedReason ?? input.analysisState;
     const ticket = await ensureCreateSupportTicket({
       affectedUserId: input.actor.affectedUserId,
       orchestrationPhase: "intelligent_followup",
       correlationId: input.requestId,
       traceId: input.requestId,
-      technicalErrorCode:
-        input.technicalErrorCodeOverride ??
-        (input.analysisState === "fetch_failed"
-          ? "CREATE_FETCH_FAILED"
-          : "CREATE_AI_FAILED"),
-      provider: input.planner?.plannerDebug?.attemptedProvider ?? null,
-      reason:
-        input.reasonOverride ??
-        input.planner?.degradedReason ??
-        input.analysisState,
+      technicalErrorCode,
+      provider,
+      reason,
       providerErrorCode:
         input.planner?.plannerDebug?.providerErrorCode ?? null,
       attemptCount: input.planner?.providerAttemptCount ?? 1,
       draftId: input.draftId,
       locale: input.locale,
     });
-    return { status: "created", ticket };
+    scheduleSupportTicketNotification({ ticketNumber: ticket.ticketNumber, technicalErrorCode, provider, reason });
+    return { status: "created", ticket: { ...ticket, safeUserMessage: supportRecordedMessage(input.locale, ticket.ticketNumber) } };
   } catch {
     return {
       status: "failed",

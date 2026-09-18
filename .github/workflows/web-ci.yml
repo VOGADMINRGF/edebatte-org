@@ -21,6 +21,8 @@ jobs:
       BROWSERSLIST_IGNORE_OLD_DATA: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.17.1
@@ -32,9 +34,17 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: git diff --check
+      - run: node scripts/ci/check-repository-integrity-guards.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+      - run: pnpm -C apps/web run test:repository-integrity-guards
+      - run: pnpm -C apps/web run test:decision-dossier-t0
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
+
+      - name: Focused AI and public discovery contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/ai-public-discovery.contract.test.ts
 
       - name: Focused organization registry contracts
         run: >-
@@ -121,3 +131,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node scripts/ci/check-web-critical-guardrails.mjs
+
+  indexnow-production:
+    name: Post-deploy search discovery
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web-contracts, web-quality, web-security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+      - name: Notify IndexNow only after exact Vercel production success
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node apps/web/scripts/submit-indexnow-after-vercel.mjs

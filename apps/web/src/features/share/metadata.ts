@@ -17,7 +17,7 @@ const DESCRIPTION_FALLBACK: Record<ShareObjectType, string> = {
   factcheck: "Factcheck mit Prüfstatus, Evidenzbezug und transparentem Workflow.",
   companion: "Companion als Kontextdialog mit routegebundenem Bezug.",
   topic_round: "Themenrunde mit offenem Anlasskontext und Anschlussoptionen.",
-  stream: "Stream-Kontext mit sachlicher Einordnung und transparenten Hinweisen.",
+  stream: "Event-Kontext mit sachlicher Einordnung und transparenten Beteiligungshinweisen.",
   report: "Report mit neutraler Auswertung und nachvollziehbaren Grundlagen.",
   analyze: "Analyse mit strukturierter Einordnung und offenen Fragen.",
 };
@@ -62,7 +62,9 @@ export function buildShareMetadata(input: BuildShareMetadataInput): Metadata {
   const canonicalPath = toCanonicalPath(input.pathOrUrl);
   const absoluteUrl = toAbsolute(input.pathOrUrl);
   const imageUrl = toClean(input.imageUrl, 600) || resolveSeoImageUrl();
-  const ogType = input.ogType ?? "article";
+  // Stream/event pages may or may not contain playable media. The generic metadata layer
+  // cannot prove that capability, so it must not advertise an OpenGraph video type.
+  const ogType = input.objectType === "stream" ? "website" : input.ogType ?? "article";
 
   return {
     title,

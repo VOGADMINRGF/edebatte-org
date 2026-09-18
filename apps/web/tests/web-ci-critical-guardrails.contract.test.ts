@@ -27,11 +27,14 @@ describe("web ci critical guardrails contract", () => {
 
     expect(workflow).toContain("name: Web contracts");
     expect(workflow).toContain("git diff --check");
+    expect(workflow).toContain("node scripts/ci/check-repository-integrity-guards.mjs");
+    expect(workflow).toContain("pnpm -C apps/web run test:repository-integrity-guards");
     expect(workflow).toContain("pnpm -C apps/web run test:web-pr-critical-guardrails");
     expect(workflow).toContain("pnpm -C apps/web run test:production-guardrails");
     expect(workflow).toContain("cp apps/web/.env.example apps/web/.env.local");
     expect(workflow).toContain("pnpm -C apps/web run build");
     expect(workflow).toContain("gitleaks/gitleaks-action@v2");
+    expect(workflow).toMatch(/web-contracts:[\s\S]*actions\/checkout@v4[\s\S]*fetch-depth: 0[\s\S]*check-repository-integrity-guards/);
     expect(workflow).toMatch(/web-security:[\s\S]*actions\/checkout@v4[\s\S]*fetch-depth: 0[\s\S]*gitleaks\/gitleaks-action@v2/);
   });
 

@@ -89,9 +89,9 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           initiativeCta: "About the initiative",
           howItWorksCta: "How eDebatte works",
           privateKicker: "Private packages",
-          privateTitle: "Private packages for individuals",
+          privateTitle: "Packages for individuals",
           privateText:
-            "Participation Free: €0 · Interested: €4.99/month incl. VAT · Active: €14.99/month incl. VAT · Co-creating: €29.99/month incl. VAT.",
+            "eDebatte Free: €0 · Plus: €7.99/month · Pro: €19.99/month.",
           segmentTitle: "More segments",
           segmentLabels: {
             privat: "Individuals",
@@ -101,7 +101,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           } as Record<PricingSegmentId, string>,
           segmentTexts: {
             privat:
-              "Participation Free: €0 · Interested: €4.99/month incl. VAT · Active: €14.99/month incl. VAT · Co-creating: €29.99/month incl. VAT.",
+              "eDebatte Free: €0 · Plus: €7.99/month · Pro: €19.99/month.",
             journalismus:
               "Journalism packages combine participation with defined research and editorial support quotas.",
             organisationen:
@@ -117,12 +117,12 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           municipalBridgeQuoteCta: "Request service description",
           municipalStagesTitle: "Compact B2G overview",
           municipalStages: [
-            "Participation Check · from €2,500 one-time + VAT",
-            "Dossier & Participation Round · project-based, quote-oriented + VAT",
-            "Municipal Participation Operations · from €4,500/month + VAT",
-            "Framework Package / Procurement Package · after clarification, quote-based + VAT",
+            "Participation Check · from €2,500 one-time · plus VAT where legally applicable",
+            "Dossier & Participation Round · project-based, quote-oriented · plus VAT where legally applicable",
+            "Municipal Participation Operations · from €4,500/month · plus VAT where legally applicable",
+            "Framework Package / Procurement Package · after clarification, quote-based · plus VAT where legally applicable",
           ],
-          annualHint: "Monthly payment is possible. Annual payment saves 15% on paid package paths.",
+          annualHint: "Current self-service B2C packages are billed monthly through Stripe.",
           trustTitle: "Trust & clarity",
           trustIntro:
             "Participation is voluntary. eDebatte structures information and does not guarantee political implementation.",
@@ -131,14 +131,14 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           trustThree: "Cancellation, revocation and data protection are documented clearly.",
           trustFour: "No official election result unless explicitly configured as legally binding.",
           trustFive: "Extra source verification or premium research is optional and clearly priced.",
-          membershipTitle: "Membership in the initiative",
+          membershipTitle: "Support for the initiative",
           membershipIntro:
-            "Membership remains optional and separate from package purchase.",
-          membershipPointOne: "Package prices are identical, regardless of membership request.",
-          membershipPointTwo: "Membership and package activation run as separate, transparent steps.",
-          membershipPointThree: "Recommended membership contribution: €5.63.",
+            "Support for VoiceOpenGov remains optional and separate from an eDebatte package purchase.",
+          membershipPointOne: "eDebatte package prices are identical regardless of VoiceOpenGov support.",
+          membershipPointTwo: "Support and eDebatte package activation remain separate and transparent.",
+          membershipPointThree: "VoiceOpenGov support starts at €4.99 per month; an enhanced support tier is €15 per month.",
           membershipPointFour:
-            "Membership request and contribution amount are finalized via separate email link.",
+            "VoiceOpenGov support is managed separately on voiceopengov.org.",
           membershipPointFive:
             "eDebatte.org and VoiceOpenGov.org can be operated in separate systems with additional security boundaries.",
           addOnsTitle: "Optional add-ons",
@@ -169,7 +169,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           privateKicker: "Für Einzelpersonen",
           privateTitle: "Pakete für Einzelpersonen",
           privateText:
-            "Beteiligung frei: 0 € · Interessiert: 4,99 € mtl. inkl. MwSt. · Aktiv: 14,99 € mtl. inkl. MwSt. · Mitgestaltend: 29,99 € mtl. inkl. MwSt.",
+            "eDebatte Free: 0 € · Plus: 7,99 € mtl. · Pro: 19,99 € mtl.",
           segmentTitle: "Weitere Zielgruppen",
           segmentLabels: {
             privat: "Einzelpersonen",
@@ -179,7 +179,7 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           } as Record<PricingSegmentId, string>,
           segmentTexts: {
             privat:
-              "Beteiligung frei: 0 € · Interessiert: 4,99 € mtl. inkl. MwSt. · Aktiv: 14,99 € mtl. inkl. MwSt. · Mitgestaltend: 29,99 € mtl. inkl. MwSt.",
+              "eDebatte Free: 0 € · Plus: 7,99 € mtl. · Pro: 19,99 € mtl.",
             journalismus:
               "Journalistische Pakete verbinden Beteiligung mit klar definierten Recherche- und Redaktionsleistungen.",
             organisationen:
@@ -195,12 +195,12 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
           municipalBridgeQuoteCta: "Leistungsbeschreibung anfordern",
           municipalStagesTitle: "Kompakter Überblick",
           municipalStages: [
-            "Beteiligungs-Check · ab 2.500 € einmalig zzgl. MwSt.",
-            "Dossier & Beteiligungsrunde · projektbezogen, als Leistungsbaustein zzgl. MwSt.",
-            "Beteiligungsbetrieb Kommune · ab 4.500 € / Monat zzgl. MwSt.",
-            "Rahmenvertrag / Vergabepaket · Angebot nach Klärung zzgl. MwSt.",
+            "Beteiligungs-Check · ab 2.500 € einmalig · ggf. zzgl. gesetzlich geschuldeter USt.",
+            "Dossier & Beteiligungsrunde · projektbezogen, als Leistungsbaustein · ggf. zzgl. gesetzlich geschuldeter USt.",
+            "Beteiligungsbetrieb Kommune · ab 4.500 € / Monat · ggf. zzgl. gesetzlich geschuldeter USt.",
+            "Rahmenvertrag / Vergabepaket · Angebot nach Klärung · ggf. zzgl. gesetzlich geschuldeter USt.",
           ],
-          annualHint: "Monatliche Zahlung ist möglich. Jahreszahlung spart 15 % bei kostenpflichtigen Paketwegen.",
+          annualHint: "Die aktuellen B2C-Self-Service-Pakete werden über Stripe monatlich abgerechnet.",
           trustTitle: "Klare Regeln",
           trustIntro:
             "Nutzung ist freiwillig. eDebatte strukturiert Informationen und garantiert keine politische Umsetzung.",
@@ -211,14 +211,14 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
             "Keine amtliche Wahl oder verbindliche Abstimmung, außer wenn ein rechtssicheres Verfahren ausdrücklich eingerichtet ist.",
           trustFive:
             "Zusätzliche Quellenprüfung oder Premium-Recherche ist optional und wird klar ausgewiesen.",
-          membershipTitle: "Mitgliedschaft in der Initiative",
+          membershipTitle: "Unterstützung der Initiative",
           membershipIntro:
-            "Mitgliedschaft bleibt freiwillig und getrennt vom Paketkauf.",
-          membershipPointOne: "Paketpreise bleiben unabhängig vom Mitgliedschaftsantrag gleich.",
-          membershipPointTwo: "Mitgliedschaftsantrag und Paketfreischaltung laufen als getrennte, transparente Schritte.",
-          membershipPointThree: "Empfohlener Mitgliedsbeitrag: 5,63 €.",
+            "Die Unterstützung von VoiceOpenGov bleibt freiwillig und vom eDebatte-Paketkauf getrennt.",
+          membershipPointOne: "eDebatte-Paketpreise bleiben unabhängig von einer VoiceOpenGov-Unterstützung gleich.",
+          membershipPointTwo: "Unterstützung und eDebatte-Paketfreischaltung laufen als getrennte, transparente Schritte.",
+          membershipPointThree: "VoiceOpenGov Unterstützend startet bei 4,99 € pro Monat; Fördernd liegt bei 15 € pro Monat.",
           membershipPointFour:
-            "Mitgliedsantrag und Beitragshöhe werden separat per E-Mail-Link final bestätigt.",
+            "Die VoiceOpenGov-Unterstützung wird separat über voiceopengov.org verwaltet.",
           membershipPointFive:
             "eDebatte.org und VoiceOpenGov.org können organisatorisch und technisch getrennt geführt werden; zusätzliche Sicherheits- und Trennlogik ist bewusst möglich.",
           addOnsTitle: "Optionale Zusatzleistungen",
@@ -253,6 +253,18 @@ export default async function PricingPage({ searchParams }: PageProps = {}) {
               ? "Where a package requires a contract or manual activation, we show that openly instead of pretending there is an instant checkout."
               : "Wo ein Paket Vertrag oder manuelle Freischaltung braucht, zeigen wir das offen statt einen sofortigen Checkout vorzutäuschen."}
           </p>
+          <div className="mt-4 max-w-4xl rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+            <p className="font-semibold">
+              {locale === "en"
+                ? "Build phase: eDebatte is currently operated by Ricky G. Fleischer as a natural person. No eDebatte.org GmbH or VOG Holding is currently the provider or contractual partner."
+                : "Aufbauphase: eDebatte wird derzeit von Ricky G. Fleischer als natürlicher Person betrieben. Eine eDebatte.org GmbH oder VOG Holding ist aktuell nicht Anbieter oder Vertragspartner."}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed">
+              {locale === "en"
+                ? "The stated self-service amounts are the current checkout amounts. VAT is shown on invoices only where it is legally due under the applicable tax status."
+                : "Die genannten Self-Service-Beträge sind die aktuellen Checkout-Beträge. Umsatzsteuer wird auf Rechnungen nur ausgewiesen, soweit sie nach dem jeweils geltenden Steuerstatus gesetzlich geschuldet wird."}
+            </p>
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href={withLocaleHref("/register", locale)} className="btn-primary">
               {labels.freeStartCta}

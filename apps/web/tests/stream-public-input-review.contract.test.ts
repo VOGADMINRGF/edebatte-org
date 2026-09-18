@@ -23,11 +23,19 @@ vi.mock("@features/stream/db", () => ({
 
 import { POST } from "@/app/api/stream/public-input/route";
 
-function buildRequest(body: Record<string, unknown>) {
+function buildRequest(
+  body: Record<string, unknown>,
+  options: { authenticated?: boolean; verified?: boolean; contentType?: string } = {},
+) {
+  const authenticated = options.authenticated !== false;
+  const cookies = authenticated
+    ? [`u_id=test-user`, options.verified ? "u_verified=1" : "u_verified=0"].join("; ")
+    : "";
   return new NextRequest("http://localhost/api/stream/public-input", {
     method: "POST",
     headers: {
-      "content-type": "application/json",
+      "content-type": options.contentType ?? "application/json",
+      ...(cookies ? { cookie: cookies } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -49,6 +57,7 @@ describe("stream public input route", () => {
         topicKey: "energie-berlin",
         regionCode: "berlin",
         resolvedStatus: "collecting_input",
+        requireVerifiedParticipants: false,
       },
       context: {
         anlassraumId: "65f000000000000000000401",
@@ -61,7 +70,7 @@ describe("stream public input route", () => {
     });
   });
 
-  it("stores stream-origin inputs as review-gated participation signals", async () => {
+  it("stores authenticated stream-origin inputs as review-gated participation signals", async () => {
     const res = await POST(
       buildRequest({
         streamId: "65f000000000000000000901",
@@ -78,7 +87,7 @@ describe("stream public input route", () => {
         kind: "question",
         reviewState: "needs_review",
         visibilityState: "public_unverified",
-        visibilityLabel: "sichtbar, aber nicht geprüft",
+        visibilityLabel: "reviewpflichtig",
         noAutoPublish: true,
         noAutoDossierUpdate: true,
       },
@@ -108,8 +117,104 @@ describe("stream public input route", () => {
     });
   });
 
+  it("fails closed for anonymous public event input", async () => {
+    const res = await POST(
+      buildRequest(
+        {
+          streamId: "65f000000000000000000901",
+          kind: "question",
+          text: "Welche Daten werden veröffentlicht?",
+        },
+        { authenticated: false },
+      ),
+    );
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: "login_required",
+    });
+    expect(mocks.buildRuntime).not.toHaveBeenCalled();
+    expect(mocks.insertOne).not.toHaveBeenCalled();
+  });
+
+  it("enforces verification when the released event requires it", async () => {
+    mocks.buildRuntime.mockResolvedValueOnce({
+      session: {
+        id: "65f000000000000000000901",
+        slugOrId: "stadtwerke-live-berlin",
+        title: "Livestream Stadtwerke Berlin",
+        description: "Öffentliche Energierunde",
+        topicKey: "energie-berlin",
+        regionCode: "berlin",
+        requireVerifiedParticipants: true,
+      },
+      context: {
+        anlassraumId: null,
+        anlassraumTitle: null,
+        dossierId: null,
+      },
+      participation: {
+        openForInput: true,
+      },
+    });
+
+    const res = await POST(
+      buildRequest({
+        streamId: "65f000000000000000000901",
+        kind: "question",
+        text: "Welche Daten werden veröffentlicht?",
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: "verification_required",
+    });
+    expect(mocks.insertOne).not.toHaveBeenCalled();
+  });
+
+  it("accepts verified input when verification is required", async () => {
+    mocks.buildRuntime.mockResolvedValueOnce({
+      session: {
+        id: "65f000000000000000000901",
+        slugOrId: "stadtwerke-live-berlin",
+        title: "Livestream Stadtwerke Berlin",
+        description: "Öffentliche Energierunde",
+        topicKey: "energie-berlin",
+        regionCode: "berlin",
+        requireVerifiedParticipants: true,
+      },
+      context: {
+        anlassraumId: null,
+        anlassraumTitle: null,
+        dossierId: null,
+      },
+      participation: {
+        openForInput: true,
+      },
+    });
+
+    const res = await POST(
+      buildRequest(
+        {
+          streamId: "65f000000000000000000901",
+          kind: "question",
+          text: "Welche Daten werden veröffentlicht?",
+        },
+        { verified: true },
+      ),
+    );
+
+    expect(res.status).toBe(201);
+  });
+
   it("blocks input when the public stream path is not open", async () => {
     mocks.buildRuntime.mockResolvedValueOnce({
+      session: {
+        requireVerifiedParticipants: false,
+      },
       participation: {
         openForInput: false,
       },
@@ -128,6 +233,25 @@ describe("stream public input route", () => {
     await expect(res.json()).resolves.toMatchObject({
       ok: false,
       error: "public_stream_not_open",
+    });
+  });
+
+  it("rejects non-json event input before parsing", async () => {
+    const res = await POST(
+      buildRequest(
+        {
+          streamId: "65f000000000000000000901",
+          kind: "question",
+          text: "Welche Daten werden veröffentlicht?",
+        },
+        { contentType: "text/plain" },
+      ),
+    );
+
+    expect(res.status).toBe(415);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: "unsupported_media_type",
     });
   });
 });

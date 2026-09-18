@@ -59,7 +59,7 @@ const MOBILE_NAV_ITEMS: readonly MobileNavItem[] = [
   {
     id: "stream",
     href: "/stream",
-    label: "Live",
+    label: "Events",
     isActive: (pathname) => pathname === "/stream" || pathname.startsWith("/stream/"),
     icon: (active) => (
       <svg viewBox="0 0 24 24" className={`h-5 w-5 ${active ? "text-sky-500" : "text-[rgb(var(--muted))]"}`} aria-hidden="true">

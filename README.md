@@ -56,6 +56,39 @@ cp apps/web/.env.example apps/web/.env.local
 pnpm -C apps/web dev
 ```
 
+### Lokale Runtime (Create- und Auth-Abnahme)
+
+Die lokale Web-Runtime erwartet Node `20.20.2`, PostgreSQL auf `localhost:5433`,
+MongoDB auf `localhost:27017` und Redis auf `localhost:6379`. PostgreSQL ist
+lokal als Homebrew-Service vorgesehen; MongoDB und Redis können aus der
+vorhandenen Compose-Datei kommen. Der optionale Compose-Env-Eintrag verhindert
+nicht, dass Infrastruktur-Container ohne eine Root-`.env` gestartet werden.
+
+```bash
+nvm use 20.20.2
+brew services start postgresql@14
+docker compose up -d mongo redis mailpit
+```
+
+Mailpit ist ausschließlich der lokale SMTP-Sink: Die App verbindet sich über
+`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` und `SMTP_SECURE=false`; die lokale
+Inbox ist unter `http://localhost:8025` erreichbar. Zugangsdaten oder
+Produktions-SMTP-Werte gehören nicht in die lokale Abnahme.
+
+Für einen neuen, ausschließlich lokalen PostgreSQL-Cluster muss die in
+`apps/web/.env.example` dokumentierte Entwicklungsrolle `dev` samt Datenbank
+`vog` angelegt werden. Anschließend darf nur bei einer frischen lokalen
+Entwicklungsdatenbank der aktuelle Web-Schema-Stand synchronisiert werden:
+
+```bash
+pnpm exec prisma db push --schema=prisma/web/schema.prisma --skip-generate
+```
+
+`db push` ist kein Ersatz für die getrennte Web-/Core-Migrationsbaseline und
+darf weder gegen Preview noch Production verwendet werden. Für bestehende oder
+geteilte Datenbanken gilt weiterhin `DB-MIGRATION-BASELINE-01` mit seinen
+manuellen Backup-, Drift- und Adoptions-Gates.
+
 ## Qualität & Builds
 
 - `pnpm -C apps/web exec tsc --noEmit` – TypeScript-Check für die Web-App

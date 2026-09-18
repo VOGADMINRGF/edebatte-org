@@ -81,6 +81,20 @@ If an agent discovers drift, duplication, or unresolved adjacent work:
 - finish the requested task cleanly
 - add a follow-up entry to `docs/E150/OpenTasks.md`
 
+### 7a. Canonical domain ownership and evidence integrity
+`features/*` owns shared, domain and business contracts as well as the canonical
+feature truth. `apps/web/src/features/*` may contain only web-specific UI,
+adapters, runtime bridges and readmodels. When `features/<domain>/` exists, no
+new canonical domain contract or duplicate implementation may be created under
+`apps/web/src/features/<domain>/`.
+
+Protected evidence is preserved: `*_PREFLIGHT_*.md`, `*_AUDIT_*.md`,
+`*_CLOSURE_*.md`, canonical runbooks, architecture/security evidence and the
+foundation canon may be corrected, extended or superseded, but not silently
+replaced with a shorter summary. **SUMMARY != REPLACEMENT.** Removing required
+sections requires `DOCUMENT_REWRITE_AUTHORIZED=true` together with a rationale
+and a replacement or supersession reference.
+
 ### 8. Frontend language rule (verbindlich)
 Für deutschsprachige Frontend-Texte gilt:
 - Umlaute und ß normal schreiben (`ä`, `ö`, `ü`, `Ä`, `Ö`, `Ü`, `ß`)

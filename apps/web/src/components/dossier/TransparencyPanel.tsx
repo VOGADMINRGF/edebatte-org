@@ -1,5 +1,6 @@
 import type { Dossier } from "@features/dossier";
 import { UI_DE } from "./labels";
+import ParliamentaryContextPanel from "./ParliamentaryContextPanel";
 
 type TransparencyPanelProps = {
   sources: Dossier["sourceSet"];
@@ -127,6 +128,7 @@ export function TransparencyPanel({
           <li className="text-[11px] text-[rgb(var(--muted))]">Keine Quellen hinterlegt.</li>
         )}
       </ul>
+      <ParliamentaryContextPanel sources={sources} />
     </section>
   );
 }
