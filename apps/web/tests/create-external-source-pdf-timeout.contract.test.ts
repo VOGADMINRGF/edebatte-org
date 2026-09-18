@@ -5,9 +5,7 @@ import {
   CREATE_EXTERNAL_PDF_PARSE_TIMEOUT_MS,
   extractCreatePdfText,
 } from "@/features/create/externalSourceIntake";
-
 afterEach(() => vi.useRealTimers());
-
 describe("C8 PDF extraction bounds", () => {
   it("caps parser pages and extracted text", async () => {
     const destroy = vi.fn(async () => undefined);
@@ -24,7 +22,6 @@ describe("C8 PDF extraction bounds", () => {
     expect(result.text).toHaveLength(CREATE_EXTERNAL_PDF_MAX_TEXT_LENGTH);
     expect(destroy).toHaveBeenCalledOnce();
   });
-
   it("fails closed on parser timeout and destroys the parser", async () => {
     vi.useFakeTimers();
     const destroy = vi.fn(async () => undefined);
