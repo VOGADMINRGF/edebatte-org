@@ -1285,8 +1285,7 @@ export async function reviewParticipationSpaceQuestionGuard(input: {
     participationSpaceId: reviewedRecord.participationSpaceId,
     questionGuardReleaseState: reviewedRecord.questionGuard.releaseState,
     questionGuardActorExtractionSource: input.actorExtractionSource,
-    questionGuardEvidenceRefs:
-      reviewedRecord.questionGuard.actorExtraction.evidenceRefs,
+    questionGuardEvidenceRefs: reviewedRecord.questionGuard.evidenceRefs,
     questionGuardActorContexts: reviewedRecord.questionGuard.actorContexts,
     questionGuardHumanReviewFinding:
       reviewedRecord.questionGuard.actorExtraction.humanReviewFinding ?? null,
