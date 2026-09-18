@@ -112,6 +112,18 @@ noch Checkout-, Leistungs- oder Verfügbarkeitsversprechen erfunden. KI unterst�
 Menschen beim Formulieren, Strukturieren oder Verstehen; sie entscheidet nicht
 autonom und veröffentlicht nicht automatisch.
 
+Für **Founding 100 Decision Intelligence** gilt seit der dokumentierten
+Projektentscheidung vom 15.09.2026 eine eng begrenzte Ausnahme von der allgemeinen
+Preis-Zurückhaltung: Die dort ausdrücklich beschlossenen vier professionellen
+Pakete dürfen mit den zentral konfigurierten Listen- und Founding-Preisen öffentlich
+gezeigt werden. Die Ausnahme autorisiert keinen Checkout und keine darüber
+hinausgehenden erfundenen Preise. Beauftragung bleibt anfrage- und
+bestätigungsbasiert; alle anderen noch nicht beschlossenen institutionellen Preise
+bleiben individuell beziehungsweise unveröffentlicht. Der Bürger-Einstieg bleibt
+primär, die Decision-Intelligence-Strecke nachgelagert. Professionelle Kunden zahlen
+für individuell beauftragte Recherche, Aufbereitung, Monitoring, Workflow und
+Leistungsaufwand, nicht für exklusiven Faktenzugang oder eine bevorzugte Wahrheit.
+
 ### Social Media und Kampagnen
 
 Einzelne Beiträge dürfen jeweils Problem, Wirkweise oder konkrete Beteiligung hervorheben. Über mehrere Beiträge hinweg muss das Gesamtbild erhalten bleiben: Stimmen verbinden, Evidenzen und Zusammenhänge sichtbar machen, Debattenstand herstellen und informierte Beteiligung ermöglichen. Gemeinschaftliche Aufrufe dürfen mit „Hallo Nachbarn,“ eröffnet werden.

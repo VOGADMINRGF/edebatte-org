@@ -14,6 +14,7 @@ describe("sitemap route contract", () => {
       "https://www.edebatte.org/factcheck",
       "https://www.edebatte.org/pricing",
       "https://www.edebatte.org/pricing/institutionen",
+      "https://www.edebatte.org/pricing/institutionen/decision-intelligence",
     ]);
     expect(urls).not.toContain("https://www.edebatte.org/login");
     expect(urls).not.toContain("https://www.edebatte.org/register");
