@@ -1,28 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  fetchTranscript: vi.fn(),
-}));
-
+const mocks = vi.hoisted(() => ({ fetchTranscript: vi.fn() }));
 vi.mock("youtube-transcript", () => ({
   YoutubeTranscript: {
     fetchTranscript: (...args: unknown[]) => mocks.fetchTranscript(...args),
   },
 }));
-
 import { fetchYoutubeTranscript } from "@features/ai/sources/youtube";
 
 describe("YouTube C8 transcript truth", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns language and segment count only for a real transcript", async () => {
-    mocks.fetchTranscript.mockResolvedValue([
-      { text: "first" },
-      { text: "second" },
-    ]);
-    await expect(
-      fetchYoutubeTranscript("https://www.youtube.com/watch?v=abcdefghijk", ["de"]),
-    ).resolves.toEqual({
+    mocks.fetchTranscript.mockResolvedValue([{ text: "first" }, { text: "second" }]);
+    await expect(fetchYoutubeTranscript("https://youtu.be/abcdefghijk", ["de"])).resolves.toEqual({
       id: "abcdefghijk",
       lang: "de",
       text: "first second",
@@ -31,30 +22,26 @@ describe("YouTube C8 transcript truth", () => {
     });
   });
 
-  it("classifies disabled transcripts without inventing source text", async () => {
-    const error = new Error("disabled");
-    error.name = "YoutubeTranscriptDisabledError";
+  it.each([
+    ["YoutubeTranscriptDisabledError", "disabled"],
+    ["VideoUnavailableError", "video_unavailable"],
+  ])("keeps %s failure truthful", async (name, failureReason) => {
+    const error = new Error("upstream");
+    error.name = name;
     mocks.fetchTranscript.mockRejectedValue(error);
-
-    const result = await fetchYoutubeTranscript(
-      "https://www.youtube.com/watch?v=abcdefghijk",
-      ["de", "en"],
-    );
-    expect(result.text).toBe("");
-    expect(result.segmentCount).toBe(0);
-    expect(result.lang).toBeNull();
-    expect(result.failureReason).toBe("disabled");
+    const result = await fetchYoutubeTranscript("abcdefghijk", ["de"]);
+    expect(result).toMatchObject({ text: "", segmentCount: 0, lang: null, failureReason });
   });
 
   it("preserves rate-limit truth across language fallback", async () => {
-    const rateLimit = new Error("limited");
-    rateLimit.name = "TooManyRequestError";
+    const error = new Error("limited");
+    error.name = "TooManyRequestError";
     mocks.fetchTranscript
-      .mockRejectedValueOnce(rateLimit)
+      .mockRejectedValueOnce(error)
       .mockRejectedValueOnce(new Error("other"));
-
-    const result = await fetchYoutubeTranscript("abcdefghijk", ["de", "en"]);
-    expect(result.failureReason).toBe("rate_limited");
-    expect(result.text).toBe("");
+    await expect(fetchYoutubeTranscript("abcdefghijk", ["de", "en"])).resolves.toMatchObject({
+      text: "",
+      failureReason: "rate_limited",
+    });
   });
 });
