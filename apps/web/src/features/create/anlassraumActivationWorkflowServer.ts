@@ -7,9 +7,12 @@ import {
   approveAnlassraumActivation as approveAnlassraumActivationRecord,
   approveAnlassraumPublication as approveAnlassraumPublicationRecord,
   buildAnlassraumActivationDraft,
+  getAnlassraumActivationBlockers,
+  isAnlassraumPubliclyReleased,
   publishAnlassraumAfterReview,
   rejectAnlassraumActivation as rejectAnlassraumActivationRecord,
   rejectAnlassraumPublication as rejectAnlassraumPublicationRecord,
+  reviewAnlassraumQuestionGuard as reviewAnlassraumQuestionGuardRecord,
   type AnlassraumActivationAuditContext,
   type AnlassraumActivationAuditEntry,
   type AnlassraumActivationRecord,
@@ -20,6 +23,12 @@ import {
   syncAnlassraumRuntimeVisibility,
 } from "@/features/create/anlassraumRuntimeServer";
 import type { AnlassraumRuntimeRecord } from "@/features/create/anlassraumRuntime";
+import {
+  holdQuestionGuardForSerializedReview,
+  normalizeWorkflowRecordVersion,
+  persistQuestionGuardReviewFailClosed,
+} from "@/features/create/safety/questionGuardReviewPersistence";
+import type { PublicQuestionActorContext } from "@/features/create/safety/publicQuestionGeneralization";
 
 export type AnlassraumActivationWorkflowPersistenceState = {
   mode: "persistent_primary" | "in_memory_fallback";
@@ -33,9 +42,16 @@ export type AnlassraumActivationWorkflowPersistenceState = {
   publicRouteRuntime: "runtime_wired";
 };
 
-type AnlassraumActivationWorkflowRepository = {
+export type AnlassraumActivationWorkflowRepository = {
   get(sourceHandoffId: string): Promise<AnlassraumActivationRecord | null>;
+  getByAnlassraumId(
+    anlassraumId: string,
+  ): Promise<AnlassraumActivationRecord | null>;
   save(record: AnlassraumActivationRecord): Promise<AnlassraumActivationRecord>;
+  compareAndSwap(input: {
+    record: AnlassraumActivationRecord;
+    expectedVersion: number;
+  }): Promise<AnlassraumActivationRecord>;
   list(limit?: number): Promise<AnlassraumActivationRecord[]>;
   insertAudit(
     entry: AnlassraumActivationAuditEntry,
@@ -114,7 +130,7 @@ function auditIdFor(input: {
   ).slice(0, 22)}`;
 }
 
-function createInMemoryAnlassraumActivationWorkflowRepository(): AnlassraumActivationWorkflowRepository {
+export function createInMemoryAnlassraumActivationWorkflowRepository(): AnlassraumActivationWorkflowRepository {
   const records = new Map<string, AnlassraumActivationRecord>();
   const audits = new Map<string, AnlassraumActivationAuditEntry>();
   return {
@@ -122,9 +138,31 @@ function createInMemoryAnlassraumActivationWorkflowRepository(): AnlassraumActiv
       const record = records.get(sourceHandoffId);
       return record ? clone(record) : null;
     },
+    async getByAnlassraumId(anlassraumId) {
+      const record = Array.from(records.values()).find(
+        (candidate) => candidate.anlassraumId === anlassraumId,
+      );
+      return record ? clone(record) : null;
+    },
     async save(record) {
       records.set(record.sourceHandoffId, clone(record));
       return clone(record);
+    },
+    async compareAndSwap(input) {
+      const current = records.get(input.record.sourceHandoffId);
+      const currentVersion = normalizeWorkflowRecordVersion(current?.version);
+      if (
+        (current && currentVersion !== input.expectedVersion) ||
+        (!current && input.expectedVersion !== 0)
+      ) {
+        throw new Error("anlassraum_activation_state_conflict");
+      }
+      const nextRecord = {
+        ...input.record,
+        version: input.expectedVersion + 1,
+      };
+      records.set(nextRecord.sourceHandoffId, clone(nextRecord));
+      return clone(nextRecord);
     },
     async list(limit) {
       const list = Array.from(records.values()).sort((left, right) =>
@@ -163,6 +201,13 @@ function createMongoAnlassraumActivationWorkflowRepository(): AnlassraumActivati
       const doc = await col.findOne({ _id: activationRecordId(sourceHandoffId) } as any);
       return doc?.record ? clone(doc.record) : null;
     },
+    async getByAnlassraumId(anlassraumId) {
+      const col = await coreCol<{ _id: string; record: AnlassraumActivationRecord }>(
+        ACTIVATION_COLLECTION,
+      );
+      const doc = await col.findOne({ anlassraumId } as any);
+      return doc?.record ? clone(doc.record) : null;
+    },
     async save(record) {
       const col = await coreCol<{ _id: string; record: AnlassraumActivationRecord }>(
         ACTIVATION_COLLECTION,
@@ -183,6 +228,62 @@ function createMongoAnlassraumActivationWorkflowRepository(): AnlassraumActivati
         { upsert: true },
       );
       return clone(record);
+    },
+    async compareAndSwap(input) {
+      const expectedVersion = normalizeWorkflowRecordVersion(
+        input.expectedVersion,
+      );
+      const nextRecord = {
+        ...input.record,
+        version: expectedVersion + 1,
+      };
+      const col = await coreCol<{
+        _id: string;
+        record: AnlassraumActivationRecord;
+      }>(ACTIVATION_COLLECTION);
+      try {
+        const result = await col.updateOne(
+          {
+            _id: activationRecordId(input.record.sourceHandoffId),
+            ...(expectedVersion === 0
+              ? {
+                  $or: [
+                    { version: 0 },
+                    { version: { $exists: false } },
+                  ],
+                }
+              : { version: expectedVersion }),
+          } as any,
+          {
+            $set: {
+              record: clone(nextRecord),
+              sourceHandoffId: nextRecord.sourceHandoffId,
+              anlassraumId: nextRecord.anlassraumId,
+              status: nextRecord.status,
+              visibility: nextRecord.visibility,
+              publicAccessMode: nextRecord.publicAccessMode,
+              updatedAt: nextRecord.updatedAt,
+              version: nextRecord.version,
+            } as any,
+          },
+          { upsert: expectedVersion === 0 },
+        );
+        if (result.modifiedCount + result.upsertedCount !== 1) {
+          throw new Error("anlassraum_activation_state_conflict");
+        }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "anlassraum_activation_state_conflict"
+        ) {
+          throw error;
+        }
+        if ((error as { code?: number })?.code === 11000) {
+          throw new Error("anlassraum_activation_state_conflict");
+        }
+        throw error;
+      }
+      return clone(nextRecord);
     },
     async list(limit) {
       const col = await coreCol<{ _id: string; record: AnlassraumActivationRecord }>(
@@ -275,6 +376,7 @@ async function buildAnlassraumActivationRecord(
   ]);
 
   const draft = buildAnlassraumActivationDraft({
+    version: normalizeWorkflowRecordVersion(existing?.version),
     runtimeRecord,
     createdRoom: room
       ? {
@@ -292,6 +394,7 @@ async function buildAnlassraumActivationRecord(
           updatedAt: runtimeRecord.updatedAt,
         },
     creationAudited: hasRuntimeCreatedAudit(runtimeRecord),
+    questionGuard: existing?.questionGuard ?? null,
     status: existing?.status,
     visibility: existing?.visibility,
     publicAccessMode: existing?.publicAccessMode,
@@ -324,16 +427,24 @@ async function buildAnlassraumActivationRecord(
 }
 
 async function saveRecord(record: AnlassraumActivationRecord) {
-  return getRepo().save(record);
+  return getRepo().compareAndSwap({
+    record,
+    expectedVersion: normalizeWorkflowRecordVersion(record.version),
+  });
 }
 
-async function syncRoomVisibility(record: AnlassraumActivationRecord) {
+export async function syncAnlassraumRoomVisibility(
+  record: AnlassraumActivationRecord,
+) {
   if (!record.anlassraumId || !ObjectId.isValid(record.anlassraumId)) return null;
   const col = await anlassraumCol();
   const now = new Date(record.updatedAt || nowIso());
+  const workflowVersion = normalizeWorkflowRecordVersion(record.version);
   const published = record.status === "published";
   const status =
-    record.status === "activated" ||
+    record.questionGuard.releaseState !== "draft_allowed"
+      ? "review_required"
+      : record.status === "activated" ||
     record.status === "approved_for_publication" ||
     record.status === "published"
       ? "active"
@@ -341,19 +452,38 @@ async function syncRoomVisibility(record: AnlassraumActivationRecord) {
         ? "approved"
         : undefined;
 
-  await col.updateOne(
-    { _id: new ObjectId(record.anlassraumId) } as any,
+  const result = await col.updateOne(
+    {
+      _id: new ObjectId(record.anlassraumId),
+      $or: [
+        { activationWorkflowSourceHandoffId: { $exists: false } },
+        { activationWorkflowSourceHandoffId: null },
+        {
+          activationWorkflowSourceHandoffId: record.sourceHandoffId,
+          $or: [
+            { activationWorkflowVersion: { $exists: false } },
+            { activationWorkflowVersion: null },
+            { activationWorkflowVersion: { $lte: workflowVersion } },
+          ],
+        },
+      ],
+    } as any,
     {
       $set: {
         title: record.title,
         summary: record.description,
         updatedAt: now,
         isPublic: published,
+        activationWorkflowSourceHandoffId: record.sourceHandoffId,
+        activationWorkflowVersion: workflowVersion,
         ...(status ? { status } : {}),
         publishedAt: published ? now : null,
       } as any,
     },
   );
+  if (result.matchedCount !== 1) {
+    throw new Error("anlassraum_visibility_state_conflict");
+  }
 
   return col.findOne({ _id: new ObjectId(record.anlassraumId) } as any);
 }
@@ -447,13 +577,36 @@ export async function listPublishedAnlassraumActivationRecords(limit = 40) {
   return records
     .filter(
       (record) =>
-        record.status === "published" &&
-        record.visibility === "public" &&
-        record.publicAccessMode === "public_read_only" &&
-        record.roomIsPublic === true &&
-        Boolean(record.anlassraumId),
+        isAnlassraumPubliclyReleased(record) && Boolean(record.anlassraumId),
     )
     .slice(0, limit);
+}
+
+export async function isAnlassraumPublicInputAllowed(input: {
+  anlassraumId: string;
+  roomIsPublic: boolean;
+  roomStatus?: string | null;
+  roomPublishedAt?: Date | string | null;
+  roomReviewedBy?: string | null;
+  roomApprovedBy?: string | null;
+  activationWorkflowSourceHandoffId?: string | null;
+}) {
+  if (!input.roomIsPublic) return false;
+  const workflowRecord = await getRepo().getByAnlassraumId(input.anlassraumId);
+  if (workflowRecord) return isAnlassraumPubliclyReleased(workflowRecord);
+
+  // Established governance publications predate the activation workflow. A
+  // room may use that canonical transition only while no activation-workflow
+  // ownership marker exists. Once the new guard owns it, missing workflow
+  // state remains fail-closed.
+  if (trimOrNull(input.activationWorkflowSourceHandoffId)) return false;
+  const status = trimOrNull(input.roomStatus);
+  return (
+    (status === "active" || status === "published") &&
+    Boolean(input.roomPublishedAt) &&
+    Boolean(trimOrNull(input.roomReviewedBy)) &&
+    Boolean(trimOrNull(input.roomApprovedBy))
+  );
 }
 
 export async function getAnlassraumActivationRecord(sourceHandoffId: string) {
@@ -503,6 +656,72 @@ export async function approveAnlassraumActivation(input: {
     anlassraumId: updated.anlassraumId,
   });
   return updated;
+}
+
+export async function reviewAnlassraumQuestionGuard(input: {
+  sourceHandoffId: string;
+  actorUserId: string;
+  actorExtractionSource: "entity_registry" | "actor_graph" | "human_review";
+  evidenceRefs: string[];
+  actorContexts?: PublicQuestionActorContext[];
+  noNamedActorsConfirmed?: boolean;
+  note?: string | null;
+}) {
+  const record = await getAnlassraumActivationRecord(input.sourceHandoffId);
+  if (!record) throw new Error("anlassraum_activation_record_not_found");
+
+  const reviewedAt = nowIso();
+  const reviewedRecord = reviewAnlassraumQuestionGuardRecord(record, {
+    actorExtractionSource: input.actorExtractionSource,
+    evidenceRefs: input.evidenceRefs,
+    actorContexts: input.actorContexts,
+    noNamedActorsConfirmed: input.noNamedActorsConfirmed,
+    reviewedAt,
+  });
+
+  const auditEntry = {
+    at: reviewedAt,
+    action: "question_guard_reviewed" as const,
+    actorUserId: input.actorUserId,
+    note:
+      trimOrNull(input.note) ??
+      `Public-Question-Guard erneut bewertet: ${reviewedRecord.questionGuard.releaseState}.`,
+    blockers: reviewedRecord.blockers,
+    status: reviewedRecord.status,
+    anlassraumId: reviewedRecord.anlassraumId,
+    questionGuardReleaseState: reviewedRecord.questionGuard.releaseState,
+    questionGuardActorExtractionSource: input.actorExtractionSource,
+    questionGuardEvidenceRefs:
+      reviewedRecord.questionGuard.actorExtraction.evidenceRefs,
+    questionGuardActorContexts: reviewedRecord.questionGuard.actorContexts,
+    questionGuardHumanReviewFinding:
+      reviewedRecord.questionGuard.actorExtraction.humanReviewFinding ?? null,
+  } satisfies Omit<
+    AnlassraumActivationAuditEntry,
+    "id" | "sourceHandoffId"
+  >;
+
+  const reviewReservationDraft: AnlassraumActivationRecord = {
+    ...reviewedRecord,
+    questionGuard: holdQuestionGuardForSerializedReview(record.questionGuard),
+  };
+  const reviewReservation: AnlassraumActivationRecord = {
+    ...reviewReservationDraft,
+    blockers: getAnlassraumActivationBlockers(reviewReservationDraft),
+  };
+
+  return persistQuestionGuardReviewFailClosed({
+    reviewReservation,
+    auditEntry,
+    persistAudit: (entry) => recordAudit(input.sourceHandoffId, entry),
+    persistRecord: saveRecord,
+    afterReservation: (reservation) =>
+      syncAnlassraumRoomVisibility(reservation),
+    buildReleasedRecord: (reservation) => ({
+      ...reviewedRecord,
+      version: reservation.version,
+    }),
+  });
 }
 
 export async function rejectAnlassraumActivation(input: {
@@ -569,14 +788,13 @@ export async function activateApprovedAnlassraum(input: {
     return updated;
   }
 
-  const updated = result.record;
-  await saveRecord(updated);
+  const updated = await saveRecord(result.record);
 
   await syncAnlassraumRuntimeVisibility({
     sourceHandoffId: input.sourceHandoffId,
     visibility: "active_internal",
   });
-  await syncRoomVisibility(updated);
+  await syncAnlassraumRoomVisibility(updated);
   await recordAudit(input.sourceHandoffId, {
     at: updated.updatedAt,
     action: "activated_internal",
@@ -692,14 +910,13 @@ export async function publishApprovedAnlassraum(input: {
     return updated;
   }
 
-  const updated = result.record;
-  await saveRecord(updated);
+  const updated = await saveRecord(result.record);
 
   await syncAnlassraumRuntimeVisibility({
     sourceHandoffId: input.sourceHandoffId,
     visibility: "published",
   });
-  await syncRoomVisibility(updated);
+  await syncAnlassraumRoomVisibility(updated);
   await upsertRoundSeed(updated);
   await recordAudit(input.sourceHandoffId, {
     at: updated.updatedAt,
