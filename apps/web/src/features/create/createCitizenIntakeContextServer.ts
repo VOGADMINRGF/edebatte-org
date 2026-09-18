@@ -1,3 +1,5 @@
+// @repository-integrity-classification: adapter
+
 import {
   buildOfficialRegionsFromDirectory,
 } from "@features/region";
