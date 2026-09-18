@@ -46,11 +46,11 @@ import {
   type ExistingTopicMatchPanelModel,
 } from "@/features/create/existingTopicMatches";
 import {
-  inferExistingTopicMatchRelation,
   resolveExistingTopicMatchesFromRuntime,
   type ResolveExistingTopicMatchesFromRuntimeResult,
 } from "@/features/create/existingTopicMatchesRuntimeBridge";
 import {
+  inferExistingTopicMatchRelation,
   mapCreateExistingMatchDecisionToDraftTarget,
   type CreateExistingMatchDecision,
 } from "@/features/create/createExistingMatchDecision";
