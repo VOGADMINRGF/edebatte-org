@@ -13,6 +13,17 @@ import {
   type ExistingTopicMatch,
   type ExistingTopicMatchPanelModel,
 } from "@/features/create/existingTopicMatches";
+import type { CreateExistingMatchDecision } from "@/features/create/createExistingMatchDecision";
+
+const CITIZEN_MATCH_DECISIONS: ReadonlyArray<{
+  id: CreateExistingMatchDecision;
+  label: string;
+}> = [
+  { id: "count_my_position", label: "Unterstützen" },
+  { id: "count_as_opposition", label: "Widersprechen" },
+  { id: "add_as_nuance", label: "Ergänzen / Nuance" },
+  { id: "keep_separate", label: "Separat weiterführen" },
+];
 
 export type ExistingTopicMatchesPanelProps = {
   model: ExistingTopicMatchPanelModel;
@@ -20,6 +31,12 @@ export type ExistingTopicMatchesPanelProps = {
   onStartNewBranch?: () => void;
   onCountSimilarOpinion?: (matchId: string) => void;
   onPrepareReview?: (matchId: string) => void;
+  matchDecisions?: Partial<Record<string, CreateExistingMatchDecision | null>>;
+  matchRelations?: Partial<Record<string, "related" | "opposing" | "unclear">>;
+  onMatchDecision?: (
+    matchId: string,
+    decision: CreateExistingMatchDecision,
+  ) => void;
 };
 
 function getStrengthLabel(strength: ExistingTopicMatch["strength"]): string {
@@ -157,6 +174,11 @@ export default function ExistingTopicMatchesPanel(
                     <h4 className="text-sm font-semibold text-[rgb(var(--fg))]">
                       {match.title}
                     </h4>
+                    {props.matchRelations?.[match.id] === "opposing" ? (
+                      <p className="text-xs font-medium text-violet-800 dark:text-violet-200">
+                        Mögliche Gegenposition
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -186,6 +208,50 @@ export default function ExistingTopicMatchesPanel(
                     Review-first: Dossier-, Anlass- und Beteiligungsanschlüsse bleiben
                     vorbereitend und brauchen eine bewusste Prüfung.
                   </p>
+                ) : null}
+
+                {match.kind !== "source_question" ? (
+                  <fieldset className="mt-3">
+                    <legend className="text-xs font-semibold text-[rgb(var(--fg))]">
+                      Wie möchtest du damit weitergehen?
+                    </legend>
+                    <div
+                      className="mt-2 flex flex-wrap gap-2"
+                      data-existing-match-decisions
+                    >
+                      {CITIZEN_MATCH_DECISIONS.map((decision) => {
+                        const selected =
+                          props.matchDecisions?.[match.id] === decision.id;
+                        return (
+                          <button
+                            key={decision.id}
+                            type="button"
+                            className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-2 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                              selected
+                                ? "border-cyan-500 bg-cyan-500/[0.14] text-cyan-950 dark:text-cyan-50"
+                                : "border-slate-300 text-[rgb(var(--fg))] hover:border-slate-400 dark:border-[rgb(var(--border))]"
+                            }`}
+                            aria-pressed={selected}
+                            onClick={() =>
+                              props.onMatchDecision?.(match.id, decision.id)
+                            }
+                            disabled={!props.onMatchDecision}
+                          >
+                            {decision.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {props.matchDecisions?.[match.id] ? (
+                      <p
+                        className="mt-2 text-xs text-[rgb(var(--muted))]"
+                        role="status"
+                      >
+                        Deine Auswahl bleibt ein Entwurf. Es wurde nichts
+                        zusammengeführt oder veröffentlicht.
+                      </p>
+                    ) : null}
+                  </fieldset>
                 ) : null}
 
                 {action ? (
