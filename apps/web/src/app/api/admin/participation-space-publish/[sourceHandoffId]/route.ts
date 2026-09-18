@@ -60,11 +60,7 @@ const ActorContextSchema = z
 const ReviewActionSchema = z
   .object({
     action: z.literal("reviewParticipationSpaceQuestionGuard"),
-    actorExtractionSource: z.enum([
-      "entity_registry",
-      "actor_graph",
-      "human_review",
-    ]),
+    actorExtractionSource: z.literal("human_review"),
     evidenceRefs: z.array(z.string().trim().min(1).max(500)).min(1),
     actorContexts: z.array(ActorContextSchema).max(50).optional(),
     noNamedActorsConfirmed: z.boolean().optional(),
