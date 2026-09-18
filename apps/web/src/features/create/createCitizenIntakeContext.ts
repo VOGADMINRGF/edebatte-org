@@ -1,3 +1,5 @@
+// @repository-integrity-classification: runtime-bridge
+
 import type {
   CreateCitizenConcernKind,
   CreateCitizenIntakeContext,
