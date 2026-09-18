@@ -87,9 +87,12 @@ export type PublicQuestionActorExtraction = {
   humanReviewFinding?: "actor_contexts_supplied" | "no_named_actors";
 };
 
-export const PUBLIC_QUESTION_GUARD_CONTRACT_VERSION = "public_question_guard.v1" as const;\n\nexport type PublicQuestionReleaseState = "draft_allowed" | "review_required" | "blocked";
+export const PUBLIC_QUESTION_GUARD_CONTRACT_VERSION = "public_question_guard.v1" as const;
+
+export type PublicQuestionReleaseState = "draft_allowed" | "review_required" | "blocked";
 
 export type PublicQuestionGeneralizationResult = {
+  guardContractVersion: typeof PUBLIC_QUESTION_GUARD_CONTRACT_VERSION;
   originalInput: string;
   candidatePublicQuestion: string;
   publicQuestion: string | null;
@@ -263,6 +266,7 @@ function result(
     evidenceRefs: params.actorExtraction.evidenceRefs.map(cleanText).filter(Boolean),
   };
   return {
+    guardContractVersion: PUBLIC_QUESTION_GUARD_CONTRACT_VERSION,
     originalInput: String(input.originalInput ?? ""),
     candidatePublicQuestion: params.candidatePublicQuestion,
     publicQuestion: params.publicQuestion,
@@ -288,6 +292,12 @@ function result(
     noPositionInference: true,
     noBiasOrTrustInference: true,
   };
+}
+
+export function isCurrentPublicQuestionGuardResult(
+  value: Pick<PublicQuestionGeneralizationResult, "guardContractVersion"> | null | undefined,
+): boolean {
+  return value?.guardContractVersion === PUBLIC_QUESTION_GUARD_CONTRACT_VERSION;
 }
 
 /**
