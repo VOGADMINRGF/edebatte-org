@@ -4,6 +4,7 @@ import {
   evaluatePublicQuestionGeneralization,
   type PublicQuestionGeneralizationResult,
 } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 import {
   buildPersistedCreateHandoffSuggestedTitle,
   buildPersistedCreateHandoffSummary,
@@ -517,7 +518,7 @@ export function buildAnlassraumRuntimeDraftFromDossier(
     title: String(context.title || "").trim(),
     workingTitle: String(context.title || "").trim(),
     trigger,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: context.summary,
       candidatePublicQuestion: trigger,
       actorContexts: [],
@@ -527,7 +528,7 @@ export function buildAnlassraumRuntimeDraftFromDossier(
         independentFromCandidateProvider: false,
         evidenceRefs: context.graphReferences ?? [],
       },
-    }),
+    })),
     description: String(context.summary || "").trim(),
     relatedDossierId: context.dossierId,
     recognizedStandpoints: unique(context.recognizedStandpoints ?? []),
@@ -604,7 +605,7 @@ export function buildAnlassraumRuntimeDraftFromHandoff(
     title: buildPersistedCreateHandoffSuggestedTitle(record, "anlassraum"),
     workingTitle: buildPersistedCreateHandoffSuggestedTitle(record, "anlassraum"),
     trigger,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: record.sourceText,
       candidatePublicQuestion: trigger,
       actorContexts: [],
@@ -614,7 +615,7 @@ export function buildAnlassraumRuntimeDraftFromHandoff(
         independentFromCandidateProvider: false,
         evidenceRefs: graphReferences,
       },
-    }),
+    })),
     description: buildPersistedCreateHandoffSummary(record),
     relatedDossierId,
     recognizedStandpoints: buildRecognizedStandpoints(record),
@@ -676,7 +677,7 @@ export function buildAnlassraumRuntimeDraftFromReviewItem(
     title: item.title,
     workingTitle: item.title,
     trigger,
-    questionGuard: evaluatePublicQuestionGeneralization({
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
       originalInput: item.summary,
       candidatePublicQuestion: trigger,
       actorContexts: [],
@@ -686,7 +687,7 @@ export function buildAnlassraumRuntimeDraftFromReviewItem(
         independentFromCandidateProvider: false,
         evidenceRefs: [],
       },
-    }),
+    })),
     description: item.summary,
     relatedDossierId: null,
     recognizedStandpoints: item.authorStandpoint ? [item.authorStandpoint] : [],
