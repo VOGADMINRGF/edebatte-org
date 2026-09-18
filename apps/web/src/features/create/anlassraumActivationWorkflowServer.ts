@@ -9,6 +9,7 @@ import {
   buildAnlassraumActivationDraft,
   getAnlassraumActivationBlockers,
   isAnlassraumPubliclyReleased,
+  isAnlassraumQuestionGuardCurrent,
   publishAnlassraumAfterReview,
   rejectAnlassraumActivation as rejectAnlassraumActivationRecord,
   rejectAnlassraumPublication as rejectAnlassraumPublicationRecord,
@@ -440,9 +441,13 @@ export async function syncAnlassraumRoomVisibility(
   const col = await anlassraumCol();
   const now = new Date(record.updatedAt || nowIso());
   const workflowVersion = normalizeWorkflowRecordVersion(record.version);
-  const published = record.status === "published";
+  const guardCurrent = isAnlassraumQuestionGuardCurrent(record);
+  const published =
+    record.status === "published" &&
+    record.questionGuard.releaseState === "draft_allowed" &&
+    guardCurrent;
   const status =
-    record.questionGuard.releaseState !== "draft_allowed"
+    record.questionGuard.releaseState !== "draft_allowed" || !guardCurrent
       ? "review_required"
       : record.status === "activated" ||
     record.status === "approved_for_publication" ||
