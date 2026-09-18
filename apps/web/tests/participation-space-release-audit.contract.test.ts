@@ -6,6 +6,7 @@ import {
   type ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 import {
   isParticipationQuestionGuardCurrent,
   isPublicParticipationSpace,
@@ -54,17 +55,19 @@ function buildRecord(
     workingTitle: "G2 Release Audit",
     description: "Geprüfter Beteiligungsraum für den G2 Release-Audit-Contract.",
     participationQuestion: "Welche Maßnahme soll zuerst umgesetzt werden?",
-    questionGuard: evaluatePublicQuestionGeneralization({
-      originalInput: "Welche Maßnahme soll zuerst umgesetzt werden?",
-      actorContexts: [],
-      actorExtraction: {
-        status: "complete",
-        source: "human_review",
-        independentFromCandidateProvider: true,
-        evidenceRefs: ["human-review:g2-release-audit"],
-        humanReviewFinding: "no_named_actors",
-      },
-    }),
+    questionGuard: bindQuestionGuardToCurrentContract(
+      evaluatePublicQuestionGeneralization({
+        originalInput: "Welche Maßnahme soll zuerst umgesetzt werden?",
+        actorContexts: [],
+        actorExtraction: {
+          status: "complete",
+          source: "human_review",
+          independentFromCandidateProvider: true,
+          evidenceRefs: ["human-review:g2-release-audit"],
+          humanReviewFinding: "no_named_actors",
+        },
+      }),
+    ),
     publicHeadline: "Geprüfte Beteiligungsfrage",
     publicSummary: "Öffentliche Fassung nach separater Freigabe.",
     moderationPolicy: "Review-first mit expliziter Freigabe und Audit.",
@@ -222,6 +225,31 @@ describe("G2 participation release audit contract", () => {
     expect(getParticipationSpacePublishBlockers(record, "activation")).toContain(
       "release_audit_missing",
     );
+  });
+
+  it("rejects the same question when G1 contract evidence is missing", () => {
+    const unboundGuard = evaluatePublicQuestionGeneralization({
+      originalInput: "Welche Maßnahme soll zuerst umgesetzt werden?",
+      candidatePublicQuestion: "Welche Maßnahme soll zuerst umgesetzt werden?",
+      actorContexts: [],
+      actorExtraction: {
+        status: "complete",
+        source: "human_review",
+        independentFromCandidateProvider: true,
+        evidenceRefs: ["human-review:g2-release-audit"],
+        humanReviewFinding: "no_named_actors",
+      },
+    });
+    const staleContract = buildRecord({ questionGuard: unboundGuard });
+
+    expect(staleContract.questionGuard.candidatePublicQuestion).toBe(
+      staleContract.participationQuestion,
+    );
+    expect(isParticipationQuestionGuardCurrent(staleContract)).toBe(false);
+    expect(
+      getParticipationSpacePublishBlockers(staleContract, "publication"),
+    ).toContain("public_question_guard_blocked");
+    expect(isPublicParticipationSpace(staleContract)).toBe(false);
   });
 
   it("rejects a published record when the guarded candidate no longer matches the participation question", () => {
