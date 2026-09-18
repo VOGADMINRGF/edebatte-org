@@ -2,6 +2,7 @@ import {
   evaluatePublicQuestionGeneralization,
   type PublicQuestionGeneralizationResult,
 } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 export type RundenFlowDirection = "prepare" | "verify";
 
