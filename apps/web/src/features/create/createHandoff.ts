@@ -86,7 +86,7 @@ export type CreateHandoffDraft = {
   openQuestions: CreateOpenQuestionDraft[];
   sourceGrounding: SourceGrounding[];
   topicSeed: CreateHandoffTopicSeed;
-  jurisdictionConfirmation: CreateHandoffJurisdictionConfirmation | null;
+  jurisdictionConfirmation?: CreateHandoffJurisdictionConfirmation | null;
   resumeHref: string;
   reviewState: CreateHandoffReviewState;
   visibilityState?: RegionPublicationVisibilityState;
