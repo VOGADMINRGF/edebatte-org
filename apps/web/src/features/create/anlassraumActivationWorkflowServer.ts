@@ -436,6 +436,7 @@ async function saveRecord(record: AnlassraumActivationRecord) {
 
 export async function syncAnlassraumRoomVisibility(
   record: AnlassraumActivationRecord,
+  options?: { allowPublicRelease?: boolean },
 ) {
   if (!record.anlassraumId || !ObjectId.isValid(record.anlassraumId)) return null;
   const col = await anlassraumCol();
@@ -443,6 +444,7 @@ export async function syncAnlassraumRoomVisibility(
   const workflowVersion = normalizeWorkflowRecordVersion(record.version);
   const guardCurrent = isAnlassraumQuestionGuardCurrent(record);
   const published =
+    options?.allowPublicRelease === true &&
     record.status === "published" &&
     record.questionGuard.releaseState === "draft_allowed" &&
     guardCurrent;
@@ -917,22 +919,33 @@ export async function publishApprovedAnlassraum(input: {
 
   const updated = await saveRecord(result.record);
 
-  await syncAnlassraumRuntimeVisibility({
-    sourceHandoffId: input.sourceHandoffId,
-    visibility: "published",
-  });
-  await syncAnlassraumRoomVisibility(updated);
-  await upsertRoundSeed(updated);
+  // Persist the room as explicitly non-public before the durable release audit.
+  // Raw room consumers must never observe public visibility before audit evidence exists.
+  await syncAnlassraumRoomVisibility(updated, { allowPublicRelease: false });
+
   await recordAudit(input.sourceHandoffId, {
     at: updated.updatedAt,
     action: "published_public",
     actorUserId: input.actorUserId,
     note:
       trimOrNull(input.note) ??
-      "Anlassraum explizit veröffentlicht. Öffentliche Sichtbarkeit bleibt read-only und auditierbar.",
+      "Durable Publish-Audit gespeichert; öffentliche Sichtbarkeit wird erst danach freigegeben.",
     blockers: [],
     status: updated.status,
     anlassraumId: updated.anlassraumId,
   });
-  return updated;
+
+  await syncAnlassraumRuntimeVisibility({
+    sourceHandoffId: input.sourceHandoffId,
+    visibility: "published",
+  });
+  await syncAnlassraumRoomVisibility(updated, { allowPublicRelease: true });
+
+  const released =
+    (await getAnlassraumActivationRecord(input.sourceHandoffId)) ?? updated;
+  if (!isAnlassraumPubliclyReleased(released)) {
+    throw new Error("anlassraum_public_release_not_durable");
+  }
+  await upsertRoundSeed(released);
+  return released;
 }
