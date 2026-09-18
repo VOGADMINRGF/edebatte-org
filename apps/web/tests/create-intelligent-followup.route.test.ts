@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   verifyCreateDraftBinding: vi.fn(),
   runCreateOrchestrationSingleFlight: vi.fn(),
   markExternalExecutionStarted: vi.fn(),
+  scheduleSupportTicketNotification: vi.fn(),
 }));
 
 vi.mock("@/features/create/intelligentFollowup", () => ({
@@ -30,6 +31,10 @@ vi.mock("@/features/create/createRouteSecurity", () => ({
 vi.mock("@/features/create/createOrchestrationSingleFlight", () => ({
   runCreateOrchestrationSingleFlight: (...args: unknown[]) =>
     mocks.runCreateOrchestrationSingleFlight(...args),
+}));
+vi.mock("@/features/operator/operatorNotifications", () => ({
+  scheduleSupportTicketNotification: (...args: unknown[]) =>
+    mocks.scheduleSupportTicketNotification(...args),
 }));
 
 import { POST } from "@/app/api/create/intelligent-followup/route";
@@ -127,6 +132,13 @@ describe("/api/create/intelligent-followup route", () => {
         attemptCount: 2,
       }),
     );
+    expect(mocks.scheduleSupportTicketNotification).toHaveBeenCalledTimes(1);
+    expect(mocks.scheduleSupportTicketNotification).toHaveBeenCalledWith({
+      ticketNumber: "EDB-20260729-ROUTE001",
+      technicalErrorCode: "CREATE_AI_FAILED",
+      provider: "anthropic",
+      reason: "timeout",
+    });
   });
 
   it("returns 400 on empty text", async () => {
@@ -214,6 +226,8 @@ describe("/api/create/intelligent-followup route", () => {
       },
     });
     expect(mocks.buildCreateIntelligentFollowup).toHaveBeenCalledTimes(1);
+    expect(mocks.ensureCreateSupportTicket).not.toHaveBeenCalled();
+    expect(mocks.scheduleSupportTicketNotification).not.toHaveBeenCalled();
     expect(mocks.buildCreateIntelligentFollowup).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: expect.any(String),
@@ -261,6 +275,7 @@ describe("/api/create/intelligent-followup route", () => {
       },
     });
     expect(mocks.ensureCreateSupportTicket).toHaveBeenCalledTimes(1);
+    expect(mocks.scheduleSupportTicketNotification).toHaveBeenCalledTimes(1);
     expect(mocks.ensureCreateSupportTicket).toHaveBeenCalledWith(
       expect.objectContaining({
         affectedUserId: "user-1",

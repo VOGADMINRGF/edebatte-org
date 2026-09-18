@@ -12,7 +12,7 @@ vi.mock("@/lib/server/auth/admin", () => ({
 
 vi.mock("@/features/create/createPlanner", () => ({
   buildCreatePlanner: (...args: unknown[]) => mocks.buildCreatePlanner(...args),
-  resolveCreatePlannerTimeoutMs: () => 10_000,
+  resolveCreatePlannerTimeoutMs: (text?: string) => (text ? 6_500 : 10_000),
 }));
 
 import { POST } from "@/app/api/admin/ai/create-planner-smoke/route";
@@ -93,7 +93,7 @@ describe("/api/admin/ai/create-planner-smoke", () => {
       selectedSmokeModel: "gpt-4.1-mini",
       effectiveModel: "gpt-5",
       openAiSmokeModelMismatch: true,
-      timeoutMs: 10_000,
+      timeoutMs: 6_500,
       rootCause: "CREATE_PLANNER_OK",
     });
     expect(body.plannerSmoke).toMatchObject({
@@ -101,14 +101,17 @@ describe("/api/admin/ai/create-planner-smoke", () => {
       qualityStatus: "specific",
       topicCount: 3,
       modelCandidates: ["gpt-4.1-mini", "gpt-5"],
-      timeoutMs: 10_000,
+      selectedTimingLane: "fast",
+      timeoutMs: 6_500,
     });
     expect(mocks.buildCreatePlanner).toHaveBeenCalledWith(
       expect.objectContaining({
+        text: expect.any(String),
         locale: "de",
         operationType: "admin_create_planner_smoke",
       }),
     );
+    expect(mocks.buildCreatePlanner.mock.calls[0]?.[0].text).toContain("Rahnsdorf");
 
     const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("must-not-leak");

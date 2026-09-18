@@ -3,6 +3,7 @@ import {
   buildCreatePlanner,
   resolveCreatePlannerTimeoutMs,
 } from "@/features/create/createPlanner";
+import { resolveCreateIntakeTiming } from "@/features/create/createFastIntakeTiming";
 import { getAiRuntimePolicy } from "@features/ai/aiRuntimePolicy";
 
 const CREATE_PLANNER_SMOKE_TEXT = [
@@ -59,7 +60,8 @@ export async function POST(req: NextRequest) {
   const correlationId = runId;
   const startedAt = Date.now();
   const modelCandidates = plannerModelCandidates();
-  const timeoutMs = resolveCreatePlannerTimeoutMs();
+  const intakeTiming = resolveCreateIntakeTiming(CREATE_PLANNER_SMOKE_TEXT);
+  const timeoutMs = resolveCreatePlannerTimeoutMs(CREATE_PLANNER_SMOKE_TEXT);
 
   try {
     const planner = await buildCreatePlanner({
@@ -143,6 +145,7 @@ export async function POST(req: NextRequest) {
         providerCallAttempted: planner.providerCallAttempted,
         providerCallSucceeded: planner.providerCallSucceeded,
         modelCandidates,
+        selectedTimingLane: intakeTiming.lane,
         timeoutMs,
       },
     });
@@ -215,6 +218,7 @@ export async function POST(req: NextRequest) {
         providerCallAttempted: true,
         providerCallSucceeded: false,
         modelCandidates,
+        selectedTimingLane: intakeTiming.lane,
         timeoutMs,
       },
     });
