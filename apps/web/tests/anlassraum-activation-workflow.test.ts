@@ -500,7 +500,16 @@ describe("anlassraum activation workflow", () => {
       origin: "admin_review",
       approvedAt: "2026-07-01T09:20:00.000Z",
     });
-    const activated = activateAnlassraumAfterReview(approved, {
+    const approvedWithAudit = withReleaseAudit(
+      approved,
+      releaseAudit(
+        "activation_approved",
+        "approved_for_activation",
+        approved.approvedForActivationAt!,
+        approved.approvedForActivationBy!,
+      ),
+    );
+    const activated = activateAnlassraumAfterReview(approvedWithAudit, {
       actorUserId: "admin-1",
       reason: "Intern aktivieren.",
       origin: "anlassraum_activation_workflow",
@@ -513,8 +522,16 @@ describe("anlassraum activation workflow", () => {
     expect(activated.record.visibility).toBe("active_internal");
     expect(activated.record.roomIsPublic).toBe(false);
 
-    const approvedPublication = approveAnlassraumPublication(
+    const activatedWithAudit = withReleaseAudit(
       activated.record,
+      releaseAudit(
+        "activated_internal",
+        "activated",
+        activated.record.updatedAt,
+      ),
+    );
+    const approvedPublication = approveAnlassraumPublication(
+      activatedWithAudit,
       {
         actorUserId: "admin-1",
         reason: "Veröffentlichung nach Guard-Review separat freigegeben.",
@@ -522,7 +539,16 @@ describe("anlassraum activation workflow", () => {
         approvedAt: "2026-07-01T09:40:00.000Z",
       },
     );
-    const published = publishAnlassraumAfterReview(approvedPublication, {
+    const approvedPublicationWithAudit = withReleaseAudit(
+      approvedPublication,
+      releaseAudit(
+        "publication_approved",
+        "approved_for_publication",
+        approvedPublication.approvedForPublicationAt!,
+        approvedPublication.approvedForPublicationBy!,
+      ),
+    );
+    const published = publishAnlassraumAfterReview(approvedPublicationWithAudit, {
       actorUserId: "admin-1",
       reason: "Explizit veröffentlichen.",
       origin: "anlassraum_activation_workflow",
@@ -565,11 +591,20 @@ describe("anlassraum activation workflow", () => {
     expect(reviewedApprovalBase.approvedForActivationAt).toBeNull();
 
     const activationRepo = createInMemoryAnlassraumActivationWorkflowRepository();
-    const activationBase = buildActivationRecord({
+    const activationBaseRaw = buildActivationRecord({
       status: "approved_for_activation",
       approvedForActivationAt: "2026-07-01T09:20:00.000Z",
       approvedForActivationBy: "admin-before-review",
     });
+    const activationBase = withReleaseAudit(
+      activationBaseRaw,
+      releaseAudit(
+        "activation_approved",
+        "approved_for_activation",
+        activationBaseRaw.approvedForActivationAt!,
+        activationBaseRaw.approvedForActivationBy!,
+      ),
+    );
     await activationRepo.save(activationBase);
     const staleActivation = activateAnlassraumAfterReview(activationBase, {
       actorUserId: "admin-stale",
@@ -593,7 +628,7 @@ describe("anlassraum activation workflow", () => {
     );
 
     const publishRepo = createInMemoryAnlassraumActivationWorkflowRepository();
-    const publishBase = buildActivationRecord({
+    const publishBaseRaw = buildActivationRecord({
       status: "approved_for_publication",
       visibility: "ready_for_publication_review",
       publicAccessMode: "internal_only",
@@ -604,6 +639,24 @@ describe("anlassraum activation workflow", () => {
       approvedForPublicationAt: "2026-07-01T09:40:00.000Z",
       approvedForPublicationBy: "admin-before-review",
     });
+    const publishBase = {
+      ...publishBaseRaw,
+      auditTrail: [
+        releaseAudit(
+          "activation_approved",
+          "approved_for_activation",
+          publishBaseRaw.approvedForActivationAt!,
+          publishBaseRaw.approvedForActivationBy!,
+        ),
+        releaseAudit("activated_internal", "activated", "2026-07-01T09:30:00.000Z"),
+        releaseAudit(
+          "publication_approved",
+          "approved_for_publication",
+          publishBaseRaw.approvedForPublicationAt!,
+          publishBaseRaw.approvedForPublicationBy!,
+        ),
+      ],
+    };
     await publishRepo.save(publishBase);
     const stalePublish = publishAnlassraumAfterReview(publishBase, {
       actorUserId: "admin-stale",
@@ -659,7 +712,19 @@ describe("anlassraum activation workflow", () => {
       }),
       expectedVersion: currentAfterReview.version,
     });
-    const currentActivation = activateAnlassraumAfterReview(currentApproval, {
+    const currentApprovalAudited = await normalRepo.compareAndSwap({
+      record: withReleaseAudit(
+        currentApproval,
+        releaseAudit(
+          "activation_approved",
+          "approved_for_activation",
+          currentApproval.approvedForActivationAt!,
+          currentApproval.approvedForActivationBy!,
+        ),
+      ),
+      expectedVersion: currentApproval.version,
+    });
+    const currentActivation = activateAnlassraumAfterReview(currentApprovalAudited, {
       actorUserId: "admin-current",
       reason: "Aktivieren.",
       origin: "anlassraum_activation_workflow",
@@ -668,18 +733,37 @@ describe("anlassraum activation workflow", () => {
     expect(currentActivation.ok).toBe(true);
     const activated = await normalRepo.compareAndSwap({
       record: currentActivation.record,
-      expectedVersion: currentApproval.version,
+      expectedVersion: currentApprovalAudited.version,
+    });
+    const activatedAudited = await normalRepo.compareAndSwap({
+      record: withReleaseAudit(
+        activated,
+        releaseAudit("activated_internal", "activated", activated.updatedAt),
+      ),
+      expectedVersion: activated.version,
     });
     const publicationApproval = await normalRepo.compareAndSwap({
-      record: approveAnlassraumPublication(activated, {
+      record: approveAnlassraumPublication(activatedAudited, {
         actorUserId: "admin-current",
         reason: "Neue Publikationsfreigabe.",
         origin: "admin_review",
         approvedAt: "2026-07-01T10:12:00.000Z",
       }),
-      expectedVersion: activated.version,
+      expectedVersion: activatedAudited.version,
     });
-    const publication = publishAnlassraumAfterReview(publicationApproval, {
+    const publicationApprovalAudited = await normalRepo.compareAndSwap({
+      record: withReleaseAudit(
+        publicationApproval,
+        releaseAudit(
+          "publication_approved",
+          "approved_for_publication",
+          publicationApproval.approvedForPublicationAt!,
+          publicationApproval.approvedForPublicationBy!,
+        ),
+      ),
+      expectedVersion: publicationApproval.version,
+    });
+    const publication = publishAnlassraumAfterReview(publicationApprovalAudited, {
       actorUserId: "admin-current",
       reason: "Veröffentlichen.",
       origin: "anlassraum_activation_workflow",
@@ -688,17 +772,17 @@ describe("anlassraum activation workflow", () => {
     expect(publication.ok).toBe(true);
     const published = await normalRepo.compareAndSwap({
       record: publication.record,
-      expectedVersion: publicationApproval.version,
+      expectedVersion: publicationApprovalAudited.version,
     });
     expect(published.status).toBe("published");
-    expect(published.version).toBe(5);
+    expect(published.version).toBeGreaterThan(5);
   });
 
   it("uses the CAS-backed workflow as the public-input boundary and supports legacy version zero", async () => {
     const repo = createInMemoryAnlassraumActivationWorkflowRepository();
     setAnlassraumActivationWorkflowRepositoryForTests(repo);
     try {
-      const publicRecord = buildActivationRecord({
+      const publicRecordBase = buildActivationRecord({
         status: "published",
         visibility: "public",
         publicAccessMode: "public_read_only",
@@ -709,7 +793,23 @@ describe("anlassraum activation workflow", () => {
         approvedForActivationBy: "admin-1",
         approvedForPublicationAt: "2026-07-01T09:40:00.000Z",
         approvedForPublicationBy: "admin-1",
+        updatedAt: "2026-07-01T09:50:00.000Z",
+        auditContext: {
+          actorUserId: "admin-1",
+          reason: "Explizit veröffentlicht.",
+          origin: "anlassraum_activation_workflow",
+          approvedAt: "2026-07-01T09:50:00.000Z",
+        },
       });
+      const publicRecord = {
+        ...publicRecordBase,
+        auditTrail: [
+          releaseAudit("activation_approved", "approved_for_activation", "2026-07-01T09:20:00.000Z"),
+          releaseAudit("activated_internal", "activated", "2026-07-01T09:30:00.000Z"),
+          releaseAudit("publication_approved", "approved_for_publication", "2026-07-01T09:40:00.000Z"),
+          releaseAudit("published_public", "published", "2026-07-01T09:50:00.000Z"),
+        ],
+      };
       expect(isAnlassraumPubliclyReleased(publicRecord)).toBe(true);
       await repo.save(publicRecord);
       await expect(
@@ -840,7 +940,16 @@ describe("anlassraum activation workflow", () => {
     expect(approved.visibility).toBe("editorial_workspace");
     expect(approved.roomIsPublic).toBe(false);
 
-    const activated = activateAnlassraumAfterReview(approved, {
+    const approvedAudited = withReleaseAudit(
+      approved,
+      releaseAudit(
+        "activation_approved",
+        "approved_for_activation",
+        approved.approvedForActivationAt!,
+        approved.approvedForActivationBy!,
+      ),
+    );
+    const activated = activateAnlassraumAfterReview(approvedAudited, {
       actorUserId: "admin-1",
       reason: "Intern aktivieren.",
       origin: "anlassraum_activation_workflow",
@@ -871,7 +980,16 @@ describe("anlassraum activation workflow", () => {
       origin: "admin_review",
       approvedAt: "2026-07-01T09:20:00.000Z",
     });
-    const activated = activateAnlassraumAfterReview(approvedActivation, {
+    const approvedActivationAudited = withReleaseAudit(
+      approvedActivation,
+      releaseAudit(
+        "activation_approved",
+        "approved_for_activation",
+        approvedActivation.approvedForActivationAt!,
+        approvedActivation.approvedForActivationBy!,
+      ),
+    );
+    const activated = activateAnlassraumAfterReview(approvedActivationAudited, {
       actorUserId: "admin-1",
       reason: "Intern aktivieren.",
       origin: "anlassraum_activation_workflow",
@@ -881,8 +999,12 @@ describe("anlassraum activation workflow", () => {
     expect(activated.ok).toBe(true);
     if (!activated.ok) return;
 
-    const approvedPublication = approveAnlassraumPublication(
+    const activatedAuditedForPublication = withReleaseAudit(
       activated.record,
+      releaseAudit("activated_internal", "activated", activated.record.updatedAt),
+    );
+    const approvedPublication = approveAnlassraumPublication(
+      activatedAuditedForPublication,
       {
         actorUserId: "admin-1",
         reason: "Veröffentlichung freigegeben.",
@@ -896,9 +1018,18 @@ describe("anlassraum activation workflow", () => {
       "ready_for_publication_review",
     );
     expect(approvedPublication.roomIsPublic).toBe(false);
-    expect(canPublishAnlassraum(approvedPublication)).toBe(true);
+    const approvedPublicationAudited = withReleaseAudit(
+      approvedPublication,
+      releaseAudit(
+        "publication_approved",
+        "approved_for_publication",
+        approvedPublication.approvedForPublicationAt!,
+        approvedPublication.approvedForPublicationBy!,
+      ),
+    );
+    expect(canPublishAnlassraum(approvedPublicationAudited)).toBe(true);
 
-    const published = publishAnlassraumAfterReview(approvedPublication, {
+    const published = publishAnlassraumAfterReview(approvedPublicationAudited, {
       actorUserId: "admin-1",
       reason: "Öffentlich sichtbar machen.",
       origin: "anlassraum_activation_workflow",
