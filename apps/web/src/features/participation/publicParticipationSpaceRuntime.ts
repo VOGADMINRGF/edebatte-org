@@ -1,6 +1,7 @@
 import {
   getParticipationSpacePublishBlockers,
   getParticipationSpacePublishStatusLabel,
+  isParticipationQuestionGuardCurrent as isParticipationQuestionGuardCurrentFromWorkflow,
   getParticipationSpacePublicVisibilityLabel,
   type ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
@@ -174,10 +175,7 @@ function buildPublicLabel(source: PublicParticipationSpaceRuntimeItem["source"])
 export function isParticipationQuestionGuardCurrent(
   record: ParticipationSpacePublishRecord,
 ): boolean {
-  return (
-    Boolean(record.questionGuard?.candidatePublicQuestion) &&
-    record.questionGuard.candidatePublicQuestion === record.participationQuestion
-  );
+  return isParticipationQuestionGuardCurrentFromWorkflow(record);
 }
 
 export function isPublicParticipationSpace(
