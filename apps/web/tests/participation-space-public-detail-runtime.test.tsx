@@ -23,6 +23,7 @@ vi.mock("next/navigation", async () => {
 import PublicParticipationSpacePage from "@/app/beteiligung/[slug]/page";
 import type { ParticipationSpacePublishRecord } from "@/features/create/participationSpacePublishWorkflow";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 function buildRecord(
   overrides: Partial<ParticipationSpacePublishRecord> = {},
@@ -42,17 +43,19 @@ function buildRecord(
     workingTitle: "Beteiligungsraum Sichere Schulwege",
     description: "Öffentliche Runtime-Beschreibung für sichere Schulwege.",
     participationQuestion: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
-    questionGuard: evaluatePublicQuestionGeneralization({
-      originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
-      actorContexts: [],
-      actorExtraction: {
-        status: "complete",
-        source: "human_review",
-        independentFromCandidateProvider: true,
-        evidenceRefs: ["human-review:sichere-schulwege:1"],
-        humanReviewFinding: "no_named_actors",
-      },
-    }),
+    questionGuard: bindQuestionGuardToCurrentContract(
+      evaluatePublicQuestionGeneralization({
+        originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
+        actorContexts: [],
+        actorExtraction: {
+          status: "complete",
+          source: "human_review",
+          independentFromCandidateProvider: true,
+          evidenceRefs: ["human-review:sichere-schulwege:1"],
+          humanReviewFinding: "no_named_actors",
+        },
+      }),
+    ),
     publicHeadline: "Sichere Schulwege im Blick",
     publicSummary: "Der Beteiligungsraum bündelt veröffentlichte Hinweise und Einordnungen.",
     moderationPolicy:
