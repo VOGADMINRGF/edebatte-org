@@ -26,6 +26,10 @@ import {
 import { buildCreateContributionLedgerEntry } from "@features/create/createContributionLedger";
 import { createEditorialReviewRequest } from "@features/editorialReviewQueue";
 import { scheduleCreateSubmissionNotification } from "@/features/operator/operatorNotifications";
+import {
+  resolveCreateCitizenIntakeContextForServer,
+  validateCreateJurisdictionConfirmation,
+} from "@/features/create/createCitizenIntakeContextServer";
 import type {
   SourceSupport,
   TruthStatus,
@@ -72,6 +76,7 @@ const DraftSaveSchema = z.object({
   uploadIds: z.array(z.string().min(1).max(160)).max(20).optional(),
   materialItems: z.array(z.record(z.string(), z.any())).max(20).optional(),
   analysis: z.unknown().optional(),
+  confirmedJurisdictionKey: z.string().trim().min(1).max(240).optional(),
   manualReviewRequested: z.boolean().optional(),
 });
 
@@ -330,6 +335,106 @@ async function createEditorialReviewRequestFromContributionSave(input: {
   return result.reviewRequest;
 }
 
+function readConfirmedJurisdictionKeyFromAnalysis(
+  analysis: unknown,
+): string | null {
+  if (!analysis || typeof analysis !== "object" || Array.isArray(analysis)) {
+    return null;
+  }
+  const intelligentFollowup = (analysis as Record<string, unknown>)
+    .intelligentFollowup;
+  if (
+    !intelligentFollowup ||
+    typeof intelligentFollowup !== "object" ||
+    Array.isArray(intelligentFollowup)
+  ) {
+    return null;
+  }
+  const meta = (intelligentFollowup as Record<string, unknown>).meta;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const citizenContext = (meta as Record<string, unknown>).citizenContext;
+  if (
+    !citizenContext ||
+    typeof citizenContext !== "object" ||
+    Array.isArray(citizenContext)
+  ) {
+    return null;
+  }
+  const confirmation = (citizenContext as Record<string, unknown>)
+    .jurisdictionConfirmation;
+  if (
+    !confirmation ||
+    typeof confirmation !== "object" ||
+    Array.isArray(confirmation)
+  ) {
+    return null;
+  }
+  return (confirmation as Record<string, unknown>).status === "confirmed"
+    ? String(
+        (confirmation as Record<string, unknown>).candidateKey ?? "",
+      ).trim() || null
+    : null;
+}
+
+function withServerCitizenContext(
+  analysis: unknown,
+  citizenContext: ReturnType<
+    typeof resolveCreateCitizenIntakeContextForServer
+  >,
+): unknown {
+  if (!analysis || typeof analysis !== "object" || Array.isArray(analysis)) {
+    return analysis;
+  }
+  const record = analysis as Record<string, unknown>;
+  const intelligentFollowup = record.intelligentFollowup;
+  if (
+    !intelligentFollowup ||
+    typeof intelligentFollowup !== "object" ||
+    Array.isArray(intelligentFollowup)
+  ) {
+    return analysis;
+  }
+  const followupRecord = intelligentFollowup as Record<string, unknown>;
+  const meta =
+    followupRecord.meta &&
+    typeof followupRecord.meta === "object" &&
+    !Array.isArray(followupRecord.meta)
+      ? (followupRecord.meta as Record<string, unknown>)
+      : {};
+  return {
+    ...record,
+    intelligentFollowup: {
+      ...followupRecord,
+      meta: {
+        ...meta,
+        citizenContext,
+      },
+    },
+  };
+}
+
+function sessionProfileRegion(sessionUser: unknown): string | null {
+  if (!sessionUser || typeof sessionUser !== "object") return null;
+  const profile = (sessionUser as Record<string, unknown>).profile;
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    return null;
+  }
+  const publicLocation = (profile as Record<string, unknown>).publicLocation;
+  if (
+    !publicLocation ||
+    typeof publicLocation !== "object" ||
+    Array.isArray(publicLocation)
+  ) {
+    return null;
+  }
+  const location = publicLocation as Record<string, unknown>;
+  return (
+    String(location.city ?? "").trim() ||
+    String(location.region ?? "").trim() ||
+    null
+  );
+}
+
 async function resolveExistingCreateDraftForSave(input: {
   draftId: string | undefined;
   userId: string;
@@ -449,7 +554,38 @@ export async function POST(req: NextRequest) {
   }
 
   const textToPersist = hasPiiOrDoxxingFindings(safety) ? safety.redactedText : normalizedText;
-  const analysisWithMaterial = withMaterialContext(body.analysis ?? existingDraft?.analysis, {
+  const profileRegion = sessionProfileRegion(sessionUser);
+  const requestedJurisdictionKey =
+    body.confirmedJurisdictionKey?.trim() ||
+    readConfirmedJurisdictionKeyFromAnalysis(existingDraft?.analysis);
+  let trustedCitizenContext = resolveCreateCitizenIntakeContextForServer({
+    text: normalizedText,
+    locale: normalizedLocale,
+    profileRegion,
+  });
+  if (requestedJurisdictionKey) {
+    const confirmedCitizenContext = validateCreateJurisdictionConfirmation({
+      sourceText: normalizedText,
+      candidateKey: requestedJurisdictionKey,
+      locale: normalizedLocale,
+      profileRegion,
+    });
+    if (!confirmedCitizenContext && body.confirmedJurisdictionKey) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_jurisdiction_confirmation" },
+        { status: 400 },
+      );
+    }
+    if (confirmedCitizenContext) {
+      trustedCitizenContext = confirmedCitizenContext;
+    }
+  }
+
+  const analysisWithServerContext = withServerCitizenContext(
+    body.analysis ?? existingDraft?.analysis,
+    trustedCitizenContext,
+  );
+  const analysisWithMaterial = withMaterialContext(analysisWithServerContext, {
     sourceUrls: body.sourceUrls,
     uploadIds: body.uploadIds,
     materialItems: body.materialItems as Record<string, unknown>[] | undefined,
@@ -474,7 +610,7 @@ export async function POST(req: NextRequest) {
     sourceUrls: body.sourceUrls,
     uploadIds: body.uploadIds,
     materialItems: body.materialItems as unknown[] | undefined,
-    analysis: body.analysis ?? null,
+    analysis: analysisWithMaterial ?? null,
     manualReviewRequested: body.manualReviewRequested === true,
   });
 
