@@ -15,6 +15,7 @@ import {
   type ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
 import {
+  bindQuestionGuardToCurrentContract,
   holdQuestionGuardForSerializedReview,
   persistQuestionGuardReviewFailClosed,
 } from "@/features/create/safety/questionGuardReviewPersistence";
@@ -28,7 +29,7 @@ const PUBLICATION_APPROVED_AT = "2026-06-30T09:40:00.000Z";
 const PUBLISHED_AT = "2026-06-30T09:50:00.000Z";
 
 function safeQuestionGuard() {
-  return evaluatePublicQuestionGeneralization({
+  return bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
     originalInput: "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
     candidatePublicQuestion:
       "Welche Maßnahmen sollten sichere Schulwege zuerst verbessern?",
@@ -40,7 +41,7 @@ function safeQuestionGuard() {
       evidenceRefs: ["human-review:sichere-schulwege:1"],
       humanReviewFinding: "no_named_actors",
     },
-  });
+  }));
 }
 
 function buildRecord(
