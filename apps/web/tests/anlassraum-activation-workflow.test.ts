@@ -916,6 +916,52 @@ describe("anlassraum activation workflow", () => {
     }
   });
 
+  it("fails public release closed when final durable publish audit is missing", async () => {
+    const fullyReleasedBase = buildActivationRecord({
+      status: "published",
+      visibility: "public",
+      publicAccessMode: "public_read_only",
+      roomStatus: "active",
+      roomIsPublic: true,
+      approvedForActivationAt: "2026-07-01T09:20:00.000Z",
+      approvedForActivationBy: "admin-1",
+      approvedForPublicationAt: "2026-07-01T09:40:00.000Z",
+      approvedForPublicationBy: "admin-1",
+      updatedAt: "2026-07-01T09:50:00.000Z",
+      auditContext: {
+        actorUserId: "admin-1",
+        reason: "Explizit veröffentlicht.",
+        origin: "anlassraum_activation_workflow",
+        approvedAt: "2026-07-01T09:50:00.000Z",
+      },
+    });
+    const withoutFinalAudit = {
+      ...fullyReleasedBase,
+      auditTrail: [
+        releaseAudit("activation_approved", "approved_for_activation", "2026-07-01T09:20:00.000Z"),
+        releaseAudit("activated_internal", "activated", "2026-07-01T09:30:00.000Z"),
+        releaseAudit("publication_approved", "approved_for_publication", "2026-07-01T09:40:00.000Z"),
+      ],
+    };
+
+    expect(isAnlassraumPubliclyReleased(withoutFinalAudit)).toBe(false);
+
+    const repo = createInMemoryAnlassraumActivationWorkflowRepository();
+    setAnlassraumActivationWorkflowRepositoryForTests(repo);
+    try {
+      await repo.save(withoutFinalAudit);
+      await expect(
+        isAnlassraumPublicInputAllowed({
+          anlassraumId: withoutFinalAudit.anlassraumId!,
+          roomIsPublic: true,
+          activationWorkflowSourceHandoffId: withoutFinalAudit.sourceHandoffId,
+        }),
+      ).resolves.toBe(false);
+    } finally {
+      setAnlassraumActivationWorkflowRepositoryForTests(null);
+    }
+  });
+
   it("keeps created anlassraeume non-public until explicit publication", () => {
     const record = buildActivationRecord();
 
