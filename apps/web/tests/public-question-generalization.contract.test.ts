@@ -662,5 +662,4 @@ describe("public question generalization and anti-targeting contract", () => {
     expect(isCurrentPublicQuestionGuardResult({} as never)).toBe(false);
     expect(isCurrentPublicQuestionGuardResult(null)).toBe(false);
   });
-
 });
