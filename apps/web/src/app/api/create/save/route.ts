@@ -76,7 +76,6 @@ const DraftSaveSchema = z.object({
   uploadIds: z.array(z.string().min(1).max(160)).max(20).optional(),
   materialItems: z.array(z.record(z.string(), z.any())).max(20).optional(),
   analysis: z.unknown().optional(),
-  confirmedJurisdictionKey: z.string().trim().min(1).max(240).optional(),
   manualReviewRequested: z.boolean().optional(),
 });
 
@@ -555,8 +554,10 @@ export async function POST(req: NextRequest) {
 
   const textToPersist = hasPiiOrDoxxingFindings(safety) ? safety.redactedText : normalizedText;
   const profileRegion = sessionProfileRegion(sessionUser);
+  const requestedBodyJurisdictionKey =
+    readConfirmedJurisdictionKeyFromAnalysis(body.analysis);
   const requestedJurisdictionKey =
-    body.confirmedJurisdictionKey?.trim() ||
+    requestedBodyJurisdictionKey ||
     readConfirmedJurisdictionKeyFromAnalysis(existingDraft?.analysis);
   let trustedCitizenContext = resolveCreateCitizenIntakeContextForServer({
     text: normalizedText,
@@ -570,7 +571,7 @@ export async function POST(req: NextRequest) {
       locale: normalizedLocale,
       profileRegion,
     });
-    if (!confirmedCitizenContext && body.confirmedJurisdictionKey) {
+    if (!confirmedCitizenContext && requestedBodyJurisdictionKey) {
       return NextResponse.json(
         { ok: false, error: "invalid_jurisdiction_confirmation" },
         { status: 400 },
