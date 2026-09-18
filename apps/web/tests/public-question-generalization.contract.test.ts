@@ -641,4 +641,4 @@ describe("public question generalization and anti-targeting contract", () => {
 
     expect(result.originalInput).toBe(originalInput);
   });
-});
+});\n  it("rejects legacy or mismatched guard-policy evidence", () => {\n    const current = evaluatePublicQuestionGeneralization({\n      originalInput: "Welche Maßnahmen sollten Kommunen gegen Hitze priorisieren?",\n      actorContexts: [],\n      actorExtraction: completeActorExtraction,\n    });\n\n    expect(current.guardContractVersion).toBe(PUBLIC_QUESTION_GUARD_CONTRACT_VERSION);\n    expect(isCurrentPublicQuestionGuardResult(current)).toBe(true);\n    expect(isCurrentPublicQuestionGuardResult({ guardContractVersion: "public_question_guard.v0" as never })).toBe(false);\n    expect(isCurrentPublicQuestionGuardResult({} as never)).toBe(false);\n    expect(isCurrentPublicQuestionGuardResult(null)).toBe(false);\n  });\n
