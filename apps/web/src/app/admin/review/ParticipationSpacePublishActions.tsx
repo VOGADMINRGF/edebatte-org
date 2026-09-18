@@ -7,6 +7,7 @@ import {
   canApproveParticipationSpaceActivation,
   canApproveParticipationSpacePublication,
   canPublishParticipationSpace,
+  isParticipationQuestionGuardCurrent,
   type ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
 
@@ -99,8 +100,7 @@ export default function ParticipationSpacePublishActions({ record }: Props) {
     }
   }
 
-  const questionGuardCurrent =
-    record.questionGuard.candidatePublicQuestion === record.participationQuestion;
+  const questionGuardCurrent = isParticipationQuestionGuardCurrent(record);
   const needsQuestionGuardReview =
     record.questionGuard.releaseState === "review_required" ||
     (record.questionGuard.releaseState === "draft_allowed" &&
@@ -134,8 +134,9 @@ export default function ParticipationSpacePublishActions({ record }: Props) {
           className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"
           data-testid={`participation-space-question-guard-stale-${record.sourceHandoffId}`}
         >
-          Die Beteiligungsfrage hat sich seit der Guard-Prüfung geändert. Eine
-          neue evidenzgebundene Guard-Prüfung ist vor jeder Freigabe nötig.
+          Die Beteiligungsfrage oder der G1-Guard-Vertrag ist seit der letzten
+          Prüfung veraltet. Eine neue evidenzgebundene Guard-Prüfung ist vor
+          jeder Freigabe nötig.
         </p>
       ) : null}
 
