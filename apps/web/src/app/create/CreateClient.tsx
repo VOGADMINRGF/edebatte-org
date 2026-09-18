@@ -2381,7 +2381,6 @@ export default function CreateClient({
           manualReviewRequested,
           sourceUrls: currentMaterialRouting.sourceUrls,
           materialItems: currentMaterialRouting.materialItems,
-          confirmedJurisdictionKey: confirmedJurisdictionKey ?? undefined,
           analysis: intelligentFollowup
             ? {
                 intelligentFollowup,
@@ -2430,7 +2429,6 @@ export default function CreateClient({
     currentMaterialRouting.sourceUrls,
     createHoneypotValue,
     linkClarificationState,
-    confirmedJurisdictionKey,
   ]);
 
   const navigateWithCreateHandoff = React.useCallback(
