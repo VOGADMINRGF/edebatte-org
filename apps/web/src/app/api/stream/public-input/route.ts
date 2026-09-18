@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
 import { getParticipationSignalReviewRuntimeRepo } from "@features/region";
 import { buildStreamPublicRuntime } from "@features/stream/publicRuntime";
@@ -23,8 +23,32 @@ function riskHintFor(kind: StreamPublicInputDoc["kind"]) {
   return "Beiträge aus dem Stream bleiben reviewpflichtig und werden nicht automatisch veröffentlicht.";
 }
 
-export async function POST(req: Request) {
+function responseVisibilityLabel(record: { reviewStatus: string; visibilityState: string }) {
+  if (record.reviewStatus !== "accepted") return "reviewpflichtig";
+  if (record.visibilityState === "public_official") return "amtlich freigegeben";
+  if (record.visibilityState === "public_reviewed") return "geprüft sichtbar";
+  if (record.visibilityState === "public_unverified") return "sichtbar, aber nicht amtlich bestätigt";
+  return "reviewpflichtig";
+}
+
+export async function POST(req: NextRequest) {
   try {
+    const userId = req.cookies.get("u_id")?.value ?? null;
+    if (!userId) {
+      return NextResponse.json(
+        { ok: false, error: "login_required" },
+        { status: 401 },
+      );
+    }
+
+    const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
+    if (!contentType.startsWith("application/json")) {
+      return NextResponse.json(
+        { ok: false, error: "unsupported_media_type" },
+        { status: 415 },
+      );
+    }
+
     const payload = StreamPublicInputPayloadSchema.parse(await req.json());
     const runtime = await buildStreamPublicRuntime(payload.streamId);
 
@@ -32,6 +56,16 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: "public_stream_not_open" },
         { status: 409 },
+      );
+    }
+
+    if (
+      runtime.session.requireVerifiedParticipants === true &&
+      req.cookies.get("u_verified")?.value !== "1"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "verification_required" },
+        { status: 403 },
       );
     }
 
@@ -88,12 +122,7 @@ export async function POST(req: Request) {
           kind: payload.kind,
           reviewState: record.reviewStatus,
           visibilityState: record.visibilityState,
-          visibilityLabel:
-            record.visibilityState === "public_unverified"
-              ? "sichtbar, aber nicht geprüft"
-              : record.visibilityState === "public_reviewed"
-                ? "geprüft sichtbar"
-                : "reviewpflichtig",
+          visibilityLabel: responseVisibilityLabel(record),
           noAutoPublish: true,
           noAutoDossierUpdate: true,
           noAutoAnlassraumUpdate: true,

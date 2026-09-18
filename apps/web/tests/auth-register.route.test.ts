@@ -239,6 +239,36 @@ describe("/api/auth/register", () => {
     expect(mocks.verifyHumanTokenDetailed).toHaveBeenCalledWith("human-token");
   });
 
+  it("binds a canonical safe continuation target to the verification token", async () => {
+    const res = await POST(
+      makeRequest({
+        next: "/create?nextAction=guest-adoption-resume",
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mocks.createEmailVerificationToken).toHaveBeenCalledWith(
+      expect.any(state.MockObjectId),
+      "citizen@example.org",
+      "/create?nextAction=guest-adoption-resume",
+    );
+  });
+
+  it("fails closed instead of persisting an unsafe registration continuation target", async () => {
+    const res = await POST(
+      makeRequest({
+        next: "https://evil.example/steal",
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mocks.createEmailVerificationToken).toHaveBeenCalledWith(
+      expect.any(state.MockObjectId),
+      "citizen@example.org",
+      null,
+    );
+  });
+
   it("does not block registration when the honeypot stays empty", async () => {
     const res = await POST(makeRequest({ reg_guardian_reference: "", hp_register: "" }));
 

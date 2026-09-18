@@ -24,6 +24,7 @@ export default function LoginPageClient() {
       <h1 className="sr-only">Login</h1>
       <LoginPageShell
         redirectTo={redirectTo}
+        registerHref={registerHref}
         initialStep={initialStep}
         initialMethod={initialMethod}
         forceTwoFactor={forceTwoFactor}

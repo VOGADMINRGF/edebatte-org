@@ -150,7 +150,7 @@ describe("token rotation security", () => {
     expect(mocks.resetTokens.filter((doc) => doc.slotKey)).toHaveLength(1);
   });
 
-  it("keeps only the latest sequential verification token valid", async () => {
+  it("keeps only the latest sequential verification token valid and returns its continuation intent", async () => {
     const { ObjectId } = await import("@core/db/triMongo");
     const { createEmailVerificationToken, consumeEmailVerificationToken } = await import("@core/auth/emailVerificationService");
 
@@ -162,15 +162,52 @@ describe("token rotation security", () => {
       emailVerified: false,
     });
 
-    const first = await createEmailVerificationToken(userId, "member@edebatte.org");
-    const second = await createEmailVerificationToken(userId, "member@edebatte.org");
+    const first = await createEmailVerificationToken(
+      userId,
+      "member@edebatte.org",
+      "/create?nextAction=guest-adoption-old",
+    );
+    const second = await createEmailVerificationToken(
+      userId,
+      "member@edebatte.org",
+      "/create?nextAction=guest-adoption-resume",
+    );
 
     expect(await consumeEmailVerificationToken(first.rawToken)).toBeNull();
     expect(await consumeEmailVerificationToken(second.rawToken)).toMatchObject({
       email: "member@edebatte.org",
+      continuationTarget: "/create?nextAction=guest-adoption-resume",
     });
     expect(await consumeEmailVerificationToken(second.rawToken)).toBeNull();
     expect(mocks.verificationTokens.filter((doc) => doc.slotKey)).toHaveLength(1);
+  });
+
+  it("clears stale continuation intent when a later verification token is issued without one", async () => {
+    const { ObjectId } = await import("@core/db/triMongo");
+    const { createEmailVerificationToken, consumeEmailVerificationToken } = await import("@core/auth/emailVerificationService");
+
+    const userId = new ObjectId("507f1f77bcf86cd799439013");
+    mocks.users.set(String(userId), {
+      _id: userId,
+      verification: { level: "none", methods: [] },
+      verifiedEmail: false,
+      emailVerified: false,
+    });
+
+    await createEmailVerificationToken(
+      userId,
+      "member@edebatte.org",
+      "/create?nextAction=guest-adoption-resume",
+    );
+    const current = await createEmailVerificationToken(userId, "member@edebatte.org");
+
+    expect(mocks.verificationTokens.find((doc) => doc.slotKey)).toMatchObject({
+      continuationTarget: null,
+    });
+    expect(await consumeEmailVerificationToken(current.rawToken)).toMatchObject({
+      email: "member@edebatte.org",
+      continuationTarget: null,
+    });
   });
 
   it("keeps only the final current verification token valid across parallel issuance", async () => {
@@ -193,6 +230,7 @@ describe("token rotation security", () => {
     expect(await consumeEmailVerificationToken(first.rawToken)).toBeNull();
     expect(await consumeEmailVerificationToken(second.rawToken)).toMatchObject({
       email: "member@edebatte.org",
+      continuationTarget: null,
     });
     expect(await consumeEmailVerificationToken(second.rawToken)).toBeNull();
     expect(mocks.verificationTokens.filter((doc) => doc.slotKey)).toHaveLength(1);
