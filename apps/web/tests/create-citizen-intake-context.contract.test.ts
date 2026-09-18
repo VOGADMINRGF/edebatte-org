@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyCreateJurisdictionConfirmation,
   applyCreateRegionPriority,
+  buildCreateJurisdictionCandidateKey,
   resolveCreateCitizenIntakeContext,
   type CreateRegionDirectoryEntry,
 } from "@/features/create/createCitizenIntakeContext";
 import {
   resolveCreateCitizenIntakeContextFromOfficialDirectory,
+  validateCreateJurisdictionConfirmation,
 } from "@/features/create/createCitizenIntakeContextServer";
 
 const DIRECTORY: CreateRegionDirectoryEntry[] = [
@@ -23,6 +26,10 @@ const DIRECTORY: CreateRegionDirectoryEntry[] = [
     state: "Nordrhein-Westfalen",
     country: "DE",
     registryId: "05124000",
+    administrativeUnitType: "kreisfreie_stadt",
+    rawAdministrativeUnitLabel: "Kreisfreie Stadt",
+    administrativeSeat: "Wuppertal",
+    authorityName: "Stadt Wuppertal",
   },
   {
     id: "de-sh-dithmarschen",
@@ -30,6 +37,10 @@ const DIRECTORY: CreateRegionDirectoryEntry[] = [
     state: "Schleswig-Holstein",
     country: "DE",
     registryId: "01051",
+    administrativeUnitType: "kreis",
+    rawAdministrativeUnitLabel: "Kreis",
+    administrativeSeat: "Heide",
+    authorityName: "Heide",
   },
   {
     id: "de-rp-neustadt",
@@ -60,6 +71,10 @@ describe("C5 citizen-first Create intake context", () => {
     expect(result.selectedRegionLabel).toBe("Wuppertal");
     expect(result.regionHierarchy).toEqual(["Wuppertal", "Nordrhein-Westfalen", "DE"]);
     expect(result.guardrails.noProfileRegionAsFact).toBe(true);
+    expect(result.jurisdictionCandidates[0]).toMatchObject({
+      level: "municipality",
+      administrativeUnitType: "kreisfreie_stadt",
+    });
   });
 
   it("keeps Dithmarschen as the explicit place instead of a profile fallback", () => {
@@ -72,6 +87,65 @@ describe("C5 citizen-first Create intake context", () => {
     expect(result.regionSource).toBe("contribution_text");
     expect(result.selectedRegionLabel).toBe("Dithmarschen");
     expect(result.regionHierarchy).toEqual(["Dithmarschen", "Schleswig-Holstein", "DE"]);
+    expect(result.jurisdictionCandidates[0]).toMatchObject({
+      level: "district",
+      authorityName: "Heide",
+      administrativeUnitType: "kreis",
+    });
+  });
+
+  it("confirms only an exact server-offered candidate key", () => {
+    const context = resolveCreateCitizenIntakeContext({
+      text: "In Wuppertal sollte der Schulweg sicherer werden.",
+      directoryEntries: DIRECTORY,
+    });
+    const candidate = context.jurisdictionCandidates[0]!;
+    const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+
+    expect(
+      applyCreateJurisdictionConfirmation(context, candidateKey)
+        .jurisdictionConfirmation,
+    ).toEqual({ status: "confirmed", candidateKey });
+    expect(
+      applyCreateJurisdictionConfirmation(
+        context,
+        "municipality:frei erfundene behörde",
+      ).jurisdictionConfirmation,
+    ).toEqual({ status: "unconfirmed", candidateKey: null });
+  });
+
+  it("preserves official Wuppertal and Dithmarschen administrative levels in server validation", () => {
+    for (const [sourceText, expectedLevel] of [
+      ["In Wuppertal sollte der Schulweg sicherer werden.", "municipality"],
+      ["In Dithmarschen muss der Busverkehr besser werden.", "district"],
+    ] as const) {
+      const context =
+        resolveCreateCitizenIntakeContextFromOfficialDirectory({
+          text: sourceText,
+        });
+      const candidate = context.jurisdictionCandidates[0]!;
+      const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+      const validated = validateCreateJurisdictionConfirmation({
+        sourceText,
+        candidateKey,
+      });
+
+      expect(candidate.level).toBe(expectedLevel);
+      expect(validated?.jurisdictionConfirmation).toEqual({
+        status: "confirmed",
+        candidateKey,
+      });
+      expect(validated?.jurisdictionCandidates[0]?.level).toBe(expectedLevel);
+      expect(
+        validateCreateJurisdictionConfirmation({
+          sourceText,
+          candidateKey: candidateKey.replace(
+            /^[^:]+:/,
+            expectedLevel === "district" ? "municipality:" : "district:",
+          ),
+        }),
+      ).toBeNull();
+    }
   });
 
   it("does not force a profile region onto federal or EU concerns", () => {
