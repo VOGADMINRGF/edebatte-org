@@ -1250,6 +1250,33 @@ export async function approveParticipationSpaceActivation(input: {
   return approvedRecord;
 }
 
+export function buildParticipationSpaceQuestionGuardReviewAuditEntry(input: {
+  reviewedRecord: ParticipationSpacePublishRecord;
+  reviewedAt: string;
+  actorUserId: string;
+  actorExtractionSource: "entity_registry" | "actor_graph" | "human_review";
+  note?: string | null;
+}): Omit<ParticipationSpacePublishAuditEntry, "id" | "sourceHandoffId"> {
+  const { reviewedRecord } = input;
+  return {
+    at: input.reviewedAt,
+    action: "question_guard_reviewed",
+    actorUserId: input.actorUserId,
+    note:
+      trimOrNull(input.note) ??
+      `Public-Question-Guard fachlich neu bewertet; berechneter Ausgang: ${reviewedRecord.questionGuard.releaseState}. Wirksam wird eine Freigabe erst nach erfolgreicher finaler CAS-Persistenz.`,
+    blockers: reviewedRecord.blockers,
+    status: reviewedRecord.status,
+    participationSpaceId: reviewedRecord.participationSpaceId,
+    questionGuardReleaseState: "review_required",
+    questionGuardActorExtractionSource: input.actorExtractionSource,
+    questionGuardEvidenceRefs: reviewedRecord.questionGuard.evidenceRefs,
+    questionGuardActorContexts: reviewedRecord.questionGuard.actorContexts,
+    questionGuardHumanReviewFinding:
+      reviewedRecord.questionGuard.actorExtraction.humanReviewFinding ?? null,
+  };
+}
+
 export async function reviewParticipationSpaceQuestionGuard(input: {
   sourceHandoffId: string;
   actorUserId: string;
@@ -1273,26 +1300,13 @@ export async function reviewParticipationSpaceQuestionGuard(input: {
     reviewedAt,
   });
 
-  const auditEntry = {
-    at: reviewedAt,
-    action: "question_guard_reviewed" as const,
+  const auditEntry = buildParticipationSpaceQuestionGuardReviewAuditEntry({
+    reviewedRecord,
+    reviewedAt,
     actorUserId: input.actorUserId,
-    note:
-      trimOrNull(input.note) ??
-      `Public-Question-Guard fachlich neu bewertet; berechneter Ausgang: ${reviewedRecord.questionGuard.releaseState}. Wirksam wird eine Freigabe erst nach erfolgreicher finaler CAS-Persistenz.`,
-    blockers: reviewedRecord.blockers,
-    status: reviewedRecord.status,
-    participationSpaceId: reviewedRecord.participationSpaceId,
-    questionGuardReleaseState: "review_required",
-    questionGuardActorExtractionSource: input.actorExtractionSource,
-    questionGuardEvidenceRefs: reviewedRecord.questionGuard.evidenceRefs,
-    questionGuardActorContexts: reviewedRecord.questionGuard.actorContexts,
-    questionGuardHumanReviewFinding:
-      reviewedRecord.questionGuard.actorExtraction.humanReviewFinding ?? null,
-  } satisfies Omit<
-    ParticipationSpacePublishAuditEntry,
-    "id" | "sourceHandoffId"
-  >;
+    actorExtractionSource: input.actorExtractionSource,
+    note: input.note,
+  });
 
   const reviewReservationDraft: ParticipationSpacePublishRecord = {
     ...reviewedRecord,
