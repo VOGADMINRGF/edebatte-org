@@ -51,12 +51,12 @@ Primary extraction source remains PR #682, specifically:
 
 - `28e08cd6f2c23df8a529f5d16bf3d2f8b617d878` — citizen-first regional intake context;
 - `52baa748c157810d4fd30ac1fe57d00fc342733b` — mixed correction commit; C5 hunks only;
-- `9a183863df906d1d3b29f5ffc0a3d1d8f94123c4` — mixed C5/C6 correction; C5 hunks only;
+- `287482c3277c7237504d8e8d5eabc8efac1091f8` — later C5 place-index / lexical-ambiguity correction; only C5 place hunks, never its C7 confirmation surroundings;\n- `9a183863df906d1d3b29f5ffc0a3d1d8f94123c4` — mixed C5/C6 correction; only the C5 emergency hunk, never C6 relation inference;
 - `d0444a90761cdfdcdb54cb838221138467cf3add` — mixed later correction; C5 locale/place/emergency hunks only.
 
 Whole-commit cherry-pick is prohibited.
 
-The historical source contains later responsibilities in the same files, including existing-topic decisions, jurisdiction confirmation/candidate-key validation, link/source integration and handoff persistence. Those later responsibilities are explicitly excluded here.
+The historical source contains later responsibilities in the same files, including existing-topic decisions, jurisdiction confirmation/candidate-key validation, link/source integration and handoff persistence. Commit `a12978a5fc7f22f4f5281d393a26834cadd36204` is specifically C7 confirmation evidence and its candidate-key/confirmation/UI hunks are excluded from C5. Those later responsibilities are explicitly excluded here.
 
 ## 4. Existing authoritative dependency
 
