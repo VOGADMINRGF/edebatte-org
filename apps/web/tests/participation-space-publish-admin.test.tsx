@@ -5,6 +5,7 @@ import type {
   ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
 import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -77,18 +78,20 @@ function buildRecord(
     description:
       "Sichere Schulwege sollen im Beteiligungsraum weitergeführt werden.",
     participationQuestion: QUESTION,
-    questionGuard: evaluatePublicQuestionGeneralization({
-      originalInput: QUESTION,
-      candidatePublicQuestion: QUESTION,
-      actorContexts: [],
-      actorExtraction: {
-        status: "complete",
-        source: "human_review",
-        independentFromCandidateProvider: true,
-        evidenceRefs: ["human-review:participation-publish-1"],
-        humanReviewFinding: "no_named_actors",
-      },
-    }),
+    questionGuard: bindQuestionGuardToCurrentContract(
+      evaluatePublicQuestionGeneralization({
+        originalInput: QUESTION,
+        candidatePublicQuestion: QUESTION,
+        actorContexts: [],
+        actorExtraction: {
+          status: "complete",
+          source: "human_review",
+          independentFromCandidateProvider: true,
+          evidenceRefs: ["human-review:participation-publish-1"],
+          humanReviewFinding: "no_named_actors",
+        },
+      }),
+    ),
     publicHeadline: "Sichere Schulwege im Blick",
     publicSummary:
       "Der Beteiligungsraum bündelt Hinweise zu Querungen und offenen Prüfpfaden.",
