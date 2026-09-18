@@ -13,6 +13,7 @@ import type {
 } from "@/features/create/createSurfaceConfig";
 import EntryHeroHeading from "@/components/surfaces/EntryHeroHeading";
 import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
 
 type SpeechRecognitionLike = {
   lang: string;
@@ -167,6 +168,9 @@ export type SharedCreateComposerProps = {
   errorRef?: React.Ref<React.ElementRef<"p">>;
   contextBanner?: React.ReactNode;
   citizenContext?: CreateCitizenIntakeContext | null;
+  confirmedJurisdictionKey?: string | null;
+  onConfirmCitizenJurisdiction?: (candidateKey: string) => void;
+  onEditCitizenJurisdiction?: () => void;
   onEditCitizenRegion?: () => void;
   allowVoice?: boolean;
   onAttachmentsChange?: (files: File[]) => void;
@@ -212,6 +216,9 @@ export default function SharedCreateComposer({
   errorRef,
   contextBanner,
   citizenContext,
+  confirmedJurisdictionKey = null,
+  onConfirmCitizenJurisdiction,
+  onEditCitizenJurisdiction,
   onEditCitizenRegion,
   allowVoice = true,
   onAttachmentsChange,
@@ -265,7 +272,7 @@ export default function SharedCreateComposer({
               onEditCitizenRegion?.();
               textareaRef.current?.focus();
             }}
-            aria-label={`${citizenContext.regionChipLabel}. ${locale === "en" ? "Edit region" : "Region bearbeiten"}`}
+            aria-label={texts.regionEditAria(citizenContext.regionChipLabel)}
           >
             <span aria-hidden="true" className="mr-1.5">📍</span>
             {citizenContext.regionChipLabel}
@@ -278,15 +285,74 @@ export default function SharedCreateComposer({
         </div>
       ) : null}
 
+      {citizenContext.jurisdictionCandidates.length > 0 ? (
+        <div
+          className="rounded-2xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-950/25 dark:text-amber-50"
+          data-create-jurisdiction-confirmation
+        >
+          <p className="font-semibold">
+            {citizenContext.jurisdictionCandidates.length === 1
+              ? texts.jurisdictionSingleTitle(
+                  citizenContext.jurisdictionCandidates[0]?.label ?? "",
+                )
+              : texts.jurisdictionMultipleTitle}
+          </p>
+          <p className="mt-1 leading-relaxed">
+            {citizenContext.jurisdictionCandidates.length === 1
+              ? texts.jurisdictionSingleLead
+              : texts.jurisdictionMultipleLead}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {citizenContext.jurisdictionCandidates.map((candidate) => {
+              const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+              const selected = confirmedJurisdictionKey === candidateKey;
+              const canConfirm =
+                candidate.level !== "unknown" &&
+                citizenContext.regionSource !== "profile_suggestion";
+              return (
+                <button
+                  key={candidateKey}
+                  type="button"
+                  className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                    selected
+                      ? "border-emerald-600 bg-emerald-100 text-emerald-950 dark:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-50"
+                      : "border-amber-500/50 bg-white/70 text-amber-950 hover:border-amber-600 dark:bg-amber-950/20 dark:text-amber-50"
+                  }`}
+                  aria-pressed={selected}
+                  disabled={!canConfirm || !onConfirmCitizenJurisdiction}
+                  onClick={() => onConfirmCitizenJurisdiction?.(candidateKey)}
+                >
+                  {selected
+                    ? texts.jurisdictionConfirmedLabel(candidate.label)
+                    : citizenContext.jurisdictionCandidates.length === 1
+                      ? texts.jurisdictionConfirmLabel
+                      : candidate.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] items-center rounded-full border border-amber-500/50 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:border-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-amber-50"
+              onClick={() => {
+                onEditCitizenJurisdiction?.();
+                textareaRef.current?.focus();
+              }}
+            >
+              {confirmedJurisdictionKey
+                ? texts.jurisdictionChangeLabel
+                : texts.jurisdictionEditLabel}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {citizenContext.safety.emergencyNoticeRequired ? (
         <div
           role="alert"
           className="rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-300/30 dark:bg-red-950/30 dark:text-red-50"
           data-create-emergency-notice
         >
-          {locale === "en"
-            ? "If there is immediate danger, eDebatte is not an emergency channel. Call 112 or contact the police or emergency services directly."
-            : "Bei akuter Gefahr ist eDebatte nicht der richtige Notfallkanal. Ruf 112 oder wende dich direkt an Polizei beziehungsweise Rettungsdienst."}
+          {texts.emergencyNotice}
         </div>
       ) : null}
     </>

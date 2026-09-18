@@ -50,6 +50,11 @@ import {
   type ResolveExistingTopicMatchesFromRuntimeResult,
 } from "@/features/create/existingTopicMatchesRuntimeBridge";
 import {
+  inferExistingTopicMatchRelation,
+  mapCreateExistingMatchDecisionToDraftTarget,
+  type CreateExistingMatchDecision,
+} from "@/features/create/createExistingMatchDecision";
+import {
   runDialogIntelligenceRuntime,
   type DialogIntelligenceRuntimeResult,
   type DialogIntelligenceRuntimeSourceKind,
@@ -3493,6 +3498,9 @@ export default function CreateVisualFollowup({
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [deepDiveOpen, setDeepDiveOpen] = React.useState(false);
   const [preparedHandoffDraft, setPreparedHandoffDraft] = React.useState<CreateHandoffDraft | null>(null);
+  const [existingMatchDecisions, setExistingMatchDecisions] = React.useState<
+    Record<string, CreateExistingMatchDecision>
+  >({});
   const [preparedReviewQueueItem, setPreparedReviewQueueItem] =
     React.useState<CreateHandoffReviewQueueItem | null>(null);
   const [reviewQueueRuntimeState, setReviewQueueRuntimeState] = React.useState<
@@ -3515,6 +3523,7 @@ export default function CreateVisualFollowup({
 
   React.useEffect(() => {
     setPreparedHandoffDraft(null);
+    setExistingMatchDecisions({});
     setPreparedReviewQueueItem(null);
     setReviewQueueRuntimeState("idle");
     setReviewQueueRuntimeMessage(null);
@@ -3583,6 +3592,45 @@ export default function CreateVisualFollowup({
       });
     },
     [dialogOutcomePreview],
+  );
+
+  const existingMatchRelations = React.useMemo(
+    () =>
+      Object.fromEntries(
+        existingTopicMatchesModel.matches.map((match) => [
+          match.id,
+          inferExistingTopicMatchRelation(
+            result.sourceText,
+            [match.title, match.summary].filter(Boolean).join(" "),
+          ),
+        ]),
+      ),
+    [existingTopicMatchesModel.matches, result.sourceText],
+  );
+
+  const applyExistingMatchDecision = React.useCallback(
+    (matchId: string, decision: CreateExistingMatchDecision) => {
+      const match = existingTopicMatchesModel.matches.find(
+        (entry) => entry.id === matchId,
+      );
+      if (!match) return;
+
+      setExistingMatchDecisions((current) => ({
+        ...current,
+        [matchId]: decision,
+      }));
+      setPreparedReviewQueueItem(null);
+      setReviewQueueRuntimeState("idle");
+      setReviewQueueRuntimeMessage(null);
+      setPreparedHandoffDraft(
+        createHandoffDraftFromExistingTopicMatch(
+          match,
+          mapCreateExistingMatchDecisionToDraftTarget(decision),
+          decision,
+        ),
+      );
+    },
+    [existingTopicMatchesModel.matches],
   );
 
   const prepareExistingMatchDraft = React.useCallback(
@@ -4077,6 +4125,9 @@ export default function CreateVisualFollowup({
                       <div className="mt-4">
                         <ExistingTopicMatchesPanel
                           model={existingTopicMatchesModel}
+                          matchDecisions={existingMatchDecisions}
+                          matchRelations={existingMatchRelations}
+                          onMatchDecision={applyExistingMatchDecision}
                           onSelectMatch={(matchId) => prepareExistingMatchDraft(matchId)}
                           onCountSimilarOpinion={(matchId) =>
                             prepareExistingMatchDraft(matchId, "opinion_count")
