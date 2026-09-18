@@ -116,7 +116,10 @@ import {
   type CreateVoxyLocale,
 } from "@/features/create/createVoxySupportCopy";
 import type { CreateSupportHandoffPublic } from "@/features/support/createSupportTicketContract";
-import { applyCreateRegionPriority } from "@/features/create/createCitizenIntakeContext";
+import {
+  applyCreateJurisdictionConfirmation,
+  applyCreateRegionPriority,
+} from "@/features/create/createCitizenIntakeContext";
 import {
   isCreateIntelligentFollowupAbortError,
   resolveCreateIntakeTiming,
@@ -841,6 +844,8 @@ export default function CreateClient({
     React.useState<CreateLightweightFollowupSnapshot | null>(null);
   const [intelligentFollowup, setIntelligentFollowup] =
     React.useState<CreateIntelligentFollowupResult | null>(null);
+  const [confirmedJurisdictionKey, setConfirmedJurisdictionKey] =
+    React.useState<string | null>(null);
   const [supportHandoff, setSupportHandoff] =
     React.useState<CreateSupportHandoffPublic | null>(null);
   const [plannerTrace, setPlannerTrace] = React.useState<CreatePlannerRuntimeTrace | null>(null);
@@ -1562,15 +1567,65 @@ export default function CreateClient({
       initialIntakeContext?.reviewState === "confirmed"
         ? initialIntakeContext.region
         : null;
-    return applyCreateRegionPriority(detected, {
+    const prioritized = applyCreateRegionPriority(detected, {
       confirmedRegion,
       profileRegion,
     });
+    return applyCreateJurisdictionConfirmation(
+      prioritized,
+      confirmedJurisdictionKey,
+    );
   }, [
+    confirmedJurisdictionKey,
     initialIntakeContext,
     intelligentFollowup?.meta?.citizenContext,
     overview.profile,
   ]);
+
+  React.useEffect(() => {
+    setConfirmedJurisdictionKey(null);
+  }, [intelligentFollowup?.sourceText]);
+
+  const confirmCitizenJurisdiction = React.useCallback(
+    (candidateKey: string) => {
+      if (!citizenContext) return;
+      const confirmed = applyCreateJurisdictionConfirmation(
+        citizenContext,
+        candidateKey,
+      );
+      if (confirmed.jurisdictionConfirmation.status !== "confirmed") return;
+      setConfirmedJurisdictionKey(
+        confirmed.jurisdictionConfirmation.candidateKey,
+      );
+      setIntelligentFollowup((current) =>
+        current
+          ? {
+              ...current,
+              meta: {
+                ...current.meta,
+                citizenContext: confirmed,
+              },
+            }
+          : current,
+      );
+    },
+    [citizenContext],
+  );
+
+  const clearCitizenJurisdictionConfirmation = React.useCallback(() => {
+    setConfirmedJurisdictionKey(null);
+    setIntelligentFollowup((current) => {
+      const context = current?.meta?.citizenContext;
+      if (!current || !context) return current;
+      return {
+        ...current,
+        meta: {
+          ...current.meta,
+          citizenContext: applyCreateJurisdictionConfirmation(context, null),
+        },
+      };
+    });
+  }, []);
   const startChatAssistantTitle = isStarting
     ? surfaceLocale === "en"
       ? "I’m organizing this briefly"
@@ -2326,6 +2381,7 @@ export default function CreateClient({
           manualReviewRequested,
           sourceUrls: currentMaterialRouting.sourceUrls,
           materialItems: currentMaterialRouting.materialItems,
+          confirmedJurisdictionKey: confirmedJurisdictionKey ?? undefined,
           analysis: intelligentFollowup
             ? {
                 intelligentFollowup,
@@ -2374,6 +2430,7 @@ export default function CreateClient({
     currentMaterialRouting.sourceUrls,
     createHoneypotValue,
     linkClarificationState,
+    confirmedJurisdictionKey,
   ]);
 
   const navigateWithCreateHandoff = React.useCallback(
@@ -3291,7 +3348,19 @@ export default function CreateClient({
                 onInputChange={handleWorkspaceComposerChange}
                 onAttachmentsChange={setComposerAttachments}
                 citizenContext={citizenContext}
+                confirmedJurisdictionKey={confirmedJurisdictionKey}
+                onConfirmCitizenJurisdiction={confirmCitizenJurisdiction}
+                onEditCitizenJurisdiction={() => {
+                  clearCitizenJurisdictionConfirmation();
+                  setWorkspaceActionMode("edit");
+                  setActionNotice(
+                    surfaceLocale === "en"
+                      ? "Clarify the responsible place or authority directly in your contribution."
+                      : "Präzisiere den zuständigen Ort oder die Zuständigkeit direkt in deinem Beitrag.",
+                  );
+                }}
                 onEditCitizenRegion={() => {
+                  clearCitizenJurisdictionConfirmation();
                   setWorkspaceActionMode("edit");
                   setActionNotice(
                     surfaceLocale === "en"
