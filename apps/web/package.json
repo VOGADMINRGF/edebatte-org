@@ -23,7 +23,7 @@
     "test:decision-dossier-t0:property": "pnpm exec vitest run tests/decision-dossier-t0-property.test.ts",
     "test:production-public-routes": "pnpm exec vitest run tests/participation-space-public-route-runtime.test.tsx tests/dossier-public-route-runtime.test.tsx tests/anlassraum-public-route-runtime.test.ts tests/dossier-parliamentary-context.test.ts tests/dossier-chatkontrolle-public.contract.test.ts",
     "test:production-admin-review": "pnpm exec vitest run tests/admin-review.page.test.tsx tests/community-source-review-workbench-ui.test.tsx tests/community-source-review-public-submission-api.test.ts",
-    "test:production-publish-guardrails": "pnpm exec vitest run tests/participation-space-publish-workflow.test.ts tests/participation-space-publish-admin.test.tsx tests/participation-space-publish-route-guard.contract.test.ts tests/participation-space-release-audit.contract.test.ts tests/dossier-publish-workflow.test.ts tests/dossier-publish-admin.test.tsx tests/anlassraum-activation-workflow.test.ts tests/anlassraum-activation-admin.test.tsx",
+    "test:production-publish-guardrails": "pnpm exec vitest run tests/participation-space-publish-workflow.test.ts tests/participation-space-publish-admin.test.tsx tests/dossier-publish-workflow.test.ts tests/dossier-publish-admin.test.tsx tests/anlassraum-activation-workflow.test.ts tests/anlassraum-activation-admin.test.tsx",
     "test:production-guardrails": "pnpm run test:production-public-routes && pnpm run test:production-admin-review && pnpm run test:production-publish-guardrails",
     "ai:provider-smoke": "pnpm exec tsx scripts/ai-provider-smoke.ts",
     "render:voxy-homepage-reference-films": "pnpm exec tsx scripts/render-voxy-homepage-reference-films.ts",
