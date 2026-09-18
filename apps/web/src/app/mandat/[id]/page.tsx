@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   getMandateById,
+  getMandateRuntimeRepo,
   isBindingVoiceOpenGovRepresentationMandate,
   isPublicReadOnlyMandate,
   type Mandate,
@@ -81,7 +82,17 @@ function buildReferenceItems(mandate: Mandate): Array<{ label: string; value: st
 
 export default async function MandatDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const mandate = getMandateById(id);
+  let mandate: Mandate | null = null;
+
+  try {
+    mandate = await getMandateRuntimeRepo().get(id);
+  } catch {
+    // Runtime mandate storage is authoritative when available. If it is
+    // temporarily unavailable, fail closed for runtime-only ids while keeping
+    // the existing explicit example fixtures readable.
+  }
+
+  mandate ??= getMandateById(id);
 
   if (!mandate || !isPublicReadOnlyMandate(mandate)) {
     notFound();
