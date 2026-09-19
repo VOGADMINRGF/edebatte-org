@@ -56,7 +56,7 @@ vi.mock("@/features/support/createSupportTickets", () => ({
     mocks.ensureCreateSupportTicket(...args),
 }));
 
-vi.mock("@/server/serverDrafts", () => ({
+vi.mock("@/server/createDraftSourceEvidence", () => ({
   upsertCreateDraftSourceEvidence: (...args: unknown[]) =>
     mocks.upsertCreateDraftSourceEvidence(...args),
 }));
