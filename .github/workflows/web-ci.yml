@@ -70,6 +70,12 @@ jobs:
           tests/create-intelligent-followup.contract.test.ts
           tests/create-intelligent-followup.route.test.ts
           tests/create-link-analysis.auth-contract.test.ts
+          tests/safe-external-fetch.security.test.ts
+          tests/create-external-source-intake.security.test.ts
+          tests/create-external-source-pdf-timeout.contract.test.ts
+          tests/create-external-source-analysis.contract.test.ts
+          tests/youtube-source.contract.test.ts
+          tests/server-drafts.source-evidence.contract.test.ts
           tests/create-route-security.contract.test.ts
           tests/create-orchestration-single-flight.contract.test.ts
           tests/create-support-tickets.contract.test.ts
