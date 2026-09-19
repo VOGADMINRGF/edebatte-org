@@ -29,6 +29,7 @@ export type CreateMutationScope =
   | "create_save"
   | "create_intelligent_followup"
   | "create_link_analysis"
+  | "create_handoff_persistence"
   | "create_guest_claim"
   | "create_guest_adoption_preparation"
   | "create_guest_adoption_resume";
@@ -63,6 +64,13 @@ const RATE_LIMITS: Record<
     sessionLimit: 18,
     clientLimit: 18,
     windowMs: 10 * 60 * 1000,
+  },
+  create_handoff_persistence: {
+    userLimit: 30,
+    ipLimit: 60,
+    sessionLimit: 45,
+    clientLimit: 45,
+    windowMs: 15 * 60 * 1000,
   },
   create_guest_claim: {
     userLimit: 12,
@@ -106,6 +114,9 @@ const ALLOWED_BODY_FIELDS: Record<CreateMutationScope, ReadonlySet<string>> = {
   ]),
   create_link_analysis: new Set([
     "text", "url", "locale", "additionalContext", "correlationId", "draftId",
+  ]),
+  create_handoff_persistence: new Set([
+    "draft", "draftId", "dossierId", "anlassraumId",
   ]),
   create_guest_claim: new Set(["claim"]),
   create_guest_adoption_preparation: new Set(["claim"]),

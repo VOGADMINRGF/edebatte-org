@@ -77,6 +77,8 @@ jobs:
           tests/youtube-source.contract.test.ts
           tests/server-drafts.source-evidence.contract.test.ts
           tests/create-route-security.contract.test.ts
+          tests/create-handoff-c9.contract.test.ts
+          tests/create-handoff-security.contract.test.ts
           tests/create-orchestration-single-flight.contract.test.ts
           tests/create-support-tickets.contract.test.ts
           tests/admin-create-support-tickets.route.test.ts
