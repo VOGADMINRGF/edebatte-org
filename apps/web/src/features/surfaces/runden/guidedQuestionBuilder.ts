@@ -1,9 +1,16 @@
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
+
 export type RundenFlowDirection = "prepare" | "verify";
 
 export type RundenFlowDraft = {
   occasion: string;
   question: string;
   options: string[];
+  questionGuard: PublicQuestionGeneralizationResult;
 };
 
 function normalizeInput(value: string): string {
@@ -30,11 +37,26 @@ export function deriveRundenFlowDraft(input: string): RundenFlowDraft {
   const question = sentence
     ? `Soll im Anlassraum priorisiert werden: ${shorten(sentence, 90)}?`
     : "Soll der Anlassraum dieses Thema als nächsten Arbeitsschritt priorisieren?";
+  const questionGuard = bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+    originalInput: input,
+    candidatePublicQuestion: question,
+    actorContexts: [],
+    actorExtraction: {
+      status: "unverified",
+      source: "create_analysis",
+      independentFromCandidateProvider: false,
+      evidenceRefs: [],
+    },
+  }));
 
   return {
     occasion,
     question,
-    options: ["Ja, jetzt priorisieren", "Offen lassen und weiter prüfen", "Alternative Ausrichtung wählen"],
+    options:
+      questionGuard.releaseState === "blocked"
+        ? []
+        : ["Ja, jetzt priorisieren", "Offen lassen und weiter prüfen", "Alternative Ausrichtung wählen"],
+    questionGuard,
   };
 }
 

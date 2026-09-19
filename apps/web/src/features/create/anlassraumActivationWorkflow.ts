@@ -6,6 +6,16 @@ import type {
   AnlassraumRuntimeStatus,
   AnlassraumRuntimeVisibility,
 } from "@/features/create/anlassraumRuntime";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionActorContext,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+import {
+  bindQuestionGuardToCurrentContract,
+  isQuestionGuardBoundToCurrentContract,
+  normalizeWorkflowRecordVersion,
+} from "@/features/create/safety/questionGuardReviewPersistence";
 
 export const ANLASSRAUM_ACTIVATION_STATUSES = [
   "draft",
@@ -37,6 +47,7 @@ export const ANLASSRAUM_ACTIVATION_BLOCKERS = [
   "graph_context_pending",
   "dossier_context_pending",
   "public_copy_missing",
+  "public_question_guard_blocked",
   "unsafe_auto_publish",
   "insufficient_audit_context",
 ] as const;
@@ -113,14 +124,28 @@ export type AnlassraumActivationAuditEntry = {
     | "publication_requested"
     | "publication_approved"
     | "publication_rejected"
+    | "question_guard_reviewed"
     | "published_public";
   actorUserId: string | null;
   note: string | null;
   blockers: AnlassraumActivationBlocker[];
   status: AnlassraumActivationStatus;
+  questionGuardReleaseState?: PublicQuestionGeneralizationResult["releaseState"] | null;
+  questionGuardActorExtractionSource?:
+    | "entity_registry"
+    | "actor_graph"
+    | "human_review"
+    | null;
+  questionGuardEvidenceRefs?: string[];
+  questionGuardActorContexts?: PublicQuestionActorContext[];
+  questionGuardHumanReviewFinding?:
+    | "actor_contexts_supplied"
+    | "no_named_actors"
+    | null;
 };
 
 export type AnlassraumActivationDraft = {
+  version: number;
   id: string;
   sourceHandoffId: string;
   sourceReviewItemId: string;
@@ -134,6 +159,7 @@ export type AnlassraumActivationDraft = {
   title: string;
   workingTitle: string;
   trigger: string;
+  questionGuard: PublicQuestionGeneralizationResult;
   description: string;
   relatedDossierId: string | null;
   recognizedStandpoints: string[];
@@ -170,6 +196,7 @@ export type AnlassraumActivationRecord = AnlassraumActivationDraft & {
 };
 
 type BuildDraftInput = {
+  version?: number;
   runtimeRecord: AnlassraumRuntimeRecord;
   createdRoom: {
     id: string | null;
@@ -179,6 +206,7 @@ type BuildDraftInput = {
     updatedAt?: string | null;
   } | null;
   creationAudited: boolean;
+  questionGuard?: PublicQuestionGeneralizationResult | null;
   status?: AnlassraumActivationStatus;
   visibility?: AnlassraumPublicVisibility;
   publicAccessMode?: AnlassraumPublicAccessMode;
@@ -191,6 +219,14 @@ type BuildDraftInput = {
   rejectedBy?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+};
+
+export type AnlassraumQuestionGuardReviewInput = {
+  actorExtractionSource: "entity_registry" | "actor_graph" | "human_review";
+  evidenceRefs: string[];
+  actorContexts?: PublicQuestionActorContext[];
+  noNamedActorsConfirmed?: boolean;
+  reviewedAt?: string | null;
 };
 
 type TransitionResult =
@@ -289,6 +325,15 @@ function requiresPublicationApproval(status: AnlassraumActivationStatus) {
   return !["approved_for_publication", "published"].includes(status);
 }
 
+export function isAnlassraumQuestionGuardCurrent(
+  record: Pick<AnlassraumActivationDraft, "trigger" | "questionGuard">,
+): boolean {
+  return (
+    record.questionGuard.candidatePublicQuestion === record.trigger &&
+    isQuestionGuardBoundToCurrentContract(record.questionGuard)
+  );
+}
+
 function hasPublishLeak(record: AnlassraumActivationDraft) {
   return (
     record.status === "published" &&
@@ -323,6 +368,28 @@ export function getAnlassraumActivationBlockers(
   if (!hasText(record.title)) blockers.add("missing_title");
   if (!hasText(record.trigger)) blockers.add("missing_trigger");
   if (!hasText(record.description)) blockers.add("missing_description");
+  const questionGuard =
+    record.questionGuard ??
+    evaluatePublicQuestionGeneralization({
+      originalInput: record.description,
+      candidatePublicQuestion: record.trigger,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "not_available",
+        independentFromCandidateProvider: false,
+        evidenceRefs: [],
+      },
+    });
+  if (
+    questionGuard.releaseState !== "draft_allowed" ||
+    !isAnlassraumQuestionGuardCurrent({
+      trigger: record.trigger,
+      questionGuard,
+    })
+  ) {
+    blockers.add("public_question_guard_blocked");
+  }
   if (
     !hasText(record.title) ||
     !hasText(record.trigger) ||
@@ -399,8 +466,23 @@ export function buildAnlassraumActivationDraft(
   const visibility = input.visibility ?? defaultVisibilityFromStatus(status);
   const publicAccessMode =
     input.publicAccessMode ?? defaultPublicAccessMode(status);
+  const questionGuard =
+    input.questionGuard ??
+    input.runtimeRecord.questionGuard ??
+    bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+      originalInput: input.runtimeRecord.description,
+      candidatePublicQuestion: input.runtimeRecord.trigger,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "create_analysis",
+        independentFromCandidateProvider: false,
+        evidenceRefs: input.runtimeRecord.graphReferences,
+      },
+    }));
 
   const draft: AnlassraumActivationDraft = {
+    version: normalizeWorkflowRecordVersion(input.version),
     id: `anlassraum-activation:${input.runtimeRecord.sourceHandoffId}`,
     sourceHandoffId: input.runtimeRecord.sourceHandoffId,
     sourceReviewItemId: input.runtimeRecord.sourceReviewItemId,
@@ -416,6 +498,7 @@ export function buildAnlassraumActivationDraft(
     title: input.runtimeRecord.title,
     workingTitle: input.runtimeRecord.workingTitle,
     trigger: input.runtimeRecord.trigger,
+    questionGuard,
     description: input.runtimeRecord.description,
     relatedDossierId: input.runtimeRecord.relatedDossierId,
     recognizedStandpoints: unique(input.runtimeRecord.recognizedStandpoints),
@@ -453,6 +536,166 @@ export function buildAnlassraumActivationDraft(
   return withBlockers(draft);
 }
 
+export function reviewAnlassraumQuestionGuard(
+  record: AnlassraumActivationRecord,
+  input: AnlassraumQuestionGuardReviewInput,
+): AnlassraumActivationRecord {
+  if (
+    !["entity_registry", "actor_graph", "human_review"].includes(
+      input.actorExtractionSource,
+    )
+  ) {
+    throw new Error("public_question_guard_review_source_invalid");
+  }
+  const evidenceRefs = unique(input.evidenceRefs);
+  if (evidenceRefs.length === 0) {
+    throw new Error("public_question_guard_review_evidence_required");
+  }
+  const actorContexts = input.actorContexts ?? record.questionGuard.actorContexts;
+  if (
+    input.actorExtractionSource === "human_review" &&
+    actorContexts.length === 0 &&
+    input.noNamedActorsConfirmed !== true
+  ) {
+    throw new Error("public_question_guard_actor_finding_required");
+  }
+  const questionGuard = bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+    originalInput: record.questionGuard.originalInput,
+    candidatePublicQuestion: record.trigger,
+    actorContexts,
+    actorExtraction: {
+      status: "complete",
+      source: input.actorExtractionSource,
+      independentFromCandidateProvider: true,
+      evidenceRefs,
+      ...(input.actorExtractionSource === "human_review"
+        ? {
+            humanReviewFinding:
+              actorContexts.length > 0
+                ? ("actor_contexts_supplied" as const)
+                : ("no_named_actors" as const),
+          }
+        : {}),
+    },
+    procedure: record.questionGuard.procedure,
+    procedureReviewResolution:
+      record.questionGuard.outcome ===
+        "entity_specific_procedure_review_required" &&
+      input.actorExtractionSource === "human_review"
+        ? {
+            previousOutcome: "entity_specific_procedure_review_required",
+            decision: "approved_after_human_review",
+          }
+        : null,
+  }));
+  return withBlockers({
+    ...record,
+    status: "draft",
+    visibility: "editorial_workspace",
+    publicAccessMode: "none",
+    roomStatus: "review_required",
+    roomIsPublic: false,
+    questionGuard,
+    approvedForActivationAt: null,
+    approvedForActivationBy: null,
+    approvedForPublicationAt: null,
+    approvedForPublicationBy: null,
+    updatedAt: trimOrNull(input.reviewedAt) ?? nowIso(),
+  });
+}
+
+function hasMatchingReleaseAudit(
+  record: AnlassraumActivationRecord,
+  input: {
+    action: AnlassraumActivationAuditEntry["action"];
+    status: AnlassraumActivationStatus;
+    at?: string | null;
+    actorUserId?: string | null;
+    notBefore?: string | null;
+    notAfter?: string | null;
+  },
+): boolean {
+  return record.auditTrail.some((entry) => {
+    if (entry.action !== input.action || entry.status !== input.status) return false;
+    if (entry.blockers.length > 0) return false;
+    if (input.at && entry.at !== input.at) return false;
+    if (input.actorUserId && entry.actorUserId !== input.actorUserId) return false;
+    if (input.notBefore && entry.at.localeCompare(input.notBefore) < 0) return false;
+    if (input.notAfter && entry.at.localeCompare(input.notAfter) > 0) return false;
+    return true;
+  });
+}
+
+export function hasAnlassraumActivationApprovalAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.approvedForActivationAt || !record.approvedForActivationBy) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "activation_approved",
+    status: "approved_for_activation",
+    at: record.approvedForActivationAt,
+    actorUserId: record.approvedForActivationBy,
+  });
+}
+
+export function hasAnlassraumActivationReleaseAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.approvedForActivationAt) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "activated_internal",
+    status: "activated",
+    notBefore: record.approvedForActivationAt,
+    notAfter: record.approvedForPublicationAt ?? null,
+  });
+}
+
+export function hasAnlassraumPublicationApprovalAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.approvedForPublicationAt || !record.approvedForPublicationBy) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "publication_approved",
+    status: "approved_for_publication",
+    at: record.approvedForPublicationAt,
+    actorUserId: record.approvedForPublicationBy,
+  });
+}
+
+export function hasAnlassraumPublishedAudit(
+  record: AnlassraumActivationRecord,
+): boolean {
+  if (!record.auditContext.actorUserId) return false;
+  return hasMatchingReleaseAudit(record, {
+    action: "published_public",
+    status: "published",
+    at: record.updatedAt,
+    actorUserId: record.auditContext.actorUserId,
+  });
+}
+
+export function isAnlassraumPubliclyReleased(
+  record: AnlassraumActivationRecord,
+): boolean {
+  return (
+    record.status === "published" &&
+    record.visibility === "public" &&
+    record.publicAccessMode === "public_read_only" &&
+    record.roomIsPublic === true &&
+    record.questionGuard?.releaseState === "draft_allowed" &&
+    isAnlassraumQuestionGuardCurrent(record) &&
+    Boolean(record.approvedForActivationAt) &&
+    Boolean(record.approvedForActivationBy) &&
+    Boolean(record.approvedForPublicationAt) &&
+    Boolean(record.approvedForPublicationBy) &&
+    hasAnlassraumActivationApprovalAudit(record) &&
+    hasAnlassraumActivationReleaseAudit(record) &&
+    hasAnlassraumPublicationApprovalAudit(record) &&
+    hasAnlassraumPublishedAudit(record) &&
+    getAnlassraumActivationBlockers(record).length === 0
+  );
+}
+
 export function canApproveAnlassraumActivation(
   record: AnlassraumActivationRecord,
 ): boolean {
@@ -469,7 +712,14 @@ export function canApproveAnlassraumActivation(
 export function canActivateAnlassraum(
   record: AnlassraumActivationRecord,
 ): boolean {
-  if (record.status !== "approved_for_activation") return false;
+  if (
+    record.status !== "approved_for_activation" ||
+    !record.approvedForActivationAt ||
+    !record.approvedForActivationBy
+  ) {
+    return false;
+  }
+  if (!hasAnlassraumActivationApprovalAudit(record)) return false;
   const blockers = getAnlassraumActivationBlockers(record).filter(
     (blocker) =>
       blocker !== "publication_not_approved" &&
@@ -484,6 +734,7 @@ export function canApproveAnlassraumPublication(
   if (!["activated", "approved_for_publication"].includes(record.status)) {
     return false;
   }
+  if (!hasAnlassraumActivationReleaseAudit(record)) return false;
   const blockers = getAnlassraumActivationBlockers(record).filter(
     (blocker) =>
       blocker !== "publication_not_approved" &&
@@ -495,7 +746,14 @@ export function canApproveAnlassraumPublication(
 export function canPublishAnlassraum(
   record: AnlassraumActivationRecord,
 ): boolean {
-  if (record.status !== "approved_for_publication") return false;
+  if (
+    record.status !== "approved_for_publication" ||
+    !record.approvedForPublicationAt ||
+    !record.approvedForPublicationBy
+  ) {
+    return false;
+  }
+  if (!hasAnlassraumPublicationApprovalAudit(record)) return false;
   return getAnlassraumActivationBlockers(record).length === 0;
 }
 
@@ -557,6 +815,26 @@ export function activateAnlassraumAfterReview(
   record: AnlassraumActivationRecord,
   auditContext: AnlassraumActivationAuditContext,
 ): TransitionResult {
+  if (!canActivateAnlassraum(record)) {
+    const blockers = Array.from(
+      new Set<AnlassraumActivationBlocker>([
+        ...getAnlassraumActivationBlockers(record),
+        "activation_not_approved",
+      ]),
+    );
+    return {
+      ok: false,
+      error: "blocked",
+      message:
+        "Anlassraum-Aktivierung bleibt blockiert, bis eine neue explizite Freigabe nach dem Guard-Review vorliegt.",
+      blockers,
+      record: {
+        ...record,
+        status: "blocked",
+        blockers,
+      },
+    };
+  }
   const approvedAt = trimOrNull(auditContext.approvedAt) ?? nowIso();
   const merged: AnlassraumActivationRecord = withBlockers({
     ...record,
@@ -632,6 +910,26 @@ export function publishAnlassraumAfterReview(
   record: AnlassraumActivationRecord,
   auditContext: AnlassraumActivationAuditContext,
 ): TransitionResult {
+  if (!canPublishAnlassraum(record)) {
+    const blockers = Array.from(
+      new Set<AnlassraumActivationBlocker>([
+        ...getAnlassraumActivationBlockers(record),
+        "publication_not_approved",
+      ]),
+    );
+    return {
+      ok: false,
+      error: "blocked",
+      message:
+        "Anlassraum-Veröffentlichung bleibt blockiert, bis eine neue explizite Freigabe nach dem Guard-Review vorliegt.",
+      blockers,
+      record: {
+        ...record,
+        status: "blocked",
+        blockers,
+      },
+    };
+  }
   const approvedAt = trimOrNull(auditContext.approvedAt) ?? nowIso();
   const merged: AnlassraumActivationRecord = withBlockers({
     ...record,
@@ -756,6 +1054,8 @@ export function getAnlassraumActivationBlockerLabel(
       return "Dossier-Kontext ist noch nicht belastbar geklärt.";
     case "public_copy_missing":
       return "Für die öffentliche Lesart fehlen noch belastbare Textbausteine.";
+    case "public_question_guard_blocked":
+      return "Die Leitfrage ist durch den Public-Question-Guard blockiert.";
     case "unsafe_auto_publish":
       return "Öffentliche Sichtbarkeit darf nicht als Seiteneffekt entstehen.";
     case "insufficient_audit_context":

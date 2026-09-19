@@ -4,6 +4,7 @@ import { getParticipationSignalReviewRuntimeRepo } from "@features/region";
 import { publicationVisibilityLabel } from "@features/region/publicationRiskLadder";
 import { PublicAnlassraumInputPayloadSchema } from "@features/topicRound/publicInput";
 import { buildPublicAnlassraumParticipationSignal } from "@features/topicRound/server/publicInputSubmission";
+import { isAnlassraumPublicInputAllowed } from "@/features/create/anlassraumActivationWorkflowServer";
 import { NextResponse } from "next/server";
 
 function normalizeRoomContext(room: Record<string, unknown>, anlassraumId: string) {
@@ -26,7 +27,20 @@ export async function POST(req: Request) {
         _id: new ObjectId(payload.anlassraumId),
       })) as Record<string, unknown> | null;
 
-    if (!room || room.isPublic !== true) {
+    if (
+      !room ||
+      !(await isAnlassraumPublicInputAllowed({
+        anlassraumId: payload.anlassraumId,
+        roomIsPublic: room.isPublic === true,
+        roomStatus: String(room.status ?? "").trim() || null,
+        roomPublishedAt:
+          (room.publishedAt as Date | string | null | undefined) ?? null,
+        roomReviewedBy: String(room.reviewedBy ?? "").trim() || null,
+        roomApprovedBy: String(room.approvedBy ?? "").trim() || null,
+        activationWorkflowSourceHandoffId:
+          String(room.activationWorkflowSourceHandoffId ?? "").trim() || null,
+      }))
+    ) {
       return NextResponse.json(
         { ok: false, error: "public_anlassraum_not_found" },
         { status: 404 },
