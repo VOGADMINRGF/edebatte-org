@@ -82,7 +82,7 @@ describe("Open Data → StatementCandidate bridge", () => {
       sourceTitle: event.label,
       sourceName: "abgeordnetenwatch",
       sourceType: "open_data:abgeordnetenwatch:poll",
-      regionCode: "EU",
+      regionCode: { countryCode: "EU" },
       analyzeStatus: "pending",
       canonicalHash: buildOpenDataEventFingerprint(event),
     });
