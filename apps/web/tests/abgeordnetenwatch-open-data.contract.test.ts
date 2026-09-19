@@ -43,7 +43,7 @@ describe("abgeordnetenwatch open-data connector", () => {
     expect(source.autoPublishAllowed).toBe(false);
   });
 
-  it("normalizes a poll as an event record with snapshot-bound provenance", () => {
+  it("normalizes a poll as civic event data with snapshot-bound provenance", () => {
     const body = JSON.stringify({
       meta,
       data: {
@@ -72,7 +72,7 @@ describe("abgeordnetenwatch open-data connector", () => {
       expect.objectContaining({
         eventId: "abgeordnetenwatch:poll:6454",
         entityType: "poll",
-        role: "official_event_record",
+        role: "civic_event_record",
         occurredAt: "2026-09-15T00:00:00.000Z",
         parentEventId: null,
         jurisdictionCode: "EU",
@@ -114,6 +114,16 @@ describe("abgeordnetenwatch open-data connector", () => {
         attributes: expect.objectContaining({ vote: "abstain", pollId: "6454" }),
       }),
     ]);
+  });
+
+  it("accepts provider meta as object or single-entry array", () => {
+    const body = JSON.stringify({
+      meta: { abgeordnetenwatch_api: [meta.abgeordnetenwatch_api] },
+      data: { id: 1, entity_type: "topic", label: "Digitales", api_url: "/api/v2/topics/1" },
+    });
+    const { source, snapshot } = snapshotFor(body, "/api/v2/topics/1");
+    const result = abgeordnetenwatchConnector.parseSnapshot({ body, source, snapshot });
+    expect(result.provenance).toMatchObject({ apiVersion: "2.0", licence: "CC0 1.0" });
   });
 
   it("fails closed for malformed JSON and non-v2 paths", () => {
