@@ -14,6 +14,7 @@ export type OpenDataProvenance = {
 
 export type OpenDataEventRole =
   | "official_event_record"
+  | "civic_event_record"
   | "individual_vote_record"
   | "organization_statement"
   | "self_statement"
