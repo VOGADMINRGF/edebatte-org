@@ -1,5 +1,6 @@
 // @repository-integrity-classification: runtime-bridge
 import crypto from "node:crypto";
+import { TextDecoder } from "node:util";
 import {
   fetchYoutubeTranscript,
   type YoutubeTranscriptFailureReason,
