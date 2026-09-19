@@ -60,9 +60,13 @@ function normalizeDate(value: unknown): string | null {
   return date.toISOString();
 }
 
-function metaRecord(payload: JsonRecord) {
+function metaRecord(payload: JsonRecord): JsonRecord | null {
   const meta = record(payload.meta);
-  return record(meta?.abgeordnetenwatch_api) ?? null;
+  const apiMeta = meta?.abgeordnetenwatch_api;
+  if (Array.isArray(apiMeta)) {
+    return record(apiMeta[0]);
+  }
+  return record(apiMeta) ?? null;
 }
 
 function provenance(input: {
@@ -107,7 +111,7 @@ function pollEvent(entity: JsonRecord, source: SourceRef, p: OpenDataProvenance)
     eventId: `${PROVIDER_ID}:poll:${id}`,
     providerId: PROVIDER_ID,
     entityType: "poll",
-    role: "official_event_record",
+    role: "civic_event_record",
     label: clean(entity.label) ?? `Abstimmung ${id}`,
     sourceUrl: absoluteApiUrl(entity.api_url, `/api/v2/polls/${id}`),
     occurredAt: normalizeDate(entity.field_poll_date),
