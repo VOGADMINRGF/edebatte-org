@@ -50,7 +50,7 @@ describe("conditional source fetch runtime", () => {
 
     expect(first.status).toBe("changed");
     expect(first.status === "changed" && first.snapshot.version).toBe(1);
-    expect(second).toMatchObject({ status: "not_modified", reason: "http_304" });
+    expect(second).toMatchObject({ status: "not_modified", reason: "http_304", body: null });
     expect(seenHeaders[1].get("if-none-match")).toBe('"v1"');
     expect(seenHeaders[1].get("if-modified-since")).toBe("Sat, 19 Sep 2026 08:00:00 GMT");
     expect((await repo.listBySourceId(source().sourceId)).length).toBe(1);
@@ -78,7 +78,46 @@ describe("conditional source fetch runtime", () => {
     });
 
     expect(first.status).toBe("changed");
-    expect(second).toMatchObject({ status: "not_modified", reason: "same_content_hash" });
+    expect(second).toMatchObject({
+      status: "not_modified",
+      reason: "same_content_hash",
+      body: "same-payload",
+    });
+    expect((await repo.listBySourceId(source().sourceId)).length).toBe(1);
+  });
+
+  it("supports an unconditional recovery fetch without creating a new version", async () => {
+    const repo = createInMemorySourceSnapshotRepository();
+    await fetchSourceWithSnapshot({
+      source: source(),
+      timeoutMs: 5_000,
+      repository: repo,
+      fetchImpl: (async () =>
+        new Response("recoverable-payload", {
+          status: 200,
+          headers: { etag: '"stable"' },
+        })) as typeof fetch,
+    });
+
+    let seenHeaders = new Headers();
+    const recovered = await fetchSourceWithSnapshot({
+      source: source(),
+      timeoutMs: 5_000,
+      conditional: false,
+      repository: repo,
+      fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
+        seenHeaders = new Headers(init?.headers);
+        return new Response("recoverable-payload", { status: 200 });
+      }) as typeof fetch,
+    });
+
+    expect(seenHeaders.get("if-none-match")).toBeNull();
+    expect(seenHeaders.get("if-modified-since")).toBeNull();
+    expect(recovered).toMatchObject({
+      status: "not_modified",
+      reason: "same_content_hash",
+      body: "recoverable-payload",
+    });
     expect((await repo.listBySourceId(source().sourceId)).length).toBe(1);
   });
 
