@@ -30,7 +30,8 @@
     "render:voxy-homepage-multiformat-previews": "pnpm exec tsx scripts/render-voxy-homepage-multiformat-previews.ts",
     "prisma:generate": "node ./scripts/prisma-generate-all.mjs",
     "postinstall": "pnpm run prisma:generate",
-    "lint": "pnpm exec eslint --cache --cache-location .eslintcache --config eslint.config.js \"src/**/*.{ts,tsx}\""
+    "lint": "pnpm exec eslint --cache --cache-location .eslintcache --config eslint.config.js \"src/**/*.{ts,tsx}\"",
+    "research:backfill-prior-topics": "pnpm exec tsx scripts/backfill-prior-research-topics.ts"
   },
   "dependencies": {
     "@db/web": "workspace:*",
