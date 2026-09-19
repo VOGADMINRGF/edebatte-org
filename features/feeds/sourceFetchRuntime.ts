@@ -23,6 +23,7 @@ export type SourceFetchRuntimeResult =
       status: "not_modified";
       httpStatus: number;
       reason: "http_304" | "same_content_hash";
+      body: string | null;
       snapshot: DurableSourceSnapshot | null;
     }
   | {
@@ -37,6 +38,7 @@ export type SourceFetchRuntimeInput = {
   source: SourceRef;
   timeoutMs: number;
   persist?: boolean;
+  conditional?: boolean;
   userAgent?: string;
   repository?: SourceSnapshotRepository;
   fetchImpl?: typeof fetch;
@@ -66,8 +68,10 @@ export async function fetchSourceWithSnapshot(
   const headers = new Headers({
     "user-agent": input.userAgent ?? "eDebatte/source-intelligence (+https://edebatte.eu)",
   });
-  for (const [key, value] of Object.entries(buildConditionalSourceHeaders(previous))) {
-    headers.set(key, value);
+  if (input.conditional !== false) {
+    for (const [key, value] of Object.entries(buildConditionalSourceHeaders(previous))) {
+      headers.set(key, value);
+    }
   }
 
   const controller = new AbortController();
@@ -117,6 +121,7 @@ export async function fetchSourceWithSnapshot(
       status: "not_modified",
       httpStatus: response.status,
       reason: decision.reason,
+      body,
       snapshot: previous,
     };
   }
