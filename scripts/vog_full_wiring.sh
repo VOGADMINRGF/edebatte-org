@@ -49,16 +49,11 @@ else
 fi
 
 echo "=== STEP 2: Debug/Health Routen ==="
-# /api/debug/env – zeigt keine Klartexte, nur Masken/Längen
+# /api/debug/env – absichtlich nicht öffentlich verfügbar
 write_file "$WEB/src/app/api/debug/env/route.ts" 'import { NextResponse } from "next/server";
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
-function mask(v?: string|null){ if(!v) return null; return {len:v.length, head:v.slice(0,5), tail:v.slice(-3)};}
 export async function GET(){
-  return NextResponse.json({
-    NODE_ENV: process.env.NODE_ENV,
-    hasOpenAI: !!process.env.OPENAI_API_KEY,
-    OPENAI_API_KEY: mask(process.env.OPENAI_API_KEY),
-  });
+  return new NextResponse(null, { status: 404, headers: { "cache-control": "no-store" } });
 }'
 
 # /api/health (idempotent – falls schon vorhanden, lassen wir es in Ruhe)
