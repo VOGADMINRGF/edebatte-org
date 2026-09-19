@@ -10,7 +10,7 @@ export type YoutubeTranscriptFailureReason =
 
 function classifyTranscriptFailure(error: unknown): YoutubeTranscriptFailureReason {
   if (!(error instanceof Error)) return "fetch_failed";
-  const type = \`\${error.name} \${error.constructor.name}\`;
+  const type = `${error.name} ${error.constructor.name}`;
   if (type.includes("TooManyRequest")) return "rate_limited";
   if (type.includes("VideoUnavailable")) return "video_unavailable";
   if (type.includes("Disabled")) return "disabled";
@@ -60,7 +60,7 @@ export async function bundleYoutubeSources(urls: string[], maxChars = 12000) {
   const sources = await Promise.all(urls.map((url) => fetchYoutubeTranscript(url)));
   const blocks = sources
     .filter((source) => source.text)
-    .map((source) => \`### YouTube \${source.id} (\${source.lang ?? "?"})\n\${source.text}\`);
+    .map((source) => `### YouTube ${source.id} (${source.lang ?? "?"})\n${source.text}`);
   const joined = blocks.join("\n\n");
   return joined.length > maxChars ? joined.slice(0, maxChars) + "\n…[clipped]" : joined;
 }
