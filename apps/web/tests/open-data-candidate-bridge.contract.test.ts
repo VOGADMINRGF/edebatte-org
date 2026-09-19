@@ -7,6 +7,7 @@ import {
   persistOpenDataStatementCandidates,
 } from "@features/feeds/openDataCandidateBridge";
 import type { NormalizedOpenDataEvent } from "@features/feeds/openDataConnector";
+import type { StatementCandidate } from "@features/feeds/types";
 
 function pollEvent(overrides: Partial<NormalizedOpenDataEvent> = {}): NormalizedOpenDataEvent {
   return {
@@ -94,7 +95,7 @@ describe("Open Data → StatementCandidate bridge", () => {
   });
 
   it("uses the existing StatementCandidate sink and never creates a parallel queue", async () => {
-    const sink = vi.fn(async (candidates) => ({ inserted: candidates.length }));
+    const sink = vi.fn(async (candidates: StatementCandidate[]) => ({ inserted: candidates.length }));
     const result = await persistOpenDataStatementCandidates({
       events: [pollEvent(), voteEvent()],
       sink,
