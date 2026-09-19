@@ -346,6 +346,106 @@ export const PRIOR_RESEARCH_TOPIC_BACKFILL: ResearchTopicFinding[] = [
   },
 ];
 
+
+export async function syncAutonomousTopicClusters(
+  clusters: Array<{
+    sourceId: string;
+    sourceIds: string[];
+    sourceTypes: string[];
+    title: string;
+    topicLabel: string;
+    topicClusterId: string;
+    claims: string[];
+    questions: string[];
+    evidenceHints: string[];
+    strongSignal: boolean;
+    weakEvidence: boolean;
+    relevanceScore: number;
+    duplicateSuggestionCount: number;
+    dossierContext: boolean;
+  }>,
+) {
+  const results = [];
+
+  for (const cluster of clusters) {
+    const dossierWorthy =
+      cluster.strongSignal &&
+      !cluster.weakEvidence &&
+      (cluster.sourceIds.length >= 2 || cluster.relevanceScore >= 70);
+
+    if (!dossierWorthy && !cluster.strongSignal) continue;
+
+    const finding: ResearchTopicFinding = {
+      topicKey: cluster.topicClusterId || cluster.topicLabel,
+      title: cluster.title,
+      summary: cluster.claims[0] ?? cluster.title,
+      decisionQuestion:
+        cluster.questions[0] ??
+        `Welche belastbare Entscheidungsfrage ergibt sich aus dem Thema "${cluster.topicLabel}"?`,
+      topic: cluster.topicLabel,
+      responsibility: "offen",
+      createDossierDraft: dossierWorthy && !cluster.dossierContext,
+      sources: [],
+      openQuestions: cluster.questions,
+    };
+
+    const result = await upsertResearchTopicFinding(finding);
+
+    if (result.dossierId) {
+      const suggestions = await dossierSuggestionsCol();
+      const suggestionId = `research:linkage:${normalizeKey(cluster.topicClusterId || cluster.topicLabel)}`;
+      await suggestions.updateOne(
+        { suggestionId },
+        {
+          $set: {
+            dossierId: result.dossierId,
+            type: "update",
+            payload: {
+              title: "Quellen- und Graph-Abgleich aus dem Themenradar",
+              summary:
+                `Bereits vorhandene Signale: ${cluster.sourceTypes.join(", ") || "keine klassifizierten Quellen"}. ` +
+                `Gefundene Signal-IDs: ${cluster.sourceIds.join(", ") || "keine"}.`,
+              origin: "research",
+              section: "update",
+              swipesHref: `/swipes?topic=${encodeURIComponent(cluster.topicLabel)}`,
+              reviewHint:
+                "Vorhandene RSS-/Feed-/Dossier-/Create-Signale wurden im Themencluster berücksichtigt. Ein Graph-Merge oder eine Dossierübernahme bleibt bestätigungspflichtig.",
+              riskHint:
+                cluster.duplicateSuggestionCount > 0
+                  ? "Ähnliche Signale wurden erkannt; Dubletten dürfen nicht still zusammengeführt werden."
+                  : "Die Zuordnung ist ein Review-Hinweis und keine automatische Graph-Wahrheit.",
+              nextAction:
+                "Quellenfamilien, bestehende Dossiers und Graph-Beziehungen prüfen und nur materiell neue Evidence übernehmen.",
+              statementId: result.statementId,
+              sourceTypes: cluster.sourceTypes,
+              sourceIds: cluster.sourceIds,
+              duplicateSuggestionCount: cluster.duplicateSuggestionCount,
+              graphReviewState: "review_required",
+            },
+            status: "pending",
+            moderationNote: "autonomous_topic_cluster_review_first",
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            suggestionId,
+            createdAt: new Date(),
+          },
+        },
+        { upsert: true },
+      );
+    }
+
+    results.push({
+      ...result,
+      sourceTypes: cluster.sourceTypes,
+      sourceIds: cluster.sourceIds,
+      dossierWorthy,
+    });
+  }
+
+  return results;
+}
+
 export async function backfillPriorResearchTopics() {
   const results = [];
   for (const finding of PRIOR_RESEARCH_TOPIC_BACKFILL) {
