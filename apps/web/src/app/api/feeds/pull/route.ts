@@ -40,6 +40,8 @@ import {
   buildFeedSourceAutomationId,
   recordFeedSourceAutomationEvent,
 } from "@features/feeds/sourceAutomation";
+import { sourceRefFromFeedRef } from "@features/feeds/sourceRef";
+import { fetchSourceWithSnapshot } from "@features/feeds/sourceFetchRuntime";
 import { normalizeRegionCode } from "@core/regions/types";
 import { filterFeedRefsByRegion } from "@/lib/region/filters";
 import { requireAdminOrEditor } from "../_auth";
@@ -58,6 +60,14 @@ type ParsedArticle = {
   url: string;
   summary?: string | null;
   publishedAt?: string | null;
+};
+
+type ParsedFeedFetch = {
+  items: ParsedArticle[];
+  notModified: boolean;
+  snapshotId: string | null;
+  snapshotVersion: number | null;
+  snapshotPersisted: boolean;
 };
 
 function unescapeXml(s: string): string {
@@ -152,24 +162,45 @@ function parseAtom(xml: string): ParsedArticle[] {
   return out;
 }
 
-async function fetchAndParseFeed(feedUrl: string, timeoutMs: number): Promise<ParsedArticle[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(feedUrl, {
-      headers: { "user-agent": "eDebatte/feeds-pull (+https://edebatte.eu)" },
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`feed_fetch_failed ${res.status}`);
-    const xml = await res.text();
-    const lower = xml.toLowerCase();
-    if (lower.includes("<feed") && lower.includes("http://www.w3.org/2005/atom")) {
-      return parseAtom(xml);
-    }
-    return parseRss(xml);
-  } finally {
-    clearTimeout(timeout);
+async function fetchAndParseFeed(
+  ref: FeedRef,
+  timeoutMs: number,
+  dryRun: boolean,
+): Promise<ParsedFeedFetch> {
+  const source = sourceRefFromFeedRef(ref);
+  const result = await fetchSourceWithSnapshot({
+    source,
+    timeoutMs,
+    persist: !dryRun,
+    userAgent: "eDebatte/feeds-pull (+https://edebatte.eu)",
+  });
+
+  if (result.status === "failed") {
+    throw new Error(result.reason);
   }
+  if (result.status === "not_modified") {
+    return {
+      items: [],
+      notModified: true,
+      snapshotId: result.snapshot?.snapshotId ?? null,
+      snapshotVersion: result.snapshot?.version ?? null,
+      snapshotPersisted: false,
+    };
+  }
+
+  const xml = result.body;
+  const lower = xml.toLowerCase();
+  const items =
+    lower.includes("<feed") && lower.includes("http://www.w3.org/2005/atom")
+      ? parseAtom(xml)
+      : parseRss(xml);
+  return {
+    items,
+    notModified: false,
+    snapshotId: result.snapshot.snapshotId,
+    snapshotVersion: result.snapshot.version,
+    snapshotPersisted: result.persistence === "inserted",
+  };
 }
 
 async function mapWithConcurrency<T, R>(
@@ -208,6 +239,10 @@ type FeedProcessResult = {
   fetchedItems: number;
   inserted: number;
   skippedExisting: number;
+  notModified: boolean;
+  snapshotId: string | null;
+  snapshotVersion: number | null;
+  snapshotPersisted: boolean;
   errors: string[];
 };
 
@@ -222,7 +257,8 @@ async function processFeed(
 ): Promise<FeedProcessResult> {
   const errors: string[] = [];
   try {
-    const items = (await fetchAndParseFeed(ref.feedUrl, opts.fetchTimeoutMs)).slice(0, opts.maxItemsPerFeed);
+    const fetched = await fetchAndParseFeed(ref, opts.fetchTimeoutMs, opts.dryRun);
+    const items = fetched.items.slice(0, opts.maxItemsPerFeed);
     const sourceName = safeHostname(ref.feedUrl);
     const deduped: Array<FeedItemInput & { canonicalHash: string }> = [];
     const seen = new Set<string>();
@@ -254,6 +290,10 @@ async function processFeed(
         fetchedItems: items.length,
         inserted: 0,
         skippedExisting: 0,
+        notModified: fetched.notModified,
+        snapshotId: fetched.snapshotId,
+        snapshotVersion: fetched.snapshotVersion,
+        snapshotPersisted: fetched.snapshotPersisted,
         errors,
       };
     }
@@ -283,19 +323,24 @@ async function processFeed(
       fetchedItems: items.length,
       inserted,
       skippedExisting: deduped.length - newItems.length,
+      notModified: fetched.notModified,
+      snapshotId: fetched.snapshotId,
+      snapshotVersion: fetched.snapshotVersion,
+      snapshotPersisted: fetched.snapshotPersisted,
       errors,
     };
   } catch (e: any) {
-    const msg =
-      e?.name === "AbortError"
-        ? `feed_timeout ${opts.fetchTimeoutMs}`
-        : e?.message ?? String(e);
+    const msg = e?.message ?? String(e);
     return {
       feedUrl: ref.feedUrl,
       fetched: false,
       fetchedItems: 0,
       inserted: 0,
       skippedExisting: 0,
+      notModified: false,
+      snapshotId: null,
+      snapshotVersion: null,
+      snapshotPersisted: false,
       errors: [msg],
     };
   }
@@ -382,6 +427,8 @@ export async function POST(req: NextRequest) {
   let fetchedItems = 0;
   let inserted = 0;
   let skippedExisting = 0;
+  let notModifiedFeeds = 0;
+  let snapshotRevisions = 0;
   const errors: Array<{ feedUrl: string; error: string }> = [];
 
   const results = await mapWithConcurrency(feedRefs, feedConcurrency, (ref) =>
@@ -390,6 +437,8 @@ export async function POST(req: NextRequest) {
 
   for (const result of results) {
     if (result.fetched) fetchedFeeds += 1;
+    if (result.notModified) notModifiedFeeds += 1;
+    if (result.snapshotPersisted) snapshotRevisions += 1;
     fetchedItems += result.fetchedItems;
     inserted += result.inserted;
     skippedExisting += result.skippedExisting;
@@ -432,6 +481,12 @@ export async function POST(req: NextRequest) {
           configSource: source ?? null,
           feedRefs: feedRefs.length,
           invalidFeedUrls: invalidFeedUrls.slice(0, 20),
+          snapshots: results.map((result) => ({
+            feedUrl: result.feedUrl,
+            snapshotId: result.snapshotId,
+            snapshotVersion: result.snapshotVersion,
+            notModified: result.notModified,
+          })),
         }
       : {};
 
@@ -451,10 +506,13 @@ export async function POST(req: NextRequest) {
       errors: errors.length,
     },
     error: errors.length > 0 ? errors[0]?.error ?? "feed_pull_partial_error" : null,
-    notes:
-      errors.length > 0
+    notes: [
+      `source_snapshots_created=${snapshotRevisions}`,
+      `source_snapshots_not_modified=${notModifiedFeeds}`,
+      ...(errors.length > 0
         ? errors.slice(0, 3).map((entry) => `${entry.feedUrl}: ${entry.error}`)
-        : [],
+        : []),
+    ],
   });
 
   return NextResponse.json(
@@ -472,6 +530,8 @@ export async function POST(req: NextRequest) {
       fetchedItems,
       inserted,
       skippedExisting,
+      notModifiedFeeds,
+      snapshotRevisions,
       skippedInvalidFeeds: invalidFeedUrls.length,
       errors,
       ...debug,
