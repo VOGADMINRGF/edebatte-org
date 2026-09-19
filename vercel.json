@@ -10,7 +10,6 @@
   },
   "crons": [
     { "path": "/api/cron/operator-digest?slot=summer", "schedule": "0 16 * * *" },
-    { "path": "/api/cron/operator-digest?slot=winter", "schedule": "0 17 * * *" },
-    { "path": "/api/cron/topic-handoff", "schedule": "15 * * * *" }
+    { "path": "/api/cron/operator-digest?slot=winter", "schedule": "0 17 * * *" }
   ]
 }
