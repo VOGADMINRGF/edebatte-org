@@ -104,6 +104,12 @@ jobs:
           tests/create-mode.save.route.test.ts
           tests/create-save.safety-gate.test.ts
 
+      - name: Focused operator notification contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/operator-notifications.contract.test.ts
+          tests/operator-digest.route.test.ts
+
   web-quality:
     name: Web quality
     runs-on: ubuntu-latest
