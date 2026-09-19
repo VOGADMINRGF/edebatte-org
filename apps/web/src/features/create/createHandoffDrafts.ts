@@ -1,4 +1,9 @@
 import type { ExistingTopicMatch } from "@/features/create/existingTopicMatches";
+import {
+  buildCreateExistingMatchAuthorStandpoint,
+  normalizeCreateExistingMatchDecision,
+  type CreateExistingMatchDecision,
+} from "@/features/create/createExistingMatchDecision";
 import type {
   DialogHandoffTarget,
   DialogOutcome,
@@ -54,6 +59,7 @@ export type CreateHandoffDraft = {
   authorStandpoint?: string | null;
   topicTitle?: string | null;
   relatedMatchId?: string | null;
+  existingMatchDecision?: CreateExistingMatchDecision | null;
   relatedDialogOutcomeId?: string | null;
   selectedPerspectiveIds?: string[];
   selectedBranchIds?: string[];
@@ -388,8 +394,11 @@ export function createHandoffDraftFromDialogOutcome(
 export function createHandoffDraftFromExistingTopicMatch(
   match: ExistingTopicMatch,
   target: CreateHandoffDraftTarget,
+  explicitDecision?: CreateExistingMatchDecision | null,
 ): CreateHandoffDraft {
   const timestamp = nowIso();
+  const existingMatchDecision =
+    normalizeCreateExistingMatchDecision(explicitDecision);
 
   return {
     id: `create-handoff-draft-match-${match.id}-${target}`,
@@ -398,9 +407,13 @@ export function createHandoffDraftFromExistingTopicMatch(
     status: buildExistingMatchDraftStatus(match, target),
     title: buildExistingMatchDraftTitle(match, target),
     summary: buildExistingMatchDraftSummary(match, target),
-    authorStandpoint: null,
+    authorStandpoint: buildCreateExistingMatchAuthorStandpoint({
+      decision: existingMatchDecision,
+      topicTitle: match.title,
+    }),
     topicTitle: match.title,
     relatedMatchId: match.id,
+    existingMatchDecision,
     selectedPerspectiveIds: [],
     selectedBranchIds: match.relatedBranchId ? [match.relatedBranchId] : [],
     selectedArgumentIds: [],

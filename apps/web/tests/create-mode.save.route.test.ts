@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 
+const jurisdictionMocks = vi.hoisted(() => ({
+  resolveServerContext: vi.fn(),
+  validateConfirmation: vi.fn(),
+}));
+
 const mocks = vi.hoisted(() => {
   type AnyDoc = Record<string, any>;
 
@@ -237,6 +242,13 @@ vi.mock("@/lib/server/auth/sessionUser", () => ({
   getSessionUser: (...args: unknown[]) => mocks.getSessionUser(...args),
 }));
 
+vi.mock("@/features/create/createCitizenIntakeContextServer", () => ({
+  resolveCreateCitizenIntakeContextForServer: (...args: unknown[]) =>
+    jurisdictionMocks.resolveServerContext(...args),
+  validateCreateJurisdictionConfirmation: (...args: unknown[]) =>
+    jurisdictionMocks.validateConfirmation(...args),
+}));
+
 vi.mock("@/server/draftStore", () => ({
   getDraft: (...args: unknown[]) => mocks.getDraft(...args),
 }));
@@ -268,6 +280,19 @@ describe("create mode split - save route", () => {
       resetAt: Date.now() + 60_000,
       retryIn: 0,
     });
+    jurisdictionMocks.resolveServerContext.mockReturnValue({
+      regionSource: "none",
+      regionStatus: "unresolved",
+      selectedRegionLabel: null,
+      jurisdictionCandidates: [],
+      jurisdictionConfirmation: { status: "not_required", candidateKey: null },
+      placeResolution: {
+        selectedCandidate: null,
+        jurisdictionCandidates: [],
+        jurisdictionConfirmation: { status: "not_required", candidateKey: null },
+      },
+    });
+    jurisdictionMocks.validateConfirmation.mockReturnValue(null);
   });
 
   it("rejects a guest before parsing the body and never emits a cookie or draft", async () => {
@@ -376,6 +401,103 @@ describe("create mode split - save route", () => {
     expect(saved[0].analysis?.safety?.noAutoPublish).toBe(true);
     expect(saved[0].analysis?.safety?.noSilentMerge).toBe(true);
     expect(saved[0].analysis?.draftWriteRuntime?.sourceCollection).toBe("drafts");
+  });
+
+  it("rejects a manipulated C7 jurisdiction key before any draft write", async () => {
+    const res = await savePOST(
+      req({
+        textPrepared: "In Wuppertal sollte der Schulweg sicherer werden.",
+        source: "create_followup",
+        createMode: "source",
+        analysis: {
+          intelligentFollowup: {
+            meta: {
+              citizenContext: {
+                jurisdictionConfirmation: {
+                  status: "confirmed",
+                  candidateKey: "municipality:frei erfundene behörde",
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      error: "invalid_jurisdiction_confirmation",
+    });
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("persists only the server-revalidated C7 jurisdiction context", async () => {
+    const serverContext = {
+      regionSource: "contribution_text",
+      regionStatus: "resolved",
+      selectedRegionLabel: "Wuppertal",
+      jurisdictionCandidates: [{
+        level: "municipality",
+        label: "Kommune Wuppertal (wahrscheinlich)",
+        authorityName: "Stadt Wuppertal",
+        confidence: 0.68,
+        reason: "server",
+        needsReview: true,
+      }],
+      jurisdictionConfirmation: {
+        status: "confirmed",
+        candidateKey: "municipality:kommune wuppertal (wahrscheinlich)",
+      },
+      placeResolution: {
+        selectedCandidate: {
+          id: "region-official-05124000",
+          city: "Wuppertal",
+          registryId: "05124000",
+        },
+        jurisdictionCandidates: [],
+        jurisdictionConfirmation: {
+          status: "confirmed",
+          candidateKey: "municipality:kommune wuppertal (wahrscheinlich)",
+        },
+      },
+    };
+    jurisdictionMocks.validateConfirmation.mockReturnValueOnce(serverContext);
+
+    const res = await savePOST(
+      req({
+        textPrepared: "In Wuppertal sollte der Schulweg sicherer werden.",
+        source: "create_followup",
+        createMode: "source",
+        analysis: {
+          intelligentFollowup: {
+            meta: {
+              citizenContext: {
+                selectedRegionLabel: "Manipuliert",
+                jurisdictionConfirmation: {
+                  status: "confirmed",
+                  candidateKey:
+                    "municipality:kommune wuppertal (wahrscheinlich)",
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(jurisdictionMocks.validateConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceText: "In Wuppertal sollte der Schulweg sicherer werden.",
+        candidateKey: "municipality:kommune wuppertal (wahrscheinlich)",
+      }),
+    );
+    const saved = mocks.readAll();
+    expect(saved).toHaveLength(1);
+    expect(
+      saved[0].analysis?.intelligentFollowup?.meta?.citizenContext,
+    ).toEqual(serverContext);
   });
 
   it("accepts ai mode only as draft intent with no publish side effect", async () => {

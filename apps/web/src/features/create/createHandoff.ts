@@ -10,6 +10,8 @@ import type {
   CreateGraphMatchResult,
   CreateIntelligentFollowupResult,
 } from "@/features/create/intelligentFollowupContract";
+import type { JurisdictionCandidate } from "@/features/create/createContributionPackageContract";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
 
 export type SourceGrounding = {
   id: string;
@@ -64,6 +66,14 @@ export type CreateHandoffTopicSeed = {
   themenradarSourceType: "create_intake";
 };
 
+export type CreateHandoffJurisdictionConfirmation = {
+  candidateKey: string;
+  candidate: JurisdictionCandidate | null;
+  regionId: string | null;
+  regionLabel: string | null;
+  serverValidated: boolean;
+};
+
 export type CreateHandoffDraft = {
   id: string;
   source: "create";
@@ -76,6 +86,7 @@ export type CreateHandoffDraft = {
   openQuestions: CreateOpenQuestionDraft[];
   sourceGrounding: SourceGrounding[];
   topicSeed: CreateHandoffTopicSeed;
+  jurisdictionConfirmation?: CreateHandoffJurisdictionConfirmation | null;
   resumeHref: string;
   reviewState: CreateHandoffReviewState;
   visibilityState?: RegionPublicationVisibilityState;
@@ -292,6 +303,34 @@ function buildTopicSeed(result: CreateIntelligentFollowupResult, plannerResult: 
   };
 }
 
+function buildJurisdictionConfirmation(
+  result: CreateIntelligentFollowupResult,
+): CreateHandoffJurisdictionConfirmation | null {
+  const context = result.meta?.citizenContext;
+  const candidateKey = String(
+    context?.jurisdictionConfirmation.candidateKey ?? "",
+  ).trim();
+  if (
+    !context ||
+    context.jurisdictionConfirmation.status !== "confirmed" ||
+    !candidateKey
+  ) {
+    return null;
+  }
+  const candidate = context.jurisdictionCandidates.find(
+    (entry) =>
+      buildCreateJurisdictionCandidateKey(entry) === candidateKey,
+  );
+  if (!candidate || candidate.level === "unknown") return null;
+  return {
+    candidateKey,
+    candidate: { ...candidate },
+    regionId: context.placeResolution.selectedCandidate?.id ?? null,
+    regionLabel: context.selectedRegionLabel,
+    serverValidated: false,
+  };
+}
+
 export function buildCreateHandoffResumeHref(handoffId: string): string {
   const search = new URLSearchParams();
   search.set("resume", "create_handoff");
@@ -349,6 +388,7 @@ export function buildCreateHandoffDraft(input: BuildCreateHandoffDraftInput): Cr
       materialItems: input.materialItems,
     }),
     topicSeed: buildTopicSeed(input.result, plannerResult),
+    jurisdictionConfirmation: buildJurisdictionConfirmation(input.result),
     resumeHref: buildCreateHandoffResumeHref(handoffId),
     reviewState,
     visibilityState: resolveCreateHandoffVisibilityState({

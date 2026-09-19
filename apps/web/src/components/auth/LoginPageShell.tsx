@@ -7,11 +7,13 @@ import { normalizeTwoFactorCode, TWO_FACTOR_CODE_LENGTH } from "@/features/auth/
 
 export function LoginPageShell({
   redirectTo,
+  registerHref = "/register",
   initialStep,
   initialMethod,
   forceTwoFactor,
 }: {
   redirectTo?: string;
+  registerHref?: string;
   initialStep?: LoginStep;
   initialMethod?: TwoFactorMethod | null;
   forceTwoFactor?: boolean;
@@ -148,7 +150,7 @@ export function LoginPageShell({
           </button>
           <p className="text-center text-sm text-[rgb(var(--muted))]">
             Noch kein Konto?{" "}
-            <Link href="/register" className="font-semibold text-sky-700 underline-offset-2 hover:underline">
+            <Link href={registerHref} className="font-semibold text-sky-700 underline-offset-2 hover:underline">
               Jetzt registrieren
             </Link>
             <br />

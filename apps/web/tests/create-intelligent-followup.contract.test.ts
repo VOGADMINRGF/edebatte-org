@@ -289,6 +289,28 @@ describe("create intelligent follow-up contract", () => {
     expect(buildCreateStructureBranches(result, 3)).toEqual([]);
   });
 
+  it("preserves emergency citizen context when the planner is degraded", async () => {
+    mocks.buildCreatePlanner.mockResolvedValue(
+      buildTechnicalPlanner({
+        degradedReason: "timeout",
+        plannerDegradedReason: "timeout",
+      }),
+    );
+
+    const result = await buildCreateIntelligentFollowup({
+      text: "Feuer in der Schule, bitte 112 wählen.",
+      locale: "de",
+      intent: "contribute",
+    });
+
+    expect(result.degraded).toBe(true);
+    expect(result.meta?.analysis?.state).toBe("ai_failed");
+    expect(result.meta?.citizenContext?.concernKind).toBe("emergency");
+    expect(result.meta?.citizenContext?.safety.emergencyNoticeRequired).toBe(true);
+    expect(result.understanding.topics).toEqual([]);
+    expect(result.suggestions).toEqual([]);
+  });
+
   it("renders an English planner failure without German fragments", async () => {
     mocks.buildCreatePlanner.mockResolvedValue({
       source: "technical_fallback",

@@ -1,5 +1,7 @@
 import {
+  getParticipationSpacePublishBlockers,
   getParticipationSpacePublishStatusLabel,
+  isParticipationQuestionGuardCurrent as isParticipationQuestionGuardCurrentFromWorkflow,
   getParticipationSpacePublicVisibilityLabel,
   type ParticipationSpacePublishRecord,
 } from "@/features/create/participationSpacePublishWorkflow";
@@ -13,7 +15,10 @@ import {
   canShowParticipationPlacePublicly,
   getParticipationPlaceDisplayModeLabel,
 } from "@/features/participation/placeFuture";
-import { isParticipationSpaceFeedbackPublic, summarizeParticipationSpaceReadiness } from "@/features/participation/spaceContainer";
+import {
+  isParticipationSpaceFeedbackPublic,
+  summarizeParticipationSpaceReadiness,
+} from "@/features/participation/spaceContainer";
 
 export type PublicParticipationSpaceRuntimeSource =
   | "runtime"
@@ -45,7 +50,10 @@ export type PublicParticipationSpaceRuntimeItem = {
   minorityPositionCount: number;
   nextStepCount: number;
   updatedAt: string;
-  source: Extract<PublicParticipationSpaceRuntimeSource, "runtime" | "fixture_fallback">;
+  source: Extract<
+    PublicParticipationSpaceRuntimeSource,
+    "runtime" | "fixture_fallback"
+  >;
 };
 
 type PublicParticipationSpaceRuntimePlace = {
@@ -127,7 +135,9 @@ export function summarizePublicParticipationSpaceRuntimeState(input: {
   });
 }
 
-export function getPublicParticipationSourceLabel(source: PublicParticipationSpaceRuntimeSource) {
+export function getPublicParticipationSourceLabel(
+  source: PublicParticipationSpaceRuntimeSource,
+) {
   switch (source) {
     case "runtime":
       return "Veröffentlicht";
@@ -142,11 +152,15 @@ export function getPublicParticipationSourceLabel(source: PublicParticipationSpa
   }
 }
 
-function runtimeSourceBadgeLabel(source: PublicParticipationSpaceRuntimeItem["source"]) {
+function runtimeSourceBadgeLabel(
+  source: PublicParticipationSpaceRuntimeItem["source"],
+) {
   return getPublicParticipationSourceLabel(source);
 }
 
-function buildRuntimeSourceNotice(source: PublicParticipationSpaceRuntimeItem["source"]) {
+function buildRuntimeSourceNotice(
+  source: PublicParticipationSpaceRuntimeItem["source"],
+) {
   return source === "runtime"
     ? "Die öffentliche Route bleibt read-only und zeigt nur ausdrücklich freigegebene Beteiligungsräume. Review-, Audit-, Abuse- und Trust-Details bleiben verborgen."
     : "Dieser Eintrag bleibt als klar gekennzeichnete Vorschau sichtbar, bis eine veröffentlichte Fassung vorliegt.";
@@ -158,6 +172,12 @@ function buildPublicLabel(source: PublicParticipationSpaceRuntimeItem["source"])
     : "Dieser Vorschau-Raum bleibt als Beispiel sichtbar, bis eine veröffentlichte Fassung vorliegt.";
 }
 
+export function isParticipationQuestionGuardCurrent(
+  record: ParticipationSpacePublishRecord,
+): boolean {
+  return isParticipationQuestionGuardCurrentFromWorkflow(record);
+}
+
 export function isPublicParticipationSpace(
   record: ParticipationSpacePublishRecord,
 ): boolean {
@@ -165,6 +185,13 @@ export function isPublicParticipationSpace(
     record.status === "published" &&
     record.visibility === "public" &&
     record.spaceVisibility === "public_read_only" &&
+    record.questionGuard?.releaseState === "draft_allowed" &&
+    isParticipationQuestionGuardCurrent(record) &&
+    Boolean(record.approvedForActivationAt) &&
+    Boolean(record.approvedForActivationBy) &&
+    Boolean(record.approvedForPublicationAt) &&
+    Boolean(record.approvedForPublicationBy) &&
+    getParticipationSpacePublishBlockers(record, "publication").length === 0 &&
     Boolean(record.participationSpaceId) &&
     Boolean(record.participationSpaceSlug)
   );
@@ -172,7 +199,10 @@ export function isPublicParticipationSpace(
 
 export function stripInternalParticipationSpaceFields(
   record: ParticipationSpacePublishRecord,
-): Omit<PublicParticipationSpaceRuntimeDetail, "source" | "place" | "topicSummaries" | "openQuestions" | "minorityPositions" | "nextSteps"> {
+): Omit<
+  PublicParticipationSpaceRuntimeDetail,
+  "source" | "place" | "topicSummaries" | "openQuestions" | "minorityPositions" | "nextSteps"
+> {
   return {
     id: String(record.participationSpaceId ?? record.id),
     slug: String(record.participationSpaceSlug ?? record.id),
@@ -350,17 +380,28 @@ export async function listPublishedParticipationSpaces(input?: {
         }),
       };
     }
-  } catch {
-    if (!allowFixtureFallback) {
+
+    if (records.length > 0) {
       return {
         items: [],
         status: summarizePublicParticipationSpaceRuntimeState({
-          source: "error",
+          source: "empty",
           totalVisible: 0,
           totalRuntimePublished: 0,
+          message:
+            "Vorhandene Beteiligungsräume bleiben unsichtbar, bis ihre Runtime-Freigabe vollständig und aktuell belegt ist.",
         }),
       };
     }
+  } catch {
+    return {
+      items: [],
+      status: summarizePublicParticipationSpaceRuntimeState({
+        source: "error",
+        totalVisible: 0,
+        totalRuntimePublished: 0,
+      }),
+    };
   }
 
   const fixtures = allowFixtureFallback
@@ -417,27 +458,29 @@ export async function getPublishedParticipationSpaceBySlugOrId(
       };
     }
 
-    if (published.length > 0 || !allowFixtureFallback) {
+    if (records.length > 0 || !allowFixtureFallback) {
       return {
         detail: null,
         status: summarizePublicParticipationSpaceRuntimeState({
           source: published.length > 0 ? "runtime" : "empty",
           totalVisible: published.length,
           totalRuntimePublished: published.length,
+          message:
+            records.length > 0
+              ? "Ein vorhandener Runtime-Raum bleibt unsichtbar, bis seine Freigabe vollständig und aktuell belegt ist."
+              : undefined,
         }),
       };
     }
   } catch {
-    if (!allowFixtureFallback) {
-      return {
-        detail: null,
-        status: summarizePublicParticipationSpaceRuntimeState({
-          source: "error",
-          totalVisible: 0,
-          totalRuntimePublished: 0,
-        }),
-      };
-    }
+    return {
+      detail: null,
+      status: summarizePublicParticipationSpaceRuntimeState({
+        source: "error",
+        totalVisible: 0,
+        totalRuntimePublished: 0,
+      }),
+    };
   }
 
   const fixture = getPublicParticipationSpaceFixtureBySlug(slugOrId);

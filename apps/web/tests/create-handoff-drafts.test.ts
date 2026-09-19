@@ -9,6 +9,10 @@ import {
   getHandoffDraftGuardrailNote,
 } from "@/features/create/createHandoffDrafts";
 import { canQueueHandoffDraftForReview } from "@/features/create/createHandoffReviewQueue";
+import {
+  mapCreateExistingMatchDecisionToDraftTarget,
+  type CreateExistingMatchDecision,
+} from "@/features/create/createExistingMatchDecision";
 import { EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES } from "@/features/create/existingTopicMatchesFixtures";
 import { DIALOG_INTELLIGENCE_PREVIEW_FIXTURES } from "@/features/dialog/dialogIntelligenceFixtures";
 
@@ -144,4 +148,36 @@ describe("create handoff drafts contract", () => {
     expect(canSubmitHandoffDraftForReview(submittedDraft)).toBe(false);
     expect(canQueueHandoffDraftForReview(submittedDraft)).toBe(true);
   });
+  it("carries only an explicit allowlisted existing-match decision into the preparatory draft", () => {
+    const decisions: CreateExistingMatchDecision[] = [
+      "count_my_position",
+      "count_as_opposition",
+      "add_as_nuance",
+      "keep_separate",
+    ];
+
+    for (const decision of decisions) {
+      const draft = createHandoffDraftFromExistingTopicMatch(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+        mapCreateExistingMatchDecisionToDraftTarget(decision),
+        decision,
+      );
+
+      expect(draft.existingMatchDecision).toBe(decision);
+      expect(draft.relatedMatchId).toBe(
+        EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.id,
+      );
+      expect(draft.authorStandpoint).toBeTruthy();
+      expect(draft.autoCreate).toBe(false);
+      expect(draft.autoPublish).toBe(false);
+    }
+
+    const withoutDecision = createHandoffDraftFromExistingTopicMatch(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+      "existing_branch_connection",
+    );
+    expect(withoutDecision.existingMatchDecision).toBeNull();
+    expect(withoutDecision.authorStandpoint).toBeNull();
+  });
+
 });

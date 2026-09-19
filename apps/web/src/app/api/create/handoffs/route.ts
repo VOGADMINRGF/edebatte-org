@@ -7,6 +7,7 @@ import type {
   CreateClaimDraft,
   CreateHandoffAction,
   CreateHandoffDraft,
+  CreateHandoffJurisdictionConfirmation,
   CreateHandoffReviewState,
   CreateHandoffTopicSeed,
   CreateOpenQuestionDraft,
@@ -28,6 +29,10 @@ import {
 import type { CreatePlannerResult } from "@/features/create/createPlanner";
 import type { CreateGraphMatchResult } from "@/features/create/intelligentFollowupContract";
 import type { RegionPublicationVisibilityState } from "@features/region/publicationRiskLadder";
+import { getSessionUser } from "@/lib/server/auth/sessionUser";
+import {
+  validateCreateJurisdictionConfirmation,
+} from "@/features/create/createCitizenIntakeContextServer";
 import {
   buildOrganizationDashboardReadModel,
   canEditOrganizationResource,
@@ -198,6 +203,45 @@ function normalizeTopicSeed(value: unknown): CreateHandoffTopicSeed {
   };
 }
 
+function normalizeJurisdictionConfirmation(
+  value: unknown,
+): CreateHandoffJurisdictionConfirmation | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidateKey = String(
+    (value as Record<string, unknown>).candidateKey ?? "",
+  ).trim();
+  if (!candidateKey || candidateKey.length > 240) return null;
+  return {
+    candidateKey,
+    candidate: null,
+    regionId: null,
+    regionLabel: null,
+    serverValidated: false,
+  };
+}
+
+function sessionProfileRegion(sessionUser: unknown): string | null {
+  if (!sessionUser || typeof sessionUser !== "object") return null;
+  const profile = (sessionUser as Record<string, unknown>).profile;
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    return null;
+  }
+  const publicLocation = (profile as Record<string, unknown>).publicLocation;
+  if (
+    !publicLocation ||
+    typeof publicLocation !== "object" ||
+    Array.isArray(publicLocation)
+  ) {
+    return null;
+  }
+  const location = publicLocation as Record<string, unknown>;
+  return (
+    String(location.city ?? "").trim() ||
+    String(location.region ?? "").trim() ||
+    null
+  );
+}
+
 function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
   const draft = (value ?? {}) as Record<string, unknown>;
   const id = String(draft.id ?? "").trim();
@@ -218,6 +262,9 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
     openQuestions: normalizeOpenQuestions(draft.openQuestions),
     sourceGrounding: normalizeSourceGrounding(draft.sourceGrounding),
     topicSeed: normalizeTopicSeed(draft.topicSeed),
+    jurisdictionConfirmation: normalizeJurisdictionConfirmation(
+      draft.jurisdictionConfirmation,
+    ),
     resumeHref,
     reviewState: normalizeCreateHandoffReviewState(draft.reviewState),
     visibilityState: normalizeVisibilityState(draft.visibilityState),
@@ -229,7 +276,42 @@ function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
 export async function POST(req: NextRequest) {
   try {
     const body = CreateHandoffBodySchema.parse(await req.json());
-    const draft = normalizeCreateHandoffDraft(body.draft);
+    let draft = normalizeCreateHandoffDraft(body.draft);
+    const sessionUser = await getSessionUser(req).catch(() => null);
+    if (!sessionUser || !sessionUser.sessionValid) return unauthorized();
+
+    if (draft.jurisdictionConfirmation?.candidateKey) {
+      const validated = validateCreateJurisdictionConfirmation({
+        sourceText: draft.sourceText,
+        candidateKey: draft.jurisdictionConfirmation.candidateKey,
+        locale: "de",
+        profileRegion: sessionProfileRegion(sessionUser),
+      });
+      if (!validated) {
+        throw new Error("invalid_jurisdiction_confirmation");
+      }
+      const candidateKey =
+        validated.jurisdictionConfirmation.candidateKey ?? "";
+      const candidate = validated.jurisdictionCandidates.find(
+        (entry) =>
+          `${entry.level}:${entry.label.trim().toLocaleLowerCase("de")}` ===
+          candidateKey,
+      );
+      if (!candidate) {
+        throw new Error("invalid_jurisdiction_confirmation");
+      }
+      draft = {
+        ...draft,
+        jurisdictionConfirmation: {
+          candidateKey,
+          candidate: { ...candidate },
+          regionId: validated.placeResolution.selectedCandidate?.id ?? null,
+          regionLabel: validated.selectedRegionLabel,
+          serverValidated: true,
+        },
+      };
+    }
+
     const intakeClassification = classifyCreateHandoffDraft(draft);
     const context = await resolvePersistedCreateHandoffContext({
       draft,
