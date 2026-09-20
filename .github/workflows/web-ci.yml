@@ -123,6 +123,11 @@ jobs:
           pnpm -C apps/web exec vitest run
           tests/research-dossier-binding.contract.test.ts
 
+      - name: Focused T2B research plan contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/research-plan-contract.test.ts
+
       - name: Focused swipe graph projection contracts
         run: >-
           pnpm -C apps/web exec vitest run
