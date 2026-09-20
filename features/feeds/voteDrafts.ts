@@ -1,23 +1,10 @@
 import { ObjectId } from "@core/db/triMongo";
-import { normalizeRegionCode } from "@core/regions/types";
 import type {
   StatementCandidate,
   StatementCandidateAnalyzeResultDoc,
   VoteDraftDoc,
 } from "./types";
 import { voteDraftsCol } from "./db";
-
-function canonicalRegionKey(regionCode: StatementCandidate["regionCode"]): string | null {
-  const normalized = normalizeRegionCode(regionCode ?? null);
-  if (!normalized) return null;
-  return [
-    normalized.countryCode,
-    normalized.subRegionCode,
-    normalized.municipalityCode,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(":");
-}
 
 export async function createDraftFromAnalyzeResult(
   candidate: StatementCandidate,
@@ -63,7 +50,7 @@ export async function createDraftFromAnalyzeResult(
     pipeline: "feeds_to_statementCandidate",
     sourceUrl: candidate.sourceUrl,
     sourceLocale: candidate.sourceLocale ?? analyzeResult.language,
-    regionCode: canonicalRegionKey(candidate.regionCode),
+    regionCode: candidate.regionCode ?? null,
     tags: candidate.topic ? [candidate.topic] : [],
     createdBy: "system",
     feedReviewState: "queued",

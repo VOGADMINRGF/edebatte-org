@@ -106,7 +106,7 @@ export interface VoteDraftDoc {
 
   sourceUrl?: string | null;
   sourceLocale?: string | null;
-  regionCode?: RegionCode | string | null;
+  regionCode?: RegionCode | null;
   tags?: string[];
 
   createdBy?: string | null;
@@ -133,7 +133,7 @@ export interface FeedStatementDoc {
   title: string;
   summary?: string | null;
   claims: StatementRecord[];
-  regionCode?: RegionCode | string | null;
+  regionCode?: RegionCode | null;
   sourceUrl?: string | null;
   sourceLocale?: string | null;
   pipeline: string;
