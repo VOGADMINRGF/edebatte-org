@@ -64,7 +64,8 @@ export function assessSwipeQuestionQuality(item: SwipeItem): SwipeQuestionQualit
   const issues: SwipeQuestionQualityIssue[] = [];
   const title = item.title.trim();
   if (!title) issues.push("missing_question_text");
-  if (/^soll\b/i.test(title)) issues.push("generic_should_template");
+  // A concrete, neutral "Soll ...?" question is valid. Generic/monotonous
+  // framing is a deck-level property and is checked by assessSwipeQuestionDeckQuality().
   if (/\b(guter weg|richtige(?:r|s|n)? weg|wäre es richtig|diesen weg mitgehen|vernünftige(?:r|s|n)? weg)\b/i.test(title)) {
     issues.push("loaded_approval_frame");
   }
