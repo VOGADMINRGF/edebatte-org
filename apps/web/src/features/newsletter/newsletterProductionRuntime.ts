@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { coreCol } from "@core/db/triMongo";
+import { resolveNewsletterDeliveryActivation } from "@features/notifications/newsletterDeliveryActivation";
 import {
   newsletterDeliveryRetentionUntil,
   resolveNewsletterRetryDecision,
@@ -175,6 +176,22 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
 }
 
 export async function runNewsletterProductionBatch(options: { now?: Date; limit?: number } = {}) {
+  const activation = resolveNewsletterDeliveryActivation(process.env.NEWSLETTER_DELIVERY_ENABLED);
+  if (!activation.enabled) {
+    return {
+      ok: true as const,
+      deliveryEnabled: false as const,
+      status: activation.reason,
+      checked: 0,
+      candidates: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      reasons: { [activation.reason]: 1 },
+      cleanup: null,
+    };
+  }
+
   const now = options.now ?? new Date();
   const limit = Math.max(1, Math.min(500, options.limit ?? configuredNumber("NEWSLETTER_BATCH_SIZE", 100, 1, 500)));
   const concurrency = configuredNumber("NEWSLETTER_SEND_CONCURRENCY", 4, 1, 10);
@@ -196,6 +213,8 @@ export async function runNewsletterProductionBatch(options: { now?: Date; limit?
   const cleanup = await cleanupNewsletterDeliveryLedger(now);
   return {
     ok: results.every((result) => result.ok),
+    deliveryEnabled: true as const,
+    status: "ran" as const,
     checked: docs.length,
     candidates: candidates.length,
     sent: results.filter((result) => result.status === "sent").length,
@@ -220,6 +239,7 @@ export async function getNewsletterLifecycleSnapshot(now = new Date()) {
   ]);
   const maxAttempts = configuredNumber("NEWSLETTER_MAX_ATTEMPTS", 4, 1, 10);
   return {
+    deliveryActivation: resolveNewsletterDeliveryActivation(process.env.NEWSLETTER_DELIVERY_ENABLED),
     failed7d: failed,
     inProgress: sending,
     retryExhausted7d: exhaustedCandidates.filter((entry) => entry.attemptCount >= maxAttempts).length,
