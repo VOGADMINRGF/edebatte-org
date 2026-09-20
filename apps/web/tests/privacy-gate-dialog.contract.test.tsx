@@ -32,6 +32,11 @@ function PrivacyGateTestConsumer() {
   );
 }
 
+function PrivacyGateOutsideProviderTestConsumer() {
+  const privacyGate = usePrivacyGate();
+  return <span>{privacyGate.ensureActiveProcessingAllowed("contract-test") ? "allowed" : "blocked"}</span>;
+}
+
 describe("privacy gate dialog contract", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -134,6 +139,11 @@ describe("privacy gate dialog contract", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("fails closed when the hook is accidentally used outside the provider", () => {
+    render(<PrivacyGateOutsideProviderTestConsumer />);
+    expect(screen.getByText("blocked")).toBeTruthy();
+  });
+
   it("keeps the dialog mobile-bounded, scrollable, sticky and guarded from snippets", () => {
     const source = readFileSync(resolve(process.cwd(), "src/components/privacy/PrivacyGateProvider.tsx"), "utf8");
     const layoutSource = readFileSync(resolve(process.cwd(), "src/app/layout.tsx"), "utf8");
@@ -150,6 +160,7 @@ describe("privacy gate dialog contract", () => {
     expect(source).toContain("restoreFocusRef.current.focus()");
     expect(source).toContain('if (event.key === "Escape")');
     expect(source).toContain('if (event.key !== "Tab") return;');
+    expect(source).toContain("normalizeConsent(props.initialConsent)");
     expect(cookieBannerSource).toContain("return null;");
     expect(layoutSource).toContain("<PrivacyGateProvider initialConsent={initialConsent}>");
     expect(layoutSource).toContain('<main data-site-main="true" className="flex-1">');

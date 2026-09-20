@@ -5,6 +5,12 @@ import type { SwipeVotePayload } from "@/features/swipes/types";
 import { readSession } from "@/utils/session";
 import { normalizeAccessTier } from "@/config/accessTiers";
 import { getFeaturesWithOverrides } from "@/lib/server/access/featureOverrides";
+import {
+  CONSENT_COOKIE_NAME,
+  LEGACY_CONSENT_COOKIE_NAME,
+  hasRequiredPrivacyAcknowledgement,
+  parseConsentCookie,
+} from "@/lib/privacy/consent";
 
 const SWIPES_SEEN_COOKIE = "edb_swipes_seen";
 const MAX_SEEN_IDS = 80;
@@ -39,6 +45,13 @@ export async function POST(req: NextRequest) {
     if (!featureSet.canSwipe) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
+  }
+
+  const privacyConsent =
+    parseConsentCookie(cookieStore.get(CONSENT_COOKIE_NAME)?.value) ??
+    parseConsentCookie(cookieStore.get(LEGACY_CONSENT_COOKIE_NAME)?.value);
+  if (!hasRequiredPrivacyAcknowledgement(privacyConsent)) {
+    return NextResponse.json({ error: "PRIVACY_ACK_REQUIRED" }, { status: 428 });
   }
 
   const body = (await req.json().catch(() => ({}))) as Omit<SwipeVotePayload, "userId" | "source">;
