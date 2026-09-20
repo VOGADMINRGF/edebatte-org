@@ -96,7 +96,11 @@ export function createInMemoryNewsletterDeliveryLeaseStore(): NewsletterDelivery
     async insert(lease) {
       await Promise.resolve();
       if (leases.has(lease._id)) return "duplicate";
-      leases.set(lease._id, structuredClone(lease));
+      leases.set(lease._id, {
+        ...lease,
+        acquiredAt: new Date(lease.acquiredAt),
+        expiresAt: new Date(lease.expiresAt),
+      });
       return "inserted";
     },
     async release(id, token) {
