@@ -1,6 +1,7 @@
 import type { CreateContributionLedgerEntry } from "@features/create/createContributionLedger";
 import type { SwipeDecisionConsequences } from "./types";
-import { finalizeSwipeQuestionCandidate } from "./questionFinalizer";
+import type { SwipeQuestionFinalizerInput } from "./questionFinalizer";
+import { finalizeParticipationOptionSet } from "./participationOptionFinalizer";
 import {
   readSwipeQuestionAgentOutput,
   SWIPE_QUESTION_AGENT_OUTPUT_FIELD,
@@ -48,10 +49,11 @@ function countEvidenceRefs(consequences?: SwipeDecisionConsequences | null): num
 }
 
 /**
- * Runtime bridge between Create's existing branch ledger and the canonical
- * Swipe question-quality finalizer. It does not invent missing context,
- * tradeoffs or consequences. Existing plain claim drafts therefore fail
- * closed into review until an agent/finalizer provides the structured fields.
+ * Runtime bridge between Create's existing branch ledger and Part16's
+ * canonical participation-option finalizer. It does not invent missing
+ * context, tradeoffs or consequences. Existing plain claim drafts therefore
+ * fail closed into review until an agent/source finalizer provides the
+ * structured fields.
  *
  * Producer output can travel losslessly on the original claim candidate under
  * `claimCandidate.swipeQuestion`; this keeps the current Create package shape
@@ -65,12 +67,12 @@ export function applySwipeQuestionQualityToCreateLedger(
     branches: ledger.branches.map((branch) => {
       if (!branch.swipeDraft) return branch;
 
-      const statements = branch.swipeDraft.statements.map((rawStatement) => {
+      const prepared = branch.swipeDraft.statements.map((rawStatement) => {
         const statement = rawStatement as StructuredSwipeDraftStatement;
         const agentOutput = readAgentOutputForStatement(branch, statement);
         const decisionConsequences =
           statement.decisionConsequences ?? agentOutput?.decisionConsequences;
-        const finalized = finalizeSwipeQuestionCandidate({
+        const input: SwipeQuestionFinalizerInput = {
           id: statement.id,
           title: statement.text,
           text: statement.text,
@@ -84,33 +86,60 @@ export function applySwipeQuestionQualityToCreateLedger(
           responsibilityLabel: "Zuständigkeit vor Veröffentlichung prüfen",
           domainLabel: branch.title,
           evidenceCount: countEvidenceRefs(decisionConsequences),
-        });
+        };
+        return { rawStatement, statement, input };
+      });
 
+      const participationFinalization = finalizeParticipationOptionSet(
+        prepared.map((entry) => entry.input),
+      );
+      const finalizedById = new Map(
+        participationFinalization.optionCandidates.map((candidate) => [
+          candidate.id,
+          candidate,
+        ]),
+      );
+
+      const statements = prepared.map(({ rawStatement, statement }) => {
+        const finalized = finalizedById.get(statement.id);
+        if (!finalized) {
+          return {
+            ...rawStatement,
+            needsReview: true,
+          };
+        }
         return {
           ...rawStatement,
           humanContext: finalized.item.humanContext,
           tradeoff: finalized.item.tradeoff,
           decisionConsequences: finalized.item.decisionConsequences,
           questionQualityAssessment: finalized.item.questionQualityAssessment,
-          needsReview: Boolean(rawStatement.needsReview) || finalized.requiresHumanReview,
+          needsReview:
+            Boolean(rawStatement.needsReview) || finalized.requiresHumanReview,
         };
       });
 
-      const qualityRequiresReview = statements.some(
-        (statement) =>
-          Boolean((statement as StructuredSwipeDraftStatement).needsReview) ||
-          (statement as StructuredSwipeDraftStatement).questionQualityAssessment?.ready !== true,
-      );
+      const qualityRequiresReview =
+        !participationFinalization.questionQualityAssessment.readyForHumanReview ||
+        statements.some((statement) =>
+          Boolean((statement as StructuredSwipeDraftStatement).needsReview),
+        );
 
       return {
         ...branch,
         needsReview: branch.needsReview || qualityRequiresReview,
-        visibilityIntent: qualityRequiresReview ? "public_after_review" : branch.visibilityIntent,
+        visibilityIntent: qualityRequiresReview
+          ? "public_after_review"
+          : branch.visibilityIntent,
         swipeDraft: {
           ...branch.swipeDraft,
           statements,
-          status: qualityRequiresReview ? "needs_review" : branch.swipeDraft.status,
-          visibilityIntent: qualityRequiresReview ? "public_after_review" : branch.swipeDraft.visibilityIntent,
+          status: qualityRequiresReview
+            ? "needs_review"
+            : branch.swipeDraft.status,
+          visibilityIntent: qualityRequiresReview
+            ? "public_after_review"
+            : branch.swipeDraft.visibilityIntent,
         },
       } as typeof branch;
     }),
