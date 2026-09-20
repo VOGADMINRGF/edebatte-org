@@ -106,7 +106,7 @@ export interface VoteDraftDoc {
 
   sourceUrl?: string | null;
   sourceLocale?: string | null;
-  regionCode?: RegionCode | null;
+  regionCode?: RegionCode | string | null;
   tags?: string[];
 
   createdBy?: string | null;
