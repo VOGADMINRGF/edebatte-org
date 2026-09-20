@@ -24,6 +24,7 @@ import {
   CREATE_MAX_URL_LENGTH,
 } from "@/features/create/createMutationSecurityContract";
 import { buildCreateContributionLedgerEntry } from "@features/create/createContributionLedger";
+import { applySwipeQuestionQualityToCreateLedger } from "@/features/swipes/createLedgerQuestionQuality";
 import { createEditorialReviewRequest } from "@features/editorialReviewQueue";
 import { scheduleCreateSubmissionNotification } from "@/features/operator/operatorNotifications";
 import {
@@ -196,20 +197,21 @@ function withCreateContributionLedger(
       previousLedger?.packageId ??
       input.draftId,
   );
+  const ledger = buildCreateContributionLedgerEntry({
+    ledgerId: String(previousLedger?.ledgerId ?? input.draftId),
+    packageId,
+    userId: input.userId,
+    sourceText: input.sourceText,
+    createdAt: String(previousLedger?.createdAt ?? input.createdAt.toISOString()),
+    updatedAt: input.updatedAt.toISOString(),
+    locale: input.locale,
+    contributionPackage: contributionPackage as any,
+    draftSaveStatus: "server_saved",
+  });
 
   return {
     ...existingRecord,
-    createContributionLedger: buildCreateContributionLedgerEntry({
-      ledgerId: String(previousLedger?.ledgerId ?? input.draftId),
-      packageId,
-      userId: input.userId,
-      sourceText: input.sourceText,
-      createdAt: String(previousLedger?.createdAt ?? input.createdAt.toISOString()),
-      updatedAt: input.updatedAt.toISOString(),
-      locale: input.locale,
-      contributionPackage: contributionPackage as any,
-      draftSaveStatus: "server_saved",
-    }),
+    createContributionLedger: applySwipeQuestionQualityToCreateLedger(ledger),
   };
 }
 
