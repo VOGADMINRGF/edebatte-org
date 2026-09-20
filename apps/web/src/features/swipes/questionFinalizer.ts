@@ -1,7 +1,4 @@
-import {
-  assessSwipeQuestionQuality,
-  type SwipeQuestionQualityAssessment,
-} from "./questionQualityContract";
+import { assessSwipeQuestionQuality } from "./questionQualityContract";
 import type {
   SwipeConsequence,
   SwipeConsequenceEvidenceStatus,
@@ -26,25 +23,34 @@ export type SwipeQuestionFinalizerInput = {
   evidenceCount?: number;
 };
 
+export type SwipeQuestionFinalizerQuality = {
+  ready: boolean;
+  issues: string[];
+};
+
 export type SwipeQuestionFinalizerResult = {
   item: SwipeItem;
   status: SwipeQuestionFinalizerStatus;
-  quality: SwipeQuestionQualityAssessment;
+  quality: SwipeQuestionFinalizerQuality;
   requiresHumanReview: boolean;
 };
 
-function normalizeEvidenceStatus(consequence: SwipeConsequence): SwipeConsequenceEvidenceStatus {
+function normalizeEvidenceStatus(
+  consequence: SwipeConsequence,
+  validEvidenceRefCount = consequence.evidenceRefs?.filter((ref) => Boolean(ref?.id?.trim())).length ?? 0,
+): SwipeConsequenceEvidenceStatus {
   if (consequence.evidenceStatus) return consequence.evidenceStatus;
-  return consequence.evidenceRefs?.length ? "supported" : "unverified";
+  return validEvidenceRefCount > 0 ? "supported" : "unverified";
 }
 
 function normalizeConsequence(consequence: SwipeConsequence): SwipeConsequence {
+  const evidenceRefs = consequence.evidenceRefs?.filter((ref) => Boolean(ref?.id?.trim())) ?? [];
   return {
     ...consequence,
     title: consequence.title.trim(),
     detail: consequence.detail?.trim() || undefined,
-    evidenceRefs: consequence.evidenceRefs?.filter((ref) => Boolean(ref?.id?.trim())) ?? [],
-    evidenceStatus: normalizeEvidenceStatus(consequence),
+    evidenceRefs,
+    evidenceStatus: normalizeEvidenceStatus(consequence, evidenceRefs.length),
   };
 }
 
@@ -104,9 +110,9 @@ export function finalizeSwipeQuestionCandidate(
 
   const baseQuality = assessSwipeQuestionQuality(item);
   const provenanceIssues = evidenceIssues(decisionConsequences);
-  const quality: SwipeQuestionQualityAssessment = {
+  const quality: SwipeQuestionFinalizerQuality = {
     ready: baseQuality.ready && provenanceIssues.length === 0,
-    issues: [...baseQuality.issues, ...provenanceIssues] as SwipeQuestionQualityAssessment["issues"],
+    issues: [...baseQuality.issues, ...provenanceIssues],
   };
 
   item.questionQualityAssessment = {
