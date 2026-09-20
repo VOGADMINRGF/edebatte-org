@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { applySwipeQuestionQualityToCreateLedger } from "@/features/swipes/createLedgerQuestionQuality";
+import {
+  buildSwipeQuestionAgentOutputPromptFragment,
+  SWIPE_QUESTION_AGENT_OUTPUT_FIELD,
+} from "@/features/swipes/swipeQuestionAgentOutputContract";
 import type { CreateContributionLedgerEntry } from "@features/create/createContributionLedger";
 
 function baseLedger(): CreateContributionLedgerEntry {
@@ -21,7 +25,17 @@ function baseLedger(): CreateContributionLedgerEntry {
         selectedAction: "public_swipes_prepare",
         status: "swipe_draft_prepared",
         visibilityIntent: "public_swipes",
-        claimCandidates: [],
+        claimCandidates: [
+          {
+            id: "claim-1",
+            branchId: "branch-1",
+            text: "Wie ordnest du verbindlichere Regeln für Weiterbildung ein?",
+            kind: "question",
+            source: "planner_open_question",
+            inferredStance: "not_inferred",
+            stanceConfirmationStatus: "confirmed",
+          },
+        ],
         placeCandidates: [],
         localIssueCandidates: [],
         needsPlaceClarification: false,
@@ -41,6 +55,7 @@ function baseLedger(): CreateContributionLedgerEntry {
               text: "Wie ordnest du verbindlichere Regeln für Weiterbildung ein?",
               inferredStance: "not_inferred",
               stanceConfirmationStatus: "confirmed",
+              sourceClaimId: "claim-1",
               needsReview: false,
               sensitivityLevel: "standard",
             },
@@ -80,32 +95,74 @@ describe("Create ledger swipe question-quality bridge", () => {
     expect(statement.questionQualityAssessment.issues).toContain("missing_directional_consequences");
   });
 
-  it("preserves structured fields when a future agent supplies them", () => {
+  it("reads structured agent output from the original claim candidate without losing provenance", () => {
     const ledger = baseLedger();
-    const statement = ledger.branches[0].swipeDraft!.statements[0] as any;
-    statement.tradeoff = "Mehr Verbindlichkeit kann Beschäftigten Planung geben, begrenzt aber betriebliche Spielräume.";
-    statement.decisionConsequences = {
-      agree: [
-        {
-          title: "Planbarkeit kann steigen",
-          evidenceStatus: "supported",
-          evidenceRefs: [{ id: "source-1" }],
-        },
-      ],
-      disagree: [
-        {
-          title: "Betriebliche Flexibilität kann größer bleiben",
-          evidenceStatus: "hypothesis",
-        },
-      ],
+    const candidate = ledger.branches[0].claimCandidates[0] as any;
+    candidate[SWIPE_QUESTION_AGENT_OUTPUT_FIELD] = {
+      humanContext: "Beschäftigte brauchen Zeit und Zugang, Betriebe müssen Weiterbildung zugleich organisieren und finanzieren.",
+      tradeoff: "Mehr Verbindlichkeit kann Beschäftigten Planung geben, begrenzt aber betriebliche Spielräume.",
+      decisionConsequences: {
+        agree: [
+          {
+            title: "Planbarkeit kann steigen",
+            detail: "Verbindlichere Regeln können feste Zeitfenster oder Ansprüche planbarer machen.",
+            evidenceStatus: "supported",
+            evidenceRefs: [{ id: "source-1", label: "Tarifauswertung" }],
+          },
+        ],
+        disagree: [
+          {
+            title: "Betriebliche Flexibilität kann größer bleiben",
+            evidenceStatus: "hypothesis",
+            evidenceRefs: [],
+          },
+        ],
+      },
     };
 
     const finalized = applySwipeQuestionQualityToCreateLedger(ledger);
     const finalizedStatement = finalized.branches[0].swipeDraft?.statements[0] as any;
 
+    expect(finalizedStatement.humanContext).toContain("Beschäftigte brauchen Zeit");
     expect(finalizedStatement.tradeoff).toContain("betriebliche Spielräume");
     expect(finalizedStatement.decisionConsequences.agree[0].evidenceStatus).toBe("supported");
+    expect(finalizedStatement.decisionConsequences.agree[0].evidenceRefs[0].id).toBe("source-1");
+    expect(finalizedStatement.decisionConsequences.disagree[0].evidenceStatus).toBe("hypothesis");
     expect(finalizedStatement.questionQualityAssessment.ready).toBe(true);
     expect(finalized.branches[0].swipeDraft?.status).toBe("ready_for_review");
+    expect(finalized.branches[0].swipeDraft?.visibilityIntent).toBe("public_swipes");
+  });
+
+  it("fails malformed structured agent output closed instead of falling back around missing fields", () => {
+    const ledger = baseLedger();
+    const candidate = ledger.branches[0].claimCandidates[0] as any;
+    candidate[SWIPE_QUESTION_AGENT_OUTPUT_FIELD] = {
+      tradeoff: "Mehr Regeln stehen betrieblicher Flexibilität gegenüber.",
+      decisionConsequences: {
+        agree: [{ title: "Weiterbildung wird automatisch besser", evidenceStatus: "unverified" }],
+        disagree: [{ title: "Flexibilität bleibt größer", evidenceStatus: "hypothesis" }],
+      },
+    };
+
+    const finalized = applySwipeQuestionQualityToCreateLedger(ledger);
+    const finalizedStatement = finalized.branches[0].swipeDraft?.statements[0] as any;
+
+    expect(finalizedStatement.humanContext).toBeUndefined();
+    expect(finalizedStatement.questionQualityAssessment.ready).toBe(false);
+    expect(finalizedStatement.questionQualityAssessment.issues).toContain("missing_human_context");
+    expect(finalizedStatement.questionQualityAssessment.issues).toContain(
+      "unsupported_causal_certainty:agree:0",
+    );
+    expect(finalized.branches[0].swipeDraft?.status).toBe("needs_review");
+  });
+
+  it("publishes one canonical producer prompt fragment with evidence and review guardrails", () => {
+    const prompt = buildSwipeQuestionAgentOutputPromptFragment();
+
+    expect(prompt).toContain("SWIPE-QUESTION-QUALITY:");
+    expect(prompt).toContain("SWIPE-QUESTION-OUTPUT:");
+    expect(prompt).toContain(`claimCandidate.${SWIPE_QUESTION_AGENT_OUTPUT_FIELD}`);
+    expect(prompt).toContain("verified|supported|hypothesis|unverified");
+    expect(prompt).toContain("veröffentlicht nicht");
   });
 });
