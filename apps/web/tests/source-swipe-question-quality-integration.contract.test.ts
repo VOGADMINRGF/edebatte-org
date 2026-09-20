@@ -173,6 +173,23 @@ describe("Source → Swipe question-quality convergence", () => {
     expect(result.sourcePipelineMayRelease).toBe(false);
   });
 
+  it("rejects structured Swipe output bound to a different Source candidate", () => {
+    const result = evaluateSourceVoteReadinessWithSwipeQuality(
+      packageFixture(),
+      swipeQuestion({ candidateId: "vote-candidate:other" }),
+    );
+
+    expect(result.sourceReadiness.stage).toBe("review_ready");
+    expect(result.effectiveStage).toBe("vote_candidate");
+    expect(result.questionQualityReady).toBe(false);
+    expect(result.qualityBlockingReasons).toEqual(
+      expect.arrayContaining([
+        "swipe_question_candidate_mismatch",
+        "swipe_question_quality_failed",
+      ]),
+    );
+  });
+
   it("keeps source review-ready when the canonical question passes Swipe quality and evidence grounding", () => {
     const result = evaluateSourceVoteReadinessWithSwipeQuality(
       packageFixture(),
