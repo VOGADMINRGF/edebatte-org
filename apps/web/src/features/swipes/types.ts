@@ -32,11 +32,31 @@ export type PublicTopicSupplyBucket =
   | "needs_review";
 export type SwipeSourceKind = "proposal" | "feed" | "dossier" | "anlassraum" | "create" | "seed";
 
+export type SwipeConsequence = {
+  /** Kurze, menschlich lesbare Folge; keine Prognosebehauptung ohne Evidenz. */
+  title: string;
+  /** Optionaler Kontext, Unsicherheit oder Mechanismus hinter der Folge. */
+  detail?: string;
+};
+
+export type SwipeDecisionConsequences = {
+  /** Mögliche Folgen, wenn die Frage eher mit Ja beantwortet wird. */
+  agree: SwipeConsequence[];
+  /** Mögliche Folgen, wenn die Frage eher mit Nein beantwortet wird. */
+  disagree: SwipeConsequence[];
+};
+
 export type SwipeItem = {
   id: string; // Statement-ID
   title: string;
   /** Optionaler Volltext fuer Detail-/Dossier-Ansicht und Swipe-Excerpt. */
   text?: string;
+  /** Kurzer Alltags-/Problemkontext vor der eigentlichen Entscheidung. */
+  humanContext?: string;
+  /** Der zentrale Zielkonflikt, möglichst ohne eine Seite sprachlich zu bevorzugen. */
+  tradeoff?: string;
+  /** Richtungsbezogene mögliche Folgen. Maximal 5 je Richtung in der kompakten Swipe-UI. */
+  decisionConsequences?: SwipeDecisionConsequences;
   category: string;
   level: SwipeScopeLevel;
   topicTags: string[];
