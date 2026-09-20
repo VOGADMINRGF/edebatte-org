@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeSourceRef } from "@features/feeds/sourceRef";
-import { createDurableSourceSnapshot } from "@features/feeds/sourceSnapshot";
+import { createDurableSourceSnapshot, replayDurableSourceSnapshot } from "@features/feeds/sourceSnapshot";
 import { createInMemorySourceSnapshotRepository } from "@features/feeds/sourceSnapshotStore";
 
 function source() {
@@ -53,7 +53,37 @@ describe("durable source snapshot repository", () => {
     expect((await repo.listBySourceId(first.sourceId)).map((entry) => entry.version)).toEqual([2, 1]);
   });
 
-  it("treats the same snapshot id as an idempotent duplicate without mutating history", async () => {
+  it("preserves A→B→A as three observations while reusing A content identity", async () => {
+    const repo = createInMemorySourceSnapshotRepository();
+    const firstA = snapshot({
+      body: "A",
+      retrievedAt: "2026-09-19T08:00:00.000Z",
+    });
+    const secondB = snapshot({
+      body: "B",
+      retrievedAt: "2026-09-19T09:00:00.000Z",
+      previous: firstA,
+    });
+    const thirdA = snapshot({
+      body: "A",
+      retrievedAt: "2026-09-19T10:00:00.000Z",
+      previous: secondB,
+    });
+
+    expect(firstA.contentId).toBe(thirdA.contentId);
+    expect(firstA.snapshotId).not.toBe(thirdA.snapshotId);
+    expect(thirdA.supersedes).toBe(secondB.snapshotId);
+
+    expect((await repo.append(firstA)).status).toBe("inserted");
+    expect((await repo.append(secondB)).status).toBe("inserted");
+    expect((await repo.append(thirdA)).status).toBe("inserted");
+
+    const history = await repo.listBySourceId(firstA.sourceId);
+    expect(history.map((entry) => entry.version)).toEqual([3, 2, 1]);
+    expect(history.map((entry) => replayDurableSourceSnapshot(entry))).toEqual(["A", "B", "A"]);
+  });
+
+  it("treats the same observation id as an idempotent duplicate without mutating history", async () => {
     const repo = createInMemorySourceSnapshotRepository();
     const first = snapshot({
       body: "stable",

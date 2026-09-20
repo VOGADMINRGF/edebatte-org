@@ -13,8 +13,13 @@ export const SOURCE_SNAPSHOT_REVIEW_STATUSES = [
 export type SourceSnapshotReviewStatus =
   (typeof SOURCE_SNAPSHOT_REVIEW_STATUSES)[number];
 
+const MAX_INLINE_SNAPSHOT_BYTES = 8 * 1024 * 1024;
+
 export type DurableSourceSnapshot = {
+  /** Observation identity. Different observations may reference identical content. */
   snapshotId: string;
+  /** Immutable content identity, shared by A→B→A observations when A is byte-identical. */
+  contentId: string;
   sourceId: string;
   sourceKind: SourceRef["kind"];
   canonicalUrl: string;
@@ -26,6 +31,10 @@ export type DurableSourceSnapshot = {
   lastModified: string | null;
   contentHash: string;
   contentLength: number;
+  /** Original immutable response bytes represented as UTF-8 for offline replay. */
+  originalContent: string;
+  contentEncoding: "utf8";
+  replayable: true;
   version: number;
   supersedes: string | null;
   rightsState: string | null;
@@ -79,11 +88,21 @@ export function hashSourceContent(body: string): string {
   return createHash("sha256").update(body, "utf8").digest("hex");
 }
 
+export function buildSourceContentId(contentHash: string): string {
+  return `content:sha256:${contentHash}`;
+}
+
 export function buildSourceSnapshotId(input: {
   sourceId: string;
   contentHash: string;
+  retrievedAt: string;
+  version: number;
 }): string {
-  return `snapshot:${input.sourceId}:${input.contentHash}`;
+  const observationHash = createHash("sha256")
+    .update(`${input.sourceId}\n${input.version}\n${input.retrievedAt}\n${input.contentHash}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+  return `snapshot:${input.sourceId}:v${input.version}:${observationHash}`;
 }
 
 export function buildConditionalSourceHeaders(
@@ -122,6 +141,15 @@ export function decideSourceFetch(input: {
     };
   }
 
+  const contentLength = Buffer.byteLength(body, "utf8");
+  if (contentLength > MAX_INLINE_SNAPSHOT_BYTES) {
+    return {
+      kind: "failed",
+      status,
+      reason: "source_fetch_body_too_large_for_durable_snapshot",
+    };
+  }
+
   const contentHash = hashSourceContent(body);
   if (input.previous?.contentHash === contentHash) {
     return { kind: "not_modified", reason: "same_content_hash" };
@@ -129,7 +157,7 @@ export function decideSourceFetch(input: {
   return {
     kind: "changed",
     contentHash,
-    contentLength: Buffer.byteLength(body, "utf8"),
+    contentLength,
   };
 }
 
@@ -147,15 +175,23 @@ export function createDurableSourceSnapshot(input: {
     throw new Error(`source_snapshot_not_changed:${decision.kind}`);
   }
 
+  const body = input.response.body;
+  if (typeof body !== "string") {
+    throw new Error("source_snapshot_body_missing");
+  }
   const canonicalUrl = assertHttpUrl(input.source.href);
   const version = (input.previous?.version ?? 0) + 1;
   const retrievedAt = input.retrievedAt.toISOString();
+  const contentId = buildSourceContentId(decision.contentHash);
 
   return {
     snapshotId: buildSourceSnapshotId({
       sourceId: input.source.sourceId,
       contentHash: decision.contentHash,
+      retrievedAt,
+      version,
     }),
+    contentId,
     sourceId: input.source.sourceId,
     sourceKind: input.source.kind,
     canonicalUrl,
@@ -167,6 +203,9 @@ export function createDurableSourceSnapshot(input: {
     lastModified: clean(input.response.lastModified),
     contentHash: decision.contentHash,
     contentLength: decision.contentLength,
+    originalContent: body,
+    contentEncoding: "utf8",
+    replayable: true,
     version,
     supersedes: input.previous?.snapshotId ?? null,
     rightsState: clean(input.response.rightsState),
@@ -176,4 +215,24 @@ export function createDurableSourceSnapshot(input: {
     reviewRequired: true,
     autoPublishAllowed: false,
   };
+}
+
+/**
+ * Offline replay path. It never performs network I/O and verifies the immutable
+ * content against the snapshot hash/length before returning it.
+ */
+export function replayDurableSourceSnapshot(
+  snapshot: DurableSourceSnapshot | (Partial<DurableSourceSnapshot> & Pick<DurableSourceSnapshot, "contentHash" | "contentLength">),
+): string {
+  if (snapshot.replayable !== true || snapshot.contentEncoding !== "utf8" || typeof snapshot.originalContent !== "string") {
+    throw new Error("source_snapshot_replay_content_unavailable");
+  }
+  const content = snapshot.originalContent;
+  if (hashSourceContent(content) !== snapshot.contentHash) {
+    throw new Error("source_snapshot_replay_hash_mismatch");
+  }
+  if (Buffer.byteLength(content, "utf8") !== snapshot.contentLength) {
+    throw new Error("source_snapshot_replay_length_mismatch");
+  }
+  return content;
 }
