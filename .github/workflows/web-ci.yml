@@ -63,6 +63,8 @@ jobs:
         run: >-
           pnpm -C apps/web exec vitest run
           tests/swipes-human-question-contract.contract.test.ts
+          tests/swipes-question-finalizer.contract.test.ts
+          tests/create-ledger-swipe-question-quality.contract.test.ts
           tests/swipe-auth-gate.contract.test.tsx
           tests/privacy-gate-dialog.contract.test.tsx
           tests/privacy-gate-consent-recovery.contract.test.tsx

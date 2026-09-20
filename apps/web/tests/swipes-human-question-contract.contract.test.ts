@@ -52,6 +52,23 @@ describe("swipes human question contract", () => {
     }
   });
 
+  it("allows a concrete neutral Soll question and treats generic repetition as a deck problem", () => {
+    const base = PUBLIC_PROGRAMME_QUESTION_SEEDS[0];
+    const concrete = {
+      ...base,
+      title: "Soll Berlin zusätzliche Busspuren bis 2030 einrichten, sofern die Finanzierung beschlossen ist?",
+    };
+
+    expect(assessSwipeQuestionQuality(concrete)).toEqual({ ready: true, issues: [] });
+
+    const repetitive = Array.from({ length: 20 }, (_, index) => ({
+      ...concrete,
+      id: `soll-repeat-${index}`,
+      title: `Soll Berlin zusätzliche Busspuren Variante ${index} einrichten?`,
+    }));
+    expect(assessSwipeQuestionDeckQuality(repetitive).ready).toBe(false);
+  });
+
   it("rejects approval-seeking wording and monotonous deck framing", () => {
     const base = PUBLIC_PROGRAMME_QUESTION_SEEDS[0];
     expect(
