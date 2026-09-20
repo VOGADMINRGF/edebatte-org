@@ -591,6 +591,14 @@ Diese Queue ist die einzige operative Alpha2-Task-Wahrheit. `docs/E150/ALPHA_FOX
 | EDEBATTE-COMMERCE-STRIPE-CHECKOUT-01 | blocked | P0 | `EDEBATTE-B2C-PRICING-ENTITLEMENTS-01`; Merchant-/Stripe-Konto; Webhook-Secret; Produkt-/Preis-IDs; Steuer-/Widerrufs-/Rechtstexte | Stripe Checkout für Plus/Pro und später Merchandise | Getrennte test/live ENV; signaturgeprüfte rohe Webhooks; Idempotenz; Customer Portal; bestätigungsgebundene Entitlements; Refund/Cancellation/Past-due; keine Kartenhaltung; kein Live-Checkout ohne vollständige Anbieter- und Legal-Gates |
 | VOG-EDEBATTE-ENTITLEMENT-BRIDGE-01 | blocked | P0 | `EDEBATTE-B2C-PRICING-ENTITLEMENTS-01`; explizite Kontoverknüpfung/Einwilligung; VOG signierter Entitlement-Contract | Minimale widerrufbare VOG→eDebatte-Freischaltung | Keine Mongo-Kopplung; nur minimaler pseudonymer Verknüpfungsschlüssel, Tier, Status, Gültigkeit und Audit; VOG ab 4,99 € → Plus, ab 15 € → Pro; Kündigung/Ausfall/Rückabwicklung entzieht nur das Entitlement; keine Mitglieds-, Politik- oder Profildatenübernahme |
 
+### C13 / T9 / G6 — global research intelligence governance delta
+
+| ID | Status | Authorization | Issue | Rolle / harte Grenze |
+| --- | --- | --- | --- | --- |
+| CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01 | codex_ready | preflight_only | #950 | C13 adapter-only; kein neuer Observation-/Truth-/Evidence-Store; `DurableSourceSnapshot.snapshotId` bleibt Observation Identity; #644 bleibt Media-Acquisition-Owner; erster Runtime-Slice erst nach positivem Preflight und nur als Erweiterung des bestehenden Repository-Integrity-Guards. |
+| GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01 | blocked | none | #951 | T9 fachliches Verification-Profil auf #629/E150; kein T9Runner/T9Composer/T9ProviderRouter; Factchecks selbst verifizieren; Translation erzeugt keine Evidenz; Jurisdiction/Freshness/Generalizability fail-closed beachten. |
+| PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01 | blocked | none | #952 | G6 ausschließlich derived/read-only; vorhandene Analyze-/`core/evidence`-Owner konvergieren; kein dritter Evidence-/Graph-Store; niemals Graph→Domain-Truth-Writeback. |
+
 ## Historischer Katalog und Evidenz
 
 Die nachfolgenden Abschnitte bleiben vollständig als historische Evidenz erhalten. Sie dienen der Nachvollziehbarkeit, aber nicht als aktuelle operative Tagesqueue.
