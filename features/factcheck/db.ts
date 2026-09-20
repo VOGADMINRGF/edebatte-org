@@ -17,6 +17,7 @@ import type {
   E150ConfidenceMeta,
   E150DisagreementMeta,
 } from "@features/ai/e150/disagreementConfidence";
+import type { FactcheckExecutionEvidence } from "./executionEvidence";
 
 export const FACTCHECK_STATUSES = [
   "draft",
@@ -222,6 +223,7 @@ export type FactcheckJobDoc = {
   sourceRefs: FactcheckSourceRef[];
   materialRefs: string[];
   serpResults?: SerpResultLite[];
+  executionEvidence?: FactcheckExecutionEvidence | null;
   factcheckVerificationMode: FactcheckVerificationMode;
   factcheckResearchMode: FactcheckResearchMode;
   factcheckSealEligibility: FactcheckSealEligibility;
