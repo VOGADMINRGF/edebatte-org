@@ -42,6 +42,23 @@ describe("swipe question finalizer", () => {
     expect(result.item.decisionConsequences?.disagree[0]?.evidenceStatus).toBe("unverified");
   });
 
+  it("rejects supported or verified evidence status without a real reference", () => {
+    const result = finalizeSwipeQuestionCandidate({
+      id: "candidate-evidence-ref-gap",
+      title: "Wie ordnest du verbindlichere Weiterbildungsregeln ein?",
+      humanContext: "Weiterbildung scheitert im Arbeitsalltag oft an Zeit, Geld oder fehlenden Angeboten.",
+      tradeoff: "Mehr Verbindlichkeit kann Beschäftigten Planung geben, begrenzt aber betriebliche Spielräume.",
+      decisionConsequences: {
+        agree: [{ title: "Planbarkeit kann steigen", evidenceStatus: "supported", evidenceRefs: [] }],
+        disagree: [{ title: "Betriebliche Flexibilität kann größer bleiben", evidenceStatus: "verified" }],
+      },
+    });
+
+    expect(result.status).toBe("needs_review");
+    expect(result.quality.issues).toContain("evidence_status_without_refs:agree:0");
+    expect(result.quality.issues).toContain("evidence_status_without_refs:disagree:0");
+  });
+
   it("blocks unsupported causal certainty but accepts sourced possible consequences", () => {
     const unsafe = finalizeSwipeQuestionCandidate({
       id: "candidate-3",
