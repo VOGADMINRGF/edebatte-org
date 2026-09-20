@@ -109,7 +109,7 @@ export const DossierMetaSchema = z
   .object({
     id: z.string(),
     title: z.string(),
-    jurisdiction: z.enum(["municipal", "state", "federal", "eu", "global"]),
+    jurisdiction: z.enum(["unknown", "municipal", "state", "federal", "eu", "global"]),
     region: z.string().optional(),
     status: z.enum(["draft", "review", "published", "archived"]).default("draft"),
     owner: z.string().optional(),
