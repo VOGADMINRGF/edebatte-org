@@ -96,6 +96,8 @@ jobs:
           tests/create-planner-debug-diagnostics.contract.test.ts
           tests/create-planner-timeout.contract.test.ts
           tests/openai-provider.reasoning.contract.test.ts
+          tests/qr-question-set-guard.contract.test.ts
+          tests/qr-question-set-review-flow.route.test.ts
 
       - name: Create save domain contracts with isolated security harness
         run: >-

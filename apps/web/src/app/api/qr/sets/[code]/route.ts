@@ -11,6 +11,7 @@ import {
   countRoundSeedContractsByCode,
   getLatestRoundSeedContractByCode,
 } from "@features/topicRound/seedContract";
+import { isQrQuestionSetPubliclyReleased } from "@/features/create/qrQuestionSetGuard";
 
 export async function GET(
   _req: Request,
@@ -19,7 +20,7 @@ export async function GET(
   const { code } = await context.params;
   const col = await coreCol("qr_question_sets");
   const doc = await col.findOne({ code, status: "active" });
-  if (!doc) {
+  if (!isQrQuestionSetPubliclyReleased(doc)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
