@@ -183,6 +183,8 @@ function createMongoRepo(): CreateHandoffRepository {
           $set: {
             record: clone(record),
             createdByUserId: record.createdByUserId,
+            canonicalDraftId: record.canonicalDraftId ?? null,
+            selectedAction: record.selectedAction,
             regionId: record.regionId,
             organizationId: record.organizationId,
             dossierId: record.dossierId,
@@ -255,6 +257,7 @@ async function ensureIndexes() {
   const col = await coreCol(COLLECTION);
   await Promise.all([
     col.createIndex({ createdByUserId: 1, updatedAt: -1 }),
+    col.createIndex({ canonicalDraftId: 1, updatedAt: -1 }),
     col.createIndex({ regionId: 1, updatedAt: -1 }),
     col.createIndex({ organizationId: 1, updatedAt: -1 }),
     col.createIndex({ dossierId: 1, updatedAt: -1 }),
@@ -267,6 +270,11 @@ async function ensureIndexes() {
 export async function persistCreateHandoffForReview(input: {
   draft: CreateHandoffDraft;
   createdByUserId: string;
+  canonicalDraftId?: string | null;
+  canonicalDraftBindingHash?: string | null;
+  canonicalDraftPayloadHash?: string | null;
+  canonicalSourceEvidenceRefs?: PersistedCreateHandoffRecord["canonicalSourceEvidenceRefs"];
+  questionGuardBindings?: PersistedCreateHandoffRecord["questionGuardBindings"];
   regionId?: string | null;
   organizationId?: string | null;
   dossierId?: string | null;
@@ -277,6 +285,14 @@ export async function persistCreateHandoffForReview(input: {
 }) {
   const timestamp = nowIso();
   const existing = await getRepo().get(input.draft.id);
+  const canonicalDraftId = normalizeOptionalString(input.canonicalDraftId);
+  if (
+    existing &&
+    (existing.createdByUserId !== input.createdByUserId ||
+      (existing.canonicalDraftId && canonicalDraftId && existing.canonicalDraftId !== canonicalDraftId))
+  ) {
+    throw new Error("create_handoff_identity_conflict");
+  }
   const record: PersistedCreateHandoffRecord = {
     schemaVersion: PERSISTED_CREATE_HANDOFF_SCHEMA_VERSION,
     id: input.draft.id,
@@ -301,6 +317,11 @@ export async function persistCreateHandoffForReview(input: {
     noAutoFinalization: true,
     intakeClassification: input.intakeClassification,
     createdByUserId: input.createdByUserId,
+    canonicalDraftId,
+    canonicalDraftBindingHash: normalizeOptionalString(input.canonicalDraftBindingHash),
+    canonicalDraftPayloadHash: normalizeOptionalString(input.canonicalDraftPayloadHash),
+    canonicalSourceEvidenceRefs: clone(input.canonicalSourceEvidenceRefs ?? []),
+    questionGuardBindings: clone(input.questionGuardBindings ?? []),
     regionId: normalizeRegionId(input.regionId),
     organizationId: normalizeOptionalString(input.organizationId),
     dossierId: normalizeOptionalString(input.dossierId),
