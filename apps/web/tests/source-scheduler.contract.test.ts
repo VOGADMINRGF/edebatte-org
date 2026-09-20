@@ -70,6 +70,34 @@ describe("source intelligence scheduler contract", () => {
     ).toBe("mode");
   });
 
+  it("uses registry cadence after successful runs instead of a generic future hint", () => {
+    const state = {
+      sourceId: "source:test",
+      automationMode: "cron_ready" as const,
+      backoffUntil: null,
+      nextSuggestedPullAt: "2026-09-20T15:30:00.000Z",
+      lastPullAt: "2026-09-20T09:30:00.000Z",
+      lastRunStatus: "success" as const,
+    };
+
+    expect(sourceDueState(state, new Date("2026-09-20T10:00:00.000Z"), 60)).toBe("not_due");
+    expect(sourceDueState(state, new Date("2026-09-20T10:31:00.000Z"), 60)).toBe("due");
+  });
+
+  it("returns to due after error backoff expires instead of applying normal cadence", () => {
+    const state = {
+      sourceId: "source:test",
+      automationMode: "cron_ready" as const,
+      backoffUntil: "2026-09-20T09:45:00.000Z",
+      nextSuggestedPullAt: "2026-09-20T09:45:00.000Z",
+      lastPullAt: "2026-09-20T09:30:00.000Z",
+      lastRunStatus: "error" as const,
+    };
+
+    expect(sourceDueState(state, new Date("2026-09-20T09:40:00.000Z"), 360)).toBe("backoff");
+    expect(sourceDueState(state, new Date("2026-09-20T09:46:00.000Z"), 360)).toBe("due");
+  });
+
   it("runs a due source once and releases its single-flight lease", async () => {
     const [entry] = listScheduledOpenDataSources();
     const leases = createInMemorySourceSchedulerLeaseRepository();
