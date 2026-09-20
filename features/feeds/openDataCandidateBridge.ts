@@ -38,6 +38,11 @@ function validHttpUrl(value: unknown): boolean {
  * Hard evidence gate before structured Open Data is allowed into the existing
  * StatementCandidate queue. TypeScript shapes are not enough here because
  * connector/provider payloads cross runtime boundaries.
+ *
+ * The event URL may identify one entity while provenance.sourceUrl identifies
+ * the fetched collection/resource that contained it. Both must be valid and
+ * the durable source/snapshot identity must remain present, but equality is
+ * deliberately not required.
  */
 export function assertOpenDataCandidateEvidence(event: NormalizedOpenDataEvent): void {
   const provenance = event?.provenance;
@@ -52,8 +57,7 @@ export function assertOpenDataCandidateEvidence(event: NormalizedOpenDataEvent):
     nonEmptyString(provenance.snapshotId) &&
     validIsoDate(provenance.retrievedAt) &&
     validHttpUrl(provenance.sourceUrl) &&
-    provenance.providerId === event.providerId &&
-    provenance.sourceUrl === event.sourceUrl;
+    provenance.providerId === event.providerId;
 
   if (!complete) {
     throw new Error("open_data_candidate_provenance_incomplete");
