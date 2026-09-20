@@ -161,18 +161,18 @@ export function evaluateTopicQualificationSystemQuestion(
   const signalRefs = cleanList(input.signalRefs);
   const evidenceRefs = cleanList(input.evidenceRefs);
   const missingMaterialQuestions = cleanList(
-    input.missingQuestionScopeReview?.missingMaterialQuestions,
+    input.missingQuestionScopeReview.missingMaterialQuestions,
   );
   const scope: TopicQualificationScope = {
-    currentProblem: clean(input.scope?.currentProblem),
-    jurisdictionState: input.scope?.jurisdictionState,
-    symptomCauseState: input.scope?.symptomCauseState,
-    expansionState: input.scope?.expansionState,
-    statusQuoResearchNeed: input.scope?.statusQuoResearchNeed,
+    currentProblem: clean(input.scope.currentProblem),
+    jurisdictionState: input.scope.jurisdictionState,
+    symptomCauseState: input.scope.symptomCauseState,
+    expansionState: input.scope.expansionState,
+    statusQuoResearchNeed: input.scope.statusQuoResearchNeed,
   };
   const missingQuestionScopeReview: MissingQuestionScopeReview = {
-    scopeComplete: input.missingQuestionScopeReview?.scopeComplete === true,
-    falseBinaryState: input.missingQuestionScopeReview?.falseBinaryState,
+    scopeComplete: input.missingQuestionScopeReview.scopeComplete === true,
+    falseBinaryState: input.missingQuestionScopeReview.falseBinaryState,
     missingMaterialQuestions,
   };
 
@@ -270,6 +270,7 @@ export function evaluateTopicQualificationSystemQuestion(
   if (
     !Number.isInteger(input.revision) ||
     input.revision <= 0 ||
+    typeof input.reviewedRevision !== "number" ||
     !Number.isInteger(input.reviewedRevision) ||
     input.reviewedRevision !== input.revision
   ) {
