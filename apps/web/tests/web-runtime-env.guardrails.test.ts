@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { GET as getDebugEnvironment } from "@/app/api/debug/env/route";
 import {
   CriticalProductionWebRuntimeEnvError,
   assertCriticalProductionWebRuntimeEnv,
@@ -12,6 +15,19 @@ import {
   shouldValidateProductionStartupEnv,
   validateProductionStartupEnv,
 } from "@/lib/server/webRuntimeEnv";
+
+const repositoryRoot = path.resolve(process.cwd(), "../..");
+
+function readRepositoryFile(relativePath: string) {
+  return readFileSync(path.join(repositoryRoot, relativePath), "utf8");
+}
+
+function debugRouteTemplate(source: string, endMarker: string) {
+  const start = source.indexOf("/api/debug/env");
+  const end = source.indexOf(endMarker, start);
+
+  return source.slice(start, end === -1 ? undefined : end);
+}
 
 describe("web runtime env guardrails", () => {
   it("uses MAIL_FROM as canonical sender and allows SMTP_FROM only as a legacy alias", () => {
@@ -194,5 +210,46 @@ describe("web runtime env guardrails", () => {
     expect(resolveMailFromForRuntime({ NODE_ENV: "test" })).toBe(
       CANONICAL_MAIL_FROM,
     );
+  });
+
+  it("makes the former debug environment route an empty, non-cacheable 404", async () => {
+    const response = await getDebugEnvironment();
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.text()).resolves.toBe("");
+  });
+
+  it("keeps the route and fallback reporting free of environment inspection", () => {
+    const debugRoute = readRepositoryFile("apps/web/src/app/api/debug/env/route.ts");
+    const fallback = readRepositoryFile("apps/web/src/ui/AnalysisFallbackNotice.tsx");
+    const supportReport = readRepositoryFile("apps/web/src/app/api/support/report/route.ts");
+
+    expect(debugRoute).not.toMatch(/process\.env|keyPreview|hasKey/);
+    expect(fallback).not.toContain("/api/debug/env");
+    expect(supportReport).not.toContain("env: body?.env");
+  });
+
+  it("keeps repository patch scripts from recreating an environment disclosure route", () => {
+    const templates = [
+      debugRouteTemplate(
+        readRepositoryFile("scripts/vog_full_wiring.sh"),
+        "# /api/health",
+      ),
+      debugRouteTemplate(
+        readRepositoryFile("scripts/vog_repo_patch_full.sh"),
+        'if [[ ! -f "$WEB/src/app/api/health/route.ts"',
+      ),
+      debugRouteTemplate(
+        readRepositoryFile("scripts/vog_super_bundle.sh"),
+        "# --- 4)",
+      ),
+    ];
+
+    for (const template of templates) {
+      expect(template).toMatch(/status:\s*404/);
+      expect(template).toContain("cache-control");
+      expect(template).not.toMatch(/process\.env|OPENAI_API_KEY|hasOpenAI|mask\(/);
+    }
   });
 });

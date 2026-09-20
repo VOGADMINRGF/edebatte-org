@@ -11,6 +11,7 @@ import {
 import type { CreateHandoffReviewQueueItem } from "@/features/create/createHandoffReviewQueue";
 import type { CreateIntelligentFollowupResult } from "@/features/create/intelligentFollowupContract";
 import type { NormalizedMaterialItem } from "@/features/create/materialRouting";
+import { createMutationRequestHeaders } from "@/features/create/createMutationSecurityContract";
 import type { RequestScopeSummary } from "@/lib/server/auth/requestScope";
 
 export const CREATE_HANDOFF_REVIEW_QUEUE_RUNTIME_BLOCKERS = [
@@ -43,6 +44,7 @@ type RuntimePersistSuccess = {
   ok: true;
   record?: {
     id?: string;
+    canonicalDraftId?: string | null;
     regionId?: string | null;
     organizationId?: string | null;
     dossierId?: string | null;
@@ -124,9 +126,14 @@ async function persistCreateHandoffReviewQueueInput(
 ): Promise<RuntimePersistResponse> {
   const response = await fetch("/api/create/handoffs", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: createMutationRequestHeaders(),
     body: JSON.stringify({
-      draft: input.draft,
+      draft: {
+        id: input.draft.id,
+        sourceText: input.draft.sourceText,
+        selectedAction: input.selectedAction,
+        createdAt: input.draft.createdAt,
+      },
       dossierId: input.dossierId,
       anlassraumId: input.anlassraumId,
     }),

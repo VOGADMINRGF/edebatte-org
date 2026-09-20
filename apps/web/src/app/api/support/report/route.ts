@@ -21,7 +21,7 @@ export async function POST(req: NextRequest){
 
     // einfache Protokollierung (Serverlog)
     console.warn("[support-report]", id, JSON.stringify({
-      source: body?.source, tookMs: body?.tookMs, meta: body?.meta, textLen: body?.textLen, env: body?.env
+      source: body?.source, tookMs: body?.tookMs, meta: body?.meta, textLen: body?.textLen
     }));
 
     // optional: Usage protokollieren (non-blocking)
