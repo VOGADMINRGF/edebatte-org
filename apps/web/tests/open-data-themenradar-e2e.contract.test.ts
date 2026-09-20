@@ -105,6 +105,7 @@ vi.mock("@features/anlassraum/db", () => ({
 
 vi.mock("@features/dossier/db", () => ({
   dossierSuggestionsCol: async () => memory.cursor([]),
+  dossiersCol: async () => memory.cursor([]),
 }));
 
 vi.mock("@features/dossier/server/studioPersistence", () => ({
@@ -118,6 +119,7 @@ vi.mock("@features/dossier/server/studioPersistence", () => ({
 vi.mock("@/features/create/persistedHandoffReviewQueue", () => ({
   buildPersistedCreateHandoffSummary: (record: { id: string }) => record.id,
   listPersistedCreateHandoffRecords: async () => [],
+  persistedCreateHandoffStatementId: (id: string) => `create-handoff:${id}`,
 }));
 
 vi.mock("@/features/material/materialExtractionJobs", () => ({
@@ -146,6 +148,7 @@ vi.mock("@/features/swipes/publicTopicSupply", () => ({
 }));
 
 import { ObjectId } from "@core/db/triMongo";
+import { createDerivedDossierUpdateSeeds } from "@features/dossier/updateReadModel";
 import { abgeordnetenwatchConnector } from "@features/feeds/connectors/abgeordnetenwatch";
 import { buildOpenDataStatementCandidates } from "@features/feeds/openDataCandidateBridge";
 import { createDurableSourceSnapshot } from "@features/feeds/sourceSnapshot";
@@ -158,7 +161,7 @@ describe("Open Data → Themenradar hard E2E", () => {
     memory.reset();
   });
 
-  it("keeps provenance and review gates from provider payload to canonical topic radar", async () => {
+  it("keeps provenance and review gates from provider payload through topic radar to dossier handoff", async () => {
     const source = abgeordnetenwatchConnector.buildSourceRef({
       resourcePath: "/api/v2/polls?range_start=0&range_end=1",
       regionCode: "DE:BE",
@@ -248,7 +251,7 @@ describe("Open Data → Themenradar hard E2E", () => {
     expect(memory.voteDrafts[0]).toMatchObject({
       status: "draft",
       feedReviewState: "queued",
-      regionCode: "DE:BE",
+      regionCode: { countryCode: "DE", subRegionCode: "BE" },
       sourceUrl: "https://www.abgeordnetenwatch.de/api/v2/polls/4242",
     });
 
@@ -281,5 +284,38 @@ describe("Open Data → Themenradar hard E2E", () => {
     expect(radar.items[0]?.evidenceHints).toContain(
       "https://www.abgeordnetenwatch.de/api/v2/polls/4242",
     );
+
+    const reviewedDraft = {
+      ...memory.voteDrafts[0],
+      status: "review",
+      feedReviewState: "attached",
+      anlassraumId: new ObjectId("65f100000000000000000426"),
+      reviewNote: "Quellenlage geprüft; Dossier-Kontext bleibt bestätigungspflichtig.",
+    };
+    const dossierSeeds = createDerivedDossierUpdateSeeds({
+      dossier: {
+        _id: new ObjectId("65f100000000000000000427"),
+        dossierId: "dossier-mobilitaet-berlin",
+        statementId: "statement-mobilitaet-berlin",
+        status: "active",
+        counts: { claims: 0, sources: 0, findings: 0, edges: 0, openQuestions: 0 },
+        createdAt: new Date("2026-09-20T08:02:00.000Z"),
+      } as any,
+      createHandoffs: [],
+      feedDrafts: [reviewedDraft as any],
+      swipeProposals: [],
+      anlassraeume: [],
+      evidenceClaims: [],
+    });
+
+    const feedHandoff = dossierSeeds.find((seed) => seed.origin === "feed");
+    expect(feedHandoff).toMatchObject({
+      origin: "feed",
+      section: "update",
+      title: "ÖPNV-Ausbau",
+      statementId: "statement-mobilitaet-berlin",
+    });
+    expect(feedHandoff?.reviewHint).toContain("Review");
+    expect(feedHandoff?.sourceHref).toContain("/admin/feeds/drafts/");
   });
 });
