@@ -58,6 +58,34 @@ describe("swipe question finalizer", () => {
     expect(result.item.decisionConsequences?.disagree[0]?.evidenceStatus).toBe("unverified");
   });
 
+  it("does not infer support merely because an evidence reference exists", () => {
+    const result = finalizeSwipeQuestionCandidate({
+      id: "candidate-ref-without-status",
+      title: "Wie ordnest du verbindlichere Weiterbildungsregeln ein?",
+      humanContext: "Weiterbildung konkurriert im Arbeitsalltag mit Zeit und betrieblichen Ressourcen.",
+      tradeoff: "Planbare Ansprüche stehen betrieblichem Gestaltungsspielraum gegenüber.",
+      decisionConsequences: {
+        agree: [
+          {
+            title: "Planbarkeit kann steigen",
+            evidenceRefs: [{ id: "source-ref-only", label: "Noch nicht bewertete Quelle" }],
+          },
+        ],
+        disagree: [
+          {
+            title: "Betriebe können mehr Gestaltungsspielraum behalten",
+            evidenceStatus: "hypothesis",
+          },
+        ],
+      },
+    });
+
+    expect(result.item.decisionConsequences?.agree[0]?.evidenceStatus).toBe("unverified");
+    expect(result.item.decisionConsequences?.agree[0]?.evidenceRefs).toEqual([
+      { id: "source-ref-only", label: "Noch nicht bewertete Quelle" },
+    ]);
+  });
+
   it("rejects supported or verified evidence status without a real reference", () => {
     const result = finalizeSwipeQuestionCandidate({
       id: "candidate-evidence-ref-gap",
