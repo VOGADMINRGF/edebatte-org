@@ -30,6 +30,7 @@ export const RESPONSIBILITY_LABELS: Record<string, string> = {
 };
 
 export const JURISDICTION_LABELS: Record<string, string> = {
+  unknown: "Unklar / offen",
   municipal: "Kommune",
   state: "Land",
   federal: "Bund",
