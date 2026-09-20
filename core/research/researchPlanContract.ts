@@ -1,5 +1,8 @@
 import type { ResearchTaskDossierBinding } from "./types";
-import type { SourceArtifactType } from "../../features/analyze/atomicClaimSourceRelationContract";
+import {
+  SOURCE_ARTIFACT_TYPES,
+  type SourceArtifactType,
+} from "../../features/analyze/atomicClaimSourceRelationContract";
 
 export const RESEARCH_PLAN_REVIEW_STATES = [
   "draft",
@@ -172,6 +175,18 @@ function validateNullableText(
 ) {
   if (value !== null && !clean(value)) {
     errors.push(`${path}:must_be_null_or_non_blank_string`);
+  }
+}
+
+function validateNullableSourceArtifactType(
+  value: unknown,
+  path: string,
+  errors: string[],
+) {
+  if (value === null) return;
+  const sourceType = clean(value);
+  if (!sourceType || !isOneOf(sourceType, SOURCE_ARTIFACT_TYPES)) {
+    errors.push(`${path}:invalid_source_artifact_type`);
   }
 }
 
@@ -367,6 +382,14 @@ function validateSourceRequirement(
     `${path}.requiredArtifactTypes`,
     errors,
   );
+  if (Array.isArray(value.requiredArtifactTypes)) {
+    value.requiredArtifactTypes.forEach((entry, index) => {
+      const sourceType = clean(entry);
+      if (sourceType && !isOneOf(sourceType, SOURCE_ARTIFACT_TYPES)) {
+        errors.push(`${path}.requiredArtifactTypes[${index}]:invalid_source_artifact_type`);
+      }
+    });
+  }
   if (
     !Number.isSafeInteger(value.requiredSourceFamilyCount) ||
     Number(value.requiredSourceFamilyCount) < 1
@@ -434,7 +457,7 @@ function validateArtifactReferences(
       ids.add(artifactId);
     }
     validateNullableText(entry.sourceFamilyId, `${itemPath}.sourceFamilyId`, errors);
-    validateNullableText(entry.sourceType, `${itemPath}.sourceType`, errors);
+    validateNullableSourceArtifactType(entry.sourceType, `${itemPath}.sourceType`, errors);
   });
 }
 
