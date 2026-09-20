@@ -4,7 +4,7 @@ Date: 2026-09-20
 
 Task: `DOSSIER-RESEARCH-WORKSPACE-01`
 
-Fresh-main basis: `main@3e77a9960ba1c4ff86348e78da191c10e1d8c8bd`
+Fresh-main basis: `main@1630c41e64b2d34a298d87183bab211e4f924d79`
 
 ```text
 TASK_PREFLIGHT=PASS
@@ -144,10 +144,10 @@ research truth.
 
 ## 4. Collision findings
 
-### Fresh-main drift #910 / #911 — Open Data source runtime
+### Fresh-main drift #910 / #911 / #913 — Open Data source runtime and candidate bridge
 
-While the first #928 CI was running, `main` advanced through merged PRs #910 and
-#911. Their exact changed paths were checked before this refresh.
+While #928 was running, `main` advanced through merged PRs #910, #911 and #913.
+Their changed paths were checked before this refresh.
 
 PR #910 changed only:
 
@@ -163,12 +163,18 @@ PR #911 changed only:
 - `apps/web/tests/open-data-runtime.contract.test.ts`;
 - `apps/web/package.json`.
 
-Neither PR changes `core/research/types.ts`, `core/research/store.ts`,
+PR #913 changed only:
+
+- `features/feeds/openDataCandidateBridge.ts`;
+- `apps/web/tests/open-data-candidate-bridge.contract.test.ts`;
+- `apps/web/package.json`.
+
+None changes `core/research/types.ts`, `core/research/store.ts`,
 `features/dossier/schemas.ts`, `features/dossier/db.ts`, the T0 ownership
 contract or this T2 preflight. There is therefore no direct T2A owner collision.
-The new Open Data runtime is source-acquisition/runtime infrastructure only and
-must not become a T2 ResearchPlan, evidence-verification or dossier-ownership
-store.
+The Open Data connector/runtime/candidate path is source/candidate infrastructure
+only and must not become a T2 ResearchPlan, evidence-verification or
+Dossier/ResearchTask ownership store.
 
 ### PR #912 — research findings to review-first dossier draft
 
