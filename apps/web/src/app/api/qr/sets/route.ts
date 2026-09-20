@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ObjectId, coreCol } from "@core/db/triMongo";
 import { anlassraumCol } from "@features/anlassraum/db";
 import { requireCreatorContext } from "../../streams/utils";
+import { evaluateQrQuestionSetQuestion } from "@/features/create/qrQuestionSetGuard";
 
 const QuestionSchema = z.object({
   title: z.string().min(3).max(200),
@@ -63,10 +64,17 @@ export async function POST(req: NextRequest) {
     options: q.options.map((opt) => opt.trim()).filter(Boolean),
     publicAttribution: q.publicAttribution ?? "hidden",
     allowAnonymousVoting: q.publicAttribution !== "public",
+    questionGuard: evaluateQrQuestionSetQuestion({ question: q.title }),
   }));
 
   if (questions.some((q) => q.options.length < 2)) {
     return NextResponse.json({ ok: false, error: "options_required" }, { status: 400 });
+  }
+  if (questions.some((q) => q.questionGuard.releaseState === "blocked")) {
+    return NextResponse.json(
+      { ok: false, error: "question_guard_blocked" },
+      { status: 422 },
+    );
   }
 
   if (!ctx) {
@@ -106,9 +114,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "anlassraum_not_found" }, { status: 404 });
     }
     anlassraumId = roomId;
-    if (room.dossierId) {
-      dossierId = room.dossierId;
-    }
+    if (room.dossierId) dossierId = room.dossierId;
   }
 
   if (parsed.data.dossierId) {
@@ -129,7 +135,13 @@ export async function POST(req: NextRequest) {
     dossierId,
     roundSlug: parsed.data.roundSlug ?? null,
     protocolStatus: "open",
-    status: "active",
+    status: "review_required",
+    questionGuardReviewState: "review_required",
+    activationState: "review_required",
+    version: 0,
+    questionGuardAuditTrail: [],
+    noAutoApproval: true,
+    noAutoPublish: true,
     source: ctx ? "creator" : "public_qr_studio",
     createdAt: now,
     updatedAt: now,
@@ -138,12 +150,21 @@ export async function POST(req: NextRequest) {
   const col = await coreCol("qr_question_sets");
   const result = await col.insertOne(doc);
 
-  return NextResponse.json({
-    ok: true,
-    setId: result.insertedId.toString(),
-    code,
-    anlassraumId: anlassraumId?.toHexString() ?? null,
-    dossierId: dossierId?.toHexString() ?? null,
-    roundSlug: parsed.data.roundSlug ?? null,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      setId: result.insertedId.toString(),
+      code,
+      status: "review_required",
+      questionGuardReviewState: "review_required",
+      activationState: "review_required",
+      version: 0,
+      noAutoApproval: true,
+      noAutoPublish: true,
+      anlassraumId: anlassraumId?.toHexString() ?? null,
+      dossierId: dossierId?.toHexString() ?? null,
+      roundSlug: parsed.data.roundSlug ?? null,
+    },
+    { status: 202 },
+  );
 }

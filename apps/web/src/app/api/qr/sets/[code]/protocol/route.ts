@@ -16,6 +16,7 @@ import {
   getLatestRoundSeedContractByCode,
 } from "@features/topicRound/seedContract";
 import { requireCreatorContext } from "../../../../streams/utils";
+import { isQrQuestionSetPubliclyReleased } from "@/features/create/qrQuestionSetGuard";
 
 const ProtocolPayloadSchema = z.object({
   summary: z.string().min(3).max(4000),
@@ -32,7 +33,7 @@ export async function GET(
   const { code } = await context.params;
   const sets = await coreCol("qr_question_sets");
   const set = await sets.findOne({ code });
-  if (!set) {
+  if (!isQrQuestionSetPubliclyReleased(set)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
@@ -115,7 +116,7 @@ export async function POST(
 
   const sets = await coreCol("qr_question_sets");
   const set = await sets.findOne({ code, status: "active" });
-  if (!set) {
+  if (!isQrQuestionSetPubliclyReleased(set)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
