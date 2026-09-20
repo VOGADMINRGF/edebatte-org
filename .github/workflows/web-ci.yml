@@ -67,6 +67,7 @@ jobs:
           tests/create-ledger-swipe-question-quality.contract.test.ts
           tests/source-swipe-question-quality-integration.contract.test.ts
           tests/source-swipe-question-quality-release.contract.test.ts
+          tests/source-swipe-convergence-contract.contract.test.ts
           tests/swipe-auth-gate.contract.test.tsx
           tests/privacy-gate-dialog.contract.test.tsx
 
