@@ -6,6 +6,7 @@ import {
   createDurableSourceSnapshot,
   decideSourceFetch,
   hashSourceContent,
+  replayDurableSourceSnapshot,
 } from "@features/feeds/sourceSnapshot";
 
 function source() {
@@ -48,7 +49,7 @@ describe("durable source snapshot freshness", () => {
     ).toEqual({ kind: "not_modified", reason: "same_content_hash" });
   });
 
-  it("creates an immutable next revision for changed content", () => {
+  it("creates an immutable next observation for changed content", () => {
     const first = createDurableSourceSnapshot({
       source: source(),
       response: {
@@ -79,11 +80,44 @@ describe("durable source snapshot freshness", () => {
     expect(second.version).toBe(2);
     expect(second.supersedes).toBe(first.snapshotId);
     expect(second.snapshotId).not.toBe(first.snapshotId);
+    expect(second.contentId).not.toBe(first.contentId);
     expect(second.reviewRequired).toBe(true);
     expect(second.autoPublishAllowed).toBe(false);
   });
 
-  it("fails closed for non-success responses and missing bodies", () => {
+  it("replays the immutable original content without any network access", () => {
+    const snapshot = createDurableSourceSnapshot({
+      source: source(),
+      response: {
+        status: 200,
+        body: "<rss><item>offline</item></rss>",
+        mime: "application/rss+xml",
+      },
+      retrievedAt: new Date("2026-09-20T08:00:00.000Z"),
+    });
+
+    expect(snapshot.replayable).toBe(true);
+    expect(replayDurableSourceSnapshot(snapshot)).toBe("<rss><item>offline</item></rss>");
+  });
+
+  it("fails closed when replay content is missing or has been tampered with", () => {
+    const snapshot = createDurableSourceSnapshot({
+      source: source(),
+      response: { status: 200, body: "original" },
+      retrievedAt: new Date("2026-09-20T08:00:00.000Z"),
+    });
+
+    expect(() => replayDurableSourceSnapshot({
+      contentHash: snapshot.contentHash,
+      contentLength: snapshot.contentLength,
+    })).toThrow("source_snapshot_replay_content_unavailable");
+    expect(() => replayDurableSourceSnapshot({
+      ...snapshot,
+      originalContent: "tampered",
+    })).toThrow("source_snapshot_replay_hash_mismatch");
+  });
+
+  it("fails closed for non-success responses, missing bodies and oversized durable payloads", () => {
     expect(decideSourceFetch({ response: { status: 429 } })).toEqual({
       kind: "failed",
       status: 429,
@@ -93,6 +127,11 @@ describe("durable source snapshot freshness", () => {
       kind: "failed",
       status: 200,
       reason: "source_fetch_body_missing",
+    });
+    expect(decideSourceFetch({ response: { status: 200, body: "x".repeat(8 * 1024 * 1024 + 1) } })).toEqual({
+      kind: "failed",
+      status: 200,
+      reason: "source_fetch_body_too_large_for_durable_snapshot",
     });
   });
 });
