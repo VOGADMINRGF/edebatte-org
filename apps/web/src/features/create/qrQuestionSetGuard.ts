@@ -49,6 +49,11 @@ type StoredQrQuestionSet = {
   lastActivationAudit?: unknown;
 };
 
+function storedQrQuestionSetOf(value: unknown): StoredQrQuestionSet | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as StoredQrQuestionSet;
+}
+
 function versionOf(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
@@ -140,9 +145,8 @@ export function buildQrQuestionGuardAuditEntry(input: {
   };
 }
 
-export function isQrQuestionSetReadyForActivation(
-  set: StoredQrQuestionSet | null | undefined,
-): boolean {
+export function isQrQuestionSetReadyForActivation(value: unknown): boolean {
+  const set = storedQrQuestionSetOf(value);
   if (
     set?.status !== "ready_for_activation" ||
     set.activationState !== "ready_for_activation" ||
@@ -163,9 +167,8 @@ export function isQrQuestionSetReadyForActivation(
   );
 }
 
-export function isQrQuestionSetPubliclyReleased(
-  set: StoredQrQuestionSet | null | undefined,
-): boolean {
+export function isQrQuestionSetPubliclyReleased(value: unknown): boolean {
+  const set = storedQrQuestionSetOf(value);
   if (set?.status !== "active" || set.activationState !== "active") return false;
   const version = versionOf(set.version);
   const questions = guardedQuestions(set.questions);
