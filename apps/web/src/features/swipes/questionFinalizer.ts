@@ -41,10 +41,8 @@ function validEvidenceRefs(consequence: SwipeConsequence) {
 
 function normalizeEvidenceStatus(
   consequence: SwipeConsequence,
-  validEvidenceRefCount = validEvidenceRefs(consequence).length,
 ): SwipeConsequenceEvidenceStatus {
-  if (consequence.evidenceStatus) return consequence.evidenceStatus;
-  return validEvidenceRefCount > 0 ? "supported" : "unverified";
+  return consequence.evidenceStatus ?? "unverified";
 }
 
 function normalizeConsequence(consequence: SwipeConsequence): SwipeConsequence {
@@ -54,7 +52,7 @@ function normalizeConsequence(consequence: SwipeConsequence): SwipeConsequence {
     title: consequence.title.trim(),
     detail: consequence.detail?.trim() || undefined,
     evidenceRefs,
-    evidenceStatus: normalizeEvidenceStatus(consequence, evidenceRefs.length),
+    evidenceStatus: normalizeEvidenceStatus(consequence),
   };
 }
 
