@@ -67,7 +67,7 @@ export type FeedSourceAutomationItem = {
   sourceType: string;
   sourceLabel: string;
   sourceHref: string | null;
-  sourceKind: "feed_ref" | "source_connection";
+  sourceKind: "feed_ref" | "source_connection" | "runtime_state";
   healthStatus: FeedSourceHealthStatus;
   healthLabel: string;
   healthHint: string;
@@ -130,6 +130,7 @@ type FeedSourceAutomationEvent = {
   insertedSignals?: number;
   reviewCandidateCount?: number;
   error?: string | null;
+  retryAfter?: string | null;
 };
 
 const COLLECTION = "feed_source_automation_state";
@@ -168,6 +169,25 @@ function backoffMsForErrorCount(errorCount: number) {
   return 24 * 60 * 60 * 1000;
 }
 
+function retryAfterUntil(value: string | null | undefined, completedAt: Date) {
+  const normalized = normalizeString(value);
+  if (!normalized) return null;
+  if (/^\d+$/.test(normalized)) {
+    const seconds = Number(normalized);
+    if (!Number.isFinite(seconds)) return null;
+    return new Date(completedAt.getTime() + Math.max(0, seconds) * 1000).toISOString();
+  }
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime()) || date.getTime() <= completedAt.getTime()) return null;
+  return date.toISOString();
+}
+
+function laterIso(left: string | null, right: string | null) {
+  if (!left) return right;
+  if (!right) return left;
+  return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
+}
+
 function deriveHealthStatus(input: {
   automationMode: FeedSourceAutomationMode;
   backoffUntil?: string | null;
@@ -176,7 +196,7 @@ function deriveHealthStatus(input: {
   noSignalStreak?: number;
   lastPullAt?: string | null;
   lastRunStatus?: "success" | "error" | "dry_run" | null;
-  sourceKind?: "feed_ref" | "source_connection";
+  sourceKind?: "feed_ref" | "source_connection" | "runtime_state";
 }) : FeedSourceHealthStatus {
   if (input.automationMode === "disabled") return "disabled";
   if (input.backoffUntil) {
@@ -256,7 +276,7 @@ function nextActionForItem(item: {
   healthStatus: FeedSourceHealthStatus;
   automationMode: FeedSourceAutomationMode;
   reviewCandidateCount: number;
-  sourceKind: "feed_ref" | "source_connection";
+  sourceKind: "feed_ref" | "source_connection" | "runtime_state";
 }) {
   if (item.healthStatus === "backoff" || item.healthStatus === "failing") {
     return {
@@ -383,10 +403,13 @@ export async function recordFeedSourceAutomationEvent(
       : insertedSignals > 0
         ? 0
         : (existing?.noSignalStreak ?? 0) + 1;
-  const backoffUntil =
+  const defaultBackoffUntil =
     input.runStatus === "error"
       ? new Date(input.completedAt.getTime() + backoffMsForErrorCount(nextErrorCount)).toISOString()
       : null;
+  const providerBackoffUntil =
+    input.runStatus === "error" ? retryAfterUntil(input.retryAfter, input.completedAt) : null;
+  const backoffUntil = laterIso(defaultBackoffUntil, providerBackoffUntil);
   const signalCount =
     (existing?.signalCount ?? 0) + (input.runStatus === "error" ? 0 : insertedSignals);
   const reviewCandidateCount =
@@ -581,6 +604,49 @@ function stateFromFeedRef(
   };
 }
 
+function stateFromRuntimeState(state: FeedSourceAutomationStateDoc): FeedSourceAutomationItem {
+  const healthStatus = deriveHealthStatus({
+    automationMode: state.automationMode,
+    backoffUntil: state.backoffUntil,
+    errorCount: state.errorCount,
+    signalCount: state.signalCount,
+    noSignalStreak: state.noSignalStreak,
+    lastPullAt: state.lastPullAt,
+    lastRunStatus: state.lastRunStatus,
+    sourceKind: "runtime_state",
+  });
+  const { label, hint } = healthCopy(healthStatus);
+  const nextAction = nextActionForItem({
+    healthStatus,
+    automationMode: state.automationMode,
+    reviewCandidateCount: state.reviewCandidateCount,
+    sourceKind: "runtime_state",
+  });
+  return {
+    sourceId: state.sourceId,
+    organizationId: state.organizationId,
+    regionId: state.regionId,
+    sourceType: state.sourceType,
+    sourceLabel: state.sourceLabel,
+    sourceHref: state.sourceHref,
+    sourceKind: "runtime_state",
+    healthStatus,
+    healthLabel: label,
+    healthHint: hint,
+    lastPullAt: state.lastPullAt,
+    nextSuggestedPullAt: state.nextSuggestedPullAt,
+    errorCount: state.errorCount,
+    backoffUntil: state.backoffUntil,
+    signalCount: state.signalCount,
+    reviewCandidateCount: state.reviewCandidateCount,
+    automationMode: state.automationMode,
+    reviewRequired: true,
+    noAutoPublish: true,
+    noDeepSearchAuto: true,
+    nextAction,
+  };
+}
+
 function sortByPriority(items: FeedSourceAutomationItem[]) {
   const healthPriority: Record<FeedSourceHealthStatus, number> = {
     backoff: 0,
@@ -625,6 +691,13 @@ export async function buildFeedSourceAutomationReadModel(input?: {
       latestResultByConnection.set(result.connectionId, result);
     }
   }
+  const knownSourceIds = new Set([
+    ...feedRefs.map(({ sourceId }) => sourceId),
+    ...connections.map((connection) => connection.id),
+  ]);
+  const runtimeStates = states.filter(
+    (state) => state.sourceType.startsWith("open_data:") && !knownSourceIds.has(state.sourceId),
+  );
 
   const items = sortByPriority([
     ...feedRefs.map(({ sourceId, ref }) =>
@@ -636,6 +709,7 @@ export async function buildFeedSourceAutomationReadModel(input?: {
         latestResultByConnection.get(connection.id) ?? null,
       ),
     ),
+    ...runtimeStates.map(stateFromRuntimeState),
   ]).slice(0, limit);
 
   const summary = {

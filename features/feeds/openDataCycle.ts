@@ -65,6 +65,7 @@ async function recordCycle(input: OpenDataCycleInput, event: {
   insertedSignals: number;
   reviewCandidateCount: number;
   error?: string | null;
+  retryAfter?: string | null;
 }) {
   const recorder = input.automationRecorder ?? recordFeedSourceAutomationEvent;
   await recorder({
@@ -80,6 +81,7 @@ async function recordCycle(input: OpenDataCycleInput, event: {
     insertedSignals: event.insertedSignals,
     reviewCandidateCount: event.reviewCandidateCount,
     error: event.error ?? null,
+    retryAfter: event.retryAfter ?? null,
   });
 }
 
@@ -207,6 +209,7 @@ export async function runOpenDataCycle(
       insertedSignals: 0,
       reviewCandidateCount: 0,
       error: errorWithRetry(reason, retryAfter),
+      retryAfter,
     });
     return {
       status: "failed",
@@ -224,6 +227,7 @@ export async function runOpenDataCycle(
       insertedSignals: 0,
       reviewCandidateCount: 0,
       error: errorWithRetry(runtime.reason, runtime.retryAfter),
+      retryAfter: runtime.retryAfter,
     });
     return {
       status: "failed",
@@ -305,6 +309,7 @@ export async function runOpenDataCycle(
       insertedSignals: 0,
       reviewCandidateCount: 0,
       error: errorWithRetry(repair.reason, repair.retryAfter),
+      retryAfter: repair.retryAfter,
     });
     return {
       status: "failed",
