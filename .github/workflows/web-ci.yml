@@ -112,6 +112,12 @@ jobs:
           tests/operator-notifications.contract.test.ts
           tests/operator-digest.route.test.ts
 
+      - name: Focused T1 topic qualification contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/topic-qualification-system-question.contract.test.ts
+          tests/topic-qualification-system-question.edge.test.ts
+
   web-quality:
     name: Web quality
     runs-on: ubuntu-latest
