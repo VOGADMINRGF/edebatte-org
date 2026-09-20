@@ -39,6 +39,7 @@ import { buildAgenticCivicE2ECreateHint } from "@/features/agenticRuntime/agenti
 import { buildCreateSegmentHint } from "@/features/agenticRuntime/segmentedAgentExperienceContract";
 import { buildVoxyExperienceShellHint } from "@/features/voxy/voxyExperienceShellContract";
 import GuestCreateEphemeralClient from "./GuestCreateEphemeralClient";
+import AuthenticatedGuestAdoptionResumeClient from "./AuthenticatedGuestAdoptionResumeClient";
 
 export const metadata: Metadata = {
   title: "Etwas beitragen - eDebatte",
@@ -160,6 +161,11 @@ export default async function CreatePage({
     redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
   }
 
+  const nextAction = readParam(resolved.nextAction) ?? null;
+  if (nextAction === "guest-adoption-resume") {
+    return <AuthenticatedGuestAdoptionResumeClient locale={pageLocale} />;
+  }
+
   const mode = mapMode(readParam(resolved.mode));
   const rawModeParam = readParam(resolved.mode) ?? null;
   const rawIntentParam = readParam(resolved.intent) ?? null;
@@ -172,7 +178,6 @@ export default async function CreatePage({
   const dossierId = readParam(resolved.dossierId) ?? null;
   const anlassraumId = readParam(resolved.anlassraumId) ?? null;
   const returnTo = readParam(resolved.returnTo) ?? null;
-  const nextAction = readParam(resolved.nextAction) ?? null;
   const intakeContext = parseCreateIntakeContextFromQuery(resolved);
   const prefillText = decodeMaybe(readParam(resolved.prefill) ?? readParam(resolved.text));
   const draftId = readParam(resolved.draftId);

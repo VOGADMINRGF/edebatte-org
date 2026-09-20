@@ -154,7 +154,7 @@ function inputKindLabel(kind: StreamPublicInputDoc["kind"]) {
 }
 
 function visibilityLabel(value: StreamPublicInputDoc["visibilityState"]) {
-  if (value === "public_unverified") return "sichtbar, aber nicht geprüft";
+  if (value === "public_unverified") return "sichtbar, aber nicht amtlich bestätigt";
   if (value === "public_reviewed") return "geprüft sichtbar";
   if (value === "public_official") return "amtlich freigegeben";
   if (value === "blocked") return "blockiert";
@@ -172,10 +172,28 @@ function publicVisibilityMarkerFor(doc: StreamPublicInputDoc) {
   return "review_only" as const;
 }
 
+function isAcceptedPublicInput(doc: StreamPublicInputDoc) {
+  if (doc.reviewState !== "accepted") return false;
+  return (
+    doc.visibilityState === "public_unverified" ||
+    doc.visibilityState === "public_reviewed" ||
+    doc.visibilityState === "public_official"
+  );
+}
+
+const RELEASED_SESSION_QUERY = {
+  $or: [
+    { status: { $in: ["scheduled", "live", "ended", "cancelled"] } },
+    { isLive: true },
+    { endedAt: { $exists: true, $ne: null } },
+  ],
+};
+
 async function fetchSessionBySlugOrId(slugOrId: string): Promise<StreamSessionDoc | null> {
   const sessions = await streamSessionsCol();
   const baseQuery: Record<string, unknown> = {
     visibility: { $in: ["public", "unlisted"] },
+    ...RELEASED_SESSION_QUERY,
   };
 
   if (/^[0-9a-fA-F]{24}$/.test(slugOrId)) {
@@ -272,11 +290,11 @@ function shareEnabledForStatus(status: StreamPublicRuntimeStatus) {
 
 function buildRecapReviewHint(status: StreamPublicRuntimeStatus, pendingCount: number) {
   if (status === "collecting_input") {
-    return "Fragen und Hinweise laufen reviewpflichtig ein und erscheinen nicht automatisch als Chat oder amtlicher Stand.";
+    return "Fragen und Hinweise laufen reviewpflichtig ein und werden vor öffentlicher Anzeige geprüft.";
   }
   if (status === "review_required") {
     return pendingCount > 0
-      ? `${pendingCount} neue Hinweise warten auf Prüfung, bevor sie in Anlassraum oder Dossier weiterlaufen.`
+      ? `${pendingCount} neue Hinweise warten auf Prüfung, bevor ihr Inhalt öffentlich sichtbar werden kann.`
       : "Hinweise aus dem Event bleiben im Review-Pfad, bevor weitere Sichtbarkeit entsteht.";
   }
   if (status === "recap_in_progress" || status === "dossier_update_suggested") {
@@ -287,7 +305,7 @@ function buildRecapReviewHint(status: StreamPublicRuntimeStatus, pendingCount: n
 
 export async function buildStreamPublicRuntime(slugOrId: string): Promise<StreamPublicRuntime | null> {
   const session = await fetchSessionBySlugOrId(slugOrId);
-  if (!session) return null;
+  if (!session || resolveSessionStatus(session) === "draft") return null;
 
   const relatedRoom = await findRelatedRoom(session);
   const dossierId = relatedRoom?.dossierId ?? null;
@@ -303,6 +321,7 @@ export async function buildStreamPublicRuntime(slugOrId: string): Promise<Stream
   ]);
 
   const pendingCount = inputDocs.filter((doc) => doc.reviewState === "needs_review" || doc.reviewState === "needs_region_review").length;
+  const publicInputDocs = inputDocs.filter(isAcceptedPublicInput);
   const hasFollowUpUpdates = Array.isArray(session.followUp?.updates) && session.followUp.updates.length > 0;
   const hasDossierUpdateSuggestion = Boolean(dossierUpdates?.summary.reviewRequired);
   const resolvedStatus = resolveStreamPublicRuntimeStatus({
@@ -356,11 +375,11 @@ export async function buildStreamPublicRuntime(slugOrId: string): Promise<Stream
     participation: {
       openForInput: participationOpenForStatus(resolvedStatus),
       pendingCount,
-      visibleCount: inputDocs.filter((doc) => doc.visibilityState === "public_unverified" || doc.visibilityState === "public_reviewed").length,
-      questionCount: inputDocs.filter((doc) => doc.kind === "question").length,
-      sourceHintCount: inputDocs.filter((doc) => doc.kind === "source_hint" || doc.kind === "correction").length,
-      latestAt: toIso(inputDocs[0]?.createdAt),
-      items: inputDocs.map((doc) => ({
+      visibleCount: publicInputDocs.length,
+      questionCount: publicInputDocs.filter((doc) => doc.kind === "question").length,
+      sourceHintCount: publicInputDocs.filter((doc) => doc.kind === "source_hint" || doc.kind === "correction").length,
+      latestAt: toIso(publicInputDocs[0]?.createdAt),
+      items: publicInputDocs.map((doc) => ({
         id: doc.inputId,
         kind: doc.kind,
         kindLabel: inputKindLabel(doc.kind),
@@ -406,7 +425,7 @@ export async function listPublicStreamLinksByTopicKeys(topicKeys: string[]): Pro
     .find({
       visibility: "public",
       topicKey: { $in: normalized },
-      status: { $ne: "cancelled" },
+      status: { $in: ["scheduled", "live", "ended"] },
     } as Record<string, unknown>)
     .sort({ isLive: -1, startsAt: 1, updatedAt: -1 })
     .toArray();

@@ -36,14 +36,7 @@ fi
 echo "=== STEP 1: Debug/Health ==="
 write "$WEB/src/app/api/debug/env/route.ts" 'import { NextResponse } from "next/server";
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
-const mask=(v?:string|null)=>!v?null:{len:v.length,head:v.slice(0,5),tail:v.slice(-3)};
-export async function GET(){ return NextResponse.json({
-  NODE_ENV: process.env.NODE_ENV,
-  hasOpenAI: !!process.env.OPENAI_API_KEY,
-  OPENAI_API_KEY: mask(process.env.OPENAI_API_KEY),
-}); }
-export async function HEAD(){ return new Response(null,{status:200}); }
-export async function OPTIONS(){ return new Response(null,{status:204,headers:{Allow:"GET,HEAD,OPTIONS"}}); }'
+export async function GET(){ return new NextResponse(null,{status:404,headers:{"cache-control":"no-store"}}); }'
 
 if [[ ! -f "$WEB/src/app/api/health/route.ts" ]]; then
   write "$WEB/src/app/api/health/route.ts" 'import { NextResponse } from "next/server";
@@ -136,7 +129,6 @@ fi
 
 echo "=== DONE ==="
 echo "Checks:"
-echo "  curl -s http://127.0.0.1:3000/api/debug/env | jq ."
 echo "  curl -s http://127.0.0.1:3000/api/health | jq ."
 echo "  curl -s --get --data-urlencode \"text=ÖPNV Berlin\" http://127.0.0.1:3000/api/statements/similar | jq ."
 echo "  curl -s -X POST -H 'content-type: application/json' -d '{\"text\":\"Ich bin gegen Preiserhöhungen.\",\"maxClaims\":5}' \"http://127.0.0.1:3000/api/contributions/analyze?mode=multi&clarify=1\" | jq '{_meta,claims}'"

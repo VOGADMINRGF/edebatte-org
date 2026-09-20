@@ -126,6 +126,10 @@ function canonicalize(value: unknown): string {
   return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(record[key])}`).join(",")}}`;
 }
 
+export function isCreateSourceUrlSensitiveOrMalformed(value: string): boolean {
+  return hasSignedUrl(value);
+}
+
 export function inspectGuestClaim(value: unknown): { ok: true; normalizedDigest: string } | { ok: false } {
   const seen = new Set<object>();
   let nodes = 0;

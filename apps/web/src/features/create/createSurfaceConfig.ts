@@ -76,6 +76,16 @@ export type CreateComposerTexts = {
   attachmentFileTooLarge: (name: string) => string;
   voiceUnsupported: string;
   voiceFailed: string;
+  regionEditAria: (label: string) => string;
+  emergencyNotice: string;
+  jurisdictionSingleTitle: (label: string) => string;
+  jurisdictionMultipleTitle: string;
+  jurisdictionSingleLead: string;
+  jurisdictionMultipleLead: string;
+  jurisdictionConfirmLabel: string;
+  jurisdictionConfirmedLabel: (label: string) => string;
+  jurisdictionEditLabel: string;
+  jurisdictionChangeLabel: string;
 };
 
 export type CreateSurfaceTexts = {
@@ -331,6 +341,19 @@ const CREATE_SURFACE_BUNDLES: Record<CreateSurfaceLocale, CreateSurfaceLocaleBun
       attachmentFileTooLarge: (name) => `Datei zu groß: ${name} (max. 8 MB).`,
       voiceUnsupported: "Sprachaufnahme wird in diesem Browser nicht unterstützt.",
       voiceFailed: "Sprachaufnahme ist fehlgeschlagen. Bitte erneut versuchen.",
+      regionEditAria: (label) => `${label}. Region bearbeiten`,
+      emergencyNotice:
+        "Bei akuter Gefahr ist eDebatte nicht der richtige Notfallkanal. Ruf 112 oder wende dich direkt an Polizei beziehungsweise Rettungsdienst.",
+      jurisdictionSingleTitle: (label) => `Vermutlich zuständig: ${label}`,
+      jurisdictionMultipleTitle: "Mehrere Zuständigkeiten kommen infrage",
+      jurisdictionSingleLead:
+        "Passt das? Die Zuständigkeit bleibt ein Vorschlag, bis du sie bestätigst.",
+      jurisdictionMultipleLead:
+        "Bitte bestätige genau den Vorschlag, der zu deinem Anliegen passt.",
+      jurisdictionConfirmLabel: "Ja, das passt",
+      jurisdictionConfirmedLabel: (label) => `${label} · bestätigt`,
+      jurisdictionEditLabel: "Im Beitrag präzisieren",
+      jurisdictionChangeLabel: "Zuständigkeit ändern",
     },
     texts: {
       badgeCanonical: "EINFACH STARTEN",
@@ -581,6 +604,19 @@ const CREATE_SURFACE_BUNDLES: Record<CreateSurfaceLocale, CreateSurfaceLocaleBun
       attachmentFileTooLarge: (name) => `File too large: ${name} (max 8 MB).`,
       voiceUnsupported: "Voice input is not supported in this browser.",
       voiceFailed: "Voice input failed. Please try again.",
+      regionEditAria: (label) => `${label}. Edit region`,
+      emergencyNotice:
+        "If there is immediate danger, eDebatte is not an emergency channel. Call 112 or contact the police or emergency services directly.",
+      jurisdictionSingleTitle: (label) => `Likely responsible: ${label}`,
+      jurisdictionMultipleTitle: "Several authorities may be responsible",
+      jurisdictionSingleLead:
+        "Is this right? The jurisdiction remains a proposal until you confirm it.",
+      jurisdictionMultipleLead:
+        "Please confirm exactly the proposal that matches your contribution.",
+      jurisdictionConfirmLabel: "Yes, that fits",
+      jurisdictionConfirmedLabel: (label) => `${label} · confirmed`,
+      jurisdictionEditLabel: "Clarify in contribution",
+      jurisdictionChangeLabel: "Change jurisdiction",
     },
     texts: {
       badgeCanonical: "Canonical entry",

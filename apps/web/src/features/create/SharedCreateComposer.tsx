@@ -12,6 +12,8 @@ import type {
   CreateSurfaceModeDefinition,
 } from "@/features/create/createSurfaceConfig";
 import EntryHeroHeading from "@/components/surfaces/EntryHeroHeading";
+import type { CreateCitizenIntakeContext } from "@/features/create/createContributionPackageContract";
+import { buildCreateJurisdictionCandidateKey } from "@/features/create/createCitizenIntakeContext";
 
 type SpeechRecognitionLike = {
   lang: string;
@@ -165,6 +167,11 @@ export type SharedCreateComposerProps = {
   error?: string | null;
   errorRef?: React.Ref<React.ElementRef<"p">>;
   contextBanner?: React.ReactNode;
+  citizenContext?: CreateCitizenIntakeContext | null;
+  confirmedJurisdictionKey?: string | null;
+  onConfirmCitizenJurisdiction?: (candidateKey: string) => void;
+  onEditCitizenJurisdiction?: () => void;
+  onEditCitizenRegion?: () => void;
   allowVoice?: boolean;
   onAttachmentsChange?: (files: File[]) => void;
   minRows?: number;
@@ -208,6 +215,11 @@ export default function SharedCreateComposer({
   error,
   errorRef,
   contextBanner,
+  citizenContext,
+  confirmedJurisdictionKey = null,
+  onConfirmCitizenJurisdiction,
+  onEditCitizenJurisdiction,
+  onEditCitizenRegion,
   allowVoice = true,
   onAttachmentsChange,
   minRows = 9,
@@ -246,6 +258,105 @@ export default function SharedCreateComposer({
       : "Beschreibe dein Thema, deine Idee oder deinen Lösungsansatz..."
     : inputPlaceholder;
   const characterCount = inputValue.trim().length;
+  const citizenContextBlock = citizenContext ? (
+    <>
+      {citizenContext.regionChipLabel ? (
+        <div
+          className="flex flex-wrap items-center gap-2"
+          data-create-region-context={citizenContext.regionSource}
+        >
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] items-center rounded-full border border-cyan-300/45 bg-cyan-500/[0.08] px-3.5 py-2 text-sm font-medium text-cyan-950 transition hover:bg-cyan-500/[0.13] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 dark:border-cyan-300/25 dark:bg-cyan-500/[0.12] dark:text-cyan-50"
+            onClick={() => {
+              onEditCitizenRegion?.();
+              textareaRef.current?.focus();
+            }}
+            aria-label={texts.regionEditAria(citizenContext.regionChipLabel)}
+          >
+            <span aria-hidden="true" className="mr-1.5">📍</span>
+            {citizenContext.regionChipLabel}
+          </button>
+          {citizenContext.clarificationQuestion ? (
+            <p className="text-xs leading-relaxed text-[rgb(var(--muted))]">
+              {citizenContext.clarificationQuestion}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {citizenContext.jurisdictionCandidates.length > 0 ? (
+        <div
+          className="rounded-2xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-950/25 dark:text-amber-50"
+          data-create-jurisdiction-confirmation
+        >
+          <p className="font-semibold">
+            {citizenContext.jurisdictionCandidates.length === 1
+              ? texts.jurisdictionSingleTitle(
+                  citizenContext.jurisdictionCandidates[0]?.label ?? "",
+                )
+              : texts.jurisdictionMultipleTitle}
+          </p>
+          <p className="mt-1 leading-relaxed">
+            {citizenContext.jurisdictionCandidates.length === 1
+              ? texts.jurisdictionSingleLead
+              : texts.jurisdictionMultipleLead}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {citizenContext.jurisdictionCandidates.map((candidate) => {
+              const candidateKey = buildCreateJurisdictionCandidateKey(candidate);
+              const selected = confirmedJurisdictionKey === candidateKey;
+              const canConfirm =
+                candidate.level !== "unknown" &&
+                citizenContext.regionSource !== "profile_suggestion";
+              return (
+                <button
+                  key={candidateKey}
+                  type="button"
+                  className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                    selected
+                      ? "border-emerald-600 bg-emerald-100 text-emerald-950 dark:border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-50"
+                      : "border-amber-500/50 bg-white/70 text-amber-950 hover:border-amber-600 dark:bg-amber-950/20 dark:text-amber-50"
+                  }`}
+                  aria-pressed={selected}
+                  disabled={!canConfirm || !onConfirmCitizenJurisdiction}
+                  onClick={() => onConfirmCitizenJurisdiction?.(candidateKey)}
+                >
+                  {selected
+                    ? texts.jurisdictionConfirmedLabel(candidate.label)
+                    : citizenContext.jurisdictionCandidates.length === 1
+                      ? texts.jurisdictionConfirmLabel
+                      : candidate.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] items-center rounded-full border border-amber-500/50 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:border-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-amber-50"
+              onClick={() => {
+                onEditCitizenJurisdiction?.();
+                textareaRef.current?.focus();
+              }}
+            >
+              {confirmedJurisdictionKey
+                ? texts.jurisdictionChangeLabel
+                : texts.jurisdictionEditLabel}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {citizenContext.safety.emergencyNoticeRequired ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-300/30 dark:bg-red-950/30 dark:text-red-50"
+          data-create-emergency-notice
+        >
+          {texts.emergencyNotice}
+        </div>
+      ) : null}
+    </>
+  ) : null;
 
   React.useEffect(() => {
     if (!allowVoice) {
@@ -430,6 +541,8 @@ export default function SharedCreateComposer({
 
           {contextBanner}
 
+          {citizenContextBlock}
+
           <label className="sr-only" htmlFor={inputId}>
             {inputLabel ?? texts.inputLabel}
           </label>
@@ -590,6 +703,8 @@ export default function SharedCreateComposer({
         )}
 
         {contextBanner}
+
+          {citizenContextBlock}
 
         <div className={`space-y-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] ${isMinimalCreate ? "overflow-x-hidden" : ""}`}>
           <div className={`${isMinimalCreate ? "rounded-[30px] bg-[linear-gradient(135deg,color-mix(in_oklab,rgb(var(--grad-from))_18%,transparent),color-mix(in_oklab,rgb(var(--grad-to))_12%,transparent),color-mix(in_oklab,rgb(var(--border))_52%,transparent))] p-[1px]" : "rounded-2xl bg-[linear-gradient(135deg,rgba(26,140,255,0.36),rgba(139,92,246,0.24),rgba(24,207,200,0.34))] p-[1px]"}`}>

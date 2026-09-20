@@ -170,6 +170,10 @@ function textSimilarity(left: string, right: string): number {
   );
 }
 
+export {
+  inferExistingTopicMatchRelation,
+} from "@/features/create/createExistingMatchDecision";
+
 function strengthFromScore(score: number): ExistingTopicMatch["strength"] {
   if (score >= 0.82) return "strong";
   if (score >= 0.58) return "medium";

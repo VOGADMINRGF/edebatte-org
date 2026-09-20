@@ -1,5 +1,7 @@
-import { buildPublicDiscoverySitemap } from "@/lib/seo/publicDiscovery";
+import { buildPublicSitemap } from "@/lib/seo/publicSitemap";
 
-export default function sitemap() {
-  return buildPublicDiscoverySitemap();
+export const dynamic = "force-dynamic";
+
+export default async function sitemap() {
+  return buildPublicSitemap();
 }

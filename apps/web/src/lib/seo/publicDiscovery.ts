@@ -29,10 +29,8 @@ type BuildPublicPageMetadataInput = {
   ogType?: "website" | "article";
 };
 
-type SitemapEntry = {
+export type PublicSitemapEntry = {
   url: string;
-  changeFrequency: "daily" | "weekly";
-  priority: number;
 };
 
 function normalizePath(path: string): string {
@@ -72,11 +70,9 @@ export function buildPublicPageMetadata(input: BuildPublicPageMetadataInput): Me
   };
 }
 
-export function buildPublicDiscoverySitemap(): SitemapEntry[] {
+export function buildStaticPublicDiscoverySitemap(): PublicSitemapEntry[] {
   return PUBLIC_DISCOVERY_PATHS.map((path) => ({
     url: new URL(path, BRAND.baseUrl).toString(),
-    changeFrequency: path === "/" ? "daily" : "weekly",
-    priority: path === "/" ? 1 : 0.7,
   }));
 }
 
@@ -84,12 +80,14 @@ export function buildHomeStructuredData() {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": `${BRAND.baseUrl}/#website`,
     name: BRAND.name,
     url: BRAND.baseUrl,
     inLanguage: "de-DE",
     description: BRAND.tagline_de,
     publisher: {
       "@type": "Organization",
+      "@id": `${BRAND.baseUrl}/#organization`,
       name: BRAND.name,
       url: BRAND.baseUrl,
       email: BRAND.contactEmail,

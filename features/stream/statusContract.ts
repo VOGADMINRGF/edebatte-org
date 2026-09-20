@@ -38,9 +38,9 @@ const STATUS_META: Record<StreamPublicRuntimeStatus, StreamPublicStatusMeta> = {
     tone: "info",
   },
   live: {
-    label: "Läuft gerade",
-    description: "Der Event ist live sichtbar. Kontext und Nachbereitung bleiben getrennt.",
-    nextAction: "Livestream verfolgen und bei Bedarf in den Anlassraum wechseln.",
+    label: "Event läuft",
+    description: "Der Event läuft gerade. Ob ein Livestream verfügbar ist, zeigt der Medienbereich dieses Events.",
+    nextAction: "Event verfolgen oder die verfügbaren Beteiligungsfunktionen nutzen.",
     tone: "success",
   },
   collecting_input: {
@@ -51,7 +51,7 @@ const STATUS_META: Record<StreamPublicRuntimeStatus, StreamPublicStatusMeta> = {
   },
   review_required: {
     label: "In Prüfung",
-    description: "Neue Hinweise oder Fragen werden geprüft, bevor mehr Sichtbarkeit entsteht.",
+    description: "Neue Hinweise oder Fragen werden geprüft, bevor ihr Inhalt öffentlich sichtbar werden kann.",
     nextAction: "Review abwarten oder ergänzende Quelle nachreichen.",
     tone: "warning",
   },
@@ -87,7 +87,7 @@ const STATUS_META: Record<StreamPublicRuntimeStatus, StreamPublicStatusMeta> = {
   },
   error: {
     label: "Fehler",
-    description: "Der Stream- oder Beteiligungskontext konnte gerade nicht vollständig geladen werden.",
+    description: "Der Event- oder Beteiligungskontext konnte gerade nicht vollständig geladen werden.",
     nextAction: "Später erneut laden oder auf Anlassraum/Dossier ausweichen.",
     tone: "danger",
   },
@@ -127,8 +127,10 @@ export function resolveStreamPublicRuntimeStatus(input: {
     return "closed";
   }
 
+  // Event lifecycle and participation are separate truths. A running event remains
+  // "live" even when the participation lane is open; the UI exposes participation separately.
   if (input.session.isLive || input.session.status === "live") {
-    return input.hasPublicInputPath ? "collecting_input" : "live";
+    return "live";
   }
 
   if (input.hasPublicInputPath) return "open_for_questions";

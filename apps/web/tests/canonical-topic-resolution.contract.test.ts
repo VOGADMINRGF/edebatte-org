@@ -4,7 +4,7 @@ import {
   type CanonicalTopic,
   type ExternalParticipationSignal,
   type JurisdictionContext,
-} from "@/features/create/canonicalTopicResolutionContract";
+} from "@features/topic/canonicalTopicResolutionContract";
 
 const topic: CanonicalTopic = {
   id: "topic-mobility",

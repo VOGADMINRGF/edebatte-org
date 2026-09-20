@@ -6,7 +6,8 @@ import { stableHash } from "@core/utils/hash";
 
 export type CreateOrchestrationKind =
   | "create_intelligent_followup_planner"
-  | "create_guest_claim";
+  | "create_guest_claim"
+  | "create_authenticated_source_link_analysis";
 
 type CreateOrchestrationClaimStatus = "running" | "completed" | "failed";
 

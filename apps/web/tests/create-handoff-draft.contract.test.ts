@@ -10,6 +10,11 @@ vi.mock("@features/analyze/analyzeContribution", () => ({
 
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
 import { buildCreateHandoffDraft } from "@/features/create/createHandoff";
+import {
+  applyCreateJurisdictionConfirmation,
+  buildCreateJurisdictionCandidateKey,
+  resolveCreateCitizenIntakeContext,
+} from "@/features/create/createCitizenIntakeContext";
 
 const TIERWOHL_TEXT =
   "Ich bin für besseren Tierschutz und Tierhaltung. Das sollte Europa und weltweit einheitlich umgesetzt werden, mindestens in den Ländern, aus denen wir importieren oder in die wir exportieren. Das sollte für Fleisch, Geflügel und Fisch gelten. Es geht um Tierwohl, Agrar, Bio-Label und Haltungsstufen.";
@@ -51,6 +56,59 @@ describe("create handoff draft contract", () => {
     expect(draft.resumeHref).toBe("/create?resume=create_handoff&handoffId=handoff-1");
     expect(draft.requiresConfirmation).toBe(true);
     expect(draft.createdAt).toBe("2026-05-10T10:00:00.000Z");
+  });
+
+  it("carries C7 jurisdiction only as an untrusted handoff transport key", async () => {
+    const sourceText =
+      "In Wuppertal sollte der Schulweg sicherer werden.";
+    const followup = await buildCreateIntelligentFollowup({
+      text: sourceText,
+      locale: "de",
+      intent: "contribute",
+    });
+    const context = resolveCreateCitizenIntakeContext({
+      text: sourceText,
+      directoryEntries: [{
+        id: "region-official-05124000",
+        municipalityName: "Wuppertal, Stadt",
+        state: "Nordrhein-Westfalen",
+        country: "DE",
+        registryId: "05124000",
+        administrativeUnitType: "kreisfreie_stadt",
+        authorityName: "Stadt Wuppertal",
+      }],
+    });
+    const candidateKey = buildCreateJurisdictionCandidateKey(
+      context.jurisdictionCandidates[0]!,
+    );
+    const confirmed = applyCreateJurisdictionConfirmation(
+      context,
+      candidateKey,
+    );
+    const withContext = {
+      ...followup,
+      meta: {
+        ...followup.meta,
+        citizenContext: confirmed,
+      },
+    };
+
+    const draft = buildCreateHandoffDraft({
+      result: withContext,
+      selectedAction: "create_dossier",
+      id: "handoff-c7",
+    });
+
+    expect(draft.jurisdictionConfirmation).toMatchObject({
+      candidateKey,
+      regionId: "region-official-05124000",
+      regionLabel: "Wuppertal",
+      serverValidated: false,
+      candidate: {
+        level: "municipality",
+        authorityName: "Stadt Wuppertal",
+      },
+    });
   });
 
   it("keeps link and material provenance inside handoff source grounding", async () => {

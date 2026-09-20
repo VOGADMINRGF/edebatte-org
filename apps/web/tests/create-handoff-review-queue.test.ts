@@ -12,6 +12,7 @@ import {
   markReviewQueueItemRejected,
 } from "@/features/create/createHandoffReviewQueue";
 import { EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES } from "@/features/create/existingTopicMatchesFixtures";
+import { mapCreateExistingMatchDecisionToDraftTarget } from "@/features/create/createExistingMatchDecision";
 import { DIALOG_INTELLIGENCE_PREVIEW_FIXTURES } from "@/features/dialog/dialogIntelligenceFixtures";
 
 describe("create handoff review queue contract", () => {
@@ -141,4 +142,34 @@ describe("create handoff review queue contract", () => {
     expect(approved.autoCreate).toBe(false);
     expect(approved.autoPublish).toBe(false);
   });
+  it("carries the explicit existing-match decision into the preparatory review item only", () => {
+    const decision = "count_as_opposition" as const;
+    const draft = createHandoffDraftFromExistingTopicMatch(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+      mapCreateExistingMatchDecisionToDraftTarget(decision),
+      decision,
+    );
+    const item = createReviewQueueItemFromHandoffDraft(draft);
+
+    expect(item.existingMatchDecision).toBe(decision);
+    expect(item.relatedMatchId).toBe(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch.id,
+    );
+    expect(item.authorStandpoint).toContain("Widerspricht");
+    expect(item.autoCreate).toBe(false);
+    expect(item.autoPublish).toBe(false);
+    expect(blocksReviewQueueAutoRuntimeSideEffects(item)).toBe(true);
+  });
+
+  it("keeps missing existing-match decision unknown instead of inferring a stance", () => {
+    const draft = createHandoffDraftFromExistingTopicMatch(
+      EXISTING_TOPIC_MATCH_PREVIEW_FIXTURES.mediumBranchMatch,
+      "existing_branch_connection",
+    );
+    const item = createReviewQueueItemFromHandoffDraft(draft);
+
+    expect(item.existingMatchDecision).toBeNull();
+    expect(item.authorStandpoint).toBeNull();
+  });
+
 });

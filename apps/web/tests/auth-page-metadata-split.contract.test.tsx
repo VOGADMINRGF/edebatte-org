@@ -54,6 +54,7 @@ describe("auth page metadata split contract", () => {
 
     expect(loginShellState.props).toMatchObject({
       redirectTo: "/create?intent=issue_signal",
+      registerHref: "/register?next=%2Fcreate%3Fintent%3Dissue_signal",
       initialStep: "twofactor",
       initialMethod: "email",
       forceTwoFactor: true,

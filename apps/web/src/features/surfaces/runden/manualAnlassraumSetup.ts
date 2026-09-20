@@ -2,6 +2,11 @@ import {
   createStartDraftContext,
   type StartDraftContext,
 } from "@/features/start/startDraftContext";
+import {
+  evaluatePublicQuestionGeneralization,
+  type PublicQuestionGeneralizationResult,
+} from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
 
 export const MANUAL_ANLASSRAUM_SCOPE_VALUES = [
   "public",
@@ -54,6 +59,7 @@ export type ManualAnlassraumSetup = {
   communityOptionsMode: ManualAnlassraumCommunityOptionsMode;
   aiSupportMode: ManualAnlassraumAiSupportMode;
   nextStep: ManualAnlassraumNextStep;
+  questionGuard?: PublicQuestionGeneralizationResult;
 };
 
 export type ManualAnlassraumChoiceDefinition<T extends string> = {
@@ -196,12 +202,24 @@ export function sanitizeManualAnlassraumSetup(
   const normalizedOptions = input.options.map(normalizeManualAnlassraumOption);
   const optionSlots = normalizedOptions.length >= 2 ? normalizedOptions : [...normalizedOptions, "", ""].slice(0, 2);
 
+  const votingQuestion = normalizeManualAnlassraumText(input.votingQuestion);
   return {
     ...input,
     title: normalizeManualAnlassraumText(input.title),
-    votingQuestion: normalizeManualAnlassraumText(input.votingQuestion),
+    votingQuestion,
     description: normalizeManualAnlassraumText(input.description),
     options: optionSlots,
+    questionGuard: bindQuestionGuardToCurrentContract(evaluatePublicQuestionGeneralization({
+      originalInput: votingQuestion,
+      candidatePublicQuestion: votingQuestion,
+      actorContexts: [],
+      actorExtraction: {
+        status: "unverified",
+        source: "human_review",
+        independentFromCandidateProvider: false,
+        evidenceRefs: [],
+      },
+    })),
   };
 }
 
@@ -422,6 +440,7 @@ export function buildManualAnlassraumServerDraftSavePayload(input: {
         noAiUsageEvent: true,
         noDeepSearchStarted: true,
         reviewFirstOnly: true,
+        questionGuard: normalized.questionGuard,
       },
     },
   };

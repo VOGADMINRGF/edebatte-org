@@ -86,24 +86,24 @@ describe("v1 stream public runtime", () => {
     });
     mocks.inputToArray.mockResolvedValue([
       {
-        inputId: "stream-public-input-1",
+        inputId: "stream-public-input-unreviewed",
         kind: "question",
-        text: "Welche Daten folgen nach dem Event?",
+        text: "Diese Frage ist noch nicht geprüft und darf öffentlich nicht erscheinen.",
         sourceUrl: null,
         reviewState: "needs_review",
         visibilityState: "public_unverified",
         riskHint: "Bleibt in Prüfung.",
-        createdAt: new Date("2026-05-25T19:00:00.000Z"),
+        createdAt: new Date("2026-05-25T19:05:00.000Z"),
       },
       {
-        inputId: "stream-public-input-2",
+        inputId: "stream-public-input-accepted",
         kind: "source_hint",
-        text: "Hier ist der Bericht.",
+        text: "Dieser geprüfte Hinweis darf im öffentlichen Readmodel erscheinen.",
         sourceUrl: "https://example.org/report",
-        reviewState: "needs_review",
-        visibilityState: "internal_review",
-        riskHint: "Quelle wird geprüft.",
-        createdAt: new Date("2026-05-25T19:05:00.000Z"),
+        reviewState: "accepted",
+        visibilityState: "public_reviewed",
+        riskHint: "Quelle wurde geprüft.",
+        createdAt: new Date("2026-05-25T19:00:00.000Z"),
       },
     ]);
     mocks.findDossierByAnyId.mockResolvedValue({
@@ -120,22 +120,42 @@ describe("v1 stream public runtime", () => {
     });
   });
 
-  it("builds a public runtime that keeps stream, Anlassraum and Dossier in one review-first path", async () => {
+  it("builds a public runtime that keeps event, Anlassraum and Dossier in one review-first path", async () => {
     const runtime = await buildStreamPublicRuntime("stadtwerke-live-berlin");
     const share = runtime ? buildStreamShareContext(runtime) : null;
 
-    expect(runtime?.session.resolvedStatus).toBe("collecting_input");
+    expect(runtime?.session.resolvedStatus).toBe("live");
     expect(runtime?.context.anlassraumHref).toBe("/runden?anlassraumId=65f000000000000000000401");
     expect(runtime?.context.dossierHref).toBe("/dossier/65f000000000000000000777");
     expect(runtime?.context.swipesHref).toContain("/swipes");
-    expect(runtime?.participation.pendingCount).toBe(2);
-    expect(runtime?.participation.questionCount).toBe(1);
+    expect(runtime?.participation.pendingCount).toBe(1);
+    expect(runtime?.participation.visibleCount).toBe(1);
+    expect(runtime?.participation.questionCount).toBe(0);
     expect(runtime?.participation.sourceHintCount).toBe(1);
+    expect(runtime?.participation.items).toHaveLength(1);
+    expect(runtime?.participation.items[0]?.id).toBe("stream-public-input-accepted");
+    expect(runtime?.participation.items[0]?.text).not.toContain("noch nicht geprüft");
     expect(runtime?.guardrails.reviewFirstInput).toBe(true);
     expect(share).toMatchObject({
       contextKind: "event",
       canonicalTarget: "/stream/stadtwerke-live-berlin",
       needsReviewBeforeOfficialSocial: true,
     });
+  });
+
+  it("fails closed for a draft session even if it is addressable by slug", async () => {
+    mocks.sessionFindOne.mockResolvedValueOnce({
+      _id: { toHexString: () => "65f000000000000000000902" },
+      slug: "draft-event",
+      creatorId: "user-1",
+      title: "Draft Event",
+      status: "draft",
+      isLive: false,
+      visibility: "public",
+      createdAt: new Date("2026-05-25T10:00:00.000Z"),
+      updatedAt: new Date("2026-05-25T10:00:00.000Z"),
+    });
+
+    await expect(buildStreamPublicRuntime("draft-event")).resolves.toBeNull();
   });
 });

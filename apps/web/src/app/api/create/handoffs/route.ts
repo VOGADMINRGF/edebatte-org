@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { resolveRequestScopeContext } from "@/lib/server/auth/requestScope";
-import { summarizeRequestScopeContext } from "@/lib/server/auth/requestScope";
-import type {
-  CreateArgumentDraft,
-  CreateClaimDraft,
-  CreateHandoffAction,
-  CreateHandoffDraft,
-  CreateHandoffReviewState,
-  CreateHandoffTopicSeed,
-  CreateOpenQuestionDraft,
-  SourceGrounding,
+import { stableHash } from "@core/utils/hash";
+import {
+  resolveRequestScopeContext,
+  summarizeRequestScopeContext,
+} from "@/lib/server/auth/requestScope";
+import { getSessionUser } from "@/lib/server/auth/sessionUser";
+import {
+  buildCreateHandoffDraft,
+  type CreateHandoffAction,
+  type CreateHandoffDraft,
 } from "@/features/create/createHandoff";
 import {
   resolveCreateProductionAccessDecision,
@@ -25,9 +24,11 @@ import {
   ensurePersistedDossierRuntimeDraft,
   getDossierRuntimeHandoffSummary,
 } from "@/features/create/dossierRuntimeServer";
-import type { CreatePlannerResult } from "@/features/create/createPlanner";
-import type { CreateGraphMatchResult } from "@/features/create/intelligentFollowupContract";
-import type { RegionPublicationVisibilityState } from "@features/region/publicationRiskLadder";
+import { validateCreateJurisdictionConfirmation } from "@/features/create/createCitizenIntakeContextServer";
+import { enforceCreateMutationSecurity } from "@/features/create/createRouteSecurity";
+import { evaluatePublicQuestionGeneralization } from "@/features/create/safety/publicQuestionGeneralization";
+import { bindQuestionGuardToCurrentContract } from "@/features/create/safety/questionGuardReviewPersistence";
+import { resolveCanonicalCreateHandoffDraftBinding } from "@/server/createHandoffDraftBinding";
 import {
   buildOrganizationDashboardReadModel,
   canEditOrganizationResource,
@@ -38,11 +39,30 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const CreateHandoffActionSchema = z.enum([
+  "submit_draft",
+  "append_to_dossier",
+  "prepare_anlassraum",
+  "prepare_participation_space",
+  "create_dossier",
+  "request_factcheck",
+  "prepare_vote",
+  "request_review",
+]);
+
 const CreateHandoffBodySchema = z
   .object({
-    draft: z.unknown(),
-    dossierId: z.string().trim().min(1).optional(),
-    anlassraumId: z.string().trim().min(1).optional(),
+    draftId: z.string().trim().min(1).max(160).optional(),
+    draft: z
+      .object({
+        id: z.string().trim().min(1).max(240),
+        sourceText: z.string().trim().min(1).max(64 * 1024),
+        selectedAction: CreateHandoffActionSchema,
+        createdAt: z.string().datetime().optional(),
+      })
+      .strict(),
+    dossierId: z.string().trim().min(1).max(240).nullable().optional(),
+    anlassraumId: z.string().trim().min(1).max(240).nullable().optional(),
   })
   .strict();
 
@@ -54,182 +74,135 @@ function denied(error: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ ok: false, error, ...extra }, { status: 403 });
 }
 
-function normalizeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+function sessionUserId(sessionUser: unknown): string | null {
+  if (!sessionUser || typeof sessionUser !== "object") return null;
+  const id = (sessionUser as { _id?: { toHexString?: () => string } })._id;
+  return id?.toHexString?.() ?? null;
 }
 
-function normalizeCreateHandoffAction(value: unknown): CreateHandoffAction {
-  switch (value) {
-    case "submit_draft":
-    case "append_to_dossier":
-    case "prepare_anlassraum":
-    case "prepare_participation_space":
-    case "create_dossier":
-    case "request_factcheck":
-    case "prepare_vote":
-    case "request_review":
-      return value;
-    default:
-      throw new Error("invalid_create_handoff_action");
+function sessionProfileRegion(sessionUser: unknown): string | null {
+  if (!sessionUser || typeof sessionUser !== "object") return null;
+  const profile = (sessionUser as Record<string, unknown>).profile;
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
+  const publicLocation = (profile as Record<string, unknown>).publicLocation;
+  if (!publicLocation || typeof publicLocation !== "object" || Array.isArray(publicLocation)) {
+    return null;
   }
+  const location = publicLocation as Record<string, unknown>;
+  return String(location.city ?? "").trim() || String(location.region ?? "").trim() || null;
 }
 
-function normalizeCreateHandoffReviewState(value: unknown): CreateHandoffReviewState {
-  switch (value) {
-    case "draft":
-    case "clarification_required":
-    case "graph_review_required":
-    case "factcheck_candidate":
-    case "manual_review_required":
-    case "ready_for_confirmation":
-      return value;
-    default:
-      return "manual_review_required";
-  }
+function deterministicHandoffId(input: {
+  userId: string;
+  canonicalDraftId: string;
+  payloadHash: string;
+  selectedAction: CreateHandoffAction;
+}) {
+  return `create-handoff-${stableHash({
+    scope: "create_c9_handoff",
+    userId: input.userId,
+    canonicalDraftId: input.canonicalDraftId,
+    payloadHash: input.payloadHash,
+    selectedAction: input.selectedAction,
+  }).slice(0, 32)}`;
 }
 
-function normalizeVisibilityState(value: unknown): RegionPublicationVisibilityState {
-  switch (value) {
-    case "private_draft":
-    case "internal_review":
-    case "public_unverified":
-    case "public_reviewed":
-    case "public_official":
-    case "archived":
-    case "blocked":
-      return value;
-    default:
-      return "internal_review";
-  }
-}
-
-function normalizeClaimDrafts(value: unknown): CreateClaimDraft[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item, index) => {
-    const claim = item as Record<string, unknown>;
-    const kind: CreateClaimDraft["kind"] =
-      claim.kind === "normative_claim" || claim.kind === "policy_claim"
-        ? claim.kind
-        : "factual_claim";
+function buildQuestionGuardBindings(draft: CreateHandoffDraft) {
+  return draft.openQuestions.map((question) => {
+    const guard = bindQuestionGuardToCurrentContract(
+      evaluatePublicQuestionGeneralization({
+        originalInput: draft.sourceText,
+        candidatePublicQuestion: question.question,
+        actorContexts: [],
+        actorExtraction: {
+          status: "unverified",
+          source: "create_analysis",
+          independentFromCandidateProvider: false,
+          evidenceRefs: [],
+        },
+      }),
+    );
     return {
-      id: String(claim.id ?? `claim-${index + 1}`),
-      text: String(claim.text ?? "").trim(),
-      kind,
-      factcheckEligible: Boolean(claim.factcheckEligible),
-      sourceRefs: normalizeStringArray(claim.sourceRefs),
-    };
-  }).filter((claim) => claim.text.length > 0);
-}
-
-function normalizeArgumentDrafts(value: unknown): CreateArgumentDraft[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item, index) => {
-    const argument = item as Record<string, unknown>;
-    const stance: CreateArgumentDraft["stance"] =
-      argument.stance === "pro" ||
-      argument.stance === "contra" ||
-      argument.stance === "mixed" ||
-      argument.stance === "unclear"
-        ? argument.stance
-        : "unclear";
-    return {
-      id: String(argument.id ?? `argument-${index + 1}`),
-      text: String(argument.text ?? "").trim(),
-      stance,
-      supportsClaimIds: normalizeStringArray(argument.supportsClaimIds),
-    };
-  }).filter((argument) => argument.text.length > 0);
-}
-
-function normalizeOpenQuestions(value: unknown): CreateOpenQuestionDraft[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item, index) => {
-    const question = item as Record<string, unknown>;
-    return {
-      id: String(question.id ?? `question-${index + 1}`),
-      question: String(question.question ?? "").trim(),
-      requiredBeforePublish: question.requiredBeforePublish !== false,
-    };
-  }).filter((question) => question.question.length > 0);
-}
-
-function normalizeSourceGrounding(value: unknown): SourceGrounding[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item, index) => {
-    const grounding = item as Record<string, unknown>;
-    const status =
-      grounding.status === "source_text" ||
-      grounding.status === "source_excerpt" ||
-      grounding.status === "link_reference" ||
-      grounding.status === "missing"
-        ? grounding.status
-        : "missing";
-    return {
-      id: String(grounding.id ?? `source-${index + 1}`),
-      label: String(grounding.label ?? `Quelle ${index + 1}`).trim(),
-      status,
-      detail: grounding.detail ? String(grounding.detail) : undefined,
+      questionId: question.id,
+      releaseState: guard.releaseState,
+      outcome: guard.outcome,
+      evidenceRefs: guard.evidenceRefs.slice(0, 20),
     };
   });
 }
 
-function normalizePlannerResult(value: unknown): CreatePlannerResult {
-  return value as CreatePlannerResult;
-}
-
-function normalizeGraphMatches(value: unknown): CreateGraphMatchResult {
-  return value as CreateGraphMatchResult;
-}
-
-function normalizeTopicSeed(value: unknown): CreateHandoffTopicSeed {
-  const seed = (value ?? {}) as Record<string, unknown>;
+function revalidateJurisdiction(
+  draft: CreateHandoffDraft,
+  sessionUser: unknown,
+): CreateHandoffDraft {
+  const candidateKey = draft.jurisdictionConfirmation?.candidateKey?.trim();
+  if (!candidateKey) return draft;
+  const validated = validateCreateJurisdictionConfirmation({
+    sourceText: draft.sourceText,
+    candidateKey,
+    locale: "de",
+    profileRegion: sessionProfileRegion(sessionUser),
+  });
+  if (!validated) throw new Error("invalid_jurisdiction_confirmation");
+  const currentKey = validated.jurisdictionConfirmation.candidateKey ?? "";
+  const candidate = validated.jurisdictionCandidates.find(
+    (entry) => `${entry.level}:${entry.label.trim().toLocaleLowerCase("de")}` === currentKey,
+  );
+  if (!candidate) throw new Error("invalid_jurisdiction_confirmation");
   return {
-    topicKey: String(seed.topicKey ?? "oeffentliches-thema").trim() || "oeffentliches-thema",
-    topicLabel: String(seed.topicLabel ?? "Öffentliches Thema").trim() || "Öffentliches Thema",
-    jurisdiction:
-      seed.jurisdiction === "kommune" ||
-      seed.jurisdiction === "land" ||
-      seed.jurisdiction === "bund" ||
-      seed.jurisdiction === "mixed"
-        ? seed.jurisdiction
-        : "mixed",
-    themenradarSourceType: "create_intake",
-  };
-}
-
-function normalizeCreateHandoffDraft(value: unknown): CreateHandoffDraft {
-  const draft = (value ?? {}) as Record<string, unknown>;
-  const id = String(draft.id ?? "").trim();
-  const sourceText = String(draft.sourceText ?? "").trim();
-  const resumeHref = String(draft.resumeHref ?? "").trim();
-  if (!id || !sourceText || !resumeHref) {
-    throw new Error("invalid_create_handoff_draft");
-  }
-  return {
-    id,
-    source: "create",
-    sourceText,
-    plannerResult: normalizePlannerResult(draft.plannerResult),
-    graphMatches: normalizeGraphMatches(draft.graphMatches),
-    selectedAction: normalizeCreateHandoffAction(draft.selectedAction),
-    claims: normalizeClaimDrafts(draft.claims),
-    arguments: normalizeArgumentDrafts(draft.arguments),
-    openQuestions: normalizeOpenQuestions(draft.openQuestions),
-    sourceGrounding: normalizeSourceGrounding(draft.sourceGrounding),
-    topicSeed: normalizeTopicSeed(draft.topicSeed),
-    resumeHref,
-    reviewState: normalizeCreateHandoffReviewState(draft.reviewState),
-    visibilityState: normalizeVisibilityState(draft.visibilityState),
-    requiresConfirmation: true,
-    createdAt: String(draft.createdAt ?? new Date().toISOString()),
+    ...draft,
+    jurisdictionConfirmation: {
+      candidateKey: currentKey,
+      candidate: { ...candidate },
+      regionId: validated.placeResolution.selectedCandidate?.id ?? null,
+      regionLabel: validated.selectedRegionLabel,
+      serverValidated: true,
+    },
   };
 }
 
 export async function POST(req: NextRequest) {
+  const sessionUser = await getSessionUser(req).catch(() => null);
+  const authenticatedUserId = sessionUser?.sessionValid ? sessionUserId(sessionUser) : null;
+  if (!authenticatedUserId) return unauthorized();
+
+  const securityFailure = await enforceCreateMutationSecurity({
+    req,
+    scope: "create_handoff_persistence",
+    actorKey: `user:${authenticatedUserId}`,
+  });
+  if (securityFailure) return securityFailure;
+
   try {
     const body = CreateHandoffBodySchema.parse(await req.json());
-    const draft = normalizeCreateHandoffDraft(body.draft);
+    const bindingResult = await resolveCanonicalCreateHandoffDraftBinding({
+      userId: authenticatedUserId,
+      requestedDraftId: body.draftId ?? null,
+      sourceText: body.draft.sourceText,
+    });
+    if (bindingResult.ok === false) {
+      const status = bindingResult.error === "draft_binding_ambiguous" ? 409 : 400;
+      return NextResponse.json(
+        { ok: false, error: bindingResult.error },
+        { status },
+      );
+    }
+    const binding = bindingResult.binding;
+    const handoffId = deterministicHandoffId({
+      userId: authenticatedUserId,
+      canonicalDraftId: binding.draftId,
+      payloadHash: binding.payloadHash,
+      selectedAction: body.draft.selectedAction,
+    });
+    let draft = buildCreateHandoffDraft({
+      result: binding.followup,
+      selectedAction: body.draft.selectedAction,
+      id: handoffId,
+      createdAt: binding.createdAt,
+    });
+    draft = revalidateJurisdiction(draft, sessionUser);
+    const questionGuardBindings = buildQuestionGuardBindings(draft);
+
     const intakeClassification = classifyCreateHandoffDraft(draft);
     const context = await resolvePersistedCreateHandoffContext({
       draft,
@@ -241,26 +214,24 @@ export async function POST(req: NextRequest) {
       allowOperatorFallback: false,
     });
     const userId = scopeContext?.actorId ?? null;
-    if (!scopeContext || !userId) return unauthorized();
+    if (!scopeContext || !userId || userId !== authenticatedUserId) return unauthorized();
     const accessContext = scopeContext.regionAccess;
     const scope = regionScopeFromRegionAccessContext({ accessContext });
     if (
       !scopeContext.isOperatorMode &&
-      ((
-        context.regionId &&
+      ((context.regionId &&
         !canViewRegionResource(scope, {
           regionId: context.regionId,
           organizationId: context.organizationId,
-        })
-      ) || (
-        context.organizationId &&
-        !canEditOrganizationResource(scope, {
-          organizationId: context.organizationId,
-        })
-      ))
+        })) ||
+        (context.organizationId &&
+          !canEditOrganizationResource(scope, {
+            organizationId: context.organizationId,
+          })))
     ) {
       return denied("create_handoff_scope_forbidden");
     }
+
     const requestScope = summarizeRequestScopeContext(scopeContext);
     let accessDecision: CreateProductionAccessDecision | null = null;
     if (!scopeContext.isOperatorMode) {
@@ -286,11 +257,9 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+
     const fallbackRegionId =
-      context.regionId ??
-      requestScope?.primaryRegionId ??
-      scopeContext.regionIds[0] ??
-      null;
+      context.regionId ?? requestScope?.primaryRegionId ?? scopeContext.regionIds[0] ?? null;
     const fallbackOrganizationId =
       context.organizationId ??
       requestScope?.organizationId ??
@@ -299,6 +268,11 @@ export async function POST(req: NextRequest) {
     const record = await persistCreateHandoffForReview({
       draft,
       createdByUserId: userId,
+      canonicalDraftId: binding.draftId,
+      canonicalDraftBindingHash: binding.bindingHash,
+      canonicalDraftPayloadHash: binding.payloadHash,
+      canonicalSourceEvidenceRefs: binding.sourceEvidenceRefs,
+      questionGuardBindings,
       regionId: fallbackRegionId,
       organizationId: fallbackOrganizationId,
       dossierId: context.dossierId,
@@ -335,16 +309,19 @@ export async function POST(req: NextRequest) {
           }
         : null,
     });
+
     const dossierRuntime =
       record.selectedAction === "create_dossier"
-        ? await ensurePersistedDossierRuntimeDraft(record.id)
-            .then(() => getDossierRuntimeHandoffSummary(record.id))
+        ? await ensurePersistedDossierRuntimeDraft(record.id).then(() =>
+            getDossierRuntimeHandoffSummary(record.id),
+          )
         : null;
 
     return NextResponse.json({
       ok: true,
       record: {
         id: record.id,
+        canonicalDraftId: record.canonicalDraftId ?? null,
         regionId: record.regionId,
         organizationId: record.organizationId,
         dossierId: record.dossierId,
@@ -358,10 +335,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "create_handoff_persist_failed";
-    const status =
-      message === "invalid_create_handoff_draft" || message === "invalid_create_handoff_action"
-        ? 400
-        : 400;
+    const status = message === "create_handoff_identity_conflict" ? 409 : 400;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
