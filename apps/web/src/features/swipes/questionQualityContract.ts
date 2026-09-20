@@ -21,6 +21,7 @@ export const SWIPE_QUESTION_AGENT_GUIDANCE = [
 ] as const;
 
 export type SwipeQuestionQualityIssue =
+  | "missing_question_text"
   | "generic_should_template"
   | "loaded_approval_frame"
   | "missing_human_context"
@@ -62,6 +63,7 @@ function questionFrameSignature(value: string): string {
 export function assessSwipeQuestionQuality(item: SwipeItem): SwipeQuestionQualityAssessment {
   const issues: SwipeQuestionQualityIssue[] = [];
   const title = item.title.trim();
+  if (!title) issues.push("missing_question_text");
   if (/^soll\b/i.test(title)) issues.push("generic_should_template");
   if (/\b(guter weg|richtige(?:r|s|n)? weg|wäre es richtig|diesen weg mitgehen|vernünftige(?:r|s|n)? weg)\b/i.test(title)) {
     issues.push("loaded_approval_frame");
