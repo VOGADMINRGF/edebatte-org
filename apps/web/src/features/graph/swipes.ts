@@ -14,7 +14,7 @@ type SwipeGraphProjectionDecision =
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]);
 
 export function getSwipeGraphProjectionDecision(
-  runtimeEnv: NodeJS.ProcessEnv = process.env,
+  runtimeEnv: Record<string, string | undefined> = process.env,
 ): SwipeGraphProjectionDecision {
   const graphPrimary = (runtimeEnv.GRAPH_PRIMARY || "neo4j").trim().toLowerCase();
   if (graphPrimary !== "neo4j") {
