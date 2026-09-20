@@ -145,6 +145,10 @@ describe("dossier public route runtime", () => {
 
     expect(dossier.meta.status).toBe("published");
     expect(dossier.meta.title).toBe("Dossier Sichere Schulwege");
+    expect(dossier.meta.jurisdiction).toBe("unknown");
+    expect(dossier.analyze.language).toBe("und");
+    expect(dossier.analyze.report.facts.local).toEqual([]);
+    expect(dossier.analyze.report.facts.international).toEqual([]);
     expect(dossier.analyze.claims[0]?.text).toContain("Querungen");
     expect(dossier.analyze.claims.some((claim) => claim.stance === "pro")).toBe(true);
     expect(dossier.analyze.questions[0]?.text).toContain("Schulen");
@@ -157,6 +161,28 @@ describe("dossier public route runtime", () => {
     expect(JSON.stringify(dossier)).not.toContain("admin-1");
     expect(JSON.stringify(dossier)).not.toContain("trust");
     expect(JSON.stringify(dossier)).not.toContain("moderation");
+  });
+
+  it("does not infer federal/state/EU jurisdiction from title text", () => {
+    const dossier = mapDossierToPublicDossier({
+      publication: buildPublicationRecord({ title: "Bund Land EU: offene Zuständigkeit" }),
+      dossierDoc: {
+        dossierId: "dossier-sichere-schulwege",
+        statementId: "create-handoff:handoff-1",
+        title: "Bund Land EU Kommune",
+        status: "active",
+        counts: { claims: 0, sources: 0, findings: 0, edges: 0, openQuestions: 0 },
+        createdAt: new Date("2026-06-30T08:00:00.000Z"),
+      } satisfies DossierDoc,
+      claims: [],
+      sources: [],
+      findings: [],
+      openQuestions: [],
+    });
+
+    expect(dossier.meta.jurisdiction).toBe("unknown");
+    expect(dossier.analyze.language).toBe("und");
+    expect(dossier.analyze.report.facts.local).toEqual([]);
   });
 
   it("fans one finding out to every unique citation and keeps question relations concrete", () => {
