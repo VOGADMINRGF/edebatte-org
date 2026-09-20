@@ -68,7 +68,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/bcryptjs": "^3.0.2",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.7.5",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.11.1",
