@@ -20,6 +20,22 @@ describe("swipe question finalizer", () => {
     expect(result.item.questionQualityAssessment?.ready).toBe(false);
   });
 
+  it("fails closed when the actual decision question is empty", () => {
+    const result = finalizeSwipeQuestionCandidate({
+      id: "candidate-empty-question",
+      title: "   ",
+      humanContext: "Im Alltag treffen unterschiedliche Interessen aufeinander.",
+      tradeoff: "Verbindlichkeit steht Gestaltungsspielraum gegenüber.",
+      decisionConsequences: {
+        agree: [{ title: "Eine mögliche Folge", evidenceStatus: "hypothesis" }],
+        disagree: [{ title: "Eine andere mögliche Folge", evidenceStatus: "hypothesis" }],
+      },
+    });
+
+    expect(result.status).toBe("needs_review");
+    expect(result.quality.issues).toContain("missing_question_text");
+  });
+
   it("normalizes consequence provenance instead of implying evidence", () => {
     const result = finalizeSwipeQuestionCandidate({
       id: "candidate-2",
