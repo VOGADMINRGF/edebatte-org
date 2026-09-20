@@ -166,20 +166,16 @@ export async function recordUsage(e: UsageEvent){
 TS
 ok "Usage: $USAGE_PATH"
 
-# --- 3) /api/debug/env -------------------------------------------------------
+# --- 3) /api/debug/env (absichtlich nicht öffentlich verfügbar) -------------
 DBG_DIR="$API_DIR/debug/env"
 mkdir -p "$DBG_DIR"
 backup "$DBG_DIR/route.ts"
 cat >"$DBG_DIR/route.ts" <<'TS'
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export async function GET(){
-  const k = process.env.OPENAI_API_KEY || null;
-  return NextResponse.json({
-    NODE_ENV: process.env.NODE_ENV || "development",
-    hasOpenAI: !!k,
-    OPENAI_API_KEY: k ? { len: k.length, head: k.slice(0,4), tail: k.slice(-3) } : null
-  });
+  return new NextResponse(null, { status: 404, headers: { "cache-control": "no-store" } });
 }
 TS
 ok "/api/debug/env"
@@ -406,7 +402,6 @@ cat <<'TESTS'
 == Smoke-Tests ==
 A) ENV/Health:
   curl -s http://127.0.0.1:3000/api/health | jq .
-  curl -s http://127.0.0.1:3000/api/debug/env | jq .
 
 B) Analyze – Fallback erlaubt, NIE 500:
   curl -s -X POST -H 'content-type: application/json' \
