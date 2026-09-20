@@ -89,6 +89,57 @@ describe("Open Data → StatementCandidate bridge", () => {
     expect(candidate?.sourceContent).toContain('"snapshotId":"snapshot-v1"');
   });
 
+  it("accepts distinct collection provenance and entity URLs while keeping lineage", () => {
+    const event = pollEvent();
+    const collectionBacked = pollEvent({
+      provenance: {
+        ...event.provenance,
+        sourceUrl: "https://www.abgeordnetenwatch.de/api/v2/polls?range_start=0&range_end=250",
+      },
+    });
+
+    expect(openDataEventToStatementCandidate(collectionBacked)).not.toBeNull();
+  });
+
+  it("fails closed when durable provenance or review gates are missing", () => {
+    const valid = pollEvent();
+    const missingSnapshot = pollEvent({
+      provenance: {
+        ...valid.provenance,
+        snapshotId: "",
+      },
+    });
+    const missingSourceIdentity = pollEvent({
+      provenance: {
+        ...valid.provenance,
+        sourceId: "",
+      },
+    });
+    const invalidProvenanceUrl = pollEvent({
+      provenance: {
+        ...valid.provenance,
+        sourceUrl: "not-a-url",
+      },
+    });
+    const unsafeReviewGate = {
+      ...valid,
+      reviewRequired: false,
+    } as unknown as NormalizedOpenDataEvent;
+
+    expect(() => openDataEventToStatementCandidate(missingSnapshot)).toThrow(
+      "open_data_candidate_provenance_incomplete",
+    );
+    expect(() => openDataEventToStatementCandidate(missingSourceIdentity)).toThrow(
+      "open_data_candidate_provenance_incomplete",
+    );
+    expect(() => openDataEventToStatementCandidate(invalidProvenanceUrl)).toThrow(
+      "open_data_candidate_provenance_incomplete",
+    );
+    expect(() => openDataEventToStatementCandidate(unsafeReviewGate)).toThrow(
+      "open_data_candidate_review_gate_invalid",
+    );
+  });
+
   it("keeps individual votes out of the topic-candidate pipeline", () => {
     expect(openDataEventToStatementCandidate(voteEvent())).toBeNull();
     expect(buildOpenDataStatementCandidates([pollEvent(), voteEvent()])).toHaveLength(1);
