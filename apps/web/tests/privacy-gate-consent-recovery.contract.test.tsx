@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
 import * as React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrivacyGateProvider, usePrivacyGate } from "@/components/privacy/PrivacyGateProvider";
 import {
   CONSENT_COOKIE_NAME,
@@ -46,6 +46,10 @@ describe("privacy gate browser consent recovery", () => {
         clear: vi.fn(),
       },
     });
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it("rehydrates a missing server-visible cookie from a valid local acknowledgement", async () => {
