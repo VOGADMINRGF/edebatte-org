@@ -20,6 +20,7 @@ export type SourceSwipeQuestionDraft = {
 
 export type SourceSwipeQualityBlockReason =
   | "swipe_question_output_missing"
+  | "swipe_question_candidate_mismatch"
   | "swipe_question_quality_failed"
   | "swipe_question_evidence_outside_source_candidate"
   | "swipe_question_deck_quality_failed"
@@ -55,6 +56,20 @@ function clean(value: unknown): string {
 
 function addUnique<T extends string>(target: T[], value: T): void {
   if (!target.includes(value)) target.push(value);
+}
+
+function candidateIdsMatch(entry: SourceSwipeQualityEntry): boolean {
+  if (!entry.swipeQuestion) return false;
+  return (
+    clean(entry.swipeQuestion.candidateId) ===
+    clean(entry.candidatePackage.candidateId)
+  );
+}
+
+function matchedSwipeQuestion(
+  entry: SourceSwipeQualityEntry,
+): SourceSwipeQuestionDraft | null {
+  return candidateIdsMatch(entry) ? entry.swipeQuestion ?? null : null;
 }
 
 function canonicalQuestionText(input: SourceVoteCandidatePackage): string {
@@ -98,7 +113,7 @@ function evidenceGroundedInSourceSwipeCandidates(
 }
 
 function toFinalizerInput(entry: SourceSwipeQualityEntry): SwipeQuestionFinalizerInput {
-  const draft = entry.swipeQuestion ?? null;
+  const draft = matchedSwipeQuestion(entry);
   return {
     id: entry.candidatePackage.candidateId,
     title: canonicalQuestionText(entry.candidatePackage),
@@ -157,18 +172,21 @@ export function evaluateSourceVoteCandidateSetWithSwipeQuality(
     const sourceReadiness = evaluateSourceVoteReadiness(entry.candidatePackage);
     const candidateQuality = participationById.get(entry.candidatePackage.candidateId);
     const qualityBlockingReasons: SourceSwipeQualityBlockReason[] = [];
+    const matchedDraft = matchedSwipeQuestion(entry);
 
     if (!entry.swipeQuestion) {
       addUnique(qualityBlockingReasons, "swipe_question_output_missing");
+    } else if (!candidateIdsMatch(entry)) {
+      addUnique(qualityBlockingReasons, "swipe_question_candidate_mismatch");
     }
     if (!candidateQuality?.quality.ready) {
       addUnique(qualityBlockingReasons, "swipe_question_quality_failed");
     }
     if (
-      entry.swipeQuestion &&
+      matchedDraft &&
       !evidenceGroundedInSourceSwipeCandidates(
         entry.candidatePackage,
-        entry.swipeQuestion,
+        matchedDraft,
       )
     ) {
       addUnique(
