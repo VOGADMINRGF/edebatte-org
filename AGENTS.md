@@ -147,6 +147,30 @@ Agenten müssen insbesondere:
 
 Bei einem Konflikt gilt die höherstehende Ebene. Ein echter Bedeutungswechsel muss zuerst in den Foundation-Dokumenten beschlossen und danach in Brand Narrative, OpenTasks, ADRs, Run Packs und Implementierung synchronisiert werden.
 
+### 11. Topic-first cross-lingual research and evidence (verbindlich)
+Für Medien-, Event-, Source-, Research-, Factcheck-, Dossier-, Themenradar-, Graph- und Decision-/Swipe-Arbeit gilt zusätzlich der Run-Pack `docs/E150/C13_T9_G6_GLOBAL_TOPIC_INTELLIGENCE_MEDIA_RESEARCH_RUNPACK_2026-09-20.md` beziehungsweise dessen später kanonisch supersedende Fassung.
+
+Solange C13/T9/G6 nicht verlustfrei im operativen Kopf von `docs/E150/OpenTasks.md` serialisiert und taskbezogen freigegeben sind, ist nur Governance-, Dokumentations-, Dependency- und Preflight-Arbeit zulässig. Agenten dürfen diese Grenze nicht durch eine provider-, format- oder sendungsspezifische Implementierung umgehen.
+
+Verbindliche Regeln:
+
+- **Thema zuerst, Herkunft danach:** Medienbeitrag, Video, Podcast, Interview, Faktencheck oder Event ist Observation/Origin/Evidence-Kontext, nicht automatisch das öffentliche Primärobjekt und nie allein Truth Authority.
+- `Observation/Event`, `CanonicalTopic`, `AtomicClaim` und `DecisionQuestion` bleiben getrennte Entitäten. Ein neues Material erzeugt nicht automatisch ein neues Topic, Dossier oder einen Swipe.
+- #586 / `CANONICAL-TOPIC-RESOLUTION-01` bleibt Owner der CanonicalTopic-/Jurisdiction-/DecisionQuestion-Auflösung; C13/T9/G6 dürfen keine zweite Topic-SSOT erzeugen.
+- #587 / `ATOMIC-CLAIM-SOURCE-RELATION-CONTRACT-01` bleibt Owner von SourceArtifact, SourceSegment, AtomicClaim, ClaimSourceRelation, SourceLineage/SourceFamily, EvidenceAssessment und SynthesisReceipt; keine parallele Claim-/Evidence-SSOT.
+- Originalsprache und Originalsegment bleiben Evidenz- und Review-Grundlage. Übersetzungen/Lesefassungen unterstützen das Verständnis, ersetzen das Original nicht und dürfen weder Evidence-, Match- noch Source-Independence-Status erhöhen.
+- Sprecherzuordnung ist bei Talkshows, Interviews, Panels, Podcasts und Videos explizit zu bewahren. Aussagen eines Gasts dürfen nicht still dem Sender, Host oder Format zugerechnet werden.
+- Satire, Ironie, rhetorische Übertreibung, Metapher, Meinung und überprüfbarer Claim müssen getrennt bleiben. Ein normalisierter Tatsachenclaim aus satirischem Material benötigt eine eigene Evidenzprüfung.
+- Externe Faktenchecks sind Research-Artefakte, keine Wahrheitsinstanzen. Relevante Faktenchecks werden claimweise gegen ihre upstream Quellen, konkrete Passagen/Tabellen, Zeitraum, Population, Definition, Methodik, Quantifizierung, Jurisdiktion und Gegenbelege geprüft.
+- Quellenanzahl ist nicht Quellenunabhängigkeit. Gemeinsame Agenturmeldung, Studie, Datensatz, Interview, Sender-/Publisher-Familie oder sonstige Root Source muss als Lineage/Source Family sichtbar bleiben. Mehrere Agenten/Modelle auf derselben Quelle erzeugen keine unabhängigen Belege.
+- Temporal Validity/Freshness sowie Jurisdiction/Applicability/Generalizability sind eigenständige Prüfungen. Ein belastbarer Claim aus einem anderen Land oder Zeitraum darf nicht ohne Nachweis als lokal/aktuell gelten.
+- Widerspruch, alternative Erklärung, Ausnahme/Boundary Case, Gegenbeispiel, normative Gegenposition und Research Gap bleiben getrennte Befunde. Keine künstliche 50/50-Balance und keine automatische Gewinnerseite.
+- Ein Dossier ist topic-zentriert und darf nicht allein auf einem Medienformat oder dessen eigenem Faktencheck beruhen. Herkunft, Originalvideo/-audio/-artikel, Timecode/Seite und Faktencheck-/Quellenmaterial bleiben in der Transparenz-/Provenienzebene sichtbar.
+- Topic-/Evidence-Maturity und Decision-/Swipe-Readiness sind getrennt. Ein gut recherchiertes Thema erzeugt nur dann einen Decision-/Swipe-Candidate, wenn eine konkrete zuständige und evidenzgeprüfte Entscheidungsfrage existiert.
+- Gemini oder andere LLMs sind austauschbare Research-/Extraction-Provider. Deterministische eDebatte-Contracts, Policy, Domain Owner und Human Review behalten die Autorität.
+- Graphen sind derived projections kanonischer IDs/Revisionen/Receipts. Kein Graph darf fehlende Domain-Wahrheit erzeugen oder einen Truth-feedback-loop etablieren.
+- Keine politische Empfehlung, kein Desirability-Ranking, kein Auto-Merge, Auto-Exclude, Auto-Truth-Promotion, Auto-Publish oder automatisches Öffnen einer Abstimmung aus Research-/Media-Signalen.
+
 ---
 
 ## Required Task Status Meanings
