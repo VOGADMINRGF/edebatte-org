@@ -28,14 +28,24 @@ type PrivacyGateContextValue = {
 
 const PrivacyGateContext = React.createContext<PrivacyGateContextValue | null>(null);
 
-function readConsentFromBrowser(): Consent | null {
+function readPrimaryConsentFromBrowser(): Consent | null {
   if (typeof document === "undefined") return null;
   const entries = document.cookie.split("; ");
   const primaryRaw = entries.find((entry) => entry.startsWith(`${CONSENT_COOKIE_NAME}=`))?.split("=")[1];
-  if (primaryRaw) return parseConsentCookie(primaryRaw);
+  return primaryRaw ? parseConsentCookie(primaryRaw) : null;
+}
+
+function readConsentFromBrowser(): Consent | null {
+  if (typeof document === "undefined") return null;
+  const entries = document.cookie.split("; ");
+  const primaryConsent = readPrimaryConsentFromBrowser();
+  if (primaryConsent) return primaryConsent;
 
   const legacyRaw = entries.find((entry) => entry.startsWith(`${LEGACY_CONSENT_COOKIE_NAME}=`))?.split("=")[1];
-  if (legacyRaw) return parseConsentCookie(legacyRaw);
+  if (legacyRaw) {
+    const legacyConsent = parseConsentCookie(legacyRaw);
+    if (legacyConsent) return legacyConsent;
+  }
 
   if (typeof window !== "undefined") {
     return parseConsentCookie(window.localStorage.getItem(CONSENT_LOCALSTORAGE_KEY));
@@ -124,6 +134,9 @@ export function PrivacyGateProvider(props: {
   React.useEffect(() => {
     const browserConsent = readConsentFromBrowser();
     if (!browserConsent) return;
+    if (!readPrimaryConsentFromBrowser() && typeof document !== "undefined") {
+      document.cookie = buildConsentCookie(browserConsent);
+    }
     setConsent(browserConsent);
     setOptionalDraft(browserConsent.optional);
   }, []);
