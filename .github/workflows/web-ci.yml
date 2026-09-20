@@ -58,6 +58,7 @@ jobs:
           tests/newsletter-briefing-policy.test.ts
           tests/newsletter-delivery-policy.test.ts
           tests/newsletter-delivery-lifecycle.test.ts
+          tests/newsletter-delivery-lease.test.ts
           tests/newsletter-n8-n9-acceptance.test.ts
 
       - name: Focused organization registry contracts
