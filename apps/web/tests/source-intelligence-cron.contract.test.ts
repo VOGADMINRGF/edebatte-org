@@ -19,7 +19,7 @@ describe("source intelligence cron contract", () => {
     expect(route).toContain("provider backoff");
   });
 
-  it("has one hourly trigger while per-source due/backoff remains the run authority", () => {
+  it("uses one deploy-safe daily trigger while per-source due/backoff remains the run authority", () => {
     const vercel = JSON.parse(readRepoFile("../../vercel.json")) as {
       crons?: Array<{ path?: string; schedule?: string }>;
     };
@@ -28,7 +28,7 @@ describe("source intelligence cron contract", () => {
     );
 
     expect(entries).toEqual([
-      { path: "/api/cron/source-intelligence", schedule: "17 * * * *" },
+      { path: "/api/cron/source-intelligence", schedule: "17 3 * * *" },
     ]);
   });
 });
