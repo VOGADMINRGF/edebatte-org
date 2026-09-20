@@ -58,6 +58,18 @@
 - #644 / `YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01`: zuverlässige offizielle/vertraglich belastbare YouTube-/Media-Acquisition-Grenze.
 - Bestehende Evidence-/Graph-Flächen: `features/analyze/evidenceGraph.ts`, `features/analyze/schemas.ts`, `core/evidence/*`, `features/evidence/syncFromAnalyze.ts`.
 
+## Belegte historische Media-Schuld — nicht duplizieren
+
+`apps/web/src/features/create/externalSourceIntake.ts` ist bereits als `runtime-bridge` klassifiziert und importiert derzeit direkt `fetchYoutubeTranscript` aus `@features/ai/sources/youtube`. Dieser Bestandspfad ist **historische Kompatibilität, kein neuer Canonical Owner**.
+
+Issue #644 belegt für genau die zugrunde liegende anonyme Web-/InnerTube-Kette einen serverless Runtime-Blocker und definiert die spätere offizielle/vertraglich belastbare Media-Acquisition-Grenze. Daraus folgt für den ersten C13-Integrity-Slice:
+
+- der bestehende Pfad darf zunächst eng und pfadgenau grandfathered bleiben, damit der Guard historische Schuld nicht rückwirkend als neue Verletzung behandelt;
+- **jede neue** direkte Abhängigkeit auf `@features/ai/sources/youtube` bzw. ein neuer YouTube-/Video-/Transcript-Loader außerhalb des #644-Owners muss fail-closed blockiert werden;
+- der Grandfather-Eintrag darf nicht als allgemeine Allowlist formuliert werden;
+- Migration/Ablösung des bestehenden Create-Pfads gehört zu #644 bzw. einem dort autorisierten Adapter-Slice, nicht zu C13;
+- C13 darf den bestehenden problematischen Loader weder kopieren noch durch einen zweiten Providerpfad umgehen.
+
 ## No-semantic-duplicate Gate
 
 Vor jedem neuen Typ, Contract, Store, Repository, Collection, Graph-Knotenmodell oder Persistenzfeld prüfen, ob dieselbe fachliche Identität bereits existiert oder als additive Metadaten, Adapter oder Relation an einem bestehenden Owner abbildbar ist. Wenn ja, ist eine neue kanonische Entity verboten.
