@@ -35,16 +35,20 @@ export type SwipeQuestionFinalizerResult = {
   requiresHumanReview: boolean;
 };
 
+function validEvidenceRefs(consequence: SwipeConsequence) {
+  return consequence.evidenceRefs?.filter((ref) => Boolean(ref?.id?.trim())) ?? [];
+}
+
 function normalizeEvidenceStatus(
   consequence: SwipeConsequence,
-  validEvidenceRefCount = consequence.evidenceRefs?.filter((ref) => Boolean(ref?.id?.trim())).length ?? 0,
+  validEvidenceRefCount = validEvidenceRefs(consequence).length,
 ): SwipeConsequenceEvidenceStatus {
   if (consequence.evidenceStatus) return consequence.evidenceStatus;
   return validEvidenceRefCount > 0 ? "supported" : "unverified";
 }
 
 function normalizeConsequence(consequence: SwipeConsequence): SwipeConsequence {
-  const evidenceRefs = consequence.evidenceRefs?.filter((ref) => Boolean(ref?.id?.trim())) ?? [];
+  const evidenceRefs = validEvidenceRefs(consequence);
   return {
     ...consequence,
     title: consequence.title.trim(),
@@ -79,6 +83,11 @@ function evidenceIssues(consequences?: SwipeDecisionConsequences): string[] {
     ["disagree", consequences.disagree],
   ] as const) {
     entries.forEach((entry, index) => {
+      const status = normalizeEvidenceStatus(entry);
+      const refCount = validEvidenceRefs(entry).length;
+      if ((status === "verified" || status === "supported") && refCount === 0) {
+        issues.push(`evidence_status_without_refs:${direction}:${index}`);
+      }
       if (hasUnsafeCertaintyWithoutEvidence(entry)) {
         issues.push(`unsupported_causal_certainty:${direction}:${index}`);
       }
