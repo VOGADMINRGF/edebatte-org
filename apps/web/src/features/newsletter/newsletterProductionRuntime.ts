@@ -11,6 +11,7 @@ import {
   loadNewsletterCandidates,
   sendNewsletterDigestForSubscriber,
 } from "./newsletterRuntime";
+import { acquireNewsletterDeliveryLease } from "./newsletterDeliveryLease";
 
 const SUBSCRIBERS_COLLECTION = "public_updates_subscribers";
 const DELIVERY_COLLECTION = "newsletter_delivery_ledger";
@@ -151,11 +152,26 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
     }
   }
 
-  const result = await sendNewsletterDigestForSubscriber(subscriber, { now, candidates });
-  if (result.status === "failed" && "delivery" in result) {
-    await maybeSuppressHardFailure(subscriber, result.delivery.category);
+  // A deterministic digest lease closes the read→write race in the inner ledger.
+  // Only the production runtime can reach SMTP while holding this lease.
+  const lease = await acquireNewsletterDeliveryLease({ id, now });
+  if (!lease.acquired) {
+    return {
+      ok: true as const,
+      status: "skipped" as const,
+      reason: lease.reason,
+    };
   }
-  return result;
+
+  try {
+    const result = await sendNewsletterDigestForSubscriber(subscriber, { now, candidates });
+    if (result.status === "failed" && "delivery" in result) {
+      await maybeSuppressHardFailure(subscriber, result.delivery.category);
+    }
+    return result;
+  } finally {
+    await lease.release();
+  }
 }
 
 export async function runNewsletterProductionBatch(options: { now?: Date; limit?: number } = {}) {
