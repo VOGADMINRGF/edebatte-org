@@ -77,6 +77,8 @@ jobs:
           tests/youtube-source.contract.test.ts
           tests/server-drafts.source-evidence.contract.test.ts
           tests/create-route-security.contract.test.ts
+          tests/create-handoff-c9.contract.test.ts
+          tests/create-handoff-security.contract.test.ts
           tests/create-orchestration-single-flight.contract.test.ts
           tests/create-support-tickets.contract.test.ts
           tests/admin-create-support-tickets.route.test.ts
@@ -94,6 +96,8 @@ jobs:
           tests/create-planner-debug-diagnostics.contract.test.ts
           tests/create-planner-timeout.contract.test.ts
           tests/openai-provider.reasoning.contract.test.ts
+          tests/qr-question-set-guard.contract.test.ts
+          tests/qr-question-set-review-flow.route.test.ts
 
       - name: Create save domain contracts with isolated security harness
         run: >-
@@ -101,6 +105,12 @@ jobs:
           --config vitest.create-save.config.ts
           tests/create-mode.save.route.test.ts
           tests/create-save.safety-gate.test.ts
+
+      - name: Focused operator notification contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/operator-notifications.contract.test.ts
+          tests/operator-digest.route.test.ts
 
   web-quality:
     name: Web quality

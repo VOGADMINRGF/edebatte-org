@@ -30,6 +30,19 @@ function stableIdHash(value: string) {
 
 export const PERSISTED_CREATE_HANDOFF_SCHEMA_VERSION = "create_handoff_review_item.v1";
 
+export type PersistedCreateHandoffSourceEvidenceRef = {
+  sourceArtifactId: string;
+  contentHash: string;
+  verificationStatus: string;
+};
+
+export type PersistedCreateHandoffQuestionGuardBinding = {
+  questionId: string;
+  releaseState: "draft_allowed" | "review_required" | "blocked";
+  outcome: string;
+  evidenceRefs: string[];
+};
+
 export type PersistedCreateHandoffRecord = {
   schemaVersion: typeof PERSISTED_CREATE_HANDOFF_SCHEMA_VERSION;
   id: string;
@@ -54,6 +67,11 @@ export type PersistedCreateHandoffRecord = {
   noAutoFinalization: true;
   intakeClassification: CreateInputClassification;
   createdByUserId: string;
+  canonicalDraftId?: string | null;
+  canonicalDraftBindingHash?: string | null;
+  canonicalDraftPayloadHash?: string | null;
+  canonicalSourceEvidenceRefs?: PersistedCreateHandoffSourceEvidenceRef[];
+  questionGuardBindings?: PersistedCreateHandoffQuestionGuardBinding[];
   regionId: string | null;
   organizationId: string | null;
   dossierId: string | null;
@@ -118,9 +136,11 @@ export function buildPersistedCreateHandoffSummary(record: PersistedCreateHandof
     record.sourceGrounding.some((entry) => entry.id.startsWith("material-reference-"))
       ? "Materialhinweis erkannt"
       : null,
-    record.sourceGrounding.some((entry) => entry.status === "link_reference")
-      ? "Quellenhinweis erkannt"
-      : null,
+    (record.canonicalSourceEvidenceRefs?.length ?? 0) > 0
+      ? "Quellenevidenz gebunden"
+      : record.sourceGrounding.some((entry) => entry.status === "link_reference")
+        ? "Quellenhinweis erkannt"
+        : null,
   ].filter(Boolean);
   const headline = parts.join(" · ");
   const summary = String(record.plannerResult.shortSummary || record.sourceText).trim();
