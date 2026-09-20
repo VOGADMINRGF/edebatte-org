@@ -32,11 +32,22 @@ export type PublicTopicSupplyBucket =
   | "needs_review";
 export type SwipeSourceKind = "proposal" | "feed" | "dossier" | "anlassraum" | "create" | "seed";
 
+/**
+ * Evidenzstatus einer möglichen Folge. `supported` und `mixed` benötigen im
+ * Finalizer konkrete sourceRefs. `unverified`/`hypothesis` dürfen nie als
+ * gesicherte Kausalprognose dargestellt werden.
+ */
+export type SwipeConsequenceEvidenceStatus = "supported" | "mixed" | "unverified" | "hypothesis";
+
 export type SwipeConsequence = {
   /** Kurze, menschlich lesbare Folge; keine Prognosebehauptung ohne Evidenz. */
   title: string;
   /** Optionaler Kontext, Unsicherheit oder Mechanismus hinter der Folge. */
   detail?: string;
+  /** Expliziter Evidenzstatus, sobald eine Folge aus einem Runtime-Finalizer stammt. */
+  evidenceStatus?: SwipeConsequenceEvidenceStatus;
+  /** Stabile Provenienz-/Evidenzreferenzen, keine frei erfundenen URLs. */
+  sourceRefs?: string[];
 };
 
 export type SwipeDecisionConsequences = {
