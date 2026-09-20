@@ -178,6 +178,19 @@ export type AutonomousThemenradarScope = {
 };
 
 function normalizeString(value: unknown): string | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const region = value as {
+      countryCode?: unknown;
+      subRegionCode?: unknown;
+      municipalityCode?: unknown;
+    };
+    const countryCode = String(region.countryCode ?? "").trim().toUpperCase();
+    if (countryCode) {
+      const subRegionCode = String(region.subRegionCode ?? "").trim();
+      const municipalityCode = String(region.municipalityCode ?? "").trim();
+      return [countryCode, subRegionCode, municipalityCode].filter(Boolean).join(":");
+    }
+  }
   const normalized = String(value ?? "").trim();
   return normalized || null;
 }
