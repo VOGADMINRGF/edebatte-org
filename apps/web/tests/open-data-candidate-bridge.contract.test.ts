@@ -89,6 +89,36 @@ describe("Open Data → StatementCandidate bridge", () => {
     expect(candidate?.sourceContent).toContain('"snapshotId":"snapshot-v1"');
   });
 
+  it("fails closed when durable provenance or review gates are missing", () => {
+    const valid = pollEvent();
+    const missingSnapshot = pollEvent({
+      provenance: {
+        ...valid.provenance,
+        snapshotId: "",
+      },
+    });
+    const mismatchedSource = pollEvent({
+      provenance: {
+        ...valid.provenance,
+        sourceUrl: "https://www.abgeordnetenwatch.de/api/v2/polls/other",
+      },
+    });
+    const unsafeReviewGate = {
+      ...valid,
+      reviewRequired: false,
+    } as unknown as NormalizedOpenDataEvent;
+
+    expect(() => openDataEventToStatementCandidate(missingSnapshot)).toThrow(
+      "open_data_candidate_provenance_incomplete",
+    );
+    expect(() => openDataEventToStatementCandidate(mismatchedSource)).toThrow(
+      "open_data_candidate_provenance_incomplete",
+    );
+    expect(() => openDataEventToStatementCandidate(unsafeReviewGate)).toThrow(
+      "open_data_candidate_review_gate_invalid",
+    );
+  });
+
   it("keeps individual votes out of the topic-candidate pipeline", () => {
     expect(openDataEventToStatementCandidate(voteEvent())).toBeNull();
     expect(buildOpenDataStatementCandidates([pollEvent(), voteEvent()])).toHaveLength(1);
