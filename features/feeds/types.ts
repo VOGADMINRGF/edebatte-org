@@ -133,7 +133,7 @@ export interface FeedStatementDoc {
   title: string;
   summary?: string | null;
   claims: StatementRecord[];
-  regionCode?: RegionCode | null;
+  regionCode?: RegionCode | string | null;
   sourceUrl?: string | null;
   sourceLocale?: string | null;
   pipeline: string;
