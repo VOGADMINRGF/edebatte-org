@@ -125,6 +125,16 @@ jobs:
           tests/topic-qualification-system-question.contract.test.ts
           tests/topic-qualification-system-question.edge.test.ts
 
+      - name: Focused T2A research dossier binding contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/research-dossier-binding.contract.test.ts
+
+      - name: Focused T2B research plan contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/research-plan-contract.test.ts
+
       - name: Focused swipe graph projection contracts
         run: >-
           pnpm -C apps/web exec vitest run

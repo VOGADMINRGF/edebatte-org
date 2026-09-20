@@ -13,6 +13,12 @@ export interface ResearchTaskSource {
   eventualityId?: string;
 }
 
+export interface ResearchTaskDossierBinding {
+  dossierId: string;
+  dossierRevisionSeq: number;
+  dossierRevisionHash: string;
+}
+
 export interface ResearchTask {
   id?: string;
   kind?: ResearchTaskKind;
@@ -27,6 +33,7 @@ export interface ResearchTask {
   updatedAt?: Date | string;
   dueAt?: Date | string | null;
   tags?: string[];
+  dossierBinding?: ResearchTaskDossierBinding;
 }
 
 export type ResearchContributionStatus = "submitted" | "accepted" | "rejected";
