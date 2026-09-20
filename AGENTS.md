@@ -150,34 +150,39 @@ Bei einem Konflikt gilt die höherstehende Ebene. Ein echter Bedeutungswechsel m
 ### 11. Topic-first cross-lingual research and evidence (verbindlich)
 Für Medien-, Event-, Source-, Research-, Factcheck-, Dossier-, Themenradar-, Graph- und Decision-/Swipe-Arbeit gilt zusätzlich der Run-Pack `docs/E150/C13_T9_G6_GLOBAL_TOPIC_INTELLIGENCE_MEDIA_RESEARCH_RUNPACK_2026-09-20.md` beziehungsweise dessen später kanonisch supersedende Fassung.
 
-C13/T9/G6 sind **keine neuen Domain-Owner und keine neue Facharchitektur**. Sie sind ausschließlich Ausführungs-, Adapter-, Orchestrierungs- und Projektionsslices auf bereits vorhandenen kanonischen Verträgen. Die auf `main` vorhandenen Owner sind insbesondere:
+C13/T9/G6 sind **keine neuen Domain-Owner und keine neue Facharchitektur**. Sie sind ausschließlich Adapter-, fachliche Verification-Profile-, Konvergenz- und Projektionsslices auf bereits vorhandenen kanonischen Verträgen und Runtimes. Die vorhandenen beziehungsweise bereits vorbereiteten Owner sind insbesondere:
 
 - `features/topic/canonicalTopicResolutionContract.ts` für `CanonicalTopic`, `JurisdictionContext`, `DecisionQuestion` und Topic-Auflösung;
 - `features/analyze/atomicClaimSourceRelationContract.ts` für `SourceArtifact`, `SourceSegment`, `AtomicClaim`, `ClaimSourceRelation`, `SourceFamily`, `EvidenceAssessment`, `PublicationClassification` und `SynthesisReceipt`;
-- `features/feeds/sourceSnapshot.ts` und bestehende Source-/Material-Runtimes für Fetch-/Snapshot-Wahrheit;
+- `features/feeds/sourceSnapshot.ts` und bestehende Source-/Material-Runtimes für Fetch-/Snapshot-Wahrheit; `snapshotId` ist bereits Observation Identity;
 - bestehende Dossier-Contracts und Persistenz für Research-/Dossier-Wahrheit;
-- bestehende Reason-/Evidence-/Graph-Flächen für abgeleitete Projektionen;
+- Issue #629 / `AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01` und der bestehende E150-Policy-Orchestrator für Specialist-/Provider-Ausführung und Composition;
+- Issue #644 / `YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01` für die belastbare Live-YouTube-/Media-Acquisition-Grenze;
+- `features/analyze/evidenceGraph.ts`, `features/analyze/schemas.ts`, `core/evidence/*` und `features/evidence/syncFromAnalyze.ts` als bereits vorhandene Analyze-/Persistence-/Projection-Flächen, die vor G6-Code konvergiert statt dupliziert werden müssen;
 - bestehende Source-/Question-/Swipe-Gates für öffentliche Entscheidungs-Readiness.
 
 Solange C13/T9/G6 nicht verlustfrei im operativen Kopf von `docs/E150/OpenTasks.md` serialisiert und taskbezogen freigegeben sind, ist nur Governance-, Dokumentations-, Dependency- und Preflight-Arbeit zulässig. Diese Grenze darf nicht durch eine provider-, format- oder sendungsspezifische Implementierung umgangen werden.
 
 #### No-semantic-duplicate gate
-Vor **jedem** neuen Typ, Contract, Store, Repository, Collection, Graph-Knotenmodell oder Persistenzfeld in diesem Track muss der Agent zuerst nach semantisch äquivalenten bestehenden Ownern suchen. Gilt eine der folgenden Bedingungen, darf kein neues kanonisches Objekt entstehen:
+Vor **jedem** neuen Typ, Contract, Store, Repository, Collection, Graph-Knotenmodell, Persistenzfeld, Runner, Scheduler, Provider-Router, Composer oder Media-Loader in diesem Track muss der Agent zuerst nach semantisch beziehungsweise funktional äquivalenten bestehenden Ownern suchen. Gilt eine der folgenden Bedingungen, darf kein neues kanonisches Objekt und keine zweite Runtime entstehen:
 
 - dieselbe fachliche Identität existiert bereits unter anderem Namen;
 - das neue Objekt wäre nur eine medien-/provider-/sprachspezifische Variante eines vorhandenen Objekts;
 - dieselben Daten könnten als additive Metadaten, Adapter-Output oder Referenz an einem vorhandenen Owner hängen;
 - ein zweiter Store würde dieselbe fachliche Wahrheit spiegeln;
 - ein Graph-Knoten würde nur eine bereits kanonische Domain-Entity duplizieren;
-- ein LLM-/Provider-Output würde als neue Wahrheit persistiert, obwohl er nur Candidate/Processing-Provenienz ist.
+- ein LLM-/Provider-Output würde als neue Wahrheit persistiert, obwohl er nur Candidate/Processing-Provenienz ist;
+- #629/E150 besitzt bereits dieselbe Orchestrierungs-/Composition-Rolle;
+- #644 oder ein bestehender Source-Loader besitzt bereits dieselbe Media-Acquisition-Rolle;
+- bestehende Analyze-/Core-Evidence-Flächen würden durch einen dritten Graph-/Evidence-Store nur erneut gespiegelt.
 
-Im Zweifel gilt: **kanonischen Owner erweitern oder adaptieren, nicht daneben neu modellieren**. Eine neue persistente Entity ist nur zulässig, wenn eine nachgewiesene eigenständige Identität, ein eigener Lifecycle und ein eigener kanonischer Owner existieren und dies im taskbezogenen Preflight ausdrücklich bestätigt wurde.
+Im Zweifel gilt: **kanonischen Owner erweitern oder adaptieren, nicht daneben neu modellieren oder neu orchestrieren**. Eine neue persistente Entity oder Runtime ist nur zulässig, wenn eine nachgewiesene eigenständige Identität beziehungsweise nicht vorhandene Ausführungsrolle, ein eigener Lifecycle und ein klarer kanonischer Owner existieren und dies im taskbezogenen Preflight ausdrücklich bestätigt wurde.
 
 #### C13/T9/G6-Konvergenz
-- **C13 ist Intake/Adapter, kein neues Observation-Repository.** Medien-/Event-Metadaten werden soweit möglich auf bestehende `SourceSnapshot`-/`SourceArtifact`-/`SourceSegment`-Wahrheit und additive Adapter-Metadaten abgebildet. Ein eigener C13-Truth-Store ist verboten.
-- **T9 ist Orchestrierung, kein neues Evidence-System.** T9 konsumiert und aktualisiert ausschließlich bestehende Topic-, Claim-/Source-, Evidence-, Dossier-, Language- und Review-Verträge. Insbesondere dürfen `EvidenceAssessment`, `SourceFamily`, `ClaimSourceRelation`, `PublicationClassification` oder `SynthesisReceipt` nicht unter neuen T9-Namen dupliziert werden.
-- **G6 ist Derived Projection, kein neuer Graph-Kanon.** G6 referenziert kanonische IDs/Revisionen/Receipts und darf keine fehlende Topic-, Claim-, Source-, Actor-, Dossier- oder Decision-Wahrheit erzeugen. Kein Graph-write-to-truth feedback loop.
-- C13/T9/G6 dürfen vorhandene Contracts nur additiv erweitern, wenn ein reales fehlendes Feld oder eine fehlende Relation durch Fixtures belegt ist. Jede Erweiterung gehört in den bestehenden Domain-Owner, nicht in eine neue Parallelstruktur.
+- **C13 ist Intake/Adapter, kein neues Observation-Repository und keine neue Media-Runtime.** Medien-/Event-Metadaten werden soweit möglich auf bestehende `SourceSnapshot`-/`SourceArtifact`-/`SourceSegment`-Wahrheit und additive Adapter-Metadaten abgebildet. Ein eigener C13-Truth-Store ist verboten. Live-YouTube-/Media-Acquisition wird über #644 konsumiert oder bleibt ehrlich manual/degraded; kein zweiter Loader.
+- **T9 ist fachliches Verification-Profil, kein eigener Orchestrator und kein neues Evidence-System.** T9 konsumiert ausschließlich bestehende Topic-, Claim-/Source-, Evidence-, Dossier-, Language- und Review-Verträge und wird über #629/E150 ausgeführt, soweit entsprechende Rollen autorisiert/implementiert sind. Kein `T9Runner`, kein `T9Composer`, kein eigener Provider-Router. `EvidenceAssessment`, `SourceFamily`, `ClaimSourceRelation`, `PublicationClassification`, `SynthesisReceipt`, `CanonicalAnalysisResult` oder `ComposedAnalysisResult` dürfen nicht unter neuen T9-Namen dupliziert werden.
+- **G6 ist Evidence/Graph-Konvergenz plus Derived Projection, kein neuer Graph-Kanon.** Vor G6-Code ist eine Ownership-/Projection-Matrix über atomaren Evidence-Contract, Analyze `EvidenceGraph`, `core/evidence`-Persistenz und Analyze→Core-Sync Pflicht. G6 referenziert kanonische IDs/Revisionen/Receipts, konvergiert bestehende Projection-Flächen und darf keine fehlende Topic-, Claim-, Source-, Actor-, Dossier- oder Decision-Wahrheit erzeugen. Kein dritter Evidence-/Graph-Store und kein Graph-write-to-truth feedback loop.
+- C13/T9/G6 dürfen vorhandene Contracts nur additiv erweitern, wenn ein reales fehlendes Feld oder eine fehlende Relation durch Fixtures belegt ist. Jede Erweiterung gehört in den bestehenden Domain-/Runtime-Owner, nicht in eine neue Parallelstruktur.
 
 Verbindliche fachliche Regeln:
 
@@ -192,7 +197,8 @@ Verbindliche fachliche Regeln:
 - Widerspruch, alternative Erklärung, Ausnahme/Boundary Case, Gegenbeispiel, normative Gegenposition und Research Gap bleiben getrennte Befunde. Keine künstliche 50/50-Balance und keine automatische Gewinnerseite.
 - Ein Dossier ist topic-zentriert und darf nicht allein auf einem Medienformat oder dessen eigenem Faktencheck beruhen. Herkunft, Originalvideo/-audio/-artikel, Timecode/Seite und Faktencheck-/Quellenmaterial bleiben in der Transparenz-/Provenienzebene sichtbar.
 - Topic-/Evidence-Maturity und Decision-/Swipe-Readiness sind getrennt. Ein gut recherchiertes Thema erzeugt nur dann einen Decision-/Swipe-Candidate, wenn eine konkrete zuständige und evidenzgeprüfte Entscheidungsfrage existiert.
-- Gemini oder andere LLMs sind austauschbare Research-/Extraction-Provider. Deterministische eDebatte-Contracts, Policy, Domain Owner und Human Review behalten die Autorität.
+- Gemini oder andere LLMs sind austauschbare Research-/Extraction-Provider innerhalb der kanonischen #629-/E150-Policy. Deterministische eDebatte-Contracts, Policy, Domain Owner und Human Review behalten die Autorität.
+- Scalar Legacy-`confidence` aus älteren Evidence-Projektionen darf keinen mehrdimensionalen `EvidenceAssessment`-Status ersetzen oder erhöhen.
 - Keine politische Empfehlung, kein Desirability-Ranking, kein Auto-Merge, Auto-Exclude, Auto-Truth-Promotion, Auto-Publish oder automatisches Öffnen einer Abstimmung aus Research-/Media-Signalen.
 
 ---
