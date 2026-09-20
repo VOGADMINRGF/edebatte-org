@@ -1,6 +1,7 @@
 # C13 / T9 / G6 — Global Topic Intelligence & Media Research Run-Pack
 
 Stand: 2026-09-20
+Revision: 2 — Convergence correction
 
 Status: Governance-, Architektur- und Ausführungsvorbereitung. **Keine Runtime-, Schema-, Provider-, Graph-, Publish- oder Production-Freigabe.**
 
@@ -10,132 +11,133 @@ Operative Anker:
 - T9 / Issue #951 — `GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01`
 - G6 / Issue #952 — `PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01`
 - OpenTasks Single-Writer: Issue #447
-- Canonical Topic Owner: Issue #586 / `CANONICAL-TOPIC-RESOLUTION-01`
-- Atomic Claim ↔ Source / Evidence Owner: Issue #587 / `ATOMIC-CLAIM-SOURCE-RELATION-CONTRACT-01`
+- Canonical Topic Owner: `features/topic/canonicalTopicResolutionContract.ts` / Issue #586
+- Atomic Claim ↔ Source / Evidence Owner: `features/analyze/atomicClaimSourceRelationContract.ts` / Issue #587
+- Durable source observation owner: `features/feeds/sourceSnapshot.ts`
 
-Diese Datei ist **kein zweiter Backlog**. `docs/E150/OpenTasks.md` bleibt die operative SSOT. Die drei Tasks dürfen erst implementiert werden, nachdem sie durch den kanonischen Single Writer verlustfrei serialisiert wurden und der jeweilige taskbezogene Preflight die Ausführung ausdrücklich erlaubt.
+Diese Datei ist **kein zweiter Backlog und keine neue Domain-Architektur**. `docs/E150/OpenTasks.md` bleibt die operative SSOT.
+
+## Revisionshinweis
+
+Die erste Fassung dieses Run-Packs behandelte #586/#587 zu konservativ als noch nicht implementierte Voraussetzungen. Das ist auf aktuellem `main` nicht mehr korrekt:
+
+- `CanonicalTopic`, `JurisdictionContext`, `DecisionQuestion` und der fail-closed Resolver existieren bereits unter `features/topic/canonicalTopicResolutionContract.ts`;
+- `SourceArtifact`, `SourceSegment`, `AtomicClaim`, `ClaimSourceRelation`, `SourceFamily`, `EvidenceAssessment`, `PublicationClassification` und `SynthesisReceipt` existieren bereits unter `features/analyze/atomicClaimSourceRelationContract.ts`;
+- `DurableSourceSnapshot.snapshotId` ist bereits ausdrücklich die **Observation identity**, `contentId` die immutable Content Identity;
+- Dossier- und Research-Owner existieren bereits im Decision-Dossier-Track.
+
+Daraus folgt verbindlich:
+
+> **C13, T9 und G6 dürfen keine zweite Struktur eröffnen. Sie dürfen nur bestehende kanonische Owner adaptieren, orchestrieren und projizieren.**
 
 ---
 
-## 1. Verbindliche Produktentscheidung
+## 1. Zielarchitektur: ein System, eine Wahrheit pro Konzept
 
 Für eDebatte gilt:
 
-> **Thema zuerst, Herkunft danach.**
+> **Thema zuerst, Herkunft danach. Ein kanonisches Fachobjekt pro fachlicher Identität.**
 
-Ein Medienbeitrag, Podcast, Video, Faktencheck, Interview, Parlamentsbeitrag, Artikel oder sonstiges Material kann ein Thema entdecken, aktualisieren, belegen, einschränken oder widersprechen. Es wird dadurch **nicht** zum öffentlichen Primärobjekt und **nicht** zur Wahrheitsinstanz.
+Ein Medienbeitrag, Podcast, Video, Faktencheck, Interview, Parlamentsbeitrag, Artikel oder sonstiges Material kann ein Thema entdecken, aktualisieren, belegen, einschränken oder widersprechen. Es wird dadurch weder zum öffentlichen Primärobjekt noch zur Wahrheitsinstanz.
 
-Das öffentliche Dossier ist ein eigenständiges, topic-zentriertes Erkenntnisobjekt. Herkunft bleibt vollständig nachvollziehbar, aber sekundär:
+Die kanonische Kette lautet:
 
 ```text
-Observation / Event / Media Material
+SourceRef / external material
         ↓
-Original Source Snapshot / Artifact
+DurableSourceSnapshot, falls replaybar/fetchbar
         ↓
-Source Segment + Speaker + Locator
+SourceArtifact
         ↓
-Atomic Claim / Claim Expression
+SourceSegment + speaker + locator
         ↓
-Source Lineage + Independence
+AtomicClaim
         ↓
-Cross-Lingual Canonical Topic Resolution
+ClaimSourceRelation + SourceFamily
         ↓
-Independent Verification + Counterevidence
+EvidenceAssessment + SynthesisReceipt
         ↓
-Conflict / Research Gap / Freshness / Applicability
+CanonicalTopic + JurisdictionContext
         ↓
-Topic-centric Dossier update candidate
+existing Dossier / ResearchTask
         ↓
-DecisionQuestion candidate, falls tatsächlich entscheidbar
+DecisionQuestion, falls tatsächlich entscheidbar
         ↓
-Source-/Question-/Swipe-Gates
-        ↓
-AI Orchestra review
+existing Source-/Question-/Swipe-Gates
         ↓
 Human Review
+        ↓
+derived Graph/Readmodel projection
 ```
 
-Keine Ebene darf eine nachgelagerte Wahrheit vorwegnehmen.
+Keine Stufe darf dieselbe fachliche Wahrheit unter einem zweiten Namen neu persistieren.
 
 ---
 
-## 2. Warum dieser Track existiert
+## 2. Kanonische Mapping-Matrix
 
-Hochwertige politische und gesellschaftliche Formate besitzen oft große Recherche- und Quellenbreite. Beispiele sind politische Magazine, Satireformate mit Quellenlisten, investigative Sendungen, Talkshows, Podcasts, öffentliche Videos, Parlamentsdebatten und internationale Rechercheformate.
+| Fachliches Konzept | Kanonischer Owner auf `main` | C13 darf | T9 darf | G6 darf |
+| --- | --- | --- | --- | --- |
+| Observation bei durablem Fetch | `DurableSourceSnapshot.snapshotId` | erzeugen über bestehenden Fetch-/Snapshot-Pfad | referenzieren | projizieren |
+| Immutable Content Identity | `DurableSourceSnapshot.contentId` | referenzieren | deduplizieren/revalidieren | projizieren |
+| Quelle | `SourceArtifact` | Candidate/Adapter auf bestehenden Typ | konsumieren | ID projizieren |
+| Quellsegment / Timecode / Passage | `SourceSegment` | segmentieren/binden | verifizieren | ID + Relation projizieren |
+| Atomare Aussage | `AtomicClaim` | Candidate erzeugen | normalisieren/verifizieren | projizieren |
+| Claim↔Source-Beziehung | `ClaimSourceRelation` | Candidate erzeugen | prüfen/aktualisieren | Relation projizieren |
+| Quellenfamilie / Unabhängigkeit | `SourceFamily` + Relation-Independence | Hints liefern | bestimmen/prüfen | projizieren |
+| Evidenzbewertung | `EvidenceAssessment` | niemals Truth-Promotion | aktualisieren innerhalb Owner-Semantik | nur lesen/projizieren |
+| Publikationsklasse | `PublicationClassification` | nicht setzen außer bestehende Resolverlogik | bestehende Resolverlogik anwenden | nur lesen |
+| Synthese-/Verification-Receipt | `SynthesisReceipt` | Inputs referenzieren | erzeugen/validieren innerhalb Owner | projizieren |
+| Thema | `CanonicalTopic` | Candidate-Input liefern | bestehenden Resolver nutzen | Topic-ID projizieren |
+| Jurisdiktion | `JurisdictionContext` | Metadaten liefern | bestehenden Resolver/Assessment nutzen | projizieren |
+| konkrete Entscheidungsfrage | `DecisionQuestion` | nie aus Material automatisch finalisieren | Candidate nur über bestehenden Owner | projizieren |
+| Dossier / Research | bestehende Dossier-/Research-Owner | Handoff liefern | Delta aktualisieren | Dossier-ID/Revision projizieren |
+| Graph | bestehende Reason-/Graph-Projektion | nichts kanonisieren | nichts kanonisieren | ausschließlich derived projection |
 
-Diese Recherche soll eDebatte nutzen können, ohne folgende Fehlmodi einzuführen:
+### Harte Schlussfolgerung
 
-- Sendung oder Redaktion wird zur Truth Authority;
-- Sender-Faktencheck gilt ungeprüft als Wahrheit;
-- fünf Artikel mit derselben Agenturmeldung zählen als fünf unabhängige Quellen;
-- Übersetzung zählt als zusätzliche Evidenz;
-- Talkshow-Aussage wird dem Sender statt dem Sprecher zugerechnet;
-- Satire oder rhetorische Zuspitzung wird als Tatsachenclaim gespeichert;
-- ein neues Video erzeugt automatisch ein neues Topic/Dossier;
-- gut belegter UK-/US-Claim wird ungeprüft als deutsche Tatsache dargestellt;
-- veraltete Zahlen bleiben dauerhaft `verified`;
-- Provider-/Agentenmehrheit erzeugt scheinbaren Konsens;
-- ein gutes Dossier erzeugt automatisch einen Swipe, obwohl keine konkrete Entscheidung existiert.
-
-C13, T9 und G6 schließen diese Lücken, ohne neue Domain-SSOTs zu erfinden.
-
----
-
-## 3. Domain-Ownership und keine Parallelarchitektur
-
-### #586 bleibt Canonical-Topic-Owner
-
-C13/T9/G6 definieren **kein zweites CanonicalTopic-Modell**. Wiederzuverwenden sind insbesondere:
-
-- `CanonicalTopic`;
-- `JurisdictionContext`;
-- `DecisionQuestion`;
-- `ExternalParticipationSignal`;
-- fail-closed Matching/Review bei Ambiguität;
-- keine Auto-Fusion und keine Topic-Neuanlage nur wegen anderer Formulierung, Sprache oder Region.
-
-### #587 bleibt Atomic-Claim-/Source-/Evidence-Owner
-
-C13/T9/G6 definieren **keine zweite Claim-/Evidence-Wahrheit**. Wiederzuverwenden sind insbesondere:
-
-- `SourceArtifact`;
-- `SourceSegment`;
-- `AtomicClaim`;
-- `ClaimSourceRelation`;
-- `SourceLineage` / `SourceFamily`;
-- `EvidenceAssessment`;
-- `PublicationClassification`;
-- `SynthesisReceipt`.
-
-### Bestehende Runtime-Flächen bleiben Owner
-
-Wiederzuverwenden statt duplizieren:
-
-- `features/feeds/sourceSnapshot.ts`;
-- bestehende Feed-/Source-/Material-Extraction-Pfade;
-- `features/themenradar/autonomousSupply.ts`;
-- bestehende Analyze-/Evidence-Graph-/Dossier-Handoffs;
-- Language Bridge und Original-vs-Reading Truth;
-- AI-Provider-/Role-/Lane-Policy;
-- bestehende Dossier-Persistenz und Review-/Publish-Gates;
-- bestehende Source-/Question-/Swipe-Gates, insbesondere die in #935/#940/#943 vorbereitete fail-closed Konvergenz, sobald kanonisch integriert.
-
-Gemini oder andere LLMs sind austauschbare Research-/Extraction-Provider. **Provider wählen oder erzeugen keine kanonische Wahrheit.**
+Ein neues Objekt wie `Observation`, `MediaClaim`, `GlobalEvidence`, `T9Assessment`, `G6TopicNode`, `MediaDossier`, `FactcheckTruth`, `TranslatedClaim` oder ein zweiter `SourceFamily`-Typ ist **nicht zulässig**, wenn es dieselbe Identität oder denselben Lifecycle wie ein vorhandener Owner abbildet.
 
 ---
 
-## 4. C13 — Cross-Lingual Media & Event Research Intake
+## 3. No-semantic-duplicate gate
+
+Vor jedem neuen Typ, Contract, Store, Repository, Collection, Graph-Knotenmodell oder Persistenzfeld muss der Agent beantworten:
+
+1. Existiert dieselbe fachliche Identität bereits unter anderem Namen?
+2. Ist das Neue nur eine medien-, provider-, sprach- oder UI-spezifische Variante?
+3. Kann die Information als additive Metadaten, Adapter-Output oder Referenz am bestehenden Owner geführt werden?
+4. Würde ein neuer Store dieselbe Wahrheit spiegeln?
+5. Würde ein Graph-Knoten nur eine bereits kanonische Entity kopieren?
+6. Würde ein Modelloutput als Wahrheit persistiert, obwohl er nur Candidate oder Processing-Provenienz ist?
+
+Wenn eine Antwort `ja` ist, gilt:
+
+> **Bestehenden Owner erweitern oder adaptieren; keine neue kanonische Struktur.**
+
+Eine neue persistente Entity ist nur zulässig, wenn alle folgenden Punkte belegt sind:
+
+- eigenständige Identität;
+- eigenständiger Lifecycle;
+- keine semantische Überschneidung mit bestehendem Owner;
+- eigener fachlicher Owner;
+- positive Collision-/Architecture-Prüfung;
+- ausdrückliche Autorisierung im taskbezogenen Preflight.
+
+---
+
+## 4. C13 — Media/Event Intake Adapter
+
+C13 ist **kein Domain-Layer** und insbesondere kein `DieAnstaltAgent`.
 
 ### Aufgabe
 
-C13 bringt internationale und mehrsprachige öffentliche Materialien als strukturierte **Observations** in die vorhandene Source-/Materialwelt.
+Internationale und mehrsprachige öffentliche Materialien über bestehende Source-/Material-/Evidence-Owner ingestieren.
 
-C13 ist kein `DieAnstaltAgent`. Das erste Profil darf `Die Anstalt` sein, der Contract muss aber von Beginn an generisch funktionieren.
-
-### Von V1 an modellierbare Eingänge
+Unterstützbare Inputklassen mindestens:
 
 - TV-/Streaming-Sendung;
-- politische Satire / Kabarett mit Research-Material;
+- politische Satire / Kabarett;
 - politisches Magazin / investigative Sendung;
 - Talkshow / Interview / Panel;
 - Podcast / Radio;
@@ -151,441 +153,362 @@ C13 ist kein `DieAnstaltAgent`. Das erste Profil darf `Die Anstalt` sein, der Co
 - Datensatz / Statistik;
 - bestehende RSS-/Open-Data-/Nutzer-/Material-Hinweise.
 
-### Observation-Metadaten
+### Observation Identity
 
-Soweit anwendbar und verfügbar:
+Es wird **kein neuer `Observation`-Store** eingeführt.
 
-- stabile Observation-ID;
-- SourceArtifact-/Snapshot-ID;
-- Publisher/Urheber;
-- Programme-/Format-ID und Titel;
-- Episode-ID/Titel/Datum;
-- canonical original URL;
-- öffentliche Video-/Audio-URL;
-- Availability-Status und `availableUntil`, wenn bekannt;
-- Dauer;
-- Untertitel-/Transkriptstatus;
-- Originalsprache;
-- Sprecher und Sprecherrolle;
-- SourceSegment-ID;
-- Locator: Timecode, Seite, Absatz, Zeile oder Datensatz;
-- Transkriptions-/OCR-/Übersetzungsstatus und Unsicherheit;
-- erlaubter Ausschnitt/Originalreferenz;
-- Supplement-Links wie Faktencheck, Quellenliste, Show Notes oder Dokumente;
-- Source Role: `origin | evidence | counter_evidence | context | primary_document`;
-- bekannte upstream-/Source-Family-Hinweise;
-- Rechte-/Retention-/Access-Metadaten soweit bekannt.
+- Wenn Material über den bestehenden Fetch-/Snapshot-Pfad dauerhaft replaybar vorliegt, ist `DurableSourceSnapshot.snapshotId` die Observation Identity.
+- Byte-identischer Inhalt teilt `contentId`, auch wenn er zu mehreren Zeitpunkten beobachtet wurde.
+- Wenn ein externes Medium aus Rechte-, Provider- oder Runtime-Gründen nicht dauerhaft gespiegelt/fetched werden darf, bleiben `SourceArtifact.canonicalRef`, `SourceSegment.locator`, Access-/Rights-/Retention-Status und vorhandene SourceRef-/Adapter-Metadaten maßgeblich. Daraus entsteht kein Ersatz-Observation-Store.
 
-### Medien- und Speaker-Regeln
+### Additive Medienmetadaten
+
+Ein späterer C13-Preflight darf nur echte Gaps ergänzen, z. B. soweit nicht bereits vorhanden:
+
+- Programme-/Format-/Episode-Referenz;
+- Speaker Role;
+- Timecode/Locator;
+- Duration;
+- Availability / `availableUntil`;
+- Subtitle-/Transcript-Status;
+- Supplement-/Show-Notes-/Factcheck-Links;
+- deklarierte Source Role wie origin/evidence/counter-evidence/context.
+
+Diese Felder gehören an den fachlich passenden bestehenden Source-/Segment-/Adapter-Owner. Sie rechtfertigen keine neue C13-Domain.
+
+### Speaker-/Medienregeln
 
 1. `Sender veröffentlicht Aussage von Gast X` ist nicht gleich `Sender behauptet X`.
-2. Talkshow-/Interview-/Panel-Claims müssen auf Sprecher/Segment zurückführbar bleiben.
-3. Host, Redaktion, Gast, zitierte Person und externes Dokument werden getrennt gehalten.
-4. Ein automatisches Transkript ist nicht automatisch ein verifiziertes Wortzitat.
-5. Satire-/Ironie-/Metapher-/rhetorische Übertreibung bleibt als Kontextmarkierung erhalten; daraus abgeleitete Faktenclaims müssen separat normalisiert und geprüft werden.
-6. Öffentliches Video darf referenziert werden; vollständige Fremdmedien werden nicht stillschweigend dauerhaft gespiegelt.
-7. Abgelaufene oder verschobene Medien-URL zerstört die kanonische Topic-/Claim-Wahrheit nicht; Availability wird als eigener Zustand behandelt.
+2. Talkshow-/Interview-/Panel-Claims bleiben auf Sprecher + Segment rückführbar.
+3. Host, Redaktion, Gast, zitierte Person und externes Dokument bleiben getrennt.
+4. Automatisches Transkript ist nicht automatisch verifiziertes Wortzitat.
+5. Satire, Ironie, Metapher, Übertreibung und überprüfbarer Faktenclaim bleiben getrennt.
+6. Öffentliches Video darf referenziert werden; kein stilles dauerhaftes Spiegeln fremder Medien.
+7. Abgelaufene URL ändert Availability, nicht rückwirkend kanonische Claim-/Topic-Identität.
 
 ### C13-Handoff
 
 ```text
-Observation
-  -> SourceSnapshot / SourceArtifact
-  -> SourceSegment
-  -> ClaimExpression / AtomicClaim candidate
-  -> SourceLineage candidate
-  -> reviewable T9 intake
+SourceRef/material
+  -> existing DurableSourceSnapshot where applicable
+  -> existing SourceArtifact
+  -> existing SourceSegment
+  -> existing AtomicClaim candidate
+  -> existing ClaimSourceRelation/SourceFamily candidate
+  -> T9 orchestration
 ```
-
-C13 darf keine EvidenceAssessment-Dimension eigenmächtig auf `externally_verified` oder eine äquivalente Veröffentlichungsklasse hochstufen.
 
 ---
 
-## 5. T9 — Global Topic Intelligence & Independent Verification
+## 5. T9 — Verification Orchestration
+
+T9 ist **kein neues Evidence-System**.
 
 ### Aufgabe
 
-T9 macht aus internationalen Observations **keine Medien-Dossiers**, sondern aktualisiert den bestehenden kanonischen Themen- und Dossierstand.
+Bestehende Topic-, Claim-/Source-, Evidence-, Dossier-, Language- und Review-Owner so orchestrieren, dass internationale Research-Inputs verifiziert und als Dossier-Delta eingeordnet werden.
 
 ### Harte Ontologie
 
 ```text
-Observation/Event ≠ CanonicalTopic ≠ AtomicClaim ≠ DecisionQuestion
+Source observation ≠ CanonicalTopic ≠ AtomicClaim ≠ DecisionQuestion
 ```
 
-- neues Event: kann ein bestehendes Topic aktualisieren;
-- neuer Claim: kann ein bestehendes Dossier ergänzen oder revidieren;
-- neuer Ort: kann einen JurisdictionContext erzeugen;
-- neue konkrete Entscheidung: kann eine DecisionQuestion unter demselben Topic erzeugen;
-- neue Formulierung/Sprache: erzeugt nicht automatisch einen neuen Claim oder ein neues Topic.
+- neues Material kann ein bestehendes Topic aktualisieren;
+- neuer Claim kann ein bestehendes Dossier ergänzen/revidieren;
+- neuer Ort kann Jurisdiction-Kontext ändern;
+- neue konkrete Entscheidung kann eine DecisionQuestion begründen;
+- neue Sprache/Formulierung erzeugt nicht automatisch neues Topic oder neuen Claim.
 
 ### Factcheck-of-factcheck
 
-Ein externer Faktencheck ist ein Research-Artefakt und wird selbst geprüft.
-
-Mindestens:
+Ein externer Faktencheck ist Research-Artefakt, keine Truth Authority.
 
 ```text
-externer Faktencheck
-  -> einzelne Claims atomisieren
-  -> zitierte/upstream Quellen erfassen
-  -> konkrete Primärquelle öffnen oder als fehlend markieren
-  -> relevante Tabelle/Passage/Methodik/Definition identifizieren
-  -> Claim-Entailment prüfen
+external factcheck
+  -> AtomicClaims identifizieren
+  -> verwendete SourceArtifacts/Segments erfassen
+  -> upstream Primärquelle öffnen oder fehlend markieren
+  -> konkrete Passage/Tabelle/Methodik/Definition prüfen
+  -> ClaimSourceRelation bestimmen
   -> Zeitraum/Population/Quantifizierung prüfen
-  -> Jurisdiktion und Übertragbarkeit prüfen
-  -> alternative Erklärungen/Gegenbelege suchen
-  -> Source Lineage / Independence bestimmen
-  -> EvidenceAssessment aktualisieren
+  -> Jurisdiction/Generalizability prüfen
+  -> Gegenbelege/alternative Erklärungen suchen
+  -> SourceFamily/Independence bestimmen
+  -> bestehenden EvidenceAssessment aktualisieren
+  -> bestehenden SynthesisReceipt erzeugen/validieren
 ```
 
-Das Label `Faktencheck`, der Ruf eines Mediums oder eine Redaktionseinschätzung erhöht allein keinen Truth-Status.
+Das Label `Faktencheck`, Medienreputation oder Modellmehrheit erhöht allein keinen Evidence-Status.
 
 ### Quellenunabhängigkeit
 
-Folgende Beispiele zählen **nicht** automatisch als voneinander unabhängige Bestätigung:
+Nicht automatisch unabhängig:
 
-- Sendung + Faktencheck desselben Senders, wenn beide dieselbe Studie verwenden;
-- mehrere Artikel auf Basis derselben Agenturmeldung;
-- mehrere Texte auf Basis desselben Interviews;
-- mehrere Medien, die dieselbe amtliche Statistik paraphrasieren;
-- mehrere Agenten/Modelle, die dieselbe Quelle analysieren;
-- Übersetzungen oder Zusammenfassungen derselben Originalquelle.
+- Sendung + Faktencheck desselben Formats mit gleicher Studie;
+- mehrere Artikel derselben Agenturmeldung;
+- mehrere Texte desselben Interviews;
+- mehrere Medien mit derselben amtlichen Statistik;
+- mehrere Agenten/Modelle auf derselben Quelle;
+- Übersetzungen/Zusammenfassungen derselben Originalquelle.
 
-Maßgeblich sind Source Lineage, Root Source und Relation zum **gleichen atomaren Claim**.
+Maßgeblich bleiben `SourceFamily`, Relation zum gleichen AtomicClaim und bestehende Independence-Regeln.
 
-### Temporal validity / Freshness
+### Freshness / Jurisdiction / Generalizability
 
-Claims müssen soweit anwendbar besitzen oder ableiten lassen:
-
-- beobachteter/veröffentlichter Zeitpunkt;
-- Daten-/Messzeitraum;
-- `lastVerifiedAt`;
-- Freshness-Status;
-- erkennbare Ablösung durch neue Version/Statistik/Gesetzeslage.
-
-Ein ehemals korrekter Zahlen- oder Rechtsclaim darf nach relevanter Änderung nicht still als aktuell bestätigt erscheinen.
-
-### Jurisdiction / Applicability / Generalizability
-
-Mindestens getrennt modellieren:
-
-- direkte Geltung;
-- teilweise Übertragbarkeit;
-- nur Kontext/Benchmark;
-- nicht übertragbar;
-- unbekannt / Review erforderlich.
-
-Eine belastbare Quelle aus GB/US/FR/EU wird nicht automatisch als Aussage über Deutschland oder eine deutsche Kommune ausgegeben.
-
-### Cross-Lingual Truth
-
-- Originalsprache bleibt Evidence-/Review-Grundlage.
-- Übersetzung/Lesefassung ist eine Darstellung, keine Quelle.
-- sprachliche Ähnlichkeit erhöht keinen Match- oder Evidenzgrad.
-- unsicheres Cross-Lingual-Matching endet in Kandidaten/Review.
-- eine fehlerhafte Übersetzung darf Originalclaim/-segment nicht überschreiben.
-
-### Contradictions / Research Gaps
-
-Widerspruch ist kein Boolescher Fehlerzustand, sondern ein prüfbarer Befund.
-
-Getrennt halten:
-
-- echter Widerspruch;
-- andere Quantifizierung;
-- anderer Zeitraum;
-- andere Population;
-- andere Jurisdiktion;
-- Ausnahme / Boundary Case;
-- Gegenbeispiel;
-- alternative Erklärung;
-- normative Gegenposition;
-- fehlende Daten / Research Gap.
-
-Keine künstliche 50/50-Balance. Gegenpositionen oder Gegenbelege werden aufgenommen, wenn sie real und belegbar sind.
+- Daten-/Messzeitraum und aktuelle Gültigkeit bleiben getrennt;
+- veraltete Claims dürfen nicht still aktuell bleiben;
+- belastbare Auslandsquellen werden nicht automatisch zu deutschen Fakten;
+- direkte Geltung, teilweise Übertragbarkeit, Kontext/Benchmark, nicht übertragbar und unknown/review bleiben unterscheidbar;
+- fehlende Dimensionen werden nur additiv am bestehenden Evidence-/Claim-/Dossier-Owner ergänzt, nicht als `T9Assessment` dupliziert.
 
 ### Delta-Orchestrierung
 
-Bei neuen Materialien zuerst prüfen:
+Bei neuem Material zuerst:
 
-1. neue Observation?
-2. bereits bekannte Source/Root?
-3. neuer Atomic Claim oder nur neue Expression?
-4. neue Evidenz für bestehenden Claim?
-5. Widerspruch/Änderung/Freshness-Update?
+1. bereits bekannte Snapshot-/Content-/Source-Identity?
+2. neuer AtomicClaim oder nur neue Expression?
+3. neue Relation oder nur derselbe Root?
+4. neue Evidence/Counterevidence?
+5. Freshness-/Jurisdiction-Änderung?
 6. vorhandenes CanonicalTopic/Dossier?
 7. neue DecisionQuestion oder nur neuer Kontext?
 
-Nur betroffene Claims/Dossiers müssen revalidiert werden. Blindes Neu-Erzeugen kompletter Dossiers ist kein Ziel.
+Nur betroffene Claims/Dossiers werden revalidiert.
 
 ---
 
 ## 6. Topic-zentriertes Dossier
 
-### Öffentliche Priorität
+Das öffentliche Dossier bleibt beim bestehenden Dossier-Owner und beginnt mit:
 
-Das Dossier beginnt mit:
-
-- Topic / Kernfrage;
+- Topic/Kernfrage;
 - gesichertem Erkenntnisstand;
-- strittigen oder unklaren Punkten;
-- Daten/Definitionen/Zeiträumen;
-- Jurisdiktion und Zuständigkeit;
-- offenen Fragen;
-- möglichen Entscheidungen, wenn tatsächlich vorhanden.
+- strittigen/unklaren Punkten;
+- Daten, Definitionen und Zeiträumen;
+- Jurisdiktion/Zuständigkeit;
+- offenen Research Gaps;
+- möglichen Entscheidungen, sofern tatsächlich vorhanden.
 
-Nicht mit:
+Nicht mit `Medium X sagt ...` als Primärlogik.
 
-- `Die Anstalt sagt ...`;
-- `BBC sagt ...`;
-- `Sender X hat recht ...`.
+Provenienz bleibt sichtbar über:
 
-### Provenienz bleibt sichtbar
-
-In einer Transparenz-/Research-Herkunftsebene kann stehen:
-
-- wodurch ein Aspekt entdeckt oder aktualisiert wurde;
+- auslösendes Material;
 - Originalformat/Publisher/Episode;
 - Originalvideo/-audio/-artikel;
 - Timecode/Seite/Locator;
-- Faktencheck/Quellenliste des Formats;
-- welche unabhängigen Quellen eDebatte zusätzlich geprüft hat;
-- welche Teile nur Kontext, strittig, veraltet oder nicht übertragbar sind.
-
-Verbindlich:
+- Faktencheck/Quellenliste;
+- zusätzlich geprüfte unabhängige Quellen;
+- strittige, veraltete oder nicht übertragbare Teile.
 
 > Ein öffentliches Dossier darf nicht allein auf einem Medienformat oder dessen eigenem Faktencheck beruhen.
 
 ---
 
-## 7. Decision Readiness ist nicht Topic Confidence
+## 7. Decision Readiness ist nicht Evidence Maturity
 
-Ein hervorragend recherchiertes Dossier kann **keinen** sinnvollen Swipe besitzen.
+Ein hervorragend recherchiertes Dossier kann ohne konkrete Entscheidung **keinen** sinnvollen Swipe erzeugen.
 
-Ein Decision-/Swipe-Candidate entsteht nur, wenn mindestens:
+Ein Decision-/Swipe-Candidate entsteht nur über bestehende Owner/Gates, wenn mindestens:
 
 - konkrete zuständige Instanz oder nachvollziehbarer Entscheidungskontext;
 - konkrete Handlung/Option;
 - Scope/Conditions/Timeframe;
-- evidenzbasierte Folgen oder sichtbar unsichere Hypothesen;
-- keine zentrale offene Evidenzlücke, die die Fragestellung verzerrt;
-- Question Quality und Neutralität;
-- bestehende Source-/Vote-/Swipe-Gates erfüllt oder Review ausgelöst.
+- belastbare Folgeevidenz oder klar markierte Unsicherheit;
+- keine zentrale offene Evidenzlücke, die die Frage verzerrt;
+- Neutralitäts-/Question-Quality-Gates;
+- bestehende Source-/Vote-/Swipe-Readiness erfüllt oder Review ausgelöst.
 
-T9 darf die bestehenden Source-/Swipe-Readiness-Gates nur **restriktiver** machen, niemals fehlende Readiness herstellen.
+T9 darf Readiness nur **restriktiver** machen, niemals fehlende Readiness herstellen.
 
 ---
 
-## 8. G6 — Provenance, Evidence Lineage & Cross-Lingual Topic Graph
+## 8. G6 — Derived Provenance Projection
+
+G6 ist **kein Graph-Kanon**.
 
 ### Aufgabe
 
-G6 projiziert kanonische Domain-IDs und Revisionen in eine nachvollziehbare Beziehungssicht.
+Kanonische Domain-IDs, Revisionen und Receipts als nachvollziehbare Relation/Index/Readmodel projizieren.
 
-Graph ist **Derived Projection**, keine Truth Source.
+Bevorzugt werden Edges auf bestehende IDs; neue Graph-Entities sind nur zulässig, wenn der Domain-Owner bereits eine eigenständige Entity-ID/Lifecycle besitzt.
 
-### Modellierbare Knoten
+### Projektion
 
-Soweit ihre Domain-Owner sie kanonisch erzeugt haben:
+```text
+SourceSnapshot/Artifact
+  -> SourceSegment
+  -> speaker attribution
+  -> AtomicClaim
+  -> ClaimSourceRelation
+  -> SourceFamily/root
+  -> CanonicalTopic/Jurisdiction
+  -> conflict/research gap
+  -> Dossier revision
+  -> DecisionQuestion
+  -> SwipeCandidate
+  -> Synthesis/Review receipt
+```
 
-- Observation/Event;
-- SourceArtifact;
-- SourceSegment;
-- Speaker/Actor reference;
-- ClaimExpression;
-- AtomicClaim;
-- SourceFamily / IndependenceGroup / RootSource;
-- CanonicalTopic;
-- JurisdictionContext;
-- EvidenceConflict / ResearchGap;
-- Dossier;
-- DecisionQuestion;
-- SwipeCandidate;
-- Verification/Synthesis Receipt.
+### Harte Grenzen
 
-### Kernrelationen
-
-- Origin/Contains/Attributed-To;
-- bestehende ClaimSourceRelation aus #587;
-- upstream/derived/quoted/syndicated/uses-dataset;
-- same-source-family / independence-group;
-- translation-of / reading-version-of;
-- about-topic;
-- applies-to/contextual-for jurisdiction;
-- conflicts/alternative-explanation/research-gap;
-- updates-dossier;
-- candidate-for-decision;
-- candidate-for-swipe;
-- verified/reviewed-by-receipt.
-
-G6 darf weder neue Topic-/Claim-/Actor-Wahrheit erzeugen noch eine politische Option ranken oder veröffentlichen.
+- keine Auto-Fusion;
+- kein Graph-write-to-truth feedback loop;
+- keine fehlende Domain-Entity per Graph-Autocomplete erfinden;
+- Übersetzung erzeugt keine neue Evidence Root;
+- Agentenläufe erzeugen keine unabhängigen Roots;
+- politische Position/Zuständigkeit nicht aus Name/Medium/Organisation ableiten;
+- kein politisches Ranking oder Publish-Owner.
 
 ---
 
-## 9. Reproducible Verification Receipts
+## 9. Cross-Lingual Truth
 
-Jede relevante Synthese-/Verification-Stufe soll auf den vorhandenen Receipt-/Trace-Gedanken aufbauen und mindestens rückverfolgbar machen:
+- Originalsprache bleibt Evidence-/Review-Basis.
+- `SourceSegment.readingView`/bestehende Language-Bridge-Flächen bleiben Lesefassung, keine neue Quelle.
+- sprachliche Ähnlichkeit erhöht keinen Match-/Evidence-Status.
+- unsichere Cross-Lingual-Matches bleiben Candidate/Review.
+- fehlerhafte Übersetzung überschreibt nie Originalsegment/-claim.
+- CanonicalTopic-Identität bleibt sprachunabhängig nur soweit der bestehende Resolver dies bestätigt.
 
-- verwendete Observation-/Source-/Segment-IDs;
-- Atomic-Claim-IDs;
+---
+
+## 10. Reproducible Receipts
+
+Bestehende `SynthesisReceipt`-/AI-Trace-Verträge bleiben maßgeblich.
+
+Rückverfolgbar sein sollen mindestens:
+
+- verwendete Snapshot-/Source-/Segment-IDs;
+- AtomicClaim-IDs;
 - ClaimSourceRelation-IDs;
-- Source Families/Roots und Independence-Status;
-- berücksichtigte und offene Gegenbelege;
-- Freshness-/Jurisdiction-/Generalizability-Prüfungen;
+- SourceFamilies/Independence;
+- berücksichtigte/ausgelassene Gegenbelege;
+- Freshness/Jurisdiction/Generalizability;
 - Original-/Reading-Language-Status;
 - offene Research Gaps;
-- Modell/Provider/Policy-/Promptversion soweit bestehende AI-Trace-Contracts dies erlauben;
-- menschliche Reviewrevision;
-- resultierenden Dossier-/Decision-/Swipe-Handoff.
+- Provider/Model/Policy/Prompt als Processing-Provenienz;
+- Human-Review-Revision;
+- Dossier-/Decision-/Swipe-Handoff.
 
-Provider- oder Modell-Trace ist Provenienz der **Verarbeitung**, nicht Evidenz für den externen Claim.
+Provider-/Modell-Trace ist **Verarbeitungsprovenienz**, keine externe Evidenz.
 
 ---
 
-## 10. Pflicht-Fixtures über C13/T9/G6
+## 11. Pflicht-Fixtures
 
-Nach späterer Autorisierung müssen mindestens folgende Fälle deterministisch abgedeckt sein:
+Nach Autorisierung mindestens:
 
 1. Satiresegment + normalisierter Faktenclaim bleiben getrennt.
-2. Sender-Faktencheck + Sendung + gemeinsame UBA-/Primärquelle zählen nicht als drei unabhängige Belege.
-3. Faktencheck zitiert Tabelle, die den Claim nur teilweise stützt → kein `verified`.
-4. Talkshow-Gast macht Claim → Speaker owns statement; Sender bleibt Publisher/Origin context.
-5. Automatisches Transkript mit unsicherer Passage → kein verifiziertes Wortzitat.
-6. Original Deutsch + Lesefassung Englisch/Französisch → eine Evidenzquelle.
-7. Gleiche Agenturmeldung in drei Medien → eine Source Family.
-8. Zwei tatsächlich unabhängige Primärquellen → getrennte Roots.
-9. Gut belegter UK-Claim → nicht automatisch deutsche Faktenwahrheit.
-10. Neuer Bericht wiederholt nur bekannte Claims → Dossier-Delta, kein neues Topic.
-11. Neue Primärquelle widerspricht altem Finding → Conflict + Review, keine automatische Gewinnerseite.
+2. Sendung + Sender-Faktencheck + gemeinsame Primärquelle zählen nicht mehrfach unabhängig.
+3. Faktencheck-Quelle stützt Claim nur teilweise → kein extern verifizierter Fakt.
+4. Talkshow-Gast macht Claim → Sprechersegment trägt Aussage.
+5. Unsicheres automatisches Transkript → kein verifiziertes Wortzitat.
+6. Original + Übersetzung/Lesefassung → eine Evidence Root.
+7. Gleiche Agenturmeldung in drei Medien → eine SourceFamily.
+8. Zwei echte unabhängige Primärquellen → getrennte Roots.
+9. Gut belegter UK-/US-Claim → keine automatische DE-Faktenpromotion.
+10. Neuer Bericht wiederholt bekannten Claim → Dossier-Delta, kein neues Topic.
+11. Neue Primärquelle widerspricht altem Finding → Conflict + Re-Review.
 12. Veraltete Statistik → Freshness-Gate.
-13. Gutes Dossier ohne konkrete Entscheidung → kein Swipe.
-14. DecisionQuestion mit unvollständiger Consequence-Evidence → fail-closed in Review.
-15. Mehrere LLMs auf gleicher Quelle → keine zusätzliche Quellenunabhängigkeit.
-16. Übersetzung oder Zusammenfassung → keine zusätzliche Evidenz.
-17. Cross-lingual Similarity ohne eindeutige Identität → Review, kein Auto-Merge.
-18. Abgelaufenes öffentliches Video → Provenienz bleibt, Availability ändert sich, Dossier zerfällt nicht.
-19. Graph enthält fehlende kanonische ID nicht → Graph erfindet sie nicht.
-20. Topic-Projektion zeigt Herkunft nachvollziehbar, ohne Medienformat zum Thema zu machen.
+13. Gutes Dossier ohne Entscheidung → kein Swipe.
+14. DecisionQuestion mit unvollständiger Folgeevidenz → Review.
+15. Mehrere LLMs auf gleicher Quelle → keine zusätzliche Unabhängigkeit.
+16. Translation/Summary → keine zusätzliche Evidenz.
+17. Cross-Lingual Similarity ohne eindeutige Identität → Review, kein Auto-Merge.
+18. Abgelaufenes Video → Availability ändert sich, kanonische IDs bleiben nachvollziehbar.
+19. Fehlende kanonische ID → Graph erfindet sie nicht.
+20. Ein Implementierungsversuch mit semantischem Duplicate-Typ/Store muss durch Architektur-/Contract-Test oder Review-Gate scheitern.
 
 ---
 
-## 11. Initiale Adapter-Strategie
-
-Der Contract ist international/generisch; konkrete Adapter werden später als kleine Source Profiles ergänzt.
-
-Geeignete erste Testklassen:
-
-- Recherche-/Satireformat mit veröffentlichten Quellen/Faktencheck-Materialien;
-- politisches Magazin;
-- Talkshow/Interview mit Speaker-Wechseln;
-- Podcast;
-- öffentliches Video;
-- Parlaments-/Behördenvideo oder Protokoll;
-- fremdsprachiges internationales Rechercheformat.
-
-`Die Anstalt` eignet sich als Golden Fixture, weil der Fall gleichzeitig Video, Satire, Claims, Quellenlisten/Faktenchecks und politische Themen verbindet. Der Golden Fixture darf aber **keine ZDF-spezifische Domain-Architektur** erzeugen.
-
----
-
-## 12. Vorgeschlagene spätere Implementierungsslices
+## 12. Spätere Implementierungsslices — ausschließlich in bestehenden Ownern
 
 Nur nach OpenTasks-Serialisierung + positivem Preflight.
 
-### Slice C13.1 — Observation / Media Source Contract
+### C13.1 — Source/Media Adapter Gap
 
-- additive shared contracts im bestehenden Domain-Owner;
-- Adapter auf SourceSnapshot/Material Extraction;
-- SourceSegment/Speaker/Locator/Language/Availability;
-- Contract-Fixtures, kein Provider-Livezugriff.
+- Inventar gegen `DurableSourceSnapshot`, `SourceArtifact`, `SourceSegment`;
+- nur belegte fehlende Medienmetadaten additiv ergänzen;
+- keine neue C13-Entity/Collection;
+- Fixtures ohne Live-Provider.
 
-### Slice C13.2 — Provider-neutral Extraction Handoff
+### C13.2 — Provider-neutral Extraction Adapter
 
-- Lane/Capability-Contract;
-- strukturierter Output nur als Candidate;
+- strukturierter Output ausschließlich als Candidate auf vorhandene AtomicClaim-/Segment-Typen;
 - Gemini/andere Provider austauschbar;
 - keine Truth-Promotion.
 
-### Slice T9.1 — Independent Verification Orchestration Contract
+### T9.1 — Verification Orchestration
 
-- reuse #587 EvidenceAssessment/Lineage;
-- factcheck-of-factcheck;
-- root independence;
-- counterevidence/conflict/gaps;
-- temporal/jurisdiction/generalizability.
+- bestehende `ClaimSourceRelation`, `SourceFamily`, `EvidenceAssessment`, `SynthesisReceipt` komponieren;
+- Factcheck-of-factcheck;
+- Counterevidence/Freshness/Jurisdiction/Generalizability;
+- kein neues Assessment-Modell.
 
-### Slice T9.2 — Topic/Dossier Delta Handoff
+### T9.2 — Dossier Delta Handoff
 
-- reuse #586 resolver;
-- bestehendes Dossier bevorzugen;
+- bestehenden CanonicalTopic-Resolver nutzen;
+- bestehenden Dossier-Owner aktualisieren;
 - Delta-/Revalidation-Receipt;
-- keine automatische öffentliche Mutation.
+- keine zweite Dossier-Persistenz.
 
-### Slice T9.3 — Decision Readiness Handoff
+### T9.3 — Decision Readiness Handoff
 
-- nur verified/reviewable topic state;
-- bestehende #935/#940/#943 Source-/Swipe-Gates konsumieren;
+- bestehende DecisionQuestion-/Source-/Swipe-Gates konsumieren;
 - kein Auto-Publish.
 
-### Slice G6.1 — Derived Provenance Projection
+### G6.1 — Derived Projection
 
-- ausschließlich kanonische IDs;
-- Lineage/Translation/Jurisdiction/Conflict edges;
+- ausschließlich bestehende IDs/Revisionen/Receipts;
+- Relations/Indices/Readmodel;
 - keine neue Truth-Persistenz.
 
-### Slice G6.2 — Consumer Readmodel
+### G6.2 — Consumer Readmodel
 
-- topic-first Dossier transparency;
+- topic-first Transparenz;
 - Herkunft/Video/Locator/Sources sichtbar;
-- keine Herkunftsdominanz in der Topic-UI.
-
-Jeder Slice bleibt klein, testbar und collision-aware.
+- keine Medienherkunft als Primärthema.
 
 ---
 
 ## 13. OpenTasks-Zielserialisierung
 
-Der #447 Single Writer soll folgende operative IDs verlustfrei registrieren:
+Der #447 Single Writer soll die drei IDs als **Integrations-/Ausführungsslices** registrieren, nicht als neue Domain-Owner:
 
 - C13 — `CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01`
 - T9 — `GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01`
 - G6 — `PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01`
 
-Initial `blocked`, solange #586/#587 und ihre taskbezogenen Preflights nicht kanonisch ausführbar sind.
-
-Verbindliche Dependency Chain:
+Da #586/#587 bereits implementiert und ihre Canonicals auf `main` vorhanden sind, lautet der empfohlene Startzustand:
 
 ```text
-#586 CANONICAL-TOPIC-RESOLUTION-01
-        +
-#587 ATOMIC-CLAIM-SOURCE-RELATION-CONTRACT-01
-        ↓
-C13
-        ↓
-T9
-        ↓
-G6
+C13 = codex_ready (preflight_only; keine Implementation ohne positiven taskbezogenen Preflight)
+T9  = blocked on C13 contract/adapter evidence
+G6  = blocked on T9 verified handoff contract
 ```
 
-T9 darf C13-Deltas inkrementell konsumieren; G6 kann vorbereitete Types/Fixtures planen, aber keine Domain-Wahrheit vor seinen Ownern erzeugen.
+Nicht mehr zulässig ist die frühere Lesart, C13/T9/G6 müssten auf eine erneute Implementierung von #586/#587 warten oder deren Fachmodelle neu definieren.
 
 ---
 
 ## 14. P0/P1 Guardrails
 
-Als P0/P1 zu behandeln wären insbesondere:
+Als P0/P1-relevante Architekturfehler behandeln:
 
-- Medien-/Faktencheck-Label wird zur Truth Authority;
-- Übersetzung zählt als unabhängige Evidenz;
-- gleiche Root Source wird mehrfach als unabhängige Bestätigung gezählt;
-- fehlende Speaker Attribution wird sicher behauptet;
-- nicht übertragbare Jurisdiktion wird als lokale Tatsache ausgegeben;
-- veraltete Daten bleiben ohne Freshness-Hinweis aktuell;
-- Graph oder LLM erzeugt kanonische Truth ohne Domain Owner;
-- politische Empfehlung/Ranking wird aus Research-Evidenz abgeleitet;
-- Dossier oder Swipe wird ohne Human Review automatisch veröffentlicht;
-- Medienformat wird zur parallelen Dossier-/Topic-SSOT;
-- Faktencheck-of-factcheck wird übersprungen, obwohl externe Wahrheitsklassifikation übernommen würde.
+- neue zweite Topic-/Claim-/Evidence-/Dossier-/Graph-SSOT;
+- eigener `Observation`-Store trotz vorhandener Snapshot-/Source-Identität;
+- Medien-/Faktencheck-Label als Truth Authority;
+- Übersetzung als unabhängige Evidenz;
+- gleiche Root Source mehrfach als unabhängige Bestätigung;
+- fehlende Speaker Attribution sicher behauptet;
+- fremde Jurisdiktion als lokale Tatsache;
+- stale Daten ohne Freshness-Gate;
+- Graph/LLM erzeugt Domain Truth;
+- politisches Ranking aus Research-Evidenz;
+- Auto-Publish/Auto-Merge/Auto-Truth-Promotion;
+- Dossier oder Swipe ohne Human Review finalisiert.
 
 ---
 
@@ -596,13 +519,13 @@ Dieser Run-Pack autorisiert nicht:
 - Vollcrawler oder ungeregeltes Scraping;
 - dauerhafte Spiegelung fremder Videos/Audioinhalte;
 - Copyright-/Lizenzannahmen;
-- neue Datenbank/Collection/Migration;
+- neue Datenbank/Collection/Migration ohne belegte neue Identität/Lifecycle;
 - Provider-/Secret-Aktivierung;
 - Live-Research in Production;
 - neue öffentliche Dossier-/Swipe-Publishing-Automation;
 - politische Empfehlung oder Ranking;
 - automatische Topic-/Claim-/Actor-Fusion;
-- Ersetzung der bestehenden T0–T8-, G1–G5-, #586-, #587-, Dossier-, Language-Bridge- oder AI-Orchestration-SSOTs.
+- Ersetzung bestehender Topic-, Analyze/Evidence-, Dossier-, Language-, Source-, Graph- oder Swipe-Owner.
 
 ---
 
@@ -613,10 +536,11 @@ Vor jedem technischen Slice zwingend:
 ```text
 OpenTasks serialisiert
 → taskbezogener Preflight
+→ semantic-duplicate inventory gegen vorhandene Owner
 → executable: true
 → branchCreationAllowed: true
 → aktuelles main + Collision Map
-→ vorhandenen Owner/PR wiederverwenden oder exakt einen kleinen Branch
+→ exakt vorhandenen Domain-Owner erweitern oder Adapter/Projection bauen
 → fokussierte Tests + Typecheck/Lint/Build soweit relevant
 → Exact-Head-CI
 → Reviewthreads / Gegenprobe
