@@ -11,6 +11,7 @@ import {
   buildDefaultConsent,
   buildDefaultOptionalConsent,
   hasRequiredPrivacyAcknowledgement,
+  normalizeConsent,
   parseConsentCookie,
   serializeConsent,
   type Consent,
@@ -107,12 +108,12 @@ export function PrivacyGateProvider(props: {
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [consent, setConsent] = React.useState<Consent | null>(props.initialConsent ?? null);
+  const [consent, setConsent] = React.useState<Consent | null>(() => normalizeConsent(props.initialConsent));
   const [gateOpen, setGateOpen] = React.useState(() => Boolean(props.initiallyOpen));
   const [optionsOpen, setOptionsOpen] = React.useState(false);
   const [pendingNavigationHref, setPendingNavigationHref] = React.useState<string | null>(null);
   const [optionalDraft, setOptionalDraft] = React.useState<PrivacyOptionalConsent>(
-    () => props.initialConsent?.optional ?? buildDefaultOptionalConsent(),
+    () => normalizeConsent(props.initialConsent)?.optional ?? buildDefaultOptionalConsent(),
   );
 
   const shellRef = React.useRef<HTMLDivElement | null>(null);
@@ -439,7 +440,7 @@ export function usePrivacyGate() {
       gateOpen: false,
       hasRequiredAcknowledgement: false,
       openGate: () => {},
-      ensureActiveProcessingAllowed: () => true,
+      ensureActiveProcessingAllowed: () => false,
     } satisfies PrivacyGateContextValue;
   }
   return context;

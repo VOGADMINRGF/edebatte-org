@@ -65,6 +65,7 @@ jobs:
           tests/swipes-human-question-contract.contract.test.ts
           tests/swipe-auth-gate.contract.test.tsx
           tests/privacy-gate-dialog.contract.test.tsx
+          tests/swipe-vote-privacy.route.test.ts
 
       - name: Focused Create runtime contracts
         run: >-
