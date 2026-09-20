@@ -1,6 +1,37 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveNewsletterDeliveryActivation } from "@features/notifications/newsletterDeliveryActivation";
 import { resolveNewsletterDeliveryPolicy } from "@features/notifications/newsletterDeliveryPolicy";
+
+describe("newsletter delivery activation", () => {
+  it("fails closed unless production delivery is explicitly enabled", () => {
+    expect(resolveNewsletterDeliveryActivation(undefined)).toEqual({
+      enabled: false,
+      reason: "delivery_gate_disabled",
+    });
+    expect(resolveNewsletterDeliveryActivation("")).toEqual({
+      enabled: false,
+      reason: "delivery_gate_disabled",
+    });
+    expect(resolveNewsletterDeliveryActivation("false")).toEqual({
+      enabled: false,
+      reason: "delivery_gate_disabled",
+    });
+    expect(resolveNewsletterDeliveryActivation("0")).toEqual({
+      enabled: false,
+      reason: "delivery_gate_disabled",
+    });
+  });
+
+  it("accepts only explicit affirmative activation values", () => {
+    for (const value of ["1", "true", "TRUE", "yes", "on"]) {
+      expect(resolveNewsletterDeliveryActivation(value)).toEqual({
+        enabled: true,
+        reason: "enabled",
+      });
+    }
+  });
+});
 
 describe("newsletter delivery policy", () => {
   const now = new Date("2026-09-17T08:00:00.000Z");
