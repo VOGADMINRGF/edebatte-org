@@ -32,11 +32,24 @@ export type PublicTopicSupplyBucket =
   | "needs_review";
 export type SwipeSourceKind = "proposal" | "feed" | "dossier" | "anlassraum" | "create" | "seed";
 
+export type SwipeConsequenceEvidenceStatus = "verified" | "supported" | "hypothesis" | "unverified";
+
+export type SwipeConsequenceEvidenceRef = {
+  id: string;
+  label?: string | null;
+  href?: string | null;
+  sourceType?: string | null;
+};
+
 export type SwipeConsequence = {
   /** Kurze, menschlich lesbare Folge; keine Prognosebehauptung ohne Evidenz. */
   title: string;
   /** Optionaler Kontext, Unsicherheit oder Mechanismus hinter der Folge. */
   detail?: string;
+  /** Expliziter Evidenzstatus; fehlende Belege dürfen nicht als sichere Kausalität erscheinen. */
+  evidenceStatus?: SwipeConsequenceEvidenceStatus;
+  /** Referenzen auf vorhandene Evidenz/Provenienz. */
+  evidenceRefs?: SwipeConsequenceEvidenceRef[];
 };
 
 export type SwipeDecisionConsequences = {
@@ -44,6 +57,12 @@ export type SwipeDecisionConsequences = {
   agree: SwipeConsequence[];
   /** Mögliche Folgen, wenn die Frage eher mit Nein beantwortet wird. */
   disagree: SwipeConsequence[];
+};
+
+export type SwipeQuestionQualitySnapshot = {
+  ready: boolean;
+  issues: string[];
+  assessedAt?: string | null;
 };
 
 export type SwipeItem = {
@@ -57,6 +76,8 @@ export type SwipeItem = {
   tradeoff?: string;
   /** Richtungsbezogene mögliche Folgen. Maximal 5 je Richtung in der kompakten Swipe-UI. */
   decisionConsequences?: SwipeDecisionConsequences;
+  /** Runtime-Snapshot des deterministischen Question-Quality-Gates. */
+  questionQualityAssessment?: SwipeQuestionQualitySnapshot;
   category: string;
   level: SwipeScopeLevel;
   topicTags: string[];
