@@ -127,6 +127,11 @@ jobs:
           tests/topic-qualification-system-question.contract.test.ts
           tests/topic-qualification-system-question.edge.test.ts
 
+      - name: Focused swipe graph projection contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/swipe-graph-projection.contract.test.ts
+
   web-quality:
     name: Web quality
     runs-on: ubuntu-latest
