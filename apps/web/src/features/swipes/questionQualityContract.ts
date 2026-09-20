@@ -11,15 +11,18 @@ export const SWIPE_QUESTION_AGENT_GUIDANCE = [
   "Beginne mit dem konkreten Problem oder Alltagseffekt, wenn er aus dem geprüften Kontext ableitbar ist.",
   "Mache sichtbar, wer oder was betroffen ist, ohne eine politische Seite sprachlich zu bevorzugen.",
   "Benenne den zentralen Zielkonflikt in neutraler Sprache; vermeide moralische Wertung, Alarmismus und suggestive Formulierungen.",
-  "Die eigentliche Frage muss genau eine verständliche Entscheidung enthalten und mit Ja/Neutral/Nein sinnvoll beantwortbar sein.",
+  "Vermeide Zustimmungssprache wie 'guter Weg', 'richtig' oder 'diesen Weg mitgehen'; menschlich bedeutet verständlich, nicht überredend.",
+  "Die eigentliche Frage muss genau eine verständliche Entscheidung enthalten und mit Dafür/Offen/Dagegen sinnvoll beantwortbar sein.",
   "Wenn Folgen darstellbar sind, liefere getrennt bis zu fünf mögliche Folgen für Zustimmung und Ablehnung; beide Richtungen dürfen nicht gespiegelt oder identisch sein.",
   "Kennzeichne Folgen als mögliche Konsequenzen, nicht als sichere Prognosen, sofern die Evidenz keine sichere Aussage trägt.",
   "Erfinde keine Zahlen, Kausalitäten, Zuständigkeiten, Betroffenengruppen oder Folgen. Nutze nur den vorhandenen geprüften Kontext.",
   "Vermeide Parteizitate, Kandidatenranking, Wahlempfehlungen oder personalisierte politische Überredung.",
+  "Prüfe auch den gesamten Kartenstapel auf monotone Satzanfänge; sprachliche Variation darf keine bloße Umformulierung derselben Entscheidung sein.",
 ] as const;
 
 export type SwipeQuestionQualityIssue =
   | "generic_should_template"
+  | "loaded_approval_frame"
   | "missing_human_context"
   | "missing_tradeoff"
   | "missing_directional_consequences"
@@ -32,13 +35,37 @@ export type SwipeQuestionQualityAssessment = {
   issues: SwipeQuestionQualityIssue[];
 };
 
+export type SwipeQuestionDeckQualityIssue = {
+  issue: "repetitive_question_frame";
+  signature: string;
+  count: number;
+};
+
+export type SwipeQuestionDeckQualityAssessment = {
+  ready: boolean;
+  issues: SwipeQuestionDeckQualityIssue[];
+};
+
 function normalize(value: string): string {
-  return value.trim().toLocaleLowerCase("de-DE").replace(/\s+/g, " ");
+  return value
+    .trim()
+    .toLocaleLowerCase("de-DE")
+    .replace(/[^a-z0-9äöüß\s]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function questionFrameSignature(value: string): string {
+  return normalize(value).split(" ").slice(0, 5).join(" ");
 }
 
 export function assessSwipeQuestionQuality(item: SwipeItem): SwipeQuestionQualityAssessment {
   const issues: SwipeQuestionQualityIssue[] = [];
-  if (/^soll\b/i.test(item.title.trim())) issues.push("generic_should_template");
+  const title = item.title.trim();
+  if (/^soll\b/i.test(title)) issues.push("generic_should_template");
+  if (/\b(guter weg|richtige(?:r|s|n)? weg|wäre es richtig|diesen weg mitgehen|vernünftige(?:r|s|n)? weg)\b/i.test(title)) {
+    issues.push("loaded_approval_frame");
+  }
   if (!item.humanContext?.trim()) issues.push("missing_human_context");
   if (!item.tradeoff?.trim()) issues.push("missing_tradeoff");
 
@@ -54,6 +81,30 @@ export function assessSwipeQuestionQuality(item: SwipeItem): SwipeQuestionQualit
     const sameSize = agreeSet.size === disagreeSet.size;
     const sameEntries = sameSize && Array.from(agreeSet).every((entry) => disagreeSet.has(entry));
     if (sameEntries) issues.push("identical_directional_consequences");
+  }
+
+  return { ready: issues.length === 0, issues };
+}
+
+export function assessSwipeQuestionDeckQuality(
+  items: SwipeItem[],
+  maxFrameShare = 0.18,
+): SwipeQuestionDeckQualityAssessment {
+  if (items.length === 0) return { ready: true, issues: [] };
+
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const signature = questionFrameSignature(item.title);
+    if (!signature) continue;
+    counts.set(signature, (counts.get(signature) ?? 0) + 1);
+  }
+
+  const maxCount = Math.max(6, Math.ceil(items.length * maxFrameShare));
+  const issues: SwipeQuestionDeckQualityIssue[] = [];
+  for (const [signature, count] of counts.entries()) {
+    if (count > maxCount) {
+      issues.push({ issue: "repetitive_question_frame", signature, count });
+    }
   }
 
   return { ready: issues.length === 0, issues };
