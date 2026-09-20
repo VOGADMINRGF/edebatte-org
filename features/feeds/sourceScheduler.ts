@@ -36,7 +36,10 @@ export type SourceSchedulerLeaseRepository = {
 type AutomationTiming = Pick<
   FeedSourceAutomationStateDoc,
   "sourceId" | "automationMode" | "backoffUntil" | "nextSuggestedPullAt"
->;
+> & {
+  lastPullAt?: string | null;
+  lastRunStatus?: FeedSourceAutomationStateDoc["lastRunStatus"];
+};
 
 type CycleRunner = (input: {
   connector: ScheduledOpenDataSource["connector"];
@@ -163,14 +166,29 @@ async function loadAutomationTiming(sourceId: string): Promise<AutomationTiming 
         automationMode: 1,
         backoffUntil: 1,
         nextSuggestedPullAt: 1,
+        lastPullAt: 1,
+        lastRunStatus: 1,
       },
     },
   ) as Promise<AutomationTiming | null>;
 }
 
+function registryNextPullAt(
+  state: AutomationTiming,
+  intervalMinutes: number | null | undefined,
+): number | null {
+  if (state.lastRunStatus === "error") return null;
+  const interval = Number(intervalMinutes);
+  if (!Number.isFinite(interval) || interval <= 0 || !state.lastPullAt) return null;
+  const lastPull = new Date(state.lastPullAt);
+  if (Number.isNaN(lastPull.getTime())) return null;
+  return lastPull.getTime() + interval * 60_000;
+}
+
 export function sourceDueState(
   state: AutomationTiming | null,
   now: Date,
+  intervalMinutes?: number | null,
 ): "due" | "backoff" | "not_due" | "mode" {
   if (!state) return "due";
   if (state.automationMode !== "cron_ready") return "mode";
@@ -180,6 +198,12 @@ export function sourceDueState(
       return "backoff";
     }
   }
+
+  const registryNext = registryNextPullAt(state, intervalMinutes);
+  if (registryNext !== null) {
+    return registryNext > now.getTime() ? "not_due" : "due";
+  }
+
   if (state.nextSuggestedPullAt) {
     const next = new Date(state.nextSuggestedPullAt);
     if (!Number.isNaN(next.getTime()) && next.getTime() > now.getTime()) {
@@ -223,7 +247,7 @@ export async function runScheduledOpenDataSources(input?: {
   // over throughput. Each source has its own due/backoff/lease state.
   for (const entry of entries) {
     const state = await stateLoader(entry.source.sourceId);
-    const dueState = sourceDueState(state, started);
+    const dueState = sourceDueState(state, started, entry.intervalMinutes);
     if (dueState !== "due") {
       results.push({
         registryId: entry.registryId,
