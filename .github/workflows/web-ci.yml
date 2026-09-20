@@ -65,6 +65,7 @@ jobs:
           tests/swipes-human-question-contract.contract.test.ts
           tests/swipes-question-finalizer.contract.test.ts
           tests/create-ledger-swipe-question-quality.contract.test.ts
+          tests/source-swipe-question-quality-integration.contract.test.ts
           tests/swipe-auth-gate.contract.test.tsx
           tests/privacy-gate-dialog.contract.test.tsx
 
