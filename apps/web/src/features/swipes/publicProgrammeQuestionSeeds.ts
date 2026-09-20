@@ -3,8 +3,8 @@ import type { SwipeConsequence, SwipeItem } from "./types";
 // Demo-Fragebank: 100 bewusst entparteilichte Fragen aus Themenfeldern,
 // die in den öffentlichen Bundestagsprogrammen 2025 breit vorkommen.
 // Keine Frage ist ein Parteizitat oder eine Parteizuordnung. Die Herkunft
-// dient nur der Themenbreite. Die Formulierungen sollen einen konkreten
-// Zielkonflikt greifbar machen statt dieselbe "Soll ...?"-Schablone zu wiederholen.
+// dient nur der Themenbreite. Kontext und Zielkonflikt stehen bewusst separat,
+// damit die eigentliche Entscheidung kurz, menschlich und scanbar bleibt.
 
 type SeedTheme = {
   id: string;
@@ -220,12 +220,31 @@ const THEMES: SeedTheme[] = [
   },
 ];
 
+function upperFirst(value: string): string {
+  return value ? `${value[0].toLocaleUpperCase("de-DE")}${value.slice(1)}` : value;
+}
+
+function questionFrameIndex(theme: SeedTheme, variant: number): number {
+  const themeSalt = Array.from(theme.id).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return (themeSalt + variant * 3) % 10;
+}
+
 function buildQuestion(theme: SeedTheme, variant: number): string {
-  if (variant === 1) return `Wenn ${theme.context}: Wäre es sinnvoll, wenn ${theme.decision}?`;
-  if (variant === 2) return `${theme.tradeoff}. Würdest du es befürworten, wenn ${theme.decision}?`;
-  if (variant === 3) return `Gerade ${theme.affected} spüren die Folgen. Könnte es der richtige Weg sein, wenn ${theme.decision}?`;
-  if (variant === 4) return `Es geht um einen echten Zielkonflikt: ${theme.tradeoff}. Ist es für dich vertretbar, wenn ${theme.decision}?`;
-  return `Mit Blick auf die nächsten Jahre: Wäre es die bessere Lösung, wenn ${theme.decision}?`;
+  const decision = theme.decision;
+  const standaloneDecision = upperFirst(decision);
+  const frames = [
+    `Würdest du es unterstützen, wenn ${decision}?`,
+    `Ist es für dich vertretbar, wenn ${decision}?`,
+    `Wäre das für dich ein guter Weg: ${standaloneDecision}?`,
+    `Könntest du diesem Ansatz zustimmen: ${standaloneDecision}?`,
+    `Mit Blick auf die nächsten Jahre: Würdest du diesen Weg mitgehen, wenn ${decision}?`,
+    `Wie stehst du zu diesem Ansatz: ${standaloneDecision}?`,
+    `Würdest du dafür stimmen, wenn ${decision}?`,
+    `Passt dieser Weg für dich: ${standaloneDecision}?`,
+    `Wäre es aus deiner Sicht richtig, wenn ${decision}?`,
+    `Könntest du dir vorstellen, dass ${decision}?`,
+  ] as const;
+  return frames[questionFrameIndex(theme, variant)];
 }
 
 function buildConsequences(theme: SeedTheme): SwipeItem["decisionConsequences"] {
