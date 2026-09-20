@@ -40,17 +40,6 @@ type AnalyzeClaim = Dossier["analyze"]["claims"][number];
 type AnalyzeQuestion = Dossier["analyze"]["questions"][number];
 type AnalyzeFinding = Dossier["analyze"]["findings"][number];
 
-function toJurisdiction(
-  value: string | null | undefined,
-): Dossier["meta"]["jurisdiction"] {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized.includes("bund")) return "federal";
-  if (normalized.includes("land")) return "state";
-  if (normalized.includes("eu")) return "eu";
-  if (normalized.includes("global")) return "global";
-  return "municipal";
-}
-
 function mapClaim(claim: DossierClaimDoc): AnalyzeClaim {
   return {
     id: claim.claimId,
@@ -285,7 +274,7 @@ export function mapDossierToPublicDossier(input: {
     meta: {
       id: String(input.publication.dossierId),
       title: input.publication.title,
-      jurisdiction: toJurisdiction(input.dossierDoc?.title),
+      jurisdiction: "unknown",
       region: undefined,
       status: "published",
       createdAt: input.publication.createdAt,
@@ -294,7 +283,7 @@ export function mapDossierToPublicDossier(input: {
     analyze: {
       mode: "E150",
       sourceText: input.publication.summary,
-      language: "de",
+      language: "und",
       claims,
       findings,
       notes: [
@@ -357,7 +346,7 @@ export function mapDossierToPublicDossier(input: {
         summary: input.publication.summary,
         keyConflicts: input.publication.argumentLines.slice(0, 4),
         facts: {
-          local: claims.slice(0, 4).map((claim) => claim.text),
+          local: [],
           international: [],
         },
         openQuestions: openQuestions.map((question) => question.text),
