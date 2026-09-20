@@ -6,6 +6,7 @@ import { coreCol } from "@core/db/triMongo";
 import { VoteModel } from "@/models/votes/Vote";
 import { createHash } from "crypto";
 import { z } from "zod";
+import { isQrQuestionSetPubliclyReleased } from "@/features/create/qrQuestionSetGuard";
 
 const VoteSchema = z.object({
   questionId: z.string().min(1),
@@ -28,7 +29,7 @@ export async function POST(
 
   const col = await coreCol("qr_question_sets");
   const set = await col.findOne({ code, status: "active" });
-  if (!set) {
+  if (!isQrQuestionSetPubliclyReleased(set)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
