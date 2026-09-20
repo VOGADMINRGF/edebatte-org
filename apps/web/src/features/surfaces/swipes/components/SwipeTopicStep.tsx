@@ -12,9 +12,12 @@ type SwipeTopicStepProps = {
   onQuickFollowup?: (action: "more_context" | "variants" | "later") => void;
 };
 
+type ConsequenceView = "agree" | "disagree" | null;
+
 export function SwipeTopicStep({ item, nextItem = null, onVote, step = 1, onQuickFollowup }: SwipeTopicStepProps) {
   const chips = buildMetaChips(item);
   const coreThesis = resolveCoreThesis(item.text);
+  const humanContext = item.humanContext?.trim() || coreThesis;
   const reducedMotion = useReducedMotion() ?? false;
   const cardRef = useRef<HTMLElement | null>(null);
   const gestureRef = useRef<{ pointerId: number; x: number; y: number; startTs: number; lastX: number; lastTs: number; axis: "x" | "y" | null } | null>(null);
@@ -23,9 +26,10 @@ export function SwipeTopicStep({ item, nextItem = null, onVote, step = 1, onQuic
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [swipePreview, setSwipePreview] = useState<SwipeDecision | null>(null);
+  const [consequenceView, setConsequenceView] = useState<ConsequenceView>(null);
 
   useEffect(() => {
-    setDragX(0); setDragY(0); setIsDragging(false); setSwipePreview(null);
+    setDragX(0); setDragY(0); setIsDragging(false); setSwipePreview(null); setConsequenceView(null);
     if (voteTimeoutRef.current) { window.clearTimeout(voteTimeoutRef.current); voteTimeoutRef.current = null; }
   }, [item.id]);
 
@@ -75,6 +79,10 @@ export function SwipeTopicStep({ item, nextItem = null, onVote, step = 1, onQuic
 
   const rotate = dragX / 34;
   const opacity = Math.max(0.86, 1 - Math.abs(dragX) / 620);
+  const consequenceItems = consequenceView ? item.decisionConsequences?.[consequenceView].slice(0, 5) ?? [] : [];
+  const hasConsequences = Boolean(
+    item.decisionConsequences?.agree.length || item.decisionConsequences?.disagree.length,
+  );
 
   return (
     <section className="relative isolate pb-3 pt-2" data-swipe-deck="mobile-first" aria-label={`Frage ${step}`}>
@@ -104,13 +112,65 @@ export function SwipeTopicStep({ item, nextItem = null, onVote, step = 1, onQuic
           <span className="vog-chip vog-chip--active">{step}</span>
           {chips.map((chip) => <span key={chip} className="vog-chip">{chip}</span>)}
         </div>
-        <h2 className="relative mt-7 text-[1.7rem] font-semibold leading-[1.12] tracking-tight text-[rgb(var(--fg))] sm:text-3xl md:text-[2rem]">{item.title}</h2>
-        {coreThesis ? <p className="relative mt-4 line-clamp-3 text-sm leading-6 text-[rgb(var(--muted))]">{coreThesis}</p> : null}
+        <h2 className="relative mt-6 text-[1.7rem] font-semibold leading-[1.12] tracking-tight text-[rgb(var(--fg))] sm:text-3xl md:text-[2rem]">{item.title}</h2>
 
-        <div className="relative mt-auto pt-6">
+        {humanContext ? (
+          <div className="relative mt-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))]/75 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Worum geht&apos;s im Alltag?</p>
+            <p className="mt-1.5 text-sm leading-5 text-[rgb(var(--fg))]">{humanContext}</p>
+            {item.tradeoff ? (
+              <p className="mt-2 text-xs leading-5 text-[rgb(var(--muted))]">
+                <span className="font-semibold text-[rgb(var(--fg))]">Zielkonflikt:</span> {item.tradeoff}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {hasConsequences ? (
+          <div className="relative mt-3 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))]/65 px-3 py-3" data-swipe-no-drag>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Mögliche Folgen</p>
+                <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">Ja und Nein führen nicht zu denselben Konsequenzen.</p>
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  aria-pressed={consequenceView === "agree"}
+                  onClick={() => setConsequenceView((current) => current === "agree" ? null : "agree")}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${consequenceView === "agree" ? "border-emerald-300/70 bg-emerald-500/16 text-emerald-100" : "border-[rgb(var(--border))] text-[rgb(var(--fg))]"}`}
+                >
+                  Bei Ja
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={consequenceView === "disagree"}
+                  onClick={() => setConsequenceView((current) => current === "disagree" ? null : "disagree")}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${consequenceView === "disagree" ? "border-rose-300/70 bg-rose-500/16 text-rose-100" : "border-[rgb(var(--border))] text-[rgb(var(--fg))]"}`}
+                >
+                  Bei Nein
+                </button>
+              </div>
+            </div>
+            {consequenceView && consequenceItems.length > 0 ? (
+              <ol className="mt-3 max-h-36 space-y-2 overflow-y-auto pr-1 text-xs text-[rgb(var(--muted))]">
+                {consequenceItems.map((consequence, index) => (
+                  <li key={`${consequenceView}-${index}-${consequence.title}`} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]/70 px-3 py-2">
+                    <span className="font-semibold text-[rgb(var(--fg))]">{index + 1}. {consequence.title}</span>
+                    {consequence.detail ? <span className="block mt-0.5 leading-4">{consequence.detail}</span> : null}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </div>
+        ) : coreThesis ? (
+          <p className="relative mt-4 line-clamp-3 text-sm leading-6 text-[rgb(var(--muted))]">{coreThesis}</p>
+        ) : null}
+
+        <div className="relative mt-auto pt-5">
           {item.supplyLabel ? <p className="line-clamp-2 text-xs text-[rgb(var(--muted))]">Warum wird dir das angezeigt? {item.supplyLabel}{item.supplyHint ? ` · ${item.supplyHint}` : ""}</p> : null}
 
-          <div className="mt-5 hidden items-center justify-center gap-3 md:flex" data-swipe-no-drag>
+          <div className="mt-4 hidden items-center justify-center gap-3 md:flex" data-swipe-no-drag>
             <button type="button" onClick={() => commitSwipe("disagree", 0)} className="btn-vote btn-vote-disagree min-h-12 rounded-full px-5 text-sm font-semibold" aria-label="Nein">← Nein</button>
             {onQuickFollowup ? <button type="button" onClick={() => onQuickFollowup("more_context")} className="min-h-12 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-5 text-sm font-semibold text-[rgb(var(--fg))]" data-swipe-no-drag>Details &amp; Quellen</button> : null}
             <button type="button" onClick={() => commitSwipe("agree", 0)} className="btn-vote btn-vote-agree min-h-12 rounded-full px-5 text-sm font-semibold" aria-label="Ja">Ja →</button>
@@ -118,7 +178,7 @@ export function SwipeTopicStep({ item, nextItem = null, onVote, step = 1, onQuic
           <div className="mt-3 hidden justify-center md:flex">
             <button type="button" onClick={() => onVote("neutral")} className="min-h-11 px-3 text-xs font-semibold text-[rgb(var(--muted))] underline-offset-4 hover:underline">Neutral</button>
           </div>
-          <p className="mt-5 text-center text-xs font-semibold text-[rgb(var(--muted))]" aria-label="Wischrichtung: links Nein, rechts Ja">← Nein <span aria-hidden>·</span> Wischen <span aria-hidden>·</span> Ja →</p>
+          <p className="mt-4 text-center text-xs font-semibold text-[rgb(var(--muted))]" aria-label="Wischrichtung: links Nein, rechts Ja">← Nein <span aria-hidden>·</span> Wischen <span aria-hidden>·</span> Ja →</p>
         </div>
       </article>
     </section>
