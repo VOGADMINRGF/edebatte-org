@@ -1,10 +1,6 @@
 import "server-only";
 
-import type { VoxyRenderPreviewReviewDecisionRecord } from "@/features/create/voxyRenderPreviewReviewDecisionPersistenceContract";
-import {
-  getLatestVoxyRenderPreviewReviewDecisionRecord,
-  getVoxyRenderPreviewReviewDecisionPersistenceState,
-} from "@/features/create/voxyRenderPreviewReviewDecisionPersistenceStore";
+import { stableHash } from "@core/utils/hash";
 import type {
   VoxyLocalCompositionJob,
   VoxyLocalCompositionOutput,
@@ -42,18 +38,6 @@ export type VoxyStudioEvidenceAuthority = {
   ): Promise<VoxyEditorialEvidenceContext>;
 };
 
-export type VoxyStudioReviewAuthorityResult = {
-  persistenceMode: "persistent_primary" | "in_memory_fallback" | "unavailable";
-  record: VoxyRenderPreviewReviewDecisionRecord | null;
-};
-
-export type VoxyStudioReviewAuthority = {
-  resolveLatestDecision(input: {
-    draft: VoxyStudioDraft;
-    decisionGateId: string;
-  }): Promise<VoxyStudioReviewAuthorityResult>;
-};
-
 export type VoxyStudioCompositionAuthority = {
   resolveComposition(input: {
     jobId: string;
@@ -67,10 +51,8 @@ export type VoxyStudioCompositionAuthority = {
 export type VoxyStudioDraftServiceDependencies = {
   repository: VoxyStudioDraftRepository;
   evidenceAuthority: VoxyStudioEvidenceAuthority;
-  reviewAuthority: VoxyStudioReviewAuthority;
   compositionAuthority: VoxyStudioCompositionAuthority;
   now?: () => string;
-  allowInMemoryReviewForTests?: boolean;
 };
 
 export type VoxyStudioCreateDraftInput = {
@@ -86,6 +68,13 @@ export type VoxyStudioCreateDraftInput = {
 };
 
 const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:@-]{0,159}$/;
+const EDITABLE_PATCH_KEYS = new Set([
+  "title",
+  "storyPlan",
+  "selectedFormat",
+  "safeZoneProfile",
+  "captionAdjustments",
+]);
 
 function normalize(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -99,6 +88,15 @@ function requireActor(actorId: string) {
   const normalized = normalize(actorId);
   if (!SAFE_ID.test(normalized)) throw new Error("voxy_studio_actor_invalid");
   return normalized;
+}
+
+function assertEditablePatchKeys(patch: VoxyStudioDraftEditablePatch) {
+  const invalid = Object.keys(patch as Record<string, unknown>).filter(
+    (key) => !EDITABLE_PATCH_KEYS.has(key),
+  );
+  if (invalid.length) {
+    throw new Error(`voxy_studio_patch_field_forbidden:${invalid.sort().join(",")}`);
+  }
 }
 
 async function requireDraft(
@@ -132,19 +130,23 @@ async function validateCurrentStory(
   return validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
 }
 
-export function createDefaultVoxyStudioReviewAuthority(): VoxyStudioReviewAuthority {
-  return {
-    async resolveLatestDecision({ decisionGateId }) {
-      const state = getVoxyRenderPreviewReviewDecisionPersistenceState();
-      const record = await getLatestVoxyRenderPreviewReviewDecisionRecord({
-        decisionGateId,
-      });
-      return {
-        persistenceMode: state.mode,
-        record,
-      };
-    },
-  };
+function buildEditorialApprovalRef(input: {
+  draft: VoxyStudioDraft;
+  decisionGateId: string;
+  actor: string;
+  at: string;
+}) {
+  return `voxy-studio-editorial-approval:${stableHash(
+    [
+      input.draft.draftId,
+      input.draft.revision,
+      input.draft.storyPlan.storyPlanId,
+      input.draft.storyPlan.revision,
+      input.decisionGateId,
+      input.actor,
+      input.at,
+    ].join(":"),
+  ).slice(0, 32)}`;
 }
 
 export function createDefaultVoxyStudioCompositionAuthority(
@@ -168,7 +170,6 @@ export function createDefaultVoxyStudioServiceDependencies(input: {
   return {
     repository: getVoxyStudioDraftRepository(),
     evidenceAuthority: input.evidenceAuthority,
-    reviewAuthority: createDefaultVoxyStudioReviewAuthority(),
     compositionAuthority: createDefaultVoxyStudioCompositionAuthority(),
     now: input.now,
   };
@@ -256,6 +257,7 @@ export async function editVoxyStudioDraft(input: {
   updatedByUserId: string;
 }, deps: VoxyStudioDraftServiceDependencies): Promise<VoxyStudioDraft> {
   const actor = requireActor(input.updatedByUserId);
+  assertEditablePatchKeys(input.patch);
   const current = await requireDraft(deps.repository, input.draftId);
   if (current.revision !== input.expectedRevision) {
     throw new Error("voxy_studio_revision_conflict");
@@ -339,6 +341,45 @@ export async function submitVoxyStudioDraftForReview(input: {
   };
 }
 
+export async function requestVoxyStudioDraftChanges(input: {
+  draftId: string;
+  expectedRevision: number;
+  requestedByUserId: string;
+  note: string;
+}, deps: VoxyStudioDraftServiceDependencies): Promise<VoxyStudioDraft> {
+  const actor = requireActor(input.requestedByUserId);
+  const note = normalize(input.note);
+  if (!note) throw new Error("voxy_studio_change_request_note_required");
+  const current = await requireDraft(deps.repository, input.draftId);
+  if (current.revision !== input.expectedRevision) {
+    throw new Error("voxy_studio_revision_conflict");
+  }
+  if (current.status !== "needs_review") {
+    throw new Error(`voxy_studio_change_request_not_allowed:${current.status}`);
+  }
+  const timestamp = now(deps);
+  const next: VoxyStudioDraft = {
+    ...current,
+    status: "needs_changes",
+    renderApproval: null,
+    renderBinding: null,
+    publishApproval: null,
+    updatedByUserId: actor,
+    updatedAt: timestamp,
+  };
+  await replaceDraftOrThrow({ repository: deps.repository, current, next });
+  await deps.repository.appendAuditEvent(
+    buildVoxyStudioDraftAuditEvent({
+      draft: next,
+      action: "review_changes_requested",
+      byUserId: actor,
+      at: timestamp,
+      note,
+    }),
+  );
+  return next;
+}
+
 export async function approveVoxyStudioDraftForRender(input: {
   draftId: string;
   expectedRevision: number;
@@ -363,40 +404,15 @@ export async function approveVoxyStudioDraftForRender(input: {
   }
 
   const decisionGateId = buildVoxyStudioRenderReviewGateId(current);
-  const review = await deps.reviewAuthority.resolveLatestDecision({
+  const timestamp = now(deps);
+  const approvalRef = buildEditorialApprovalRef({
     draft: current,
     decisionGateId,
+    actor,
+    at: timestamp,
   });
-  if (
-    review.persistenceMode !== "persistent_primary" &&
-    !deps.allowInMemoryReviewForTests
-  ) {
-    throw new Error("voxy_studio_review_not_persistent");
-  }
-  const record = review.record;
-  if (!record) throw new Error("voxy_studio_review_decision_missing");
-  if (record.decisionGateId !== decisionGateId) {
-    throw new Error("voxy_studio_review_gate_mismatch");
-  }
-  if (record.decisionType !== "mark_review_ready") {
-    throw new Error(`voxy_studio_review_not_ready:${record.decisionType}`);
-  }
-  if (!record.persistedBy || !record.persistedAt) {
-    throw new Error("voxy_studio_review_actor_or_time_missing");
-  }
-  if (record.requestDraftId !== current.draftId) {
-    throw new Error("voxy_studio_review_draft_binding_mismatch");
-  }
-  if (
-    record.scriptRef?.id !== current.storyPlan.storyPlanId ||
-    record.renderLanguage !== current.storyPlan.outputLanguage
-  ) {
-    throw new Error("voxy_studio_review_story_binding_mismatch");
-  }
-
-  const timestamp = now(deps);
   const approval: VoxyStudioHumanApproval = {
-    reviewDecisionRecordId: record.decisionRecordId,
+    reviewDecisionRecordId: approvalRef,
     decisionGateId,
     approvedByUserId: actor,
     approvedAt: timestamp,
@@ -423,7 +439,8 @@ export async function approveVoxyStudioDraftForRender(input: {
       action: "approved_for_render",
       byUserId: actor,
       at: timestamp,
-      reviewDecisionRecordId: record.decisionRecordId,
+      reviewDecisionRecordId: approvalRef,
+      note: "Explizite redaktionelle Renderfreigabe; startet keinen Render automatisch.",
     }),
   );
   return next;
