@@ -12,6 +12,7 @@ import {
   sourceArtifactEligibleAsExternalEvidence,
   sourceArtifactSnapshotBindingStatus,
   sourceLineageHasCycle,
+  sourceLineageRelationsReferenceExistingArtifacts,
   sourceSegmentAttributionRequiresReview,
   validateSynthesisReceipt,
   type AtomicClaim,
@@ -220,6 +221,7 @@ describe("atomic claim/source relation contract", () => {
     };
 
     expect(sourceArtifactSnapshotBindingStatus(artifact)).toBe("unbound");
+    expect(sourceArtifactEligibleAsExternalEvidence(artifact)).toBe(false);
   });
 
   it("rejects partial snapshot bindings because observation and immutable content refs travel together", () => {
@@ -248,6 +250,23 @@ describe("atomic claim/source relation contract", () => {
 
     expect(sourceArtifactEligibleAsExternalEvidence(artifact)).toBe(true);
     expect(sourceArtifactAvailabilityRequiresReview(artifact)).toBe(true);
+    expect(
+      sourceArtifactEligibleAsExternalEvidence({
+        ...artifact,
+        rightsStatus: "restricted",
+      }),
+    ).toBe(false);
+
+    const unavailableArtifact: SourceArtifact = {
+      ...artifact,
+      media: {
+        mediumKind: "video",
+        episodeRef: "episode-7",
+        availability: { status: "unavailable" },
+      },
+    };
+    expect(sourceArtifactEligibleAsExternalEvidence(unavailableArtifact)).toBe(true);
+    expect(sourceArtifactAvailabilityRequiresReview(unavailableArtifact)).toBe(true);
   });
 
   it("keeps timecode in the canonical segment locator while media metadata stays on the artifact", () => {
@@ -274,23 +293,88 @@ describe("atomic claim/source relation contract", () => {
     expect(sourceSegmentAttributionRequiresReview(segment)).toBe(false);
   });
 
-  it("fails closed on ambiguous speaker attribution in talkshow material", () => {
-    const segment: SourceSegment = {
+  it("fails closed on missing or unclear speaker attribution in talkshow material", () => {
+    const claim: AtomicClaim = {
+      ...baseClaim,
+      type: "reported_speech",
+      text: "Die Person sagte X.",
+    };
+    const relation: ClaimSourceRelation = {
+      ...baseRelation,
+      claimId: claim.id,
+      relationType: "reported_by_source",
+    };
+    const missingSpeaker: SourceSegment = {
+      ...baseSegment,
+      locator: "00:08:04",
+      speaker: null,
+      transcriptionStatus: "human_reviewed",
+    };
+    const emptySpeaker: SourceSegment = {
+      ...missingSpeaker,
+      speaker: " ",
+    };
+    const inferredSpeaker: SourceSegment = {
+      ...baseSegment,
+      locator: "00:08:04",
+      speaker: "Person A",
+      speakerRole: "panelist",
+      attributionStatus: "inferred",
+      transcriptionStatus: "human_reviewed",
+    };
+    const ambiguousSpeaker: SourceSegment = {
       ...baseSegment,
       locator: "00:08:04",
       speaker: "Person A oder Person B",
       speakerRole: "panelist",
       attributionStatus: "ambiguous",
-      transcriptionStatus: "automatic_unreviewed",
+      transcriptionStatus: "human_reviewed",
+    };
+    const explicitSpeaker: SourceSegment = {
+      ...baseSegment,
+      locator: "00:08:04",
+      speaker: "Person A",
+      speakerRole: "panelist",
+      attributionStatus: "explicit",
+      transcriptionStatus: "human_reviewed",
     };
 
-    expect(sourceSegmentAttributionRequiresReview(segment)).toBe(true);
+    for (const segment of [missingSpeaker, emptySpeaker, inferredSpeaker, ambiguousSpeaker]) {
+      expect(sourceSegmentAttributionRequiresReview(segment)).toBe(true);
+    }
+    expect(sourceSegmentAttributionRequiresReview(explicitSpeaker)).toBe(false);
+
+    for (const segment of [missingSpeaker, inferredSpeaker, ambiguousSpeaker]) {
+      expect(
+        resolvePublicationClassification({
+          claim,
+          relations: [relation],
+          sourceSegments: [segment],
+          assessment: { ...baseAssessment, transcriptionConfidence: "high" },
+        }),
+      ).toBe("review_required");
+    }
+    expect(
+      resolvePublicationClassification({
+        claim,
+        relations: [relation],
+        sourceSegments: [explicitSpeaker],
+        assessment: { ...baseAssessment, transcriptionConfidence: "high" },
+      }),
+    ).toBe("publishable_as_quote");
   });
 
   it("represents factcheck-of-factcheck lineage on existing source artifact ids and detects cycles", () => {
-    expect(SOURCE_LINEAGE_RELATION_TYPES).toEqual(
-      expect.arrayContaining(["cites", "uses_study", "uses_dataset"]),
-    );
+    expect(SOURCE_LINEAGE_RELATION_TYPES).toEqual([
+      "cites",
+      "quotes",
+      "summarizes",
+      "derived_from",
+      "syndicates",
+      "uses_dataset",
+      "uses_study",
+      "uses_interview",
+    ]);
 
     const acyclic: SourceLineageRelation[] = [
       {
@@ -322,6 +406,112 @@ describe("atomic claim/source relation contract", () => {
         },
       ]),
     ).toBe(true);
+  });
+
+  it("rejects dangling source lineage references while accepting existing artifacts", () => {
+    const artifacts: SourceArtifact[] = [
+      { ...baseArtifact, id: "factcheck-1", sourceFamilyId: "original-family" },
+      { ...baseArtifact, id: "original-1", sourceFamilyId: "original-family" },
+    ];
+    const relation: SourceLineageRelation = {
+      id: "lineage-factcheck-original",
+      sourceArtifactId: "factcheck-1",
+      upstreamSourceArtifactId: "original-1",
+      relationType: "cites",
+      reviewStatus: "reviewed",
+    };
+
+    expect(sourceLineageRelationsReferenceExistingArtifacts(artifacts, [relation])).toBe(true);
+    expect(
+      sourceLineageRelationsReferenceExistingArtifacts(artifacts, [
+        { ...relation, sourceArtifactId: "missing-factcheck" },
+      ]),
+    ).toBe(false);
+    expect(
+      sourceLineageRelationsReferenceExistingArtifacts(artifacts, [
+        { ...relation, upstreamSourceArtifactId: "" },
+      ]),
+    ).toBe(false);
+  });
+
+  it("keeps factcheck lineage explicit without inferring a second independent source", () => {
+    const artifacts: SourceArtifact[] = [
+      { ...baseArtifact, id: "original-1", sourceFamilyId: "original-family" },
+      { ...baseArtifact, id: "factcheck-1", sourceFamilyId: "original-family" },
+    ];
+    const lineage: SourceLineageRelation[] = [
+      {
+        id: "lineage-factcheck-original",
+        sourceArtifactId: "factcheck-1",
+        upstreamSourceArtifactId: "original-1",
+        relationType: "cites",
+        reviewStatus: "reviewed",
+      },
+    ];
+
+    expect(sourceLineageRelationsReferenceExistingArtifacts(artifacts, lineage)).toBe(true);
+    expect(
+      countIndependentSupportFamilies([
+        {
+          ...baseRelation,
+          id: "relation-original",
+          sourceSegmentId: "segment-original",
+          sourceFamilyId: "original-family",
+        },
+        {
+          ...baseRelation,
+          id: "relation-factcheck",
+          sourceSegmentId: "segment-factcheck",
+          sourceFamilyId: "original-family",
+          sourceIndependence: "same_family",
+        },
+      ]),
+    ).toBe(1);
+  });
+
+  it("keeps syndication and derived provenance from creating artificial independence", () => {
+    const artifacts: SourceArtifact[] = [
+      { ...baseArtifact, id: "original-1", sourceFamilyId: "agency-family" },
+      { ...baseArtifact, id: "syndication-1", sourceFamilyId: "agency-family" },
+      { ...baseArtifact, id: "derived-1", sourceFamilyId: "agency-family" },
+    ];
+    const lineage: SourceLineageRelation[] = [
+      {
+        id: "lineage-syndication",
+        sourceArtifactId: "syndication-1",
+        upstreamSourceArtifactId: "original-1",
+        relationType: "syndicates",
+        reviewStatus: "reviewed",
+      },
+      {
+        id: "lineage-derived",
+        sourceArtifactId: "derived-1",
+        upstreamSourceArtifactId: "original-1",
+        relationType: "derived_from",
+        reviewStatus: "reviewed",
+      },
+    ];
+
+    expect(sourceLineageRelationsReferenceExistingArtifacts(artifacts, lineage)).toBe(true);
+    expect(
+      countIndependentSupportFamilies([
+        { ...baseRelation, sourceFamilyId: "agency-family" },
+        {
+          ...baseRelation,
+          id: "relation-syndication",
+          sourceSegmentId: "segment-syndication",
+          sourceFamilyId: "agency-family",
+          sourceIndependence: "same_family",
+        },
+        {
+          ...baseRelation,
+          id: "relation-derived",
+          sourceSegmentId: "segment-derived",
+          sourceFamilyId: "agency-family",
+          sourceIndependence: "same_family",
+        },
+      ]),
+    ).toBe(1);
   });
 
   it("keeps a foreign-language original and its reading view on one evidence segment", () => {

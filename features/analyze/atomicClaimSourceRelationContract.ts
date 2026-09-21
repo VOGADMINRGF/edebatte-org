@@ -349,13 +349,34 @@ export function sourceArtifactAvailabilityRequiresReview(
 }
 
 export function sourceSegmentAttributionRequiresReview(
-  segment: Pick<SourceSegment, "speaker" | "speakerRole" | "attributionStatus">,
+  segment: Pick<SourceSegment, "speaker" | "attributionStatus">,
 ): boolean {
-  if (!segment.attributionStatus && !segment.speakerRole) return false;
-  if (segment.attributionStatus === "ambiguous" || segment.attributionStatus === "unknown") {
-    return true;
-  }
-  return Boolean(segment.speakerRole && !segment.speaker?.trim());
+  if (!segment.speaker?.trim()) return true;
+  return (
+    segment.attributionStatus === "inferred" ||
+    segment.attributionStatus === "ambiguous" ||
+    segment.attributionStatus === "unknown"
+  );
+}
+
+export function sourceLineageRelationsReferenceExistingArtifacts(
+  sourceArtifacts: readonly Pick<SourceArtifact, "id">[],
+  relations: readonly SourceLineageRelation[],
+): boolean {
+  const artifactIds = new Set(
+    sourceArtifacts
+      .map((artifact) => artifact.id.trim())
+      .filter((artifactId) => artifactId.length > 0),
+  );
+
+  return relations.every((relation) => {
+    const sourceArtifactId = relation.sourceArtifactId.trim();
+    const upstreamSourceArtifactId = relation.upstreamSourceArtifactId.trim();
+    return (
+      artifactIds.has(sourceArtifactId) &&
+      artifactIds.has(upstreamSourceArtifactId)
+    );
+  });
 }
 
 export function sourceLineageHasCycle(relations: SourceLineageRelation[]): boolean {
@@ -540,12 +561,18 @@ export function resolvePublicationClassification(params: {
     const hasUnsafeTranscript = claimSegments.some(
       (segment) => segment.transcriptionStatus === "automatic_unreviewed",
     );
+    const hasAttributionRequiringReview = claimSegments.some(
+      sourceSegmentAttributionRequiresReview,
+    );
     const speakerAndSegmentReliable =
       params.assessment.sourceSegmentFidelity === "high" &&
       params.assessment.speakerAttributionConfidence === "high" &&
       params.assessment.transcriptionConfidence !== "low";
 
-    return hasQuoteRelation && !hasUnsafeTranscript && speakerAndSegmentReliable
+    return hasQuoteRelation &&
+      !hasUnsafeTranscript &&
+      !hasAttributionRequiringReview &&
+      speakerAndSegmentReliable
       ? "publishable_as_quote"
       : "review_required";
   }
