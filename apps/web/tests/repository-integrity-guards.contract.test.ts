@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PROTECTED_CANONICAL_OWNERS,
   classifyWebFeatureFile,
   evaluateRepositoryIntegrity,
   isProtectedDocument,
@@ -29,6 +30,112 @@ describe("repository integrity guards", () => {
         readHead: () => "// @repository-integrity-classification: adapter\nexport {};",
       }),
     ).toEqual([]);
+  });
+
+  it("fails duplicate definitions of every protected canonical symbol outside its owner", () => {
+    for (const [symbol, owner] of PROTECTED_CANONICAL_OWNERS) {
+      const errors = evaluateRepositoryIntegrity({
+        changes: [{ status: "A", path: `features/collision/${symbol}.ts` }],
+        exists: () => false,
+        readBase: () => "",
+        readHead: () => `export interface ${symbol} {}`,
+      });
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(`${symbol} is canonically owned by ${owner}`);
+    }
+  });
+
+  it("allows protected canonical definitions at their registered owner", () => {
+    for (const [symbol, owner] of PROTECTED_CANONICAL_OWNERS) {
+      const errors = evaluateRepositoryIntegrity({
+        changes: [{ status: "M", path: owner }],
+        exists: () => false,
+        readBase: () => "",
+        readHead: () => `export interface ${symbol} {}`,
+      });
+
+      expect(errors).toEqual([]);
+    }
+  });
+
+  it("allows compatibility re-exports because they do not create a second canonical definition", () => {
+    const errors = evaluateRepositoryIntegrity({
+      changes: [{
+        status: "M",
+        path: "apps/web/src/features/create/canonicalTopicResolutionContract.ts",
+      }],
+      exists: () => false,
+      readBase: () => "",
+      readHead: () =>
+        'export type { CanonicalTopic, DecisionQuestion, JurisdictionContext } from "@features/topic/canonicalTopicResolutionContract";',
+    });
+
+    expect(errors).toEqual([]);
+  });
+
+  it("rejects new product imports of canonical topic types through the legacy web compatibility owner", () => {
+    const errors = evaluateRepositoryIntegrity({
+      changes: [{ status: "A", path: "features/topic/newConsumer.ts" }],
+      exists: () => false,
+      readBase: () => "",
+      readHead: () =>
+        'import type { CanonicalTopic, DecisionQuestion } from "@/features/create/canonicalTopicResolutionContract";',
+    });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain(
+      "must import directly from @features/topic/canonicalTopicResolutionContract",
+    );
+  });
+
+  it("allows direct imports from the canonical topic owner", () => {
+    const errors = evaluateRepositoryIntegrity({
+      changes: [{ status: "A", path: "features/topic/newConsumer.ts" }],
+      exists: () => false,
+      readBase: () => "",
+      readHead: () =>
+        'import type { CanonicalTopic, DecisionQuestion } from "@features/topic/canonicalTopicResolutionContract";',
+    });
+
+    expect(errors).toEqual([]);
+  });
+
+  it("fails canonical runtime collisions for T9, C13, G6, and Observation ownership", () => {
+    const forbiddenIdentifiers = [
+      "T9Runner",
+      "T9Composer",
+      "T9ProviderRouter",
+      "C13YoutubeLoader",
+      "C13TranscriptRuntime",
+      "G6EvidenceCollection",
+      "G6GraphStore",
+      "ObservationStore",
+    ];
+
+    for (const identifier of forbiddenIdentifiers) {
+      const errors = evaluateRepositoryIntegrity({
+        changes: [{ status: "A", path: `features/collision/${identifier}.ts` }],
+        exists: () => false,
+        readBase: () => "",
+        readHead: () => `export class ${identifier} {}`,
+      });
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(identifier);
+      expect(errors[0]).toContain("runtime/owner collision");
+    }
+  });
+
+  it("does not ban generic runtime names that are not tied to the protected C13/T9/G6 roles", () => {
+    const errors = evaluateRepositoryIntegrity({
+      changes: [{ status: "A", path: "features/media/genericMediaLoader.ts" }],
+      exists: () => false,
+      readBase: () => "",
+      readHead: () => "export class MediaLoader {}",
+    });
+
+    expect(errors).toEqual([]);
   });
 
   it("protects evidence classes including runbooks, architecture/security evidence, and foundation canon", () => {
