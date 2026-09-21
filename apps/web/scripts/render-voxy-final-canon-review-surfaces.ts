@@ -21,9 +21,7 @@ import {
 } from "../src/features/voxyVideo/homepageReferenceFilmLayouts";
 import { renderVoxyHomepageReferenceFilmFrameHtml } from "../src/features/voxyVideo/homepageReferenceFilmsHtml";
 import { VOXY_FIRST_EXPLAINER_STUDIO_LOCKUP_PATH } from "../src/features/voxyVideo/firstExplainerVideo";
-import {
-  VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND,
-} from "../src/features/voxyVideo/headAlphaSilhouette";
+import { VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND } from "../src/features/voxyVideo/headAlphaSilhouette";
 import { VOXY_POCKET_MARK_COMPOSITION_SOURCE } from "../src/features/voxyVideo/pocketMarkFinalGate";
 import { VOXY_STATIC_CANON_NATIVE_ASSETS } from "../src/features/voxyVideo/staticCanonRecovery";
 import type { VoxyMotionV4EmbeddedAssets } from "../src/features/voxyVideo/motionV4Html";
@@ -76,6 +74,8 @@ type ReviewSurface = {
   canonicalHeadOutsideContribution: "0";
   canonicalBodyLayerCount: number;
   legacyNeckPlateCount: 0;
+  mutedFirstCaptions: true;
+  lowerThirdVisible: false;
   regions: Record<VoxyVisualQaRegion, HomepageFilmRect>;
 };
 
@@ -91,10 +91,7 @@ type EvidenceManifest = {
   [key: string]: unknown;
 };
 
-const REVIEW_MOMENT: Record<
-  VoxyHomepageFilmId,
-  { segmentId: string; progress: number }
-> = {
+const REVIEW_MOMENT: Record<VoxyHomepageFilmId, { segmentId: string; progress: number }> = {
   edebatte: { segmentId: "edebatte-greeting", progress: 0.15 },
   voiceopengov: { segmentId: "vog-greeting", progress: 0.2 },
 };
@@ -103,6 +100,7 @@ const MASTER_REGIONS = {
   left_hand: { x: 600, y: 620, width: 195, height: 165 },
   right_hand: { x: 735, y: 618, width: 210, height: 170 },
   waveform: { x: 820, y: 55, width: 600, height: 490 },
+  lower_third_reserved: { x: 50, y: 864, width: 1370, height: 170 },
 } as const;
 
 function arg(name: string): string | null {
@@ -228,10 +226,9 @@ async function requiredBox(
 async function edgeContrastScore(page: Page, pngPath: string): Promise<number> {
   const png = await readFile(pngPath);
   const source = `data:image/png;base64,${png.toString("base64")}`;
-  await page.setContent(
-    `<canvas id="c"></canvas><img id="i" src="${source}" alt="">`,
-    { waitUntil: "load" },
-  );
+  await page.setContent(`<canvas id="c"></canvas><img id="i" src="${source}" alt="">`, {
+    waitUntil: "load",
+  });
   await page.waitForFunction("document.getElementById('i')?.complete === true");
   return page.evaluate<number>(`(() => {
     const image = document.getElementById('i');
@@ -264,16 +261,11 @@ async function edgeContrastScore(page: Page, pngPath: string): Promise<number> {
 async function decodePng(page: Page, pngPath: string) {
   const png = await readFile(pngPath);
   const source = `data:image/png;base64,${png.toString("base64")}`;
-  await page.setContent(
-    `<canvas id="c"></canvas><img id="i" src="${source}" alt="">`,
-    { waitUntil: "load" },
-  );
+  await page.setContent(`<canvas id="c"></canvas><img id="i" src="${source}" alt="">`, {
+    waitUntil: "load",
+  });
   await page.waitForFunction("document.getElementById('i')?.complete === true");
-  const decoded = await page.evaluate<{
-    width: number;
-    height: number;
-    rgba: number[];
-  }>(`(() => {
+  const decoded = await page.evaluate<{ width: number; height: number; rgba: number[] }>(`(() => {
     const image = document.getElementById('i');
     const canvas = document.getElementById('c');
     canvas.width = image.naturalWidth;
@@ -341,7 +333,6 @@ async function renderSurface(input: {
   browser: Awaited<ReturnType<typeof chromium.launch>>;
   analysisPage: Page;
   outputRoot: string;
-  repositoryRoot: string;
   head: string;
   assets: VoxyMotionV4EmbeddedAssets;
   filmId: VoxyHomepageFilmId;
@@ -394,6 +385,9 @@ async function renderSurface(input: {
     if (canonicalBodyLayerCount < 1) throw new Error("voxy_review_surface_canonical_body_missing");
     const legacyNeckPlateCount = await page.locator(".neck-plate").count();
     if (legacyNeckPlateCount !== 0) throw new Error("voxy_review_surface_legacy_neck_plate_present");
+    if ((await page.locator('[data-muted-first-captions="v3-7"]').count()) < 1) {
+      throw new Error("voxy_review_surface_muted_first_captions_contract_missing");
+    }
 
     const viewportBox = await requiredBox(page, ".viewport", plan.output.width, plan.output.height);
     if (
@@ -407,8 +401,13 @@ async function renderSurface(input: {
     const pin = await requiredBox(page, ".lapel-pin", plan.output.width, plan.output.height, 14);
     const pocket = await requiredBox(page, ".pocket-mark", plan.output.width, plan.output.height, 14);
     const brand = await requiredBox(page, ".homepage-brand-hierarchy", plan.output.width, plan.output.height, 10);
-    const lowerThird = await requiredBox(page, ".broadcast-lower-third", plan.output.width, plan.output.height, 6);
     const caption = await requiredBox(page, ".homepage-voxy-subtitle", plan.output.width, plan.output.height, 6);
+    const lowerThirdReserved = mapMasterRect(
+      masterBox,
+      MASTER_REGIONS.lower_third_reserved,
+      plan.output.width,
+      plan.output.height,
+    );
 
     const regions: Record<VoxyVisualQaRegion, HomepageFilmRect> = {
       face_eyes: face,
@@ -419,7 +418,7 @@ async function renderSurface(input: {
       logo_zone: brand,
       microphone_edge: clampRect(layout.regions.microphone, plan.output.width, plan.output.height),
       waveform: mapMasterRect(masterBox, MASTER_REGIONS.waveform, plan.output.width, plan.output.height),
-      lower_third: lowerThird,
+      lower_third: lowerThirdReserved,
       caption_safe_zone: caption,
     };
 
@@ -432,6 +431,12 @@ async function renderSurface(input: {
     if (input.writeRegionCrops) {
       for (const region of Object.keys(regions) as VoxyVisualQaRegion[]) {
         const outputPath = path.resolve(formatDir, `${region}-200pct.png`);
+        const semanticSource =
+          region === "microphone_edge"
+            ? "homepage_layout_contract"
+            : region === "lower_third"
+              ? "production_css_reserved_geometry_muted_by_v3_7"
+              : "rendered_dom_or_master_geometry";
         regionResults.push(
           await captureCrop({
             page,
@@ -442,7 +447,10 @@ async function renderSurface(input: {
             notes: [
               "v3_10_5_final_canon_production_renderer",
               "canonical_alpha_head_body_compositor",
-              `source:${region === "microphone_edge" ? "homepage_layout_contract" : "rendered_dom_or_master_geometry"}`,
+              `source:${semanticSource}`,
+              ...(region === "lower_third"
+                ? ["muted_first_captions_v3_7_lower_third_hidden_by_design"]
+                : []),
               "human_visual_review_required",
             ],
           }),
@@ -484,6 +492,8 @@ async function renderSurface(input: {
         canonicalHeadOutsideContribution: "0",
         canonicalBodyLayerCount,
         legacyNeckPlateCount: 0,
+        mutedFirstCaptions: true,
+        lowerThirdVisible: false,
         regions,
       },
       regionResults,
@@ -513,7 +523,7 @@ async function replaceNegativeFixture(input: {
     );
     const bad = page.locator(".bad");
     const bounds = await bad.boundingBox();
-    const computedFilter = await bad.evaluate((element) => getComputedStyle(element).filter);
+    const computedFilter = await bad.evaluate<string>("element => getComputedStyle(element).filter");
     const actualCrop = Boolean(bounds && (bounds.x < 0 || bounds.x + bounds.width > 1280));
     if (!actualCrop || !computedFilter.includes("blur")) {
       throw new Error("voxy_review_surface_negative_fixture_not_real");
@@ -577,7 +587,11 @@ async function main(): Promise<void> {
   const rendered: ReviewSurface[] = [];
   const evidenceResults = new Map<
     QaFormat,
-    { surface: ReviewSurface; regionResults: VoxyVisualQaRegionResult[]; handDetections: { left: VoxyHandDetectionEvidence; right: VoxyHandDetectionEvidence } }
+    {
+      surface: ReviewSurface;
+      regionResults: VoxyVisualQaRegionResult[];
+      handDetections: { left: VoxyHandDetectionEvidence; right: VoxyHandDetectionEvidence };
+    }
   >();
 
   try {
@@ -587,7 +601,6 @@ async function main(): Promise<void> {
           browser,
           analysisPage,
           outputRoot,
-          repositoryRoot,
           head,
           assets,
           filmId,
@@ -598,7 +611,9 @@ async function main(): Promise<void> {
         });
         rendered.push(result.surface);
         if (filmId === "edebatte" && bindEvidence) {
-          if (!result.handDetections) throw new Error(`voxy_review_surface_hand_detection_missing:${target.format}`);
+          if (!result.handDetections) {
+            throw new Error(`voxy_review_surface_hand_detection_missing:${target.format}`);
+          }
           evidenceResults.set(target.format, {
             surface: result.surface,
             regionResults: result.regionResults,
@@ -623,7 +638,11 @@ async function main(): Promise<void> {
         "renderVoxyMotionV4FrameHtml",
         "renderVoxyCanonicalAlphaHeadRelativeFaceRig",
       ],
-      canonicalCleanStudioBackground: publicUrl(VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND.repositoryPath),
+      canonicalCleanStudioBackground: publicUrl(
+        VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND.repositoryPath,
+      ),
+      mutedFirstCaptions: true,
+      lowerThirdVisible: false,
       surfaces: rendered,
       humanReviewRequired: true,
       autoApprove: false,
@@ -639,6 +658,7 @@ async function main(): Promise<void> {
       const evidenceManifestPath = path.resolve(outputRoot, "evidence-manifest.json");
       const manifest = JSON.parse(await readFile(evidenceManifestPath, "utf8")) as EvidenceManifest;
       if (manifest.commitSha !== head) throw new Error("voxy_review_surface_manifest_head_mismatch");
+
       for (const target of TARGETS) {
         const result = evidenceResults.get(target.format);
         if (!result) throw new Error(`voxy_review_surface_evidence_format_missing:${target.format}`);
@@ -679,10 +699,18 @@ async function main(): Promise<void> {
             format: target.format,
             region,
             rect,
-            source: "v3_10_5_rendered_dom_or_production_layout",
+            source:
+              region === "lower_third"
+                ? "production_css_reserved_geometry_muted_by_v3_7"
+                : "v3_10_5_rendered_dom_or_production_layout",
           }));
         }),
         microphoneApplicability: { "16:9": true, "9:16": true, "1:1": true },
+        lowerThirdApplicability: {
+          visible: false,
+          reason: "muted_first_captions_v3_7",
+          reservedGeometryChecked: true,
+        },
         reviewRequired: true,
         autoApprove: false,
       };
@@ -693,6 +721,8 @@ async function main(): Promise<void> {
         referenceRenderHeadSha: VOXY_FINAL_CANON.referenceRenderHeadSha,
         exactHeadSha: head,
         cleanStudioRequired: true,
+        mutedFirstCaptions: true,
+        lowerThirdVisible: false,
         renderPath: reviewManifest.renderPath,
         surfaces: rendered.filter((surface) => surface.filmId === "edebatte"),
       };
@@ -721,7 +751,10 @@ async function main(): Promise<void> {
         throw new Error("voxy_review_surface_must_not_self_approve");
       }
       const serialized = JSON.stringify(manifest);
-      if (serialized.includes("voxy-standing-master.svg") || serialized.includes('"poseId":"standing_master"')) {
+      if (
+        serialized.includes("voxy-standing-master.svg") ||
+        serialized.includes('"poseId":"standing_master"')
+      ) {
         throw new Error("voxy_review_surface_legacy_standing_master_leaked_into_final_manifest");
       }
       await writeFile(evidenceManifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
