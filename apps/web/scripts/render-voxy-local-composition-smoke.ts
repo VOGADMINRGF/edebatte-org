@@ -37,7 +37,7 @@ async function main() {
   const webRoot = resolve(import.meta.dirname, "..");
   const outputRoot = resolve(
     webRoot,
-    argument("output-root") ?? "../../../artifacts/voxy-local-composition-runtime-smoke",
+    argument("output-root") ?? "../../artifacts/voxy-local-composition-runtime-smoke",
   );
   await rm(outputRoot, { recursive: true, force: true });
   const audioRoot = join(outputRoot, "_input");
