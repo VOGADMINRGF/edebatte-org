@@ -7,6 +7,11 @@ on:
       - "apps/web/package.json"
       - "apps/web/scripts/render-voxy-local-composition.ts"
       - "apps/web/scripts/render-voxy-local-composition-smoke.ts"
+      - "apps/web/src/features/voxyVideo/editorialCompositionHtml.ts"
+      - "apps/web/src/features/voxyVideo/editorialStoryPlan.ts"
+      - "apps/web/src/features/voxyVideo/finalCanon.ts"
+      - "apps/web/src/features/voxyVideo/headAlphaSilhouette.ts"
+      - "apps/web/src/features/voxyVideo/motionV4Html.ts"
       - "apps/web/src/features/voxyVideo/localCompositionRuntime.ts"
       - "apps/web/src/features/voxyVideo/localCompositionRuntimeService.ts"
       - "apps/web/src/features/voxyVideo/localCompositionRuntimeStore.ts"
@@ -15,6 +20,7 @@ on:
       - "apps/web/src/features/voxyVideo/index.ts"
       - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
+      - "apps/web/tests/voxy-editorial-composition-html.contract.test.ts"
       - "docs/E150/VOXY-LOCAL-COMPOSITION-RUNTIME-01_2026-09-21.md"
   workflow_dispatch:
 
@@ -48,7 +54,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Contract and existing-review-store bridge tests
+      - name: Contract, editorial-canon and existing-review-store tests
         run: pnpm -C apps/web run test:voxy-local-composition-runtime
 
       - name: Typecheck and diff guard
