@@ -45,6 +45,7 @@ jobs:
         run: >-
           pnpm -C apps/web exec vitest run
           tests/ai-public-discovery.contract.test.ts
+          tests/ai-specialist-composition-contract.test.ts
 
       - name: Focused organization registry contracts
         run: >-
