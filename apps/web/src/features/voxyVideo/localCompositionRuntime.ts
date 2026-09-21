@@ -1,6 +1,12 @@
 import { stableHash } from "@core/utils/hash";
 import { getVoxyFixtureDimensions } from "@/features/voxyVideo/characterMotionFixture";
 import type { VoxyVideoFormat } from "@/features/voxyVideo/modernCharacterContracts";
+import {
+  VOXY_EDITORIAL_DURATION_LIMITS_MS,
+  VOXY_EDITORIAL_STORY_PLAN_VERSION,
+  type VoxyEditorialStoryPlan,
+  type VoxyEditorialTimeline,
+} from "@/features/voxyVideo/editorialStoryPlan";
 
 export const VOXY_LOCAL_COMPOSITION_STATUSES = [
   "queued",
@@ -13,7 +19,10 @@ export const VOXY_LOCAL_COMPOSITION_STATUSES = [
 export type VoxyLocalCompositionStatus =
   (typeof VOXY_LOCAL_COMPOSITION_STATUSES)[number];
 
-export const VOXY_LOCAL_COMPOSITION_RENDER_PROFILES = ["local_review_v1"] as const;
+export const VOXY_LOCAL_COMPOSITION_RENDER_PROFILES = [
+  "local_review_v1",
+  "editorial_v1",
+] as const;
 export type VoxyLocalCompositionRenderProfile =
   (typeof VOXY_LOCAL_COMPOSITION_RENDER_PROFILES)[number];
 
@@ -53,6 +62,8 @@ export type VoxyLocalCompositionRequest = {
   audioAssetId: string;
   sceneContent: VoxyLocalCompositionSceneContent[];
   captionCues: VoxyLocalCompositionCaptionCue[];
+  editorialStoryPlan?: VoxyEditorialStoryPlan | null;
+  editorialTimeline?: VoxyEditorialTimeline | null;
 };
 
 export type VoxyLocalCompositionApprovalSnapshot = {
@@ -89,6 +100,7 @@ export type VoxyLocalCompositionJob = {
   renderProfile: VoxyLocalCompositionRenderProfile;
   timelineVersion: string;
   timelineHash: string;
+  durationMs?: number;
   audioAssetId: string;
   previewReviewFlowId: string;
   decisionGateId: string;
@@ -166,6 +178,14 @@ export type VoxyLocalCompositionQueueResult =
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,159}$/;
 const SAFE_LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+const LEGACY_FIXTURE_DURATION_MS = 8_000;
+const FINAL_CANON_DIMENSIONS: Readonly<
+  Record<VoxyVideoFormat, { width: number; height: number }>
+> = {
+  "16:9": { width: 1920, height: 1080 },
+  "9:16": { width: 1080, height: 1920 },
+  "1:1": { width: 1080, height: 1080 },
+};
 
 function normalized(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -173,6 +193,25 @@ function normalized(value: unknown): string {
 
 function validId(value: string): boolean {
   return SAFE_ID.test(value) && !value.includes("..") && !value.includes("/") && !value.includes("\\");
+}
+
+export function getVoxyLocalCompositionDimensions(
+  format: VoxyVideoFormat,
+  renderProfile: VoxyLocalCompositionRenderProfile,
+): { width: number; height: number } {
+  if (renderProfile === "editorial_v1") return { ...FINAL_CANON_DIMENSIONS[format] };
+  return getVoxyFixtureDimensions(format);
+}
+
+export function resolveVoxyLocalCompositionDurationMs(
+  input: Pick<VoxyLocalCompositionRequest, "renderProfile" | "editorialTimeline">,
+): number {
+  if (input.renderProfile === "local_review_v1") return LEGACY_FIXTURE_DURATION_MS;
+  const duration = input.editorialTimeline?.durationMs;
+  if (!Number.isInteger(duration) || !duration || duration < 1) {
+    throw new Error("editorial_timeline_duration_missing");
+  }
+  return duration;
 }
 
 function canonicalRequestPayload(input: VoxyLocalCompositionRequest) {
@@ -199,7 +238,86 @@ function canonicalRequestPayload(input: VoxyLocalCompositionRequest) {
       endMs: Math.trunc(cue.endMs),
       text: normalized(cue.text),
     })),
+    editorialStoryPlan: input.editorialStoryPlan ?? null,
+    editorialTimeline: input.editorialTimeline ?? null,
   };
+}
+
+function validateLegacyFixtureScenes(input: VoxyLocalCompositionRequest, errors: string[]) {
+  const seenScenes = new Set<string>();
+  for (const scene of input.sceneContent) {
+    if (!VOXY_LOCAL_COMPOSITION_SCENE_IDS.includes(scene.id)) errors.push(`scene_id_invalid:${scene.id}`);
+    if (seenScenes.has(scene.id)) errors.push(`scene_id_duplicate:${scene.id}`);
+    seenScenes.add(scene.id);
+    if (!normalized(scene.kicker) || !normalized(scene.headline) || !normalized(scene.detail)) {
+      errors.push(`scene_copy_missing:${scene.id}`);
+    }
+    if (scene.sourceIds.some((sourceId) => !validId(normalized(sourceId)))) {
+      errors.push(`scene_source_id_invalid:${scene.id}`);
+    }
+    if ((scene.id === "explanation" || scene.id === "contrast") && scene.sourceIds.length === 0) {
+      errors.push(`scene_source_required:${scene.id}`);
+    }
+  }
+  for (const required of VOXY_LOCAL_COMPOSITION_SCENE_IDS) {
+    if (!seenScenes.has(required)) errors.push(`scene_missing:${required}`);
+  }
+  if (input.sceneContent.length !== VOXY_LOCAL_COMPOSITION_SCENE_IDS.length) {
+    errors.push("scene_count_invalid");
+  }
+  if (input.editorialStoryPlan || input.editorialTimeline) {
+    errors.push("legacy_fixture_must_not_bind_editorial_plan");
+  }
+}
+
+function validateEditorialBinding(input: VoxyLocalCompositionRequest, errors: string[]) {
+  if (input.sceneContent.length !== 0) errors.push("editorial_scene_content_must_be_empty");
+  const plan = input.editorialStoryPlan;
+  const timeline = input.editorialTimeline;
+  if (!plan) errors.push("editorial_story_plan_missing");
+  if (!timeline) errors.push("editorial_timeline_missing");
+  if (!plan || !timeline) return;
+
+  if (plan.version !== VOXY_EDITORIAL_STORY_PLAN_VERSION) errors.push("editorial_story_plan_version_invalid");
+  if (plan.briefingId !== normalized(input.briefingId)) errors.push("editorial_briefing_binding_mismatch");
+  if (plan.outputLanguage.toLowerCase() !== normalized(input.locale).toLowerCase()) {
+    errors.push("editorial_locale_binding_mismatch");
+  }
+  if (normalized(input.scriptVersion) !== `story-r${plan.revision}`) {
+    errors.push("editorial_script_revision_binding_mismatch");
+  }
+  if (
+    timeline.storyPlanId !== plan.storyPlanId ||
+    timeline.storyPlanRevision !== plan.revision ||
+    timeline.durationClass !== plan.durationClass
+  ) {
+    errors.push("editorial_timeline_story_binding_mismatch");
+  }
+  const limits = VOXY_EDITORIAL_DURATION_LIMITS_MS[plan.durationClass];
+  if (
+    !Number.isInteger(timeline.durationMs) ||
+    timeline.durationMs < limits.min ||
+    timeline.durationMs > limits.max
+  ) {
+    errors.push("editorial_timeline_duration_out_of_range");
+  }
+  if (timeline.chapters.length !== plan.chapters.length) {
+    errors.push("editorial_timeline_chapter_count_mismatch");
+  }
+  let cursor = 0;
+  for (let index = 0; index < timeline.chapters.length; index += 1) {
+    const entry = timeline.chapters[index];
+    const chapter = plan.chapters[index];
+    if (!entry || !chapter) continue;
+    if (entry.chapterId !== chapter.chapterId || entry.role !== chapter.role || entry.motion !== chapter.motion) {
+      errors.push(`editorial_timeline_chapter_binding_mismatch:${chapter.chapterId}`);
+    }
+    if (entry.startMs !== cursor || entry.endMs <= entry.startMs) {
+      errors.push(`editorial_timeline_chapter_range_invalid:${entry.chapterId}`);
+    }
+    cursor = entry.endMs;
+  }
+  if (cursor !== timeline.durationMs) errors.push("editorial_timeline_not_contiguous");
 }
 
 export function validateVoxyLocalCompositionRequest(
@@ -223,27 +341,8 @@ export function validateVoxyLocalCompositionRequest(
     errors.push("render_profile_invalid");
   }
 
-  const seenScenes = new Set<string>();
-  for (const scene of input.sceneContent) {
-    if (!VOXY_LOCAL_COMPOSITION_SCENE_IDS.includes(scene.id)) errors.push(`scene_id_invalid:${scene.id}`);
-    if (seenScenes.has(scene.id)) errors.push(`scene_id_duplicate:${scene.id}`);
-    seenScenes.add(scene.id);
-    if (!normalized(scene.kicker) || !normalized(scene.headline) || !normalized(scene.detail)) {
-      errors.push(`scene_copy_missing:${scene.id}`);
-    }
-    if (scene.sourceIds.some((sourceId) => !validId(normalized(sourceId)))) {
-      errors.push(`scene_source_id_invalid:${scene.id}`);
-    }
-    if ((scene.id === "explanation" || scene.id === "contrast") && scene.sourceIds.length === 0) {
-      errors.push(`scene_source_required:${scene.id}`);
-    }
-  }
-  for (const required of VOXY_LOCAL_COMPOSITION_SCENE_IDS) {
-    if (!seenScenes.has(required)) errors.push(`scene_missing:${required}`);
-  }
-  if (input.sceneContent.length !== VOXY_LOCAL_COMPOSITION_SCENE_IDS.length) {
-    errors.push("scene_count_invalid");
-  }
+  if (input.renderProfile === "editorial_v1") validateEditorialBinding(input, errors);
+  else validateLegacyFixtureScenes(input, errors);
 
   if (input.captionCues.length === 0) errors.push("caption_cues_missing");
   let previousEnd = 0;
@@ -260,7 +359,18 @@ export function validateVoxyLocalCompositionRequest(
     previousEnd = cue.endMs;
   }
   if (input.captionCues[0]?.startMs !== 0) errors.push("caption_timeline_must_start_at_zero");
-  if (previousEnd !== 8_000) errors.push("caption_timeline_must_match_fixture_duration");
+  try {
+    const expectedDurationMs = resolveVoxyLocalCompositionDurationMs(input);
+    if (previousEnd !== expectedDurationMs) {
+      errors.push(
+        input.renderProfile === "local_review_v1"
+          ? "caption_timeline_must_match_fixture_duration"
+          : "caption_timeline_must_match_editorial_duration",
+      );
+    }
+  } catch {
+    if (input.renderProfile === "editorial_v1") errors.push("editorial_timeline_duration_missing");
+  }
   return Array.from(new Set(errors));
 }
 
@@ -288,11 +398,14 @@ export function buildVoxyLocalCompositionInputFingerprint(
 export function buildVoxyLocalCompositionTimelineHash(
   input: VoxyLocalCompositionRequest,
 ): string {
+  const payload = canonicalRequestPayload(input);
   return stableHash(
     JSON.stringify({
       timelineVersion: normalized(input.timelineVersion),
-      sceneContent: canonicalRequestPayload(input).sceneContent,
-      captionCues: canonicalRequestPayload(input).captionCues,
+      sceneContent: payload.sceneContent,
+      captionCues: payload.captionCues,
+      editorialStoryPlan: payload.editorialStoryPlan,
+      editorialTimeline: payload.editorialTimeline,
     }),
   );
 }
@@ -335,6 +448,7 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
   if (errors.length) throw new Error(`voxy_local_composition_request_invalid:${errors.join(",")}`);
   const identityKey = buildVoxyLocalCompositionIdentityKey(input.request);
   const inputFingerprint = buildVoxyLocalCompositionInputFingerprint(input.request);
+  const durationMs = resolveVoxyLocalCompositionDurationMs(input.request);
   const now = input.now ?? new Date().toISOString();
   const hash = stableHash(identityKey).slice(0, 32);
   return {
@@ -352,6 +466,7 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
     renderProfile: input.request.renderProfile,
     timelineVersion: normalized(input.request.timelineVersion),
     timelineHash: buildVoxyLocalCompositionTimelineHash(input.request),
+    durationMs,
     audioAssetId: normalized(input.request.audioAssetId),
     previewReviewFlowId,
     decisionGateId,
@@ -375,12 +490,19 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
 
 export function validateVoxyLocalCompositionAudioAsset(
   input: VoxyLocalCompositionAudioAsset,
+  options?: { expectedDurationMs?: number; toleranceMs?: number },
 ): string[] {
   const errors: string[] = [];
   if (!validId(normalized(input.assetId))) errors.push("audio_asset_id_invalid");
   if (!input.absolutePath || !input.allowedRoot) errors.push("audio_path_missing");
   if (!SHA256.test(normalized(input.sha256).toLowerCase())) errors.push("audio_sha256_invalid");
-  if (!Number.isFinite(input.durationMs) || Math.abs(input.durationMs - 8_000) > 600) {
+  const expectedDurationMs = options?.expectedDurationMs ?? LEGACY_FIXTURE_DURATION_MS;
+  const toleranceMs = Math.max(0, options?.toleranceMs ?? 600);
+  if (
+    !Number.isFinite(input.durationMs) ||
+    !Number.isFinite(expectedDurationMs) ||
+    Math.abs(input.durationMs - expectedDurationMs) > toleranceMs
+  ) {
     errors.push("audio_duration_out_of_tolerance");
   }
   return errors;
@@ -391,7 +513,11 @@ export function validateVoxyLocalCompositionOutput(input: {
   output: VoxyLocalCompositionOutput;
 }): string[] {
   const errors: string[] = [];
-  const expected = getVoxyFixtureDimensions(input.job.format);
+  const expected = getVoxyLocalCompositionDimensions(input.job.format, input.job.renderProfile);
+  const expectedDurationMs =
+    input.job.renderProfile === "editorial_v1"
+      ? input.job.durationMs
+      : input.job.durationMs ?? LEGACY_FIXTURE_DURATION_MS;
   const media = [input.output.masterMp4, input.output.previewWebm];
   if (input.output.jobId !== input.job.jobId || input.output.outputId !== input.job.outputId) {
     errors.push("output_identity_mismatch");
@@ -406,6 +532,12 @@ export function validateVoxyLocalCompositionOutput(input: {
     input.output.dossierRefId !== input.job.dossierRefId
   ) {
     errors.push("output_revision_binding_mismatch");
+  }
+  if (input.output.renderProfile !== input.job.renderProfile) {
+    errors.push("output_render_profile_mismatch");
+  }
+  if (input.job.renderProfile === "editorial_v1" && !Number.isInteger(expectedDurationMs)) {
+    errors.push("output_editorial_duration_missing");
   }
   for (const file of [
     input.output.masterMp4,
@@ -425,7 +557,11 @@ export function validateVoxyLocalCompositionOutput(input: {
     if (file.width !== expected.width || file.height !== expected.height) {
       errors.push("output_dimensions_invalid");
     }
-    if (file.durationMs === null || Math.abs(file.durationMs - 8_000) > 650) {
+    if (
+      file.durationMs === null ||
+      !Number.isFinite(expectedDurationMs) ||
+      Math.abs(file.durationMs - Number(expectedDurationMs)) > 650
+    ) {
       errors.push("output_duration_invalid");
     }
   }
