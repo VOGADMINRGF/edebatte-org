@@ -147,7 +147,7 @@ function canonicalClaspedSnapshot(
     poses: [{
       poseId: "v3_10_5_canonical_alpha_host",
       handCheckMode: "canonical_clasped_occlusion",
-      canonicalClaspedHandContract: CLASPED_HAND_QA,
+      canonicalClaspedHandContract: { ...CLASPED_HAND_QA },
       leftHandVisible: true,
       rightHandVisible: true,
       leftFingerCount: null,
