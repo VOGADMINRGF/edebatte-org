@@ -22,6 +22,7 @@ import {
 import { renderVoxyHomepageReferenceFilmFrameHtml } from "../src/features/voxyVideo/homepageReferenceFilmsHtml";
 import { VOXY_FIRST_EXPLAINER_STUDIO_LOCKUP_PATH } from "../src/features/voxyVideo/firstExplainerVideo";
 import { VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND } from "../src/features/voxyVideo/headAlphaSilhouette";
+import { buildVoxyMotionV4Plan } from "../src/features/voxyVideo/motionV4";
 import { VOXY_POCKET_MARK_COMPOSITION_SOURCE } from "../src/features/voxyVideo/pocketMarkFinalGate";
 import { VOXY_STATIC_CANON_NATIVE_ASSETS } from "../src/features/voxyVideo/staticCanonRecovery";
 import type { VoxyMotionV4EmbeddedAssets } from "../src/features/voxyVideo/motionV4Html";
@@ -32,18 +33,11 @@ import {
 } from "../src/features/voxyVideo/finalCanon";
 import {
   validateVoxyVisualQaCheckpoint,
+  type VoxyVisualQaCanonicalClaspedHandContract,
   type VoxyVisualQaCheckpoint,
   type VoxyVisualQaRegion,
   type VoxyVisualQaRegionResult,
 } from "../src/features/voxyVideo/visualQaCheckpoint";
-import {
-  VOXY_VISUAL_HAND_MINIMUM_CONFIDENCE,
-  type VoxyHandDetectionEvidence,
-} from "../src/features/voxyVideo/visualDetectorLicenseContract";
-import {
-  VOXY_VISUAL_HAND_DETECTOR_PROFILE_SERIALIZED,
-  VoxyVisualHandDetector,
-} from "../src/features/voxyVideo/voxyVisualHandDetector";
 import {
   assertOutsideRepository,
   dataUrl,
@@ -76,6 +70,7 @@ type ReviewSurface = {
   legacyNeckPlateCount: 0;
   mutedFirstCaptions: true;
   lowerThirdVisible: false;
+  handQa: VoxyVisualQaCanonicalClaspedHandContract;
   regions: Record<VoxyVisualQaRegion, HomepageFilmRect>;
 };
 
@@ -96,6 +91,8 @@ const REVIEW_MOMENT: Record<VoxyHomepageFilmId, { segmentId: string; progress: n
   voiceopengov: { segmentId: "vog-greeting", progress: 0.2 },
 };
 
+// Motion-v4 owns these clip regions. They deliberately cover the clasped-hand
+// production pixels rather than the superseded standing-master hand geometry.
 const MASTER_REGIONS = {
   left_hand: { x: 600, y: 620, width: 195, height: 165 },
   right_hand: { x: 735, y: 618, width: 210, height: 170 },
@@ -209,6 +206,14 @@ function mapMasterRect(
   );
 }
 
+async function requiredRawBox(page: Page, selector: string): Promise<HomepageFilmRect> {
+  const locator = page.locator(selector).first();
+  if ((await locator.count()) !== 1) throw new Error(`voxy_review_surface_selector_missing:${selector}`);
+  const box = await locator.boundingBox();
+  if (!box) throw new Error(`voxy_review_surface_selector_unboxed:${selector}`);
+  return { x: box.x, y: box.y, width: box.width, height: box.height };
+}
+
 async function requiredBox(
   page: Page,
   selector: string,
@@ -216,10 +221,7 @@ async function requiredBox(
   height: number,
   padding = 0,
 ): Promise<HomepageFilmRect> {
-  const locator = page.locator(selector).first();
-  if ((await locator.count()) !== 1) throw new Error(`voxy_review_surface_selector_missing:${selector}`);
-  const box = await locator.boundingBox();
-  if (!box) throw new Error(`voxy_review_surface_selector_unboxed:${selector}`);
+  const box = await requiredRawBox(page, selector);
   return padRect(box, padding, width, height);
 }
 
@@ -256,36 +258,6 @@ async function edgeContrastScore(page: Page, pngPath: string): Promise<number> {
     const strongest = gradients.slice(0, Math.max(1, Math.ceil(gradients.length * 0.08)));
     return Math.min(1, strongest.reduce((sum, value) => sum + value, 0) / strongest.length / 96);
   })()`);
-}
-
-async function decodePng(page: Page, pngPath: string) {
-  const png = await readFile(pngPath);
-  const source = `data:image/png;base64,${png.toString("base64")}`;
-  await page.setContent(`<canvas id="c"></canvas><img id="i" src="${source}" alt="">`, {
-    waitUntil: "load",
-  });
-  await page.waitForFunction("document.getElementById('i')?.complete === true");
-  const decoded = await page.evaluate<{ width: number; height: number; rgba: number[] }>(`(() => {
-    const image = document.getElementById('i');
-    const canvas = document.getElementById('c');
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) throw new Error('voxy_review_surface_png_context_missing');
-    context.drawImage(image, 0, 0);
-    return {
-      width: canvas.width,
-      height: canvas.height,
-      rgba: Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data),
-    };
-  })()`);
-  return {
-    width: decoded.width,
-    height: decoded.height,
-    rgba: new Uint8ClampedArray(decoded.rgba),
-    inputPath: pngPath.replace(`${process.cwd()}/`, ""),
-    inputSha256: sha256(png),
-  };
 }
 
 async function captureCrop(input: {
@@ -329,21 +301,35 @@ async function buildAssets(repositoryRoot: string): Promise<VoxyMotionV4Embedded
   };
 }
 
+function canonicalClaspedHandContract(head: string): VoxyVisualQaCanonicalClaspedHandContract {
+  const handQa = buildVoxyMotionV4Plan(head).handQa;
+  if (
+    handQa.pose !== "clasped_hands_not_open_palm" ||
+    handQa.detector588Applicable !== false ||
+    handQa.detector588Status !== "not_run_not_applicable" ||
+    handQa.expectedFingerCountPerHand !== 5 ||
+    handQa.thresholdChanged !== false ||
+    handQa.generativeReconstructionUsed !== false
+  ) {
+    throw new Error("voxy_review_surface_motion_v4_hand_qa_boundary_invalid");
+  }
+  return { ...handQa };
+}
+
 async function renderSurface(input: {
   browser: Awaited<ReturnType<typeof chromium.launch>>;
   analysisPage: Page;
   outputRoot: string;
   head: string;
+  handQa: VoxyVisualQaCanonicalClaspedHandContract;
   assets: VoxyMotionV4EmbeddedAssets;
   filmId: VoxyHomepageFilmId;
   format: QaFormat;
   layoutProfile: HomepageFilmLayoutProfile;
   writeRegionCrops: boolean;
-  handDetector: VoxyVisualHandDetector;
 }): Promise<{
   surface: ReviewSurface;
   regionResults: VoxyVisualQaRegionResult[];
-  handDetections: { left: VoxyHandDetectionEvidence; right: VoxyHandDetectionEvidence } | null;
 }> {
   const plan = buildPlan(input.filmId, input.layoutProfile, input.head);
   const layout = VOXY_HOMEPAGE_FILM_LAYOUTS[input.layoutProfile];
@@ -388,6 +374,9 @@ async function renderSurface(input: {
     if ((await page.locator('[data-muted-first-captions="v3-7"]').count()) < 1) {
       throw new Error("voxy_review_surface_muted_first_captions_contract_missing");
     }
+    if ((await page.locator('[data-hand-gesture="neutral_folded"]').count()) !== 1) {
+      throw new Error("voxy_review_surface_clasped_hand_pose_missing");
+    }
 
     const viewportBox = await requiredBox(page, ".viewport", plan.output.width, plan.output.height);
     if (
@@ -396,7 +385,9 @@ async function renderSurface(input: {
     ) {
       throw new Error("voxy_review_surface_viewport_geometry_mismatch");
     }
-    const masterBox = await requiredBox(page, ".master", plan.output.width, plan.output.height);
+    // Do not clamp before mapping master-space regions. Portrait/square layouts
+    // intentionally position parts of the 1920x1080 master outside the viewport.
+    const masterBox = await requiredRawBox(page, ".master");
     const face = await requiredBox(page, ".head-rig", plan.output.width, plan.output.height, 18);
     const pin = await requiredBox(page, ".lapel-pin", plan.output.width, plan.output.height, 14);
     const pocket = await requiredBox(page, ".pocket-mark", plan.output.width, plan.output.height, 14);
@@ -436,7 +427,9 @@ async function renderSurface(input: {
             ? "homepage_layout_contract"
             : region === "lower_third"
               ? "production_css_reserved_geometry_muted_by_v3_7"
-              : "rendered_dom_or_master_geometry";
+              : region === "left_hand" || region === "right_hand"
+                ? "motion_v4_clasped_hand_master_geometry"
+                : "rendered_dom_or_master_geometry";
         regionResults.push(
           await captureCrop({
             page,
@@ -448,6 +441,13 @@ async function renderSurface(input: {
               "v3_10_5_final_canon_production_renderer",
               "canonical_alpha_head_body_compositor",
               `source:${semanticSource}`,
+              ...(region === "left_hand" || region === "right_hand"
+                ? [
+                    "clasped_hands_not_open_palm",
+                    "detector588_not_applicable_by_motion_v4_contract",
+                    "expected_finger_count_per_hand_5_human_review_required",
+                  ]
+                : []),
               ...(region === "lower_third"
                 ? ["muted_first_captions_v3_7_lower_third_hidden_by_design"]
                 : []),
@@ -456,22 +456,6 @@ async function renderSurface(input: {
           }),
         );
       }
-    }
-
-    let handDetections: { left: VoxyHandDetectionEvidence; right: VoxyHandDetectionEvidence } | null = null;
-    if (input.writeRegionCrops) {
-      const leftPath = path.resolve(formatDir, "left_hand-200pct.png");
-      const rightPath = path.resolve(formatDir, "right_hand-200pct.png");
-      handDetections = {
-        left: input.handDetector.detect({
-          hand: "left",
-          image: await decodePng(input.analysisPage, leftPath),
-        }),
-        right: input.handDetector.detect({
-          hand: "right",
-          image: await decodePng(input.analysisPage, rightPath),
-        }),
-      };
     }
 
     return {
@@ -494,10 +478,10 @@ async function renderSurface(input: {
         legacyNeckPlateCount: 0,
         mutedFirstCaptions: true,
         lowerThirdVisible: false,
+        handQa: input.handQa,
         regions,
       },
       regionResults,
-      handDetections,
     };
   } finally {
     await page.close();
@@ -578,11 +562,7 @@ async function main(): Promise<void> {
   if (!assets.canonicalCleanStudioBackgroundDataUrl) {
     throw new Error("voxy_review_surface_clean_studio_binding_missing");
   }
-  const detectorModelSha256 = sha256(VOXY_VISUAL_HAND_DETECTOR_PROFILE_SERIALIZED);
-  const handDetector = new VoxyVisualHandDetector({
-    modelSha256: detectorModelSha256,
-    hashBytes: (value) => sha256(Buffer.from(value)),
-  });
+  const handQa = canonicalClaspedHandContract(head);
 
   const browser = await chromium.launch({ headless: true });
   const analysisContext = await browser.newContext();
@@ -593,7 +573,6 @@ async function main(): Promise<void> {
     {
       surface: ReviewSurface;
       regionResults: VoxyVisualQaRegionResult[];
-      handDetections: { left: VoxyHandDetectionEvidence; right: VoxyHandDetectionEvidence };
     }
   >();
 
@@ -605,22 +584,18 @@ async function main(): Promise<void> {
           analysisPage,
           outputRoot,
           head,
+          handQa,
           assets,
           filmId,
           format: target.format,
           layoutProfile: target.layoutProfile,
           writeRegionCrops: filmId === "edebatte" && bindEvidence,
-          handDetector,
         });
         rendered.push(result.surface);
         if (filmId === "edebatte" && bindEvidence) {
-          if (!result.handDetections) {
-            throw new Error(`voxy_review_surface_hand_detection_missing:${target.format}`);
-          }
           evidenceResults.set(target.format, {
             surface: result.surface,
             regionResults: result.regionResults,
-            handDetections: result.handDetections,
           });
         }
       }
@@ -644,6 +619,7 @@ async function main(): Promise<void> {
       canonicalCleanStudioBackground: publicUrl(
         VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND.repositoryPath,
       ),
+      handQa,
       mutedFirstCaptions: true,
       lowerThirdVisible: false,
       surfaces: rendered,
@@ -679,12 +655,14 @@ async function main(): Promise<void> {
         snapshot.poses = [
           {
             poseId: "v3_10_5_canonical_alpha_host",
+            handCheckMode: "canonical_clasped_occlusion",
+            canonicalClaspedHandContract: handQa,
             leftHandVisible: true,
             rightHandVisible: true,
-            leftFingerCount: result.handDetections.left.fingerCount,
-            rightFingerCount: result.handDetections.right.fingerCount,
-            leftHandDetection: result.handDetections.left,
-            rightHandDetection: result.handDetections.right,
+            leftFingerCount: null,
+            rightFingerCount: null,
+            leftHandDetection: null,
+            rightHandDetection: null,
           },
         ];
         snapshot.waveformBehindCharacter = true;
@@ -696,6 +674,7 @@ async function main(): Promise<void> {
         commitSha: head,
         characterSource: publicUrl(VOXY_POCKET_MARK_COMPOSITION_SOURCE.repositoryPath),
         renderPath: reviewManifest.renderPath,
+        handQa,
         bindings: TARGETS.flatMap((target) => {
           const result = evidenceResults.get(target.format)!;
           return Object.entries(result.surface.regions).map(([region, rect]) => ({
@@ -705,7 +684,9 @@ async function main(): Promise<void> {
             source:
               region === "lower_third"
                 ? "production_css_reserved_geometry_muted_by_v3_7"
-                : "v3_10_5_rendered_dom_or_production_layout",
+                : region === "left_hand" || region === "right_hand"
+                  ? "motion_v4_clasped_hand_master_geometry_unclamped"
+                  : "v3_10_5_rendered_dom_or_production_layout",
           }));
         }),
         microphoneApplicability: { "16:9": true, "9:16": true, "1:1": true },
@@ -724,6 +705,7 @@ async function main(): Promise<void> {
         referenceRenderHeadSha: VOXY_FINAL_CANON.referenceRenderHeadSha,
         exactHeadSha: head,
         cleanStudioRequired: true,
+        handQa,
         mutedFirstCaptions: true,
         lowerThirdVisible: false,
         renderPath: reviewManifest.renderPath,
@@ -776,7 +758,8 @@ async function main(): Promise<void> {
         canonId: VOXY_FINAL_CANON.canonId,
         outputRoot,
         bindEvidence,
-        detectorMinimumConfidence: VOXY_VISUAL_HAND_MINIMUM_CONFIDENCE,
+        handPose: handQa.pose,
+        detector588Applicable: handQa.detector588Applicable,
       },
       null,
       2,
