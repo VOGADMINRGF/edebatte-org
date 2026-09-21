@@ -38,6 +38,15 @@ export type VoxyVisualQaRegionResult = {
   notes: string[];
 };
 
+export type VoxyVisualQaCanonicalClaspedHandContract = {
+  pose: "clasped_hands_not_open_palm";
+  detector588Applicable: false;
+  detector588Status: "not_run_not_applicable";
+  expectedFingerCountPerHand: 5;
+  thresholdChanged: false;
+  generativeReconstructionUsed: false;
+};
+
 export type VoxyVisualQaPoseResult = {
   poseId: string;
   leftHandVisible: boolean;
@@ -46,6 +55,8 @@ export type VoxyVisualQaPoseResult = {
   rightFingerCount: number | null;
   leftHandDetection: VoxyHandDetectionEvidence | null;
   rightHandDetection: VoxyHandDetectionEvidence | null;
+  handCheckMode?: "detector_required" | "canonical_clasped_occlusion";
+  canonicalClaspedHandContract?: VoxyVisualQaCanonicalClaspedHandContract | null;
 };
 
 export type VoxyVisualQaSnapshot = {
@@ -209,7 +220,7 @@ function evidenceSeed(checkpoint: VoxyVisualQaCheckpoint): string {
         ...snapshot.poses
           .map(
             (pose) =>
-              `${pose.poseId}:${pose.leftHandVisible}:${pose.rightHandVisible}:${pose.leftFingerCount}:${pose.rightFingerCount}:${JSON.stringify(pose.leftHandDetection)}:${JSON.stringify(pose.rightHandDetection)}`,
+              `${pose.poseId}:${pose.handCheckMode ?? "detector_required"}:${JSON.stringify(pose.canonicalClaspedHandContract ?? null)}:${pose.leftHandVisible}:${pose.rightHandVisible}:${pose.leftFingerCount}:${pose.rightFingerCount}:${JSON.stringify(pose.leftHandDetection)}:${JSON.stringify(pose.rightHandDetection)}`,
           )
           .sort(),
       ].join(":"),
@@ -269,6 +280,38 @@ export function applyPersistedVoxyVisualQaReviewDecision(
   }
 
   return next;
+}
+
+function validateCanonicalClaspedHandBoundary(input: {
+  snapshot: VoxyVisualQaSnapshot;
+  pose: VoxyVisualQaPoseResult;
+  errors: string[];
+}): void {
+  const { snapshot, pose, errors } = input;
+  const contract = pose.canonicalClaspedHandContract;
+  if (
+    !contract ||
+    contract.pose !== "clasped_hands_not_open_palm" ||
+    contract.detector588Applicable !== false ||
+    contract.detector588Status !== "not_run_not_applicable" ||
+    contract.expectedFingerCountPerHand !== 5 ||
+    contract.thresholdChanged !== false ||
+    contract.generativeReconstructionUsed !== false
+  ) {
+    errors.push(`canonical_clasped_hand_contract_invalid:${snapshot.format}:${pose.poseId}`);
+    return;
+  }
+  if (!pose.leftHandVisible || !pose.rightHandVisible) {
+    errors.push(`canonical_clasped_hand_visibility_invalid:${snapshot.format}:${pose.poseId}`);
+  }
+  if (
+    pose.leftFingerCount !== null ||
+    pose.rightFingerCount !== null ||
+    pose.leftHandDetection !== null ||
+    pose.rightHandDetection !== null
+  ) {
+    errors.push(`canonical_clasped_hand_detector_must_not_be_fabricated:${snapshot.format}:${pose.poseId}`);
+  }
 }
 
 export function validateVoxyVisualQaCheckpoint(
@@ -348,6 +391,14 @@ export function validateVoxyVisualQaCheckpoint(
     }
 
     for (const pose of snapshot.poses) {
+      const handCheckMode = pose.handCheckMode ?? "detector_required";
+      if (handCheckMode === "canonical_clasped_occlusion") {
+        validateCanonicalClaspedHandBoundary({ snapshot, pose, errors });
+        continue;
+      }
+      if (pose.canonicalClaspedHandContract) {
+        errors.push(`unexpected_clasped_hand_contract:${snapshot.format}:${pose.poseId}`);
+      }
       if (pose.leftHandVisible) {
         if (!pose.leftHandDetection?.detected) {
           errors.push(
