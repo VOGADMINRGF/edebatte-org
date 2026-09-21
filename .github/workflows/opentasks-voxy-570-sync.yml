@@ -1,0 +1,79 @@
+name: One-shot Voxy Studio SSOT sync
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-570-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Patch only operative Voxy status cells
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '\n## Historischer Katalog und Evidenz\n'
+          if text.count(marker) != 1:
+              raise SystemExit('historical_marker_not_unique')
+          head, historical = text.split(marker, 1)
+          historical_blob = marker + historical
+          historical_hash_before = sha256(historical_blob.encode()).hexdigest()
+
+          replacements = {
+              '| VOXY-LOCAL-COMPOSITION-RUNTIME-01 | codex_ready |': '| VOXY-LOCAL-COMPOSITION-RUNTIME-01 | done |',
+              '| VOXY-ADMIN-VIDEO-STUDIO-01 | blocked |': '| VOXY-ADMIN-VIDEO-STUDIO-01 | codex_ready |',
+          }
+          for old, new in replacements.items():
+              if head.count(old) != 1:
+                  raise SystemExit(f'operative_match_not_unique:{old}')
+              head = head.replace(old, new, 1)
+
+          updated = head + historical_blob
+          _, historical_after = updated.split(marker, 1)
+          historical_hash_after = sha256((marker + historical_after).encode()).hexdigest()
+          if historical_hash_before != historical_hash_after:
+              raise SystemExit('historical_tail_changed')
+          if updated.count('| VOXY-LOCAL-COMPOSITION-RUNTIME-01 | done |') < 1:
+              raise SystemExit('runtime_done_missing')
+          if updated.count('| VOXY-ADMIN-VIDEO-STUDIO-01 | codex_ready |') < 1:
+              raise SystemExit('studio_codex_ready_missing')
+
+          path.write_text(updated, encoding='utf-8')
+          print('historical_sha256', historical_hash_after)
+          PY
+
+      - name: Diff and self-removal guard
+        shell: bash
+        run: |
+          git diff --check
+          git rm .github/workflows/opentasks-voxy-570-sync.yml
+          git add docs/E150/OpenTasks.md
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/opentasks-voxy-570-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
+          test "$changed" = "$expected"
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F 'VOXY-LOCAL-COMPOSITION-RUNTIME-01'
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F 'VOXY-ADMIN-VIDEO-STUDIO-01'
+
+      - name: Commit safe SSOT patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(governance): advance Voxy Admin Studio after runtime merge'
+          git push origin HEAD:docs/governance-ssot-sync-05
