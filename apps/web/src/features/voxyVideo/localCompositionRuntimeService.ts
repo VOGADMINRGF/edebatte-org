@@ -8,6 +8,7 @@ import type {
 } from "@/features/voxyVideo/localCompositionRuntime";
 import {
   buildQueuedVoxyLocalCompositionJob,
+  buildVoxyLocalCompositionInputFingerprint,
   safeVoxyLocalCompositionFailure,
   validateVoxyLocalCompositionAudioAsset,
   validateVoxyLocalCompositionOutput,
@@ -88,7 +89,7 @@ export async function queueVoxyLocalComposition(
   }
   return {
     ok: true,
-    status: existing.createdAt === candidate.createdAt ? "queued" : "existing",
+    status: existing.status === "queued" ? "queued" : "existing",
     job: existing,
   };
 }
@@ -101,17 +102,7 @@ export async function executeVoxyLocalComposition(input: {
   const { deps, request } = input;
   const current = await deps.repository.getJob(input.jobId);
   if (!current) throw new Error("voxy_local_composition_job_missing");
-  if (current.inputFingerprint !== buildQueuedVoxyLocalCompositionJob({
-    request,
-    approval: {
-      approved: true,
-      approvalRef: current.approvalRef,
-      approvedBy: null,
-      approvedAt: null,
-      authority: "trusted_review_authority",
-    },
-    now: current.createdAt,
-  }).inputFingerprint) {
+  if (current.inputFingerprint !== buildVoxyLocalCompositionInputFingerprint(request)) {
     throw new Error("voxy_local_composition_request_revision_mismatch");
   }
   if (current.status === "review_ready" || current.status === "rendered") return current;
