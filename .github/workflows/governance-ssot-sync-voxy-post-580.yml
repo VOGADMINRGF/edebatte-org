@@ -98,6 +98,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/governance-ssot-sync-voxy-post-580.yml
           git add docs/E150/OpenTasks.md
-          test "$(git diff --cached --name-only | sort)" = "docs/E150/OpenTasks.md"
+          expected="$(printf '%s\n%s\n' '.github/workflows/governance-ssot-sync-voxy-post-580.yml' 'docs/E150/OpenTasks.md' | sort)"
+          actual="$(git diff --cached --name-only | sort)"
+          test "$actual" = "$expected"
           git commit -m "docs(governance): advance Voxy runtime after visual gate"
           git push origin HEAD:docs/governance-ssot-sync-05
