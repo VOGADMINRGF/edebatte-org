@@ -2,17 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import {
   CLAIM_SOURCE_RELATION_TYPES,
+  SOURCE_LINEAGE_RELATION_TYPES,
   countIndependentSupportFamilies,
   haveEquivalentAtomicClaimScope,
   relationCountsAsIndependentSupport,
   relationTargetsSameAtomicClaim,
   resolvePublicationClassification,
+  sourceArtifactAvailabilityRequiresReview,
   sourceArtifactEligibleAsExternalEvidence,
+  sourceArtifactSnapshotBindingStatus,
+  sourceLineageHasCycle,
+  sourceSegmentAttributionRequiresReview,
   validateSynthesisReceipt,
   type AtomicClaim,
   type ClaimSourceRelation,
   type EvidenceAssessment,
   type SourceArtifact,
+  type SourceLineageRelation,
   type SourceSegment,
   type SynthesisReceipt,
 } from "@features/analyze/atomicClaimSourceRelationContract";
@@ -72,6 +78,22 @@ const baseAssessment: EvidenceAssessment = {
   counterevidenceStatus: "none_found",
   freshnessStatus: "current",
   humanReviewStatus: "reviewed",
+};
+
+const baseArtifact: SourceArtifact = {
+  id: "source-1",
+  canonicalRef: "https://example.test/source",
+  sourceType: "media_report",
+  publisherOrAuthor: "Example",
+  publishedAt: "2026-09-20T18:00:00.000Z",
+  accessedAt: "2026-09-20T19:00:00.000Z",
+  originalLocale: "de",
+  sourceFamilyId: "family-1",
+  contentHashOrRevision: "sha256:fixture",
+  lineageStatus: "original",
+  rightsStatus: "known",
+  retentionStatus: "allowed",
+  accessStatus: "public",
 };
 
 function buildReceipt(
@@ -170,6 +192,160 @@ describe("atomic claim/source relation contract", () => {
     };
 
     expect(sourceArtifactEligibleAsExternalEvidence(artifact)).toBe(false);
+  });
+
+  it("binds replayable artifacts to existing snapshot and content identities without inventing a new observation", () => {
+    const artifact: SourceArtifact = {
+      ...baseArtifact,
+      snapshotRef: "snapshot:source-1:v3:fixture",
+      contentRef: "content:sha256:fixture",
+    };
+
+    expect(sourceArtifactSnapshotBindingStatus(artifact)).toBe("bound");
+    expect(artifact.snapshotRef).toContain("snapshot:");
+    expect(artifact.contentRef).toContain("content:sha256:");
+  });
+
+  it("allows non-replayable media to remain honestly unbound instead of inventing a snapshot", () => {
+    const artifact: SourceArtifact = {
+      ...baseArtifact,
+      retentionStatus: "prohibited",
+      snapshotRef: null,
+      contentRef: null,
+      media: {
+        mediumKind: "video",
+        publicOriginalMediaUrl: "https://example.test/video",
+        availability: { status: "available" },
+      },
+    };
+
+    expect(sourceArtifactSnapshotBindingStatus(artifact)).toBe("unbound");
+  });
+
+  it("rejects partial snapshot bindings because observation and immutable content refs travel together", () => {
+    expect(
+      sourceArtifactSnapshotBindingStatus({
+        snapshotRef: "snapshot:source-1:v1:fixture",
+        contentRef: null,
+      }),
+    ).toBe("invalid");
+  });
+
+  it("keeps expired media as historical evidence metadata but requires current availability review", () => {
+    const artifact: SourceArtifact = {
+      ...baseArtifact,
+      media: {
+        mediumKind: "video",
+        episodeRef: "episode-7",
+        publicOriginalMediaUrl: "https://example.test/video/7",
+        availability: {
+          status: "expired",
+          availableUntil: "2026-09-20T20:00:00.000Z",
+          lastCheckedAt: "2026-09-21T00:00:00.000Z",
+        },
+      },
+    };
+
+    expect(sourceArtifactEligibleAsExternalEvidence(artifact)).toBe(true);
+    expect(sourceArtifactAvailabilityRequiresReview(artifact)).toBe(true);
+  });
+
+  it("keeps timecode in the canonical segment locator while media metadata stays on the artifact", () => {
+    const artifact: SourceArtifact = {
+      ...baseArtifact,
+      media: {
+        mediumKind: "video",
+        episodeTitle: "Interview",
+        durationSeconds: 1800,
+        availability: { status: "available" },
+      },
+    };
+    const segment: SourceSegment = {
+      ...baseSegment,
+      locator: "00:12:14-00:12:48",
+      speaker: "Person A",
+      speakerRole: "guest",
+      attributionStatus: "explicit",
+      transcriptionStatus: "human_reviewed",
+    };
+
+    expect(artifact.media?.mediumKind).toBe("video");
+    expect(segment.locator).toBe("00:12:14-00:12:48");
+    expect(sourceSegmentAttributionRequiresReview(segment)).toBe(false);
+  });
+
+  it("fails closed on ambiguous speaker attribution in talkshow material", () => {
+    const segment: SourceSegment = {
+      ...baseSegment,
+      locator: "00:08:04",
+      speaker: "Person A oder Person B",
+      speakerRole: "panelist",
+      attributionStatus: "ambiguous",
+      transcriptionStatus: "automatic_unreviewed",
+    };
+
+    expect(sourceSegmentAttributionRequiresReview(segment)).toBe(true);
+  });
+
+  it("represents factcheck-of-factcheck lineage on existing source artifact ids and detects cycles", () => {
+    expect(SOURCE_LINEAGE_RELATION_TYPES).toEqual(
+      expect.arrayContaining(["cites", "uses_study", "uses_dataset"]),
+    );
+
+    const acyclic: SourceLineageRelation[] = [
+      {
+        id: "lineage-1",
+        sourceArtifactId: "factcheck-1",
+        upstreamSourceArtifactId: "study-1",
+        relationType: "uses_study",
+        reviewStatus: "reviewed",
+      },
+      {
+        id: "lineage-2",
+        sourceArtifactId: "media-1",
+        upstreamSourceArtifactId: "factcheck-1",
+        relationType: "cites",
+        reviewStatus: "reviewed",
+      },
+    ];
+
+    expect(sourceLineageHasCycle(acyclic)).toBe(false);
+    expect(
+      sourceLineageHasCycle([
+        ...acyclic,
+        {
+          id: "lineage-3",
+          sourceArtifactId: "study-1",
+          upstreamSourceArtifactId: "media-1",
+          relationType: "cites",
+          reviewStatus: "reviewed",
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps a foreign-language original and its reading view on one evidence segment", () => {
+    const claim: AtomicClaim = {
+      ...baseClaim,
+      originalLocale: "fr",
+      text: "Le taux est de 60 pour cent.",
+    };
+    const segment: SourceSegment = {
+      ...baseSegment,
+      originalText: "Le taux est de 60 pour cent.",
+      readingView: "Der Anteil beträgt 60 Prozent.",
+      translationStatus: "machine_reading_view",
+    };
+
+    expect(claim.originalLocale).toBe("fr");
+    expect(segment.originalText).toContain("60 pour cent");
+    expect(segment.readingView).toContain("60 Prozent");
+    expect(
+      relationCountsAsIndependentSupport({
+        ...baseRelation,
+        translationOnly: true,
+      }),
+    ).toBe(false);
   });
 
   it("keeps personal experience publishable only as personal experience", () => {
