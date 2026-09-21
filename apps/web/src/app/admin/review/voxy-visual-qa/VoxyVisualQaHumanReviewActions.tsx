@@ -30,6 +30,7 @@ export default function VoxyVisualQaHumanReviewActions() {
   const [reviewerComment, setReviewerComment] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState<VoxyVisualQaHumanDecision | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<SaveResult | null>(null);
 
@@ -38,6 +39,39 @@ export default function VoxyVisualQaHumanReviewActions() {
     [decisionGateId],
   );
   const canSubmit = gateValid && reviewerComment.trim().length > 0 && confirmed && !submitting;
+
+  async function loadStatus() {
+    if (!gateValid || loadingSaved) return;
+    setLoadingSaved(true);
+    setError(null);
+    setSaved(null);
+
+    try {
+      const response = await fetch(
+        `/api/admin/voxy-render-preview-review-decisions?decisionGateId=${encodeURIComponent(decisionGateId.trim())}&limit=5`,
+        { method: "GET", cache: "no-store" },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || "visual_qa_review_status_not_loaded");
+      }
+      if (!payload.latestRecord) {
+        setError("Für diese Gate-ID ist noch keine persistierte menschliche Entscheidung vorhanden.");
+        return;
+      }
+      setSaved({
+        decisionRecordId: payload.latestRecord.decisionRecordId ?? null,
+        persistedAt: payload.latestRecord.persistedAt ?? null,
+        persistedBy: payload.latestRecord.persistedBy ?? null,
+        persistenceMode: payload.persistence?.mode ?? null,
+        decisionType: payload.latestRecord.decisionType ?? null,
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "visual_qa_review_status_failed");
+    } finally {
+      setLoadingSaved(false);
+    }
+  }
 
   async function submit(decision: VoxyVisualQaHumanDecision) {
     if (!canSubmit) return;
@@ -98,7 +132,11 @@ export default function VoxyVisualQaHumanReviewActions() {
         <span className="text-sm font-semibold text-[rgb(var(--fg))]">Required decision gate ID</span>
         <textarea
           value={decisionGateId}
-          onChange={(event) => setDecisionGateId(event.target.value)}
+          onChange={(event) => {
+            setDecisionGateId(event.target.value);
+            setSaved(null);
+            setError(null);
+          }}
           rows={3}
           spellCheck={false}
           placeholder="voxy-visual-qa:<commit>:r1:voxy-visual-qa-checkpoint-v4:r1:<evidence>"
@@ -110,6 +148,17 @@ export default function VoxyVisualQaHumanReviewActions() {
           </span>
         ) : null}
       </label>
+
+      <div>
+        <button
+          type="button"
+          disabled={!gateValid || loadingSaved}
+          onClick={() => void loadStatus()}
+          className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-4 py-2 text-sm font-semibold text-[rgb(var(--fg))] transition hover:border-sky-400 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {loadingSaved ? "Gespeicherten Status laden …" : "Gespeicherten Status laden"}
+        </button>
+      </div>
 
       <label className="block space-y-2">
         <span className="text-sm font-semibold text-[rgb(var(--fg))]">Review-Kommentar</span>
@@ -157,13 +206,13 @@ export default function VoxyVisualQaHumanReviewActions() {
 
       {error ? (
         <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-500/40 dark:bg-rose-950/30 dark:text-rose-100">
-          Speichern fehlgeschlagen: {error}
+          {error}
         </div>
       ) : null}
 
       {saved ? (
         <div className="space-y-1 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-100">
-          <p className="font-semibold">Review-Entscheidung gespeichert.</p>
+          <p className="font-semibold">Persistierte Review-Entscheidung</p>
           <p>Persistence: {saved.persistenceMode ?? "unbekannt"}</p>
           <p>Decision: {saved.decisionType ?? "unbekannt"}</p>
           <p>Record: {saved.decisionRecordId ?? "unbekannt"}</p>
