@@ -523,7 +523,10 @@ async function replaceNegativeFixture(input: {
     );
     const bad = page.locator(".bad");
     const bounds = await bad.boundingBox();
-    const computedFilter = await bad.evaluate<string>("element => getComputedStyle(element).filter");
+    const computedFilter = await page.evaluate<string>(`(() => {
+      const element = document.querySelector('.bad');
+      return element ? getComputedStyle(element).filter : '';
+    })()`);
     const actualCrop = Boolean(bounds && (bounds.x < 0 || bounds.x + bounds.width > 1280));
     if (!actualCrop || !computedFilter.includes("blur")) {
       throw new Error("voxy_review_surface_negative_fixture_not_real");
