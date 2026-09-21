@@ -188,12 +188,18 @@ function createMongoRepository(): VoxyStudioDraftRepository {
     async appendAuditEvent(event) {
       await ensureIndexes();
       const col = await coreCol<AuditDoc>(AUDIT_COLLECTION);
-      await col.insertOne({
-        _id: event.auditId,
-        draftId: event.draftId,
-        at: event.at,
-        event: clone(event),
-      });
+      await col.updateOne(
+        { _id: event.auditId },
+        {
+          $set: {
+            _id: event.auditId,
+            draftId: event.draftId,
+            at: event.at,
+            event: clone(event),
+          },
+        },
+        { upsert: true },
+      );
     },
     async listAuditEvents(draftId) {
       await ensureIndexes();

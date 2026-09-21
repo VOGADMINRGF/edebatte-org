@@ -454,7 +454,18 @@ function validateCompositionBinding(input: {
   const errors: string[] = [];
   const { draft, job, output } = input;
   const expectedGate = draft.renderApproval?.decisionGateId ?? null;
+  const expectedApprovalRef = draft.renderApproval?.reviewDecisionRecordId ?? null;
+  const expectedScriptVersion = `story-r${draft.storyPlan.revision}`;
   if (job.status !== "review_ready") errors.push("composition_job_not_review_ready");
+  if (!expectedApprovalRef || job.approvalRef !== expectedApprovalRef) {
+    errors.push("composition_approval_ref_mismatch");
+  }
+  if (job.scriptVersion !== expectedScriptVersion) {
+    errors.push("composition_story_revision_mismatch");
+  }
+  if (job.locale !== draft.storyPlan.outputLanguage.toLowerCase()) {
+    errors.push("composition_locale_mismatch");
+  }
   if (job.artifactId !== draft.draftId) errors.push("composition_artifact_mismatch");
   if (job.briefingId !== draft.briefingId) errors.push("composition_briefing_mismatch");
   if (job.format !== draft.selectedFormat || output.format !== draft.selectedFormat) {
