@@ -3,11 +3,16 @@ name: Voxy Voice Caption Contract
 on:
   pull_request:
     paths:
+      - "core/locale/locales.ts"
+      - "apps/web/src/config/locales.ts"
       - "apps/web/src/features/voxyVideo/voiceCaptionFixture.ts"
+      - "apps/web/src/features/voxyVideo/voiceLocaleMatrix.ts"
       - "apps/web/scripts/generate-voxy-voice-caption-evidence.ts"
       - "apps/web/tests/voxy-voice-caption-fixture.contract.test.ts"
+      - "apps/web/tests/voxy-voice-locale-matrix.contract.test.ts"
       - "apps/web/public/brands/voxy/fixtures/voice-caption-*"
       - "docs/E150/VOXY-VOICE-AND-CAPTION-FIXTURE-01_2026-08-05.md"
+      - "docs/E150/VOXY-VOICE-AND-CAPTION-FIXTURE-01_LOCALE-MATRIX-CLOSURE_2026-09-21.md"
       - ".github/workflows/voxy-voice-caption-contract.yml"
   workflow_dispatch:
 
@@ -46,7 +51,10 @@ jobs:
           ffprobe -version | head -n 1
           espeak-ng --version | head -n 1
       - name: Run focused contracts
-        run: pnpm -C apps/web exec vitest run tests/voxy-voice-caption-fixture.contract.test.ts
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-voice-caption-fixture.contract.test.ts \
+            tests/voxy-voice-locale-matrix.contract.test.ts
       - name: Generate real local DE and EN source speech fixtures
         run: |
           mkdir -p artifacts/voxy-voice-caption/de artifacts/voxy-voice-caption/en
