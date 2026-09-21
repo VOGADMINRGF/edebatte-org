@@ -12,7 +12,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { dirname, extname, join, relative, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 
 import {
   buildVoxyCharacterMotionFixturePlan,
@@ -20,10 +20,8 @@ import {
   type VoxyCharacterMotionFixturePlan,
 } from "../src/features/voxyVideo/characterMotionFixture";
 import {
-  getVoxyRigFrameCssProperties,
   renderVoxyCharacterMotionFixtureHtml,
 } from "../src/features/voxyVideo/characterMotionFixtureHtml";
-import { buildVoxyRigFrame } from "../src/features/voxyVideo/animatableMasterAsset";
 import {
   assertVoxyFinalCanonBinding,
   finalVoxyCanonBinding,
@@ -232,6 +230,7 @@ async function ensureAbsent(path: string) {
     throw new Error("final_output_already_exists");
   } catch (error) {
     if (error instanceof Error && error.message === "final_output_already_exists") throw error;
+    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
   }
 }
 
@@ -316,34 +315,17 @@ async function main(): Promise<void> {
     page.on("request", (request) => {
       if (/^https?:/i.test(request.url())) externalRequests.push(request.url());
     });
-    await page.setContent(
-      renderVoxyCharacterMotionFixtureHtml({
-        plan,
-        embeddedStudioAssetUrl,
-        embeddedCharacterSvg,
-        captureTimeMs: 0,
-      }),
-      { waitUntil: "load" },
-    );
-    await page.waitForFunction(() => Array.from(document.images).every((image) => image.complete));
     const frameCount = Math.round((plan.durationMs / 1_000) * plan.fps);
     for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
       const captureTimeMs = Math.round((frameIndex * 1_000) / plan.fps);
-      const rigFrame = buildVoxyRigFrame(captureTimeMs);
-      const cssProperties = getVoxyRigFrameCssProperties(rigFrame);
-      await page.evaluate(
-        ({ timeMs, state, properties }) => {
-          const fixture = document.getElementById("fixture");
-          fixture?.style.setProperty("--capture-time", `${timeMs}ms`);
-          if (fixture) {
-            fixture.dataset.rigState = state;
-            for (const [name, value] of Object.entries(properties)) {
-              fixture.style.setProperty(name, value);
-            }
-            void fixture.offsetHeight;
-          }
-        },
-        { timeMs: captureTimeMs, state: rigFrame.state, properties: cssProperties },
+      await page.setContent(
+        renderVoxyCharacterMotionFixtureHtml({
+          plan,
+          embeddedStudioAssetUrl,
+          embeddedCharacterSvg,
+          captureTimeMs,
+        }),
+        { waitUntil: "load" },
       );
       await page.screenshot({
         path: join(framesDirectory, `frame-${String(frameIndex).padStart(4, "0")}.png`),
