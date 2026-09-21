@@ -61,6 +61,99 @@ export const SOURCE_ARTIFACT_TYPES = [
 
 export type SourceArtifactType = (typeof SOURCE_ARTIFACT_TYPES)[number];
 
+export const SOURCE_ROLES = [
+  "origin",
+  "evidence",
+  "counter_evidence",
+  "context",
+] as const;
+
+export type SourceRole = (typeof SOURCE_ROLES)[number];
+
+export const SOURCE_MEDIUM_KINDS = [
+  "document",
+  "article",
+  "dataset",
+  "tv",
+  "streaming",
+  "podcast",
+  "radio",
+  "video",
+  "press_conference",
+  "parliamentary_debate",
+  "public_meeting",
+  "fact_check",
+  "other",
+] as const;
+
+export type SourceMediumKind = (typeof SOURCE_MEDIUM_KINDS)[number];
+
+export const SOURCE_AVAILABILITY_STATUSES = [
+  "available",
+  "unavailable",
+  "expired",
+  "unknown",
+] as const;
+
+export type SourceAvailabilityStatus =
+  (typeof SOURCE_AVAILABILITY_STATUSES)[number];
+
+export const SOURCE_SUPPLEMENTAL_REF_TYPES = [
+  "fact_check",
+  "transcript",
+  "show_notes",
+  "source_list",
+  "document",
+] as const;
+
+export type SourceSupplementalRefType =
+  (typeof SOURCE_SUPPLEMENTAL_REF_TYPES)[number];
+
+export type SourceSupplementalRef = {
+  kind: SourceSupplementalRefType;
+  ref: string;
+};
+
+export type SourceMediaMetadata = {
+  mediumKind: SourceMediumKind;
+  programmeRef?: string | null;
+  episodeRef?: string | null;
+  episodeTitle?: string | null;
+  episodeDate?: string | null;
+  publicOriginalMediaUrl?: string | null;
+  durationSeconds?: number | null;
+  availability: {
+    status: SourceAvailabilityStatus;
+    availableUntil?: string | null;
+    lastCheckedAt?: string | null;
+  };
+  subtitleAvailable?: boolean | null;
+  transcriptAvailable?: boolean | null;
+  supplementalRefs?: SourceSupplementalRef[];
+};
+
+export const SOURCE_LINEAGE_RELATION_TYPES = [
+  "cites",
+  "quotes",
+  "summarizes",
+  "derived_from",
+  "syndicates",
+  "uses_dataset",
+  "uses_study",
+  "uses_interview",
+] as const;
+
+export type SourceLineageRelationType =
+  (typeof SOURCE_LINEAGE_RELATION_TYPES)[number];
+
+export type SourceLineageRelation = {
+  id: string;
+  sourceArtifactId: string;
+  upstreamSourceArtifactId: string;
+  relationType: SourceLineageRelationType;
+  reviewStatus: "unreviewed" | "reviewed";
+};
+
 export type SourceArtifact = {
   id: string;
   canonicalRef: string;
@@ -71,6 +164,12 @@ export type SourceArtifact = {
   originalLocale: string;
   sourceFamilyId: string;
   contentHashOrRevision: string | null;
+  /** Optional observation binding to the existing DurableSourceSnapshot owner. */
+  snapshotRef?: string | null;
+  /** Optional immutable content binding to the existing DurableSourceSnapshot owner. */
+  contentRef?: string | null;
+  sourceRole?: SourceRole;
+  media?: SourceMediaMetadata | null;
   lineageStatus:
     | "original"
     | "copy"
@@ -92,6 +191,17 @@ export type SourceSegment = {
   contextBefore: string | null;
   contextAfter: string | null;
   speaker: string | null;
+  speakerRole?:
+    | "speaker"
+    | "host"
+    | "guest"
+    | "moderator"
+    | "panelist"
+    | "reporter"
+    | "narrator"
+    | "unknown"
+    | null;
+  attributionStatus?: "explicit" | "inferred" | "ambiguous" | "unknown";
   recognitionUncertainty: "none" | "low" | "medium" | "high" | "unknown";
   segmentRefStatus: "bound" | "missing";
   transcriptionStatus:
@@ -220,6 +330,85 @@ function normalizeDimension(value: string | null | undefined): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+}
+
+export function sourceArtifactSnapshotBindingStatus(
+  artifact: Pick<SourceArtifact, "snapshotRef" | "contentRef">,
+): "unbound" | "bound" | "invalid" {
+  const snapshotRef = artifact.snapshotRef?.trim() ?? "";
+  const contentRef = artifact.contentRef?.trim() ?? "";
+  if (!snapshotRef && !contentRef) return "unbound";
+  return snapshotRef && contentRef ? "bound" : "invalid";
+}
+
+export function sourceArtifactAvailabilityRequiresReview(
+  artifact: Pick<SourceArtifact, "media">,
+): boolean {
+  const status = artifact.media?.availability.status;
+  return Boolean(status && status !== "available");
+}
+
+export function sourceSegmentAttributionRequiresReview(
+  segment: Pick<SourceSegment, "speaker" | "attributionStatus">,
+): boolean {
+  if (!segment.speaker?.trim()) return true;
+  return (
+    segment.attributionStatus === "inferred" ||
+    segment.attributionStatus === "ambiguous" ||
+    segment.attributionStatus === "unknown"
+  );
+}
+
+export function sourceLineageRelationsReferenceExistingArtifacts(
+  sourceArtifacts: readonly Pick<SourceArtifact, "id">[],
+  relations: readonly SourceLineageRelation[],
+): boolean {
+  const artifactIds = new Set(
+    sourceArtifacts
+      .map((artifact) => artifact.id.trim())
+      .filter((artifactId) => artifactId.length > 0),
+  );
+
+  return relations.every((relation) => {
+    const sourceArtifactId = relation.sourceArtifactId.trim();
+    const upstreamSourceArtifactId = relation.upstreamSourceArtifactId.trim();
+    return (
+      artifactIds.has(sourceArtifactId) &&
+      artifactIds.has(upstreamSourceArtifactId)
+    );
+  });
+}
+
+export function sourceLineageHasCycle(relations: SourceLineageRelation[]): boolean {
+  const upstreamBySource = new Map<string, Set<string>>();
+  for (const relation of relations) {
+    const sourceId = relation.sourceArtifactId.trim();
+    const upstreamId = relation.upstreamSourceArtifactId.trim();
+    if (!sourceId || !upstreamId) continue;
+    const upstream = upstreamBySource.get(sourceId) ?? new Set<string>();
+    upstream.add(upstreamId);
+    upstreamBySource.set(sourceId, upstream);
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  const visit = (sourceId: string): boolean => {
+    if (visiting.has(sourceId)) return true;
+    if (visited.has(sourceId)) return false;
+    visiting.add(sourceId);
+    for (const upstreamId of upstreamBySource.get(sourceId) ?? []) {
+      if (visit(upstreamId)) return true;
+    }
+    visiting.delete(sourceId);
+    visited.add(sourceId);
+    return false;
+  };
+
+  for (const sourceId of upstreamBySource.keys()) {
+    if (visit(sourceId)) return true;
+  }
+  return false;
 }
 
 export function sourceArtifactEligibleAsExternalEvidence(
@@ -372,12 +561,18 @@ export function resolvePublicationClassification(params: {
     const hasUnsafeTranscript = claimSegments.some(
       (segment) => segment.transcriptionStatus === "automatic_unreviewed",
     );
+    const hasAttributionRequiringReview = claimSegments.some(
+      sourceSegmentAttributionRequiresReview,
+    );
     const speakerAndSegmentReliable =
       params.assessment.sourceSegmentFidelity === "high" &&
       params.assessment.speakerAttributionConfidence === "high" &&
       params.assessment.transcriptionConfidence !== "low";
 
-    return hasQuoteRelation && !hasUnsafeTranscript && speakerAndSegmentReliable
+    return hasQuoteRelation &&
+      !hasUnsafeTranscript &&
+      !hasAttributionRequiringReview &&
+      speakerAndSegmentReliable
       ? "publishable_as_quote"
       : "review_required";
   }
