@@ -64,27 +64,45 @@ export async function queueVoxyLocalComposition(
     briefingId: request.briefingId,
     scriptVersion: request.scriptVersion,
   });
-  if (!approval.approved || !approval.approvalRef?.trim()) {
+  if (
+    !approval.approved ||
+    !approval.approvalRef?.trim() ||
+    !approval.previewReviewFlowId?.trim() ||
+    !approval.decisionGateId?.trim()
+  ) {
     return {
       ok: false,
       status: "blocked_by_missing_approval",
       job: null,
-      errors: ["trusted_render_approval_missing"],
+      errors: ["trusted_render_approval_or_review_binding_missing"],
     };
   }
 
-  const candidate = buildQueuedVoxyLocalCompositionJob({
-    request,
-    approval,
-    now: now(deps),
-  });
+  let candidate: VoxyLocalCompositionJob;
+  try {
+    candidate = buildQueuedVoxyLocalCompositionJob({
+      request,
+      approval,
+      now: now(deps),
+    });
+  } catch {
+    return {
+      ok: false,
+      status: "blocked_by_missing_approval",
+      job: null,
+      errors: ["trusted_render_approval_or_review_binding_invalid"],
+    };
+  }
   const existing = await deps.repository.createOrGetJob(candidate);
-  if (existing.inputFingerprint !== candidate.inputFingerprint) {
+  if (
+    existing.inputFingerprint !== candidate.inputFingerprint ||
+    existing.reviewBindingHash !== candidate.reviewBindingHash
+  ) {
     return {
       ok: false,
       status: "idempotency_conflict",
       job: null,
-      errors: ["composition_identity_reused_with_changed_input"],
+      errors: ["composition_identity_reused_with_changed_input_or_review_binding"],
     };
   }
   return {
@@ -159,6 +177,7 @@ export async function executeVoxyLocalComposition(input: {
     const persistedOutput = await deps.repository.saveOutput(execution.output);
     if (
       persistedOutput.inputFingerprint !== rendering.inputFingerprint ||
+      persistedOutput.reviewBindingHash !== rendering.reviewBindingHash ||
       persistedOutput.jobId !== rendering.jobId
     ) {
       throw new Error("voxy_local_composition_output_persistence_conflict");
