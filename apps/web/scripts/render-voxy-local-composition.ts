@@ -1,0 +1,528 @@
+import { chromium } from "@playwright/test";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { dirname, extname, join, relative, resolve, sep } from "node:path";
+
+import {
+  buildVoxyCharacterMotionFixturePlan,
+  validateVoxyCharacterMotionFixturePlan,
+  type VoxyCharacterMotionFixturePlan,
+} from "../src/features/voxyVideo/characterMotionFixture";
+import {
+  getVoxyRigFrameCssProperties,
+  renderVoxyCharacterMotionFixtureHtml,
+} from "../src/features/voxyVideo/characterMotionFixtureHtml";
+import { buildVoxyRigFrame } from "../src/features/voxyVideo/animatableMasterAsset";
+import {
+  assertVoxyFinalCanonBinding,
+  finalVoxyCanonBinding,
+} from "../src/features/voxyVideo/finalCanon";
+import {
+  validateVoxyLocalCompositionAudioAsset,
+  validateVoxyLocalCompositionOutput,
+  validateVoxyLocalCompositionRequest,
+  type VoxyLocalCompositionAudioAsset,
+  type VoxyLocalCompositionExecutionResult,
+  type VoxyLocalCompositionJob,
+  type VoxyLocalCompositionMediaFile,
+  type VoxyLocalCompositionRequest,
+} from "../src/features/voxyVideo/localCompositionRuntime";
+
+assertVoxyFinalCanonBinding(finalVoxyCanonBinding());
+
+const MAX_OUTPUT_BYTES = 250_000_000;
+const COMMAND_TIMEOUT_MS = 120_000;
+
+type WorkerManifest = {
+  job: VoxyLocalCompositionJob;
+  request: VoxyLocalCompositionRequest;
+  audioAsset: VoxyLocalCompositionAudioAsset;
+};
+
+type Probe = {
+  streams?: Array<{
+    codec_type?: string;
+    width?: number;
+    height?: number;
+  }>;
+  format?: { duration?: string; size?: string };
+};
+
+function argument(name: string): string | null {
+  const prefix = `--${name}=`;
+  return process.argv.slice(2).find((value) => value.startsWith(prefix))?.slice(prefix.length) ?? null;
+}
+
+function run(binary: string, args: string[]): string {
+  const result = spawnSync(binary, args, {
+    encoding: "utf8",
+    timeout: COMMAND_TIMEOUT_MS,
+    maxBuffer: 8 * 1024 * 1024,
+    shell: false,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(`${binary}_failed:${result.error?.message ?? result.stderr.trim()}`);
+  }
+  return result.stdout.trim();
+}
+
+async function sha256(path: string): Promise<string> {
+  return createHash("sha256").update(await readFile(path)).digest("hex");
+}
+
+function sanitizeDirectorySegment(value: string): string {
+  const safe = value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!safe || safe.includes("..")) throw new Error("unsafe_output_directory_segment");
+  return safe;
+}
+
+async function assertInsideRoot(path: string, root: string): Promise<string> {
+  const [actualPath, actualRoot] = await Promise.all([realpath(path), realpath(root)]);
+  if (actualPath !== actualRoot && !actualPath.startsWith(`${actualRoot}${sep}`)) {
+    throw new Error("audio_path_outside_allowed_root");
+  }
+  return actualPath;
+}
+
+function publicAssetPath(webRoot: string, publicPath: string): string {
+  if (!publicPath.startsWith("/brands/voxy/")) {
+    throw new Error("voxy_asset_outside_canonical_brand_root");
+  }
+  return resolve(webRoot, "public", publicPath.slice(1));
+}
+
+async function embeddedSvgDataUrl(path: string): Promise<string> {
+  const content = await readFile(path, "utf8");
+  if (!content.includes("<svg")) throw new Error("voxy_svg_master_invalid");
+  return `data:image/svg+xml;base64,${Buffer.from(content).toString("base64")}`;
+}
+
+function timestampVtt(ms: number): string {
+  const value = Math.max(0, Math.trunc(ms));
+  const hours = Math.floor(value / 3_600_000);
+  const minutes = Math.floor((value % 3_600_000) / 60_000);
+  const seconds = Math.floor((value % 60_000) / 1_000);
+  const millis = value % 1_000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
+}
+
+function timestampSrt(ms: number): string {
+  return timestampVtt(ms).replace(".", ",");
+}
+
+function cleanCaption(value: string): string {
+  return value.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function buildVtt(request: VoxyLocalCompositionRequest): string {
+  const cues = request.captionCues
+    .map((cue) => `${timestampVtt(cue.startMs)} --> ${timestampVtt(cue.endMs)}\n${cleanCaption(cue.text)}`)
+    .join("\n\n");
+  return `WEBVTT\n\n${cues}\n`;
+}
+
+function buildSrt(request: VoxyLocalCompositionRequest): string {
+  return `${request.captionCues
+    .map(
+      (cue, index) =>
+        `${index + 1}\n${timestampSrt(cue.startMs)} --> ${timestampSrt(cue.endMs)}\n${cleanCaption(cue.text)}`,
+    )
+    .join("\n\n")}\n`;
+}
+
+function buildRuntimePlan(request: VoxyLocalCompositionRequest): VoxyCharacterMotionFixturePlan {
+  const base = buildVoxyCharacterMotionFixturePlan(request.format);
+  const content = new Map(request.sceneContent.map((scene) => [scene.id, scene]));
+  const language = request.locale.split("-")[0]?.toLowerCase() || request.locale.toLowerCase();
+  return {
+    ...base,
+    id: `voxy-local-composition-${request.format.replace(":", "x")}`,
+    title: content.get("opening")?.headline ?? base.title,
+    locale: request.locale,
+    originalLanguage: language,
+    outputLanguage: language,
+    sourceDisclosure: "Quellenstand: revisionsgebunden · menschliches Review erforderlich",
+    scenes: base.scenes.map((scene) => {
+      const copy = content.get(scene.id as "opening" | "explanation" | "contrast" | "invitation");
+      if (!copy) throw new Error(`runtime_scene_missing:${scene.id}`);
+      return {
+        ...scene,
+        kicker: copy.kicker,
+        headline: copy.headline,
+        detail: copy.detail,
+        sourceIds: [...copy.sourceIds],
+      };
+    }),
+  };
+}
+
+function probe(path: string): Probe {
+  return JSON.parse(
+    run("ffprobe", [
+      "-v",
+      "error",
+      "-show_streams",
+      "-show_format",
+      "-of",
+      "json",
+      path,
+    ]),
+  ) as Probe;
+}
+
+async function mediaFile(input: {
+  path: string;
+  storageKey: string;
+  mimeType: string;
+  requireVideo?: boolean;
+  expectedWidth?: number;
+  expectedHeight?: number;
+  requireAudio?: boolean;
+  requireSubtitle?: boolean;
+}): Promise<VoxyLocalCompositionMediaFile> {
+  const fileStat = await stat(input.path);
+  if (!fileStat.isFile() || fileStat.size <= 0 || fileStat.size > MAX_OUTPUT_BYTES) {
+    throw new Error("rendered_file_size_invalid");
+  }
+  let durationMs: number | null = null;
+  let width: number | null = null;
+  let height: number | null = null;
+  if (input.requireVideo) {
+    const details = probe(input.path);
+    const video = details.streams?.find((stream) => stream.codec_type === "video");
+    const hasAudio = details.streams?.some((stream) => stream.codec_type === "audio") ?? false;
+    const hasSubtitle = details.streams?.some((stream) => stream.codec_type === "subtitle") ?? false;
+    width = video?.width ?? null;
+    height = video?.height ?? null;
+    durationMs = Math.round(Number(details.format?.duration ?? 0) * 1_000);
+    if (width !== input.expectedWidth || height !== input.expectedHeight) {
+      throw new Error("rendered_file_dimensions_invalid");
+    }
+    if (!Number.isFinite(durationMs) || Math.abs(durationMs - 8_000) > 650) {
+      throw new Error("rendered_file_duration_invalid");
+    }
+    if (input.requireAudio && !hasAudio) throw new Error("rendered_file_audio_stream_missing");
+    if (input.requireSubtitle && !hasSubtitle) throw new Error("rendered_file_subtitle_stream_missing");
+  }
+  return {
+    storageKey: input.storageKey,
+    sha256: await sha256(input.path),
+    sizeBytes: fileStat.size,
+    durationMs,
+    width,
+    height,
+    mimeType: input.mimeType,
+  };
+}
+
+async function ensureAbsent(path: string) {
+  try {
+    await access(path);
+    throw new Error("final_output_already_exists");
+  } catch (error) {
+    if (error instanceof Error && error.message === "final_output_already_exists") throw error;
+  }
+}
+
+async function main(): Promise<void> {
+  const manifestArg = argument("manifest");
+  const outputRootArg = argument("output-root");
+  if (!manifestArg || !outputRootArg) {
+    throw new Error("manifest_and_output_root_required");
+  }
+
+  const manifestPath = resolve(process.cwd(), manifestArg);
+  const outputRoot = resolve(process.cwd(), outputRootArg);
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as WorkerManifest;
+  const requestErrors = validateVoxyLocalCompositionRequest(manifest.request);
+  const audioErrors = validateVoxyLocalCompositionAudioAsset(manifest.audioAsset);
+  if (requestErrors.length || audioErrors.length) {
+    throw new Error(`worker_manifest_invalid:${[...requestErrors, ...audioErrors].join(",")}`);
+  }
+  if (
+    manifest.job.briefingId !== manifest.request.briefingId ||
+    manifest.job.scriptVersion !== manifest.request.scriptVersion ||
+    manifest.job.audioAssetId !== manifest.audioAsset.assetId ||
+    manifest.job.format !== manifest.request.format ||
+    manifest.job.locale !== manifest.request.locale.toLowerCase()
+  ) {
+    throw new Error("worker_manifest_revision_binding_mismatch");
+  }
+
+  await mkdir(outputRoot, { recursive: true });
+  const audioPath = await assertInsideRoot(manifest.audioAsset.absolutePath, manifest.audioAsset.allowedRoot);
+  if ((await sha256(audioPath)) !== manifest.audioAsset.sha256.toLowerCase()) {
+    throw new Error("audio_sha256_mismatch");
+  }
+  const audioProbe = probe(audioPath);
+  const audioDurationMs = Math.round(Number(audioProbe.format?.duration ?? 0) * 1_000);
+  if (!Number.isFinite(audioDurationMs) || Math.abs(audioDurationMs - manifest.audioAsset.durationMs) > 200) {
+    throw new Error("audio_duration_metadata_mismatch");
+  }
+
+  const plan = buildRuntimePlan(manifest.request);
+  const planValidation = validateVoxyCharacterMotionFixturePlan(plan);
+  if (!planValidation.ok) {
+    throw new Error(`runtime_plan_invalid:${planValidation.errors.join(",")}`);
+  }
+
+  const webRoot = resolve(import.meta.dirname, "..");
+  const studioPath = publicAssetPath(webRoot, plan.studioAssetPath);
+  const characterPath = publicAssetPath(webRoot, plan.characterAssetPath);
+  const embeddedStudioAssetUrl = await embeddedSvgDataUrl(studioPath);
+  const embeddedCharacterSvg = await readFile(characterPath, "utf8");
+  const finalSegment = sanitizeDirectorySegment(manifest.job.jobId);
+  const finalDirectory = resolve(outputRoot, finalSegment);
+  const relativeFinal = relative(outputRoot, finalDirectory);
+  if (!relativeFinal || relativeFinal.startsWith("..") || relativeFinal.includes(`${sep}..${sep}`)) {
+    throw new Error("final_output_path_outside_root");
+  }
+  await ensureAbsent(finalDirectory);
+
+  const stagingDirectory = await mkdtemp(join(outputRoot, ".voxy-local-staging-"));
+  const framesDirectory = join(stagingDirectory, "frames");
+  const captionsVttPath = join(stagingDirectory, "captions.vtt");
+  const captionsSrtPath = join(stagingDirectory, "captions.srt");
+  const masterPath = join(stagingDirectory, "master.mp4");
+  const previewPath = join(stagingDirectory, "preview.webm");
+  await mkdir(framesDirectory, { recursive: true });
+
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+  try {
+    await writeFile(captionsVttPath, buildVtt(manifest.request), "utf8");
+    await writeFile(captionsSrtPath, buildSrt(manifest.request), "utf8");
+
+    browser = await chromium.launch({
+      headless: true,
+      args: typeof process.getuid === "function" && process.getuid() === 0 ? ["--no-sandbox"] : [],
+    });
+    const context = await browser.newContext({
+      viewport: { width: plan.width, height: plan.height },
+      reducedMotion: "no-preference",
+    });
+    const page = await context.newPage();
+    const externalRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/^https?:/i.test(request.url())) externalRequests.push(request.url());
+    });
+    await page.setContent(
+      renderVoxyCharacterMotionFixtureHtml({
+        plan,
+        embeddedStudioAssetUrl,
+        embeddedCharacterSvg,
+        captureTimeMs: 0,
+      }),
+      { waitUntil: "load" },
+    );
+    await page.waitForFunction(() => Array.from(document.images).every((image) => image.complete));
+    const frameCount = Math.round((plan.durationMs / 1_000) * plan.fps);
+    for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
+      const captureTimeMs = Math.round((frameIndex * 1_000) / plan.fps);
+      const rigFrame = buildVoxyRigFrame(captureTimeMs);
+      const cssProperties = getVoxyRigFrameCssProperties(rigFrame);
+      await page.evaluate(
+        ({ timeMs, state, properties }) => {
+          const fixture = document.getElementById("fixture");
+          fixture?.style.setProperty("--capture-time", `${timeMs}ms`);
+          if (fixture) {
+            fixture.dataset.rigState = state;
+            for (const [name, value] of Object.entries(properties)) {
+              fixture.style.setProperty(name, value);
+            }
+            void fixture.offsetHeight;
+          }
+        },
+        { timeMs: captureTimeMs, state: rigFrame.state, properties: cssProperties },
+      );
+      await page.screenshot({
+        path: join(framesDirectory, `frame-${String(frameIndex).padStart(4, "0")}.png`),
+        type: "png",
+        clip: { x: 0, y: 0, width: plan.width, height: plan.height },
+      });
+    }
+    await context.close();
+    await browser.close();
+    browser = null;
+    if (externalRequests.length > 0) throw new Error("external_request_detected");
+
+    const frameInput = join(framesDirectory, "frame-%04d.png");
+    run("ffmpeg", [
+      "-y",
+      "-framerate",
+      String(plan.fps),
+      "-i",
+      frameInput,
+      "-i",
+      audioPath,
+      "-i",
+      captionsVttPath,
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
+      "-map",
+      "2:s:0",
+      "-frames:v",
+      String(frameCount),
+      "-r",
+      String(plan.fps),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "20",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "160k",
+      "-c:s",
+      "mov_text",
+      "-movflags",
+      "+faststart",
+      "-shortest",
+      masterPath,
+    ]);
+    run("ffmpeg", [
+      "-y",
+      "-framerate",
+      String(plan.fps),
+      "-i",
+      frameInput,
+      "-i",
+      audioPath,
+      "-i",
+      captionsVttPath,
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
+      "-map",
+      "2:s:0",
+      "-frames:v",
+      String(frameCount),
+      "-r",
+      String(plan.fps),
+      "-c:v",
+      "libvpx-vp9",
+      "-b:v",
+      "0",
+      "-crf",
+      "32",
+      "-deadline",
+      "realtime",
+      "-cpu-used",
+      "7",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "libopus",
+      "-b:a",
+      "128k",
+      "-c:s",
+      "webvtt",
+      "-shortest",
+      previewPath,
+    ]);
+
+    await rm(framesDirectory, { recursive: true, force: true });
+    const storagePrefix = finalSegment;
+    const output = {
+      outputId: manifest.job.outputId,
+      jobId: manifest.job.jobId,
+      identityKey: manifest.job.identityKey,
+      inputFingerprint: manifest.job.inputFingerprint,
+      timelineHash: manifest.job.timelineHash,
+      format: manifest.job.format,
+      renderProfile: manifest.job.renderProfile,
+      locale: manifest.job.locale,
+      masterMp4: await mediaFile({
+        path: masterPath,
+        storageKey: `${storagePrefix}/master.mp4`,
+        mimeType: "video/mp4",
+        requireVideo: true,
+        expectedWidth: plan.width,
+        expectedHeight: plan.height,
+        requireAudio: true,
+        requireSubtitle: true,
+      }),
+      previewWebm: await mediaFile({
+        path: previewPath,
+        storageKey: `${storagePrefix}/preview.webm`,
+        mimeType: "video/webm",
+        requireVideo: true,
+        expectedWidth: plan.width,
+        expectedHeight: plan.height,
+        requireAudio: true,
+        requireSubtitle: true,
+      }),
+      captionsVtt: await mediaFile({
+        path: captionsVttPath,
+        storageKey: `${storagePrefix}/captions.vtt`,
+        mimeType: "text/vtt",
+      }),
+      captionsSrt: await mediaFile({
+        path: captionsSrtPath,
+        storageKey: `${storagePrefix}/captions.srt`,
+        mimeType: "application/x-subrip",
+      }),
+      createdAt: new Date().toISOString(),
+      reviewStatus: "needs_review",
+      reviewRequired: true,
+      publicAsset: false,
+      uploaded: false,
+      scheduled: false,
+      socialPosted: false,
+      published: false,
+    } as const;
+    const validation = validateVoxyLocalCompositionOutput({ job: manifest.job, output });
+    if (validation.length) throw new Error(`worker_output_invalid:${validation.join(",")}`);
+
+    await writeFile(
+      join(stagingDirectory, "composition-manifest.json"),
+      `${JSON.stringify({
+        schemaVersion: "voxy-local-composition-output-v1",
+        canon: finalVoxyCanonBinding(),
+        output,
+        externalRequestCount: 0,
+        ffmpegShellInterpolationUsed: false,
+        lipSyncUsed: false,
+        externalAvatarProviderUsed: false,
+      }, null, 2)}\n`,
+      "utf8",
+    );
+    await rename(stagingDirectory, finalDirectory);
+
+    const result: VoxyLocalCompositionExecutionResult = {
+      output,
+      externalRequestCount: 0,
+      ffmpegShellInterpolationUsed: false,
+      lipSyncUsed: false,
+      externalAvatarProviderUsed: false,
+    };
+    console.log(JSON.stringify(result));
+  } catch (error) {
+    if (browser) await browser.close().catch(() => undefined);
+    await rm(stagingDirectory, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : "unknown_worker_error";
+  console.error(`VOXY_LOCAL_COMPOSITION_WORKER_FAILED:${message}`);
+  process.exitCode = 1;
+});
