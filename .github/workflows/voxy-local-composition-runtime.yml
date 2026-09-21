@@ -1,0 +1,74 @@
+name: Voxy Local Composition Runtime
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/voxy-local-composition-runtime.yml"
+      - "apps/web/package.json"
+      - "apps/web/scripts/render-voxy-local-composition.ts"
+      - "apps/web/scripts/render-voxy-local-composition-smoke.ts"
+      - "apps/web/src/features/voxyVideo/localCompositionRuntime.ts"
+      - "apps/web/src/features/voxyVideo/localCompositionRuntimeService.ts"
+      - "apps/web/src/features/voxyVideo/localCompositionRuntimeStore.ts"
+      - "apps/web/src/features/voxyVideo/localCompositionProcessExecutor.ts"
+      - "apps/web/src/features/voxyVideo/localCompositionReviewBridge.ts"
+      - "apps/web/src/features/voxyVideo/index.ts"
+      - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
+      - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
+      - "docs/E150/VOXY-LOCAL-COMPOSITION-RUNTIME-01_2026-09-21.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-and-real-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and FFmpeg
+        run: |
+          pnpm -C apps/web exec playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Contract and existing-review-store bridge tests
+        run: pnpm -C apps/web run test:voxy-local-composition-runtime
+
+      - name: Typecheck and diff guard
+        run: |
+          pnpm -C apps/web run typecheck
+          git diff --check
+
+      - name: Real three-format MP4/WebM composition and recovery smoke
+        run: pnpm -C apps/web run render:voxy-local-composition-smoke -- --output-root=../../artifacts/voxy-local-composition-runtime-smoke
+
+      - name: Upload revisions-bound render evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-local-composition-runtime-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            artifacts/voxy-local-composition-runtime-smoke/smoke-evidence.json
+            artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/master.mp4
+            artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/preview.webm
+            artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/captions.vtt
+            artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/captions.srt
+            artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/composition-manifest.json
