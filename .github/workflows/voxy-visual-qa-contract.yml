@@ -8,8 +8,10 @@ on:
       - "apps/web/scripts/capture-voxy-200pct-evidence.ts"
       - "apps/web/scripts/rebind-voxy-200pct-semantic-regions.ts"
       - "apps/web/scripts/render-voxy-final-canon-review-surfaces.ts"
+      - "apps/web/scripts/bind-voxy-final-canon-hand-visibility.ts"
       - "apps/web/scripts/render-voxy-homepage-multiformat-previews.ts"
       - "apps/web/scripts/render-voxy-head-alpha-compositing-proofs.ts"
+      - "apps/web/tests/voxy-final-canon-hand-visibility.contract.test.ts"
       - "apps/web/tests/voxy-visual-qa-checkpoint.contract.test.ts"
       - "apps/web/tests/voxy-visual-qa-review-decision-bridge.contract.test.ts"
       - "apps/web/tests/voxy-visual-qa-human-review-command.contract.test.ts"
@@ -83,6 +85,7 @@ jobs:
       - name: Run focused contract tests
         run: |
           pnpm -C apps/web exec vitest run \
+            tests/voxy-final-canon-hand-visibility.contract.test.ts \
             tests/voxy-visual-detector-license-contract.test.ts \
             tests/voxy-visual-qa-checkpoint.contract.test.ts \
             tests/voxy-visual-qa-review-decision-bridge.contract.test.ts \
@@ -98,6 +101,9 @@ jobs:
         env:
           VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_QA_INTEGRATION_SHA }}
         run: pnpm -w exec tsx apps/web/scripts/render-voxy-final-canon-review-surfaces.ts --output=artifacts/voxy-200pct-visual-qa --bind-evidence=true
+
+      - name: Bind final-canon hand visibility and social-layout occlusion
+        run: pnpm -w exec tsx apps/web/scripts/bind-voxy-final-canon-hand-visibility.ts --output=artifacts/voxy-200pct-visual-qa
 
       - name: Render V3.10.5 canonical compositing proof
         run: pnpm -w exec tsx apps/web/scripts/render-voxy-head-alpha-compositing-proofs.ts --output=/tmp/voxy-v3-10-5-proof
@@ -115,6 +121,7 @@ jobs:
           const fs = require('fs');
           const manifest = JSON.parse(fs.readFileSync('artifacts/voxy-200pct-visual-qa/evidence-manifest.json','utf8'));
           const review = JSON.parse(fs.readFileSync('artifacts/voxy-200pct-visual-qa/final-canon-review-manifest.json','utf8'));
+          const visibilityVersion = 'voxy-final-canon-hand-visibility-v1';
           const validClaspedHandQa = (value) => Boolean(
             value &&
             value.pose === 'clasped_hands_not_open_palm' &&
@@ -124,6 +131,9 @@ jobs:
             value.thresholdChanged === false &&
             value.generativeReconstructionUsed === false
           );
+          const expectedHandVisibility = (format) => format === '9:16'
+            ? { visible: false, reason: 'occluded_by_social_evidence_region', source: 'motion_v4_clasped_hand_location_layout_occluded' }
+            : { visible: true, reason: 'visible_on_final_surface', source: 'motion_v4_clasped_hand_master_geometry_unclamped' };
 
           if (manifest.commitSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('evidence_integration_sha_mismatch');
           if (manifest.humanReview.status !== 'pending') throw new Error('human_review_must_remain_pending');
@@ -132,28 +142,42 @@ jobs:
           if (!manifest.validation.requiredDecisionGateId) throw new Error('revision_bound_human_gate_missing');
           if (manifest.validation.automatedPassed !== true) throw new Error('automated_visual_qa_must_pass_before_human_review');
           if (manifest.validation.productionEligible !== false) throw new Error('human_gate_must_block_production');
+          if (manifest.handVisibility?.schemaVersion !== visibilityVersion) throw new Error('hand_visibility_contract_missing');
+          if (!validClaspedHandQa(manifest.handVisibility?.handQa)) throw new Error('hand_visibility_clasped_hand_qa_missing');
 
           if (review.schemaVersion !== 'voxy-v3-10-5-final-canon-review-surfaces-v1') throw new Error('final_canon_review_manifest_schema_mismatch');
           if (review.exactHeadSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('final_canon_review_head_mismatch');
           if (review.canon?.canonId !== 'VOXY-V3.10.5-HUMAN-FINAL') throw new Error('final_canon_review_id_mismatch');
           if (review.canon?.sourcePullRequest !== 624) throw new Error('final_canon_review_source_pr_mismatch');
           if (!validClaspedHandQa(review.handQa)) throw new Error('final_canon_clasped_hand_qa_missing');
+          if (review.handVisibility?.schemaVersion !== visibilityVersion) throw new Error('final_canon_hand_visibility_missing');
+          if (!validClaspedHandQa(review.handVisibility?.handQa)) throw new Error('final_canon_hand_visibility_qa_missing');
           if (review.surfaces?.length !== 6) throw new Error('both_brands_three_formats_required');
           if (!review.surfaces.every((surface) => surface.canonicalAlphaCompositing === true)) throw new Error('canonical_alpha_surface_missing');
           if (!review.surfaces.every((surface) => surface.canonicalHeadLayer === 'canonical-alpha-head')) throw new Error('canonical_head_layer_missing');
           if (!review.surfaces.every((surface) => surface.canonicalHeadOutsideContribution === '0')) throw new Error('canonical_head_outside_contribution_must_be_zero');
           if (!review.surfaces.every((surface) => surface.canonicalBodyLayerCount >= 1 && surface.legacyNeckPlateCount === 0)) throw new Error('canonical_body_or_legacy_neck_gate_failed');
           if (!review.surfaces.every((surface) => validClaspedHandQa(surface.handQa))) throw new Error('surface_clasped_hand_qa_drift');
+          for (const surface of review.surfaces) {
+            const expected = expectedHandVisibility(surface.format);
+            if (surface.handVisibility?.version !== visibilityVersion) throw new Error(`surface_hand_visibility_missing:${surface.filmId}:${surface.format}`);
+            if (surface.handVisibility?.leftVisible !== expected.visible || surface.handVisibility?.rightVisible !== expected.visible) throw new Error(`surface_hand_visibility_mismatch:${surface.filmId}:${surface.format}`);
+            if (surface.handVisibility?.reason !== expected.reason) throw new Error(`surface_hand_visibility_reason_mismatch:${surface.filmId}:${surface.format}`);
+          }
 
           if (manifest.semanticRegionBinding?.version !== 'voxy-semantic-region-binding-v2-production') throw new Error('production_semantic_region_binding_missing');
           if (manifest.semanticRegionBinding?.commitSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('semantic_region_binding_revision_mismatch');
           if (!validClaspedHandQa(manifest.semanticRegionBinding?.handQa)) throw new Error('semantic_region_clasped_hand_qa_missing');
           if (!Array.isArray(manifest.semanticRegionBinding?.bindings) || manifest.semanticRegionBinding.bindings.length !== 30) throw new Error('production_semantic_region_bindings_incomplete');
           for (const format of ['16:9','9:16','1:1']) {
+            const expectedVisibility = expectedHandVisibility(format);
             if (manifest.semanticRegionBinding?.microphoneApplicability?.[format] !== true) throw new Error(`microphone_semantics_missing:${format}`);
+            const visibility = manifest.semanticRegionBinding?.handVisibility?.[format];
+            if (visibility?.version !== visibilityVersion || visibility.leftVisible !== expectedVisibility.visible || visibility.rightVisible !== expectedVisibility.visible || visibility.reason !== expectedVisibility.reason) throw new Error(`semantic_hand_visibility_invalid:${format}`);
             for (const region of ['left_hand','right_hand']) {
               const binding = manifest.semanticRegionBinding.bindings.find((entry) => entry.format === format && entry.region === region);
-              if (!binding || binding.source !== 'motion_v4_clasped_hand_master_geometry_unclamped') throw new Error(`clasped_hand_region_binding_invalid:${format}:${region}`);
+              if (!binding || binding.source !== expectedVisibility.source) throw new Error(`clasped_hand_region_binding_invalid:${format}:${region}`);
+              if (binding.visibility !== expectedVisibility.visible || binding.visibilityReason !== expectedVisibility.reason) throw new Error(`clasped_hand_region_visibility_invalid:${format}:${region}`);
             }
           }
 
@@ -170,15 +194,27 @@ jobs:
           };
           for (const snapshot of manifest.checkpoint.snapshots) {
             const expected = expectedDimensions[snapshot.format];
+            const expectedVisibility = expectedHandVisibility(snapshot.format);
             if (!expected || snapshot.width !== expected[0] || snapshot.height !== expected[1]) throw new Error(`production_surface_dimensions_mismatch:${snapshot.format}`);
             if (!snapshot.assetVersion.includes('VOXY-V3.10.5-HUMAN-FINAL')) throw new Error(`production_surface_asset_version_mismatch:${snapshot.format}`);
             const pose = snapshot.poses?.[0];
             if (pose?.poseId !== 'v3_10_5_canonical_alpha_host') throw new Error(`production_surface_pose_mismatch:${snapshot.format}`);
-            if (pose?.handCheckMode !== 'canonical_clasped_occlusion') throw new Error(`production_hand_check_mode_mismatch:${snapshot.format}`);
-            if (!validClaspedHandQa(pose?.canonicalClaspedHandContract)) throw new Error(`production_clasped_hand_contract_mismatch:${snapshot.format}`);
-            if (pose?.leftHandVisible !== true || pose?.rightHandVisible !== true) throw new Error(`production_clasped_hand_visibility_mismatch:${snapshot.format}`);
+            if (expectedVisibility.visible) {
+              if (pose?.handCheckMode !== 'canonical_clasped_occlusion') throw new Error(`production_hand_check_mode_mismatch:${snapshot.format}`);
+              if (!validClaspedHandQa(pose?.canonicalClaspedHandContract)) throw new Error(`production_clasped_hand_contract_mismatch:${snapshot.format}`);
+              if (pose?.leftHandVisible !== true || pose?.rightHandVisible !== true) throw new Error(`production_clasped_hand_visibility_mismatch:${snapshot.format}`);
+            } else {
+              if (pose?.handCheckMode != null || pose?.canonicalClaspedHandContract != null) throw new Error(`occluded_hand_must_not_claim_visible_pose_contract:${snapshot.format}`);
+              if (pose?.leftHandVisible !== false || pose?.rightHandVisible !== false) throw new Error(`occluded_hand_visibility_mismatch:${snapshot.format}`);
+            }
             if (pose?.leftFingerCount !== null || pose?.rightFingerCount !== null) throw new Error(`fabricated_clasped_finger_count:${snapshot.format}`);
             if (pose?.leftHandDetection !== null || pose?.rightHandDetection !== null) throw new Error(`fabricated_clasped_hand_detection:${snapshot.format}`);
+            const leftRegion = snapshot.regions.find((entry) => entry.region === 'left_hand');
+            const rightRegion = snapshot.regions.find((entry) => entry.region === 'right_hand');
+            const expectedNote = expectedVisibility.visible
+              ? 'hand_visibility:visible_final_surface_canonical_clasped_pose'
+              : 'hand_visibility:layout_occluded_by_social_evidence_region_not_anatomy_crop';
+            if (!leftRegion?.notes?.includes(expectedNote) || !rightRegion?.notes?.includes(expectedNote)) throw new Error(`hand_visibility_review_note_missing:${snapshot.format}`);
           }
 
           const serialized = JSON.stringify(manifest);
