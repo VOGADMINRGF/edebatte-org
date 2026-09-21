@@ -2,7 +2,6 @@ import { chromium } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  access,
   mkdir,
   mkdtemp,
   readFile,
@@ -27,6 +26,9 @@ import {
   finalVoxyCanonBinding,
 } from "../src/features/voxyVideo/finalCanon";
 import {
+  buildVoxyLocalCompositionIdentityKey,
+  buildVoxyLocalCompositionInputFingerprint,
+  buildVoxyLocalCompositionTimelineHash,
   validateVoxyLocalCompositionAudioAsset,
   validateVoxyLocalCompositionOutput,
   validateVoxyLocalCompositionRequest,
@@ -34,6 +36,7 @@ import {
   type VoxyLocalCompositionExecutionResult,
   type VoxyLocalCompositionJob,
   type VoxyLocalCompositionMediaFile,
+  type VoxyLocalCompositionOutput,
   type VoxyLocalCompositionRequest,
 } from "../src/features/voxyVideo/localCompositionRuntime";
 
@@ -46,6 +49,16 @@ type WorkerManifest = {
   job: VoxyLocalCompositionJob;
   request: VoxyLocalCompositionRequest;
   audioAsset: VoxyLocalCompositionAudioAsset;
+};
+
+type OutputManifest = {
+  schemaVersion: "voxy-local-composition-output-v1";
+  canon: ReturnType<typeof finalVoxyCanonBinding>;
+  output: VoxyLocalCompositionOutput;
+  externalRequestCount: number;
+  ffmpegShellInterpolationUsed: false;
+  lipSyncUsed: false;
+  externalAvatarProviderUsed: false;
 };
 
 type Probe = {
@@ -224,14 +237,111 @@ async function mediaFile(input: {
   };
 }
 
-async function ensureAbsent(path: string) {
+function sameMediaFile(
+  expected: VoxyLocalCompositionMediaFile,
+  actual: VoxyLocalCompositionMediaFile,
+): boolean {
+  return (
+    expected.storageKey === actual.storageKey &&
+    expected.sha256 === actual.sha256 &&
+    expected.sizeBytes === actual.sizeBytes &&
+    expected.durationMs === actual.durationMs &&
+    expected.width === actual.width &&
+    expected.height === actual.height &&
+    expected.mimeType === actual.mimeType
+  );
+}
+
+async function recoverExistingOutput(input: {
+  finalDirectory: string;
+  finalSegment: string;
+  job: VoxyLocalCompositionJob;
+  width: number;
+  height: number;
+}): Promise<VoxyLocalCompositionExecutionResult | null> {
   try {
-    await access(path);
-    throw new Error("final_output_already_exists");
+    const directoryStat = await stat(input.finalDirectory);
+    if (!directoryStat.isDirectory()) throw new Error("existing_final_output_not_directory");
   } catch (error) {
-    if (error instanceof Error && error.message === "final_output_already_exists") throw error;
-    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return null;
+    throw error;
   }
+
+  let manifest: OutputManifest;
+  try {
+    manifest = JSON.parse(
+      await readFile(join(input.finalDirectory, "composition-manifest.json"), "utf8"),
+    ) as OutputManifest;
+  } catch (error) {
+    throw new Error(`existing_final_output_manifest_invalid:${error instanceof Error ? error.message : "unknown"}`);
+  }
+
+  const canon = finalVoxyCanonBinding();
+  if (
+    manifest.schemaVersion !== "voxy-local-composition-output-v1" ||
+    manifest.canon.canonId !== canon.canonId ||
+    manifest.canon.sourcePullRequest !== canon.sourcePullRequest ||
+    manifest.canon.referenceRenderHeadSha !== canon.referenceRenderHeadSha ||
+    manifest.output.jobId !== input.job.jobId ||
+    manifest.output.outputId !== input.job.outputId ||
+    manifest.output.identityKey !== input.job.identityKey ||
+    manifest.output.inputFingerprint !== input.job.inputFingerprint ||
+    manifest.output.timelineHash !== input.job.timelineHash ||
+    manifest.externalRequestCount !== 0 ||
+    manifest.ffmpegShellInterpolationUsed !== false ||
+    manifest.lipSyncUsed !== false ||
+    manifest.externalAvatarProviderUsed !== false
+  ) {
+    throw new Error("existing_final_output_revision_conflict");
+  }
+
+  const actualMaster = await mediaFile({
+    path: join(input.finalDirectory, "master.mp4"),
+    storageKey: `${input.finalSegment}/master.mp4`,
+    mimeType: "video/mp4",
+    requireVideo: true,
+    expectedWidth: input.width,
+    expectedHeight: input.height,
+    requireAudio: true,
+    requireSubtitle: true,
+  });
+  const actualPreview = await mediaFile({
+    path: join(input.finalDirectory, "preview.webm"),
+    storageKey: `${input.finalSegment}/preview.webm`,
+    mimeType: "video/webm",
+    requireVideo: true,
+    expectedWidth: input.width,
+    expectedHeight: input.height,
+    requireAudio: true,
+    requireSubtitle: true,
+  });
+  const actualVtt = await mediaFile({
+    path: join(input.finalDirectory, "captions.vtt"),
+    storageKey: `${input.finalSegment}/captions.vtt`,
+    mimeType: "text/vtt",
+  });
+  const actualSrt = await mediaFile({
+    path: join(input.finalDirectory, "captions.srt"),
+    storageKey: `${input.finalSegment}/captions.srt`,
+    mimeType: "application/x-subrip",
+  });
+  if (
+    !sameMediaFile(manifest.output.masterMp4, actualMaster) ||
+    !sameMediaFile(manifest.output.previewWebm, actualPreview) ||
+    !sameMediaFile(manifest.output.captionsVtt, actualVtt) ||
+    !sameMediaFile(manifest.output.captionsSrt, actualSrt) ||
+    validateVoxyLocalCompositionOutput({ job: input.job, output: manifest.output }).length > 0
+  ) {
+    throw new Error("existing_final_output_integrity_mismatch");
+  }
+
+  return {
+    output: manifest.output,
+    externalRequestCount: 0,
+    ffmpegShellInterpolationUsed: false,
+    lipSyncUsed: false,
+    externalAvatarProviderUsed: false,
+  };
 }
 
 async function main(): Promise<void> {
@@ -254,7 +364,10 @@ async function main(): Promise<void> {
     manifest.job.scriptVersion !== manifest.request.scriptVersion ||
     manifest.job.audioAssetId !== manifest.audioAsset.assetId ||
     manifest.job.format !== manifest.request.format ||
-    manifest.job.locale !== manifest.request.locale.toLowerCase()
+    manifest.job.locale !== manifest.request.locale.toLowerCase() ||
+    manifest.job.identityKey !== buildVoxyLocalCompositionIdentityKey(manifest.request) ||
+    manifest.job.inputFingerprint !== buildVoxyLocalCompositionInputFingerprint(manifest.request) ||
+    manifest.job.timelineHash !== buildVoxyLocalCompositionTimelineHash(manifest.request)
   ) {
     throw new Error("worker_manifest_revision_binding_mismatch");
   }
@@ -287,7 +400,18 @@ async function main(): Promise<void> {
   if (!relativeFinal || relativeFinal.startsWith("..") || relativeFinal.includes(`${sep}..${sep}`)) {
     throw new Error("final_output_path_outside_root");
   }
-  await ensureAbsent(finalDirectory);
+
+  const recovered = await recoverExistingOutput({
+    finalDirectory,
+    finalSegment,
+    job: manifest.job,
+    width: plan.width,
+    height: plan.height,
+  });
+  if (recovered) {
+    console.log(JSON.stringify(recovered));
+    return;
+  }
 
   const stagingDirectory = await mkdtemp(join(outputRoot, ".voxy-local-staging-"));
   const framesDirectory = join(stagingDirectory, "frames");
@@ -422,7 +546,7 @@ async function main(): Promise<void> {
 
     await rm(framesDirectory, { recursive: true, force: true });
     const storagePrefix = finalSegment;
-    const output = {
+    const output: VoxyLocalCompositionOutput = {
       outputId: manifest.job.outputId,
       jobId: manifest.job.jobId,
       identityKey: manifest.job.identityKey,
@@ -469,21 +593,22 @@ async function main(): Promise<void> {
       scheduled: false,
       socialPosted: false,
       published: false,
-    } as const;
+    };
     const validation = validateVoxyLocalCompositionOutput({ job: manifest.job, output });
     if (validation.length) throw new Error(`worker_output_invalid:${validation.join(",")}`);
 
+    const outputManifest: OutputManifest = {
+      schemaVersion: "voxy-local-composition-output-v1",
+      canon: finalVoxyCanonBinding(),
+      output,
+      externalRequestCount: 0,
+      ffmpegShellInterpolationUsed: false,
+      lipSyncUsed: false,
+      externalAvatarProviderUsed: false,
+    };
     await writeFile(
       join(stagingDirectory, "composition-manifest.json"),
-      `${JSON.stringify({
-        schemaVersion: "voxy-local-composition-output-v1",
-        canon: finalVoxyCanonBinding(),
-        output,
-        externalRequestCount: 0,
-        ffmpegShellInterpolationUsed: false,
-        lipSyncUsed: false,
-        externalAvatarProviderUsed: false,
-      }, null, 2)}\n`,
+      `${JSON.stringify(outputManifest, null, 2)}\n`,
       "utf8",
     );
     await rename(stagingDirectory, finalDirectory);
