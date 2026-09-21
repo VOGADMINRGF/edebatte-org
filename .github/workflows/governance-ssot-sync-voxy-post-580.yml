@@ -1,0 +1,103 @@
+name: Governance SSOT single-writer Voxy post-580 sync
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/governance-ssot-sync-voxy-post-580.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-opentasks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact writer branch
+        uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Verify writer branch and untouched source blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "docs/governance-ssot-sync-05"
+          test "$(git hash-object docs/E150/OpenTasks.md)" = "6b9a6fbd7a7c003c08579dd79e63e04f37ae0dfe"
+
+      - name: Patch only canonical Voxy status cells and preserve history byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const path = 'docs/E150/OpenTasks.md';
+          const historyMarker = '## Historischer Katalog und Evidenz';
+          const text = fs.readFileSync(path, 'utf8');
+          const historyIndex = text.indexOf(historyMarker);
+          if (historyIndex < 0) throw new Error('history_marker_missing');
+          let head = text.slice(0, historyIndex);
+          const history = text.slice(historyIndex);
+          const historyHash = crypto.createHash('sha256').update(history, 'utf8').digest('hex');
+
+          function replaceStatus(taskId, fromStatus, toStatus) {
+            const escaped = taskId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const pattern = new RegExp(`^(\\|\\s*${escaped}\\s*\\|\\s*)${fromStatus}(\\s*\\|)`, 'gm');
+            const matches = [...head.matchAll(pattern)];
+            if (matches.length !== 1) {
+              throw new Error(`operative_status_match_count:${taskId}:${matches.length}`);
+            }
+            head = head.replace(pattern, `$1${toStatus}$2`);
+          }
+
+          replaceStatus('VOXY-VOICE-AND-CAPTION-FIXTURE-01', 'review', 'done');
+          replaceStatus('VOXY-200PCT-VISUAL-QA-CHECKPOINT-01', 'review', 'done');
+          replaceStatus('VOXY-LOCAL-COMPOSITION-RUNTIME-01', 'blocked', 'codex_ready');
+
+          const next = head + history;
+          const nextHistoryIndex = next.indexOf(historyMarker);
+          if (nextHistoryIndex < 0) throw new Error('history_marker_lost');
+          const nextHistory = next.slice(nextHistoryIndex);
+          const nextHistoryHash = crypto.createHash('sha256').update(nextHistory, 'utf8').digest('hex');
+          if (nextHistoryHash !== historyHash || nextHistory !== history) {
+            throw new Error('historical_tail_changed');
+          }
+
+          fs.writeFileSync(path, next, 'utf8');
+          NODE
+
+      - name: Verify exact operative statuses
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { getTaskStatus } from './scripts/codex-task-preflight.mjs';
+          const expected = new Map([
+            ['VOXY-VOICE-AND-CAPTION-FIXTURE-01', 'done'],
+            ['VOXY-200PCT-VISUAL-QA-CHECKPOINT-01', 'done'],
+            ['VOXY-LOCAL-COMPOSITION-RUNTIME-01', 'codex_ready'],
+            ['VOXY-ADMIN-VIDEO-STUDIO-01', 'blocked'],
+          ]);
+          for (const [taskId, status] of expected) {
+            const actual = await getTaskStatus(taskId, process.cwd());
+            if (actual !== status) throw new Error(`status_mismatch:${taskId}:${actual}:${status}`);
+          }
+          NODE
+          git diff --check
+          git diff -- docs/E150/OpenTasks.md
+
+      - name: Commit only OpenTasks and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/governance-ssot-sync-voxy-post-580.yml
+          git add docs/E150/OpenTasks.md
+          test "$(git diff --cached --name-only | sort)" = "docs/E150/OpenTasks.md"
+          git commit -m "docs(governance): advance Voxy runtime after visual gate"
+          git push origin HEAD:docs/governance-ssot-sync-05
