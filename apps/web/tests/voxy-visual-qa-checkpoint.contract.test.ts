@@ -123,10 +123,56 @@ function snapshot(format: "16:9" | "9:16" | "1:1", commitSha = HEAD) {
   });
 }
 
+const CLASPED_HAND_QA = {
+  pose: "clasped_hands_not_open_palm",
+  detector588Applicable: false,
+  detector588Status: "not_run_not_applicable",
+  expectedFingerCountPerHand: 5,
+  thresholdChanged: false,
+  generativeReconstructionUsed: false,
+} as const;
+
+function canonicalClaspedSnapshot(
+  format: "16:9" | "9:16" | "1:1",
+  commitSha = HEAD,
+) {
+  return buildVoxyVisualQaSnapshot({
+    format,
+    assetPath: "/brands/voxy/references/derived/CANON-04-pocket-clean.png",
+    assetVersion: "VOXY-V3.10.5-HUMAN-FINAL+canonical-alpha-production-surface-v1",
+    commitSha,
+    fullCapturePath: `artifacts/${format}-canonical-surface.png`,
+    fullCaptureSha256: HASH,
+    regions: regions(),
+    poses: [{
+      poseId: "v3_10_5_canonical_alpha_host",
+      handCheckMode: "canonical_clasped_occlusion",
+      canonicalClaspedHandContract: CLASPED_HAND_QA,
+      leftHandVisible: true,
+      rightHandVisible: true,
+      leftFingerCount: null,
+      rightFingerCount: null,
+      leftHandDetection: null,
+      rightHandDetection: null,
+    }],
+  });
+}
+
 function pendingCheckpoint() {
   return buildVoxyVisualQaCheckpoint({
     snapshots: [snapshot("16:9"), snapshot("9:16"), snapshot("1:1")],
     revision: 4,
+  });
+}
+
+function canonicalClaspedCheckpoint() {
+  return buildVoxyVisualQaCheckpoint({
+    snapshots: [
+      canonicalClaspedSnapshot("16:9"),
+      canonicalClaspedSnapshot("9:16"),
+      canonicalClaspedSnapshot("1:1"),
+    ],
+    revision: 5,
   });
 }
 
@@ -271,6 +317,55 @@ describe("Voxy 200 percent visual QA checkpoint", () => {
     const evidence = validateVoxyVisualQaCheckpoint(checkpoint);
     expect(evidence.errors).toContain(
       "left_hand_detection_unusable:16:9:standing_master",
+    );
+  });
+
+  it("accepts the existing motion-v4 clasped-hand boundary without fabricating image counts", () => {
+    const checkpoint = canonicalClaspedCheckpoint();
+    const evidence = validateVoxyVisualQaCheckpoint(checkpoint);
+    expect(evidence.automatedPassed).toBe(true);
+    expect(evidence.productionEligible).toBe(false);
+    for (const snapshot of checkpoint.snapshots) {
+      const pose = snapshot.poses[0];
+      expect(pose.handCheckMode).toBe("canonical_clasped_occlusion");
+      expect(pose.leftFingerCount).toBeNull();
+      expect(pose.rightFingerCount).toBeNull();
+      expect(pose.leftHandDetection).toBeNull();
+      expect(pose.rightHandDetection).toBeNull();
+      expect(pose.canonicalClaspedHandContract).toEqual(CLASPED_HAND_QA);
+    }
+  });
+
+  it("fails closed if the canonical clasped-hand contract changes its five-finger invariant", () => {
+    const checkpoint = canonicalClaspedCheckpoint();
+    const contract = checkpoint.snapshots[0].poses[0].canonicalClaspedHandContract;
+    if (!contract) throw new Error("clasped hand contract missing");
+    Object.assign(contract, { expectedFingerCountPerHand: 4 });
+    const evidence = validateVoxyVisualQaCheckpoint(checkpoint);
+    expect(evidence.errors).toContain(
+      "canonical_clasped_hand_contract_invalid:16:9:v3_10_5_canonical_alpha_host",
+    );
+  });
+
+  it("fails closed if detector applicability or thresholds are silently relaxed for clasped hands", () => {
+    const checkpoint = canonicalClaspedCheckpoint();
+    const contract = checkpoint.snapshots[1].poses[0].canonicalClaspedHandContract;
+    if (!contract) throw new Error("clasped hand contract missing");
+    Object.assign(contract, { detector588Applicable: true, thresholdChanged: true });
+    const evidence = validateVoxyVisualQaCheckpoint(checkpoint);
+    expect(evidence.errors).toContain(
+      "canonical_clasped_hand_contract_invalid:9:16:v3_10_5_canonical_alpha_host",
+    );
+  });
+
+  it("fails closed if a clasped-hand review fabricates detector evidence or finger counts", () => {
+    const checkpoint = canonicalClaspedCheckpoint();
+    const pose = checkpoint.snapshots[2].poses[0];
+    pose.leftFingerCount = 5;
+    pose.leftHandDetection = handDetection("left");
+    const evidence = validateVoxyVisualQaCheckpoint(checkpoint);
+    expect(evidence.errors).toContain(
+      "canonical_clasped_hand_detector_must_not_be_fabricated:1:1:v3_10_5_canonical_alpha_host",
     );
   });
 
