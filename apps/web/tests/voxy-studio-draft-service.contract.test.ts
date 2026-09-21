@@ -14,6 +14,7 @@ import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
 import {
   approveVoxyStudioDraftForRender,
   bindVoxyStudioVerifiedRender,
+  buildVoxyStudioEditorialReviewItemId,
   createVoxyStudioDraft,
   editVoxyStudioDraft,
   requestVoxyStudioDraftChanges,
@@ -21,6 +22,10 @@ import {
   type VoxyStudioDraftServiceDependencies,
 } from "@/features/voxyVideo/studioDraftService";
 import { createInMemoryVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import type {
+  ReviewQueueOperationAuditEvent,
+  ReviewQueueOperationRecord,
+} from "@features/reviewQueueOperations";
 
 function storyPlan(): VoxyEditorialStoryPlan {
   return {
@@ -203,17 +208,37 @@ function composition(draft: VoxyStudioDraft): {
   };
 }
 
-function deps(): VoxyStudioDraftServiceDependencies & {
+type TestRuntime = VoxyStudioDraftServiceDependencies & {
   evidenceContext: VoxyEditorialEvidenceContext;
   compositionResult: { job: VoxyLocalCompositionJob; output: VoxyLocalCompositionOutput } | null;
-} {
-  const state = {
+  reviewRecord: ReviewQueueOperationRecord | null;
+  reviewAuditEvents: ReviewQueueOperationAuditEvent[];
+  reviewPersistenceMode: "persistent_primary" | "in_memory_fallback";
+};
+
+function deps(): TestRuntime {
+  const state: TestRuntime = {
     repository: createInMemoryVoxyStudioDraftRepository(),
     evidenceContext: evidence(),
-    compositionResult: null as { job: VoxyLocalCompositionJob; output: VoxyLocalCompositionOutput } | null,
+    compositionResult: null,
+    reviewRecord: null,
+    reviewAuditEvents: [],
+    reviewPersistenceMode: "persistent_primary",
     evidenceAuthority: {
       async resolveEvidenceContext() {
         return state.evidenceContext;
+      },
+    },
+    editorialReviewAuthority: {
+      async resolveEditorialReview({ reviewItemId }) {
+        return {
+          persistenceMode: state.reviewPersistenceMode,
+          record:
+            state.reviewRecord?.itemId === reviewItemId ? state.reviewRecord : null,
+          auditEvents: state.reviewAuditEvents.filter(
+            (event) => event.itemId === reviewItemId,
+          ),
+        };
       },
     },
     compositionAuthority: {
@@ -249,10 +274,49 @@ async function createAndSubmit(runtime = deps()) {
     },
     runtime,
   );
-  return { runtime, draft: submitted.draft };
+  return { runtime, draft: submitted.draft, submitted };
 }
 
-async function approve(runtime: ReturnType<typeof deps>, draft: VoxyStudioDraft) {
+function markEditorialReady(
+  runtime: TestRuntime,
+  draft: VoxyStudioDraft,
+  actor = "admin-2",
+) {
+  const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft);
+  const at = "2026-09-21T19:09:00.000Z";
+  runtime.reviewRecord = {
+    itemId: reviewItemId,
+    operationalStatus: "ready",
+    assignedToUserId: actor,
+    assignedByUserId: actor,
+    assignedAt: at,
+    noteCount: 0,
+    latestNote: null,
+    latestNoteAt: null,
+    latestAction: "mark_ready",
+    latestActionAt: at,
+    latestActionByUserId: actor,
+    createdAt: at,
+    updatedAt: at,
+  };
+  runtime.reviewAuditEvents = [
+    {
+      id: "review-queue-audit-voxy-ready",
+      itemId: reviewItemId,
+      action: "mark_ready",
+      byUserId: actor,
+      at,
+      note: null,
+      previousOperationalStatus: "in_review",
+      nextOperationalStatus: "ready",
+      previousAssignedToUserId: actor,
+      nextAssignedToUserId: actor,
+    },
+  ];
+}
+
+async function approve(runtime: TestRuntime, draft: VoxyStudioDraft) {
+  markEditorialReady(runtime, draft);
   return approveVoxyStudioDraftForRender(
     {
       draftId: draft.draftId,
@@ -264,30 +328,93 @@ async function approve(runtime: ReturnType<typeof deps>, draft: VoxyStudioDraft)
 }
 
 describe("Voxy Studio Draft Service", () => {
-  it("creates explicit editorial render approval without misusing preview-review truth", async () => {
-    const { runtime, draft } = await createAndSubmit();
-    const approved = await approve(runtime, draft);
+  it("binds render approval to the persisted unified review audit instead of preview-review truth", async () => {
+    const { runtime, draft, submitted } = await createAndSubmit();
+    expect(submitted.reviewItemId).toBe(
+      buildVoxyStudioEditorialReviewItemId(draft),
+    );
+    markEditorialReady(runtime, draft);
+    const approved = await approveVoxyStudioDraftForRender(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        approvedByUserId: "admin-2",
+      },
+      runtime,
+    );
 
     expect(approved.status).toBe("approved_for_render");
     expect(approved.renderApproval).toMatchObject({
+      reviewDecisionRecordId: "review-queue-audit-voxy-ready",
       approvedByUserId: "admin-2",
+      approvedAt: "2026-09-21T19:09:00.000Z",
       studioDraftRevision: draft.revision,
       storyPlanRevision: draft.storyPlan.revision,
     });
-    expect(approved.renderApproval?.reviewDecisionRecordId).toMatch(
-      /^voxy-studio-editorial-approval:[a-f0-9]{32}$/,
-    );
     expect(approved.renderBinding).toBeNull();
+  });
+
+  it("fails closed until the exact editorial review item is marked ready", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    await expect(
+      approveVoxyStudioDraftForRender(
+        {
+          draftId: draft.draftId,
+          expectedRevision: draft.revision,
+          approvedByUserId: "admin-2",
+        },
+        runtime,
+      ),
+    ).rejects.toThrow("voxy_studio_editorial_review_missing");
+  });
+
+  it("rejects non-persistent editorial review truth in production mode", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    markEditorialReady(runtime, draft);
+    runtime.reviewPersistenceMode = "in_memory_fallback";
+    await expect(
+      approveVoxyStudioDraftForRender(
+        {
+          draftId: draft.draftId,
+          expectedRevision: draft.revision,
+          approvedByUserId: "admin-2",
+        },
+        runtime,
+      ),
+    ).rejects.toThrow("voxy_studio_editorial_review_not_persistent");
+  });
+
+  it("rejects an approval caller who did not perform the persisted mark_ready action", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    markEditorialReady(runtime, draft, "admin-3");
+    await expect(
+      approveVoxyStudioDraftForRender(
+        {
+          draftId: draft.draftId,
+          expectedRevision: draft.revision,
+          approvedByUserId: "admin-2",
+        },
+        runtime,
+      ),
+    ).rejects.toThrow("voxy_studio_editorial_review_actor_mismatch");
   });
 
   it("fails closed when a confirmed fact does not have approved supported source truth", async () => {
     const runtime = deps();
     runtime.evidenceContext = evidence({ sourceReviewState: "review_required" });
     const { draft } = await createAndSubmit(runtime);
+    markEditorialReady(runtime, draft);
 
-    await expect(approve(runtime, draft)).rejects.toThrow(
-      "voxy_studio_editorial_approval_blocked",
-    );
+    await expect(
+      approveVoxyStudioDraftForRender(
+        {
+          draftId: draft.draftId,
+          expectedRevision: draft.revision,
+          approvedByUserId: "admin-2",
+        },
+        runtime,
+      ),
+    ).rejects.toThrow("voxy_studio_editorial_approval_blocked");
   });
 
   it("requests changes explicitly and requires a new submission afterwards", async () => {
@@ -366,7 +493,7 @@ describe("Voxy Studio Draft Service", () => {
     const { runtime, draft } = await createAndSubmit();
     const approved = await approve(runtime, draft);
     const foreign = composition(approved);
-    foreign.job.approvalRef = "voxy-studio-editorial-approval:foreign";
+    foreign.job.approvalRef = "review-queue-audit-foreign";
     runtime.compositionResult = foreign;
 
     await expect(
