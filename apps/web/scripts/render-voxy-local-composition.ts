@@ -18,9 +18,7 @@ import {
   validateVoxyCharacterMotionFixturePlan,
   type VoxyCharacterMotionFixturePlan,
 } from "../src/features/voxyVideo/characterMotionFixture";
-import {
-  renderVoxyCharacterMotionFixtureHtml,
-} from "../src/features/voxyVideo/characterMotionFixtureHtml";
+import { renderVoxyCharacterMotionFixtureHtml } from "../src/features/voxyVideo/characterMotionFixtureHtml";
 import {
   assertVoxyFinalCanonBinding,
   finalVoxyCanonBinding,
@@ -28,6 +26,7 @@ import {
 import {
   buildVoxyLocalCompositionIdentityKey,
   buildVoxyLocalCompositionInputFingerprint,
+  buildVoxyLocalCompositionReviewBindingHash,
   buildVoxyLocalCompositionTimelineHash,
   validateVoxyLocalCompositionAudioAsset,
   validateVoxyLocalCompositionOutput,
@@ -62,11 +61,7 @@ type OutputManifest = {
 };
 
 type Probe = {
-  streams?: Array<{
-    codec_type?: string;
-    width?: number;
-    height?: number;
-  }>;
+  streams?: Array<{ codec_type?: string; width?: number; height?: number }>;
   format?: { duration?: string; size?: string };
 };
 
@@ -180,15 +175,7 @@ function buildRuntimePlan(request: VoxyLocalCompositionRequest): VoxyCharacterMo
 
 function probe(path: string): Probe {
   return JSON.parse(
-    run("ffprobe", [
-      "-v",
-      "error",
-      "-show_streams",
-      "-show_format",
-      "-of",
-      "json",
-      path,
-    ]),
+    run("ffprobe", ["-v", "error", "-show_streams", "-show_format", "-of", "json", path]),
   ) as Probe;
 }
 
@@ -237,10 +224,7 @@ async function mediaFile(input: {
   };
 }
 
-function sameMediaFile(
-  expected: VoxyLocalCompositionMediaFile,
-  actual: VoxyLocalCompositionMediaFile,
-): boolean {
+function sameMediaFile(expected: VoxyLocalCompositionMediaFile, actual: VoxyLocalCompositionMediaFile) {
   return (
     expected.storageKey === actual.storageKey &&
     expected.sha256 === actual.sha256 &&
@@ -286,7 +270,11 @@ async function recoverExistingOutput(input: {
     manifest.output.outputId !== input.job.outputId ||
     manifest.output.identityKey !== input.job.identityKey ||
     manifest.output.inputFingerprint !== input.job.inputFingerprint ||
+    manifest.output.reviewBindingHash !== input.job.reviewBindingHash ||
     manifest.output.timelineHash !== input.job.timelineHash ||
+    manifest.output.previewReviewFlowId !== input.job.previewReviewFlowId ||
+    manifest.output.decisionGateId !== input.job.decisionGateId ||
+    manifest.output.dossierRefId !== input.job.dossierRefId ||
     manifest.externalRequestCount !== 0 ||
     manifest.ffmpegShellInterpolationUsed !== false ||
     manifest.lipSyncUsed !== false ||
@@ -347,9 +335,7 @@ async function recoverExistingOutput(input: {
 async function main(): Promise<void> {
   const manifestArg = argument("manifest");
   const outputRootArg = argument("output-root");
-  if (!manifestArg || !outputRootArg) {
-    throw new Error("manifest_and_output_root_required");
-  }
+  if (!manifestArg || !outputRootArg) throw new Error("manifest_and_output_root_required");
 
   const manifestPath = resolve(process.cwd(), manifestArg);
   const outputRoot = resolve(process.cwd(), outputRootArg);
@@ -359,6 +345,12 @@ async function main(): Promise<void> {
   if (requestErrors.length || audioErrors.length) {
     throw new Error(`worker_manifest_invalid:${[...requestErrors, ...audioErrors].join(",")}`);
   }
+  const expectedReviewBindingHash = buildVoxyLocalCompositionReviewBindingHash({
+    approvalRef: manifest.job.approvalRef,
+    previewReviewFlowId: manifest.job.previewReviewFlowId,
+    decisionGateId: manifest.job.decisionGateId,
+    dossierRefId: manifest.job.dossierRefId,
+  });
   if (
     manifest.job.briefingId !== manifest.request.briefingId ||
     manifest.job.scriptVersion !== manifest.request.scriptVersion ||
@@ -367,7 +359,10 @@ async function main(): Promise<void> {
     manifest.job.locale !== manifest.request.locale.toLowerCase() ||
     manifest.job.identityKey !== buildVoxyLocalCompositionIdentityKey(manifest.request) ||
     manifest.job.inputFingerprint !== buildVoxyLocalCompositionInputFingerprint(manifest.request) ||
-    manifest.job.timelineHash !== buildVoxyLocalCompositionTimelineHash(manifest.request)
+    manifest.job.timelineHash !== buildVoxyLocalCompositionTimelineHash(manifest.request) ||
+    manifest.job.reviewBindingHash !== expectedReviewBindingHash ||
+    !manifest.job.previewReviewFlowId ||
+    !manifest.job.decisionGateId
   ) {
     throw new Error("worker_manifest_revision_binding_mismatch");
   }
@@ -385,9 +380,7 @@ async function main(): Promise<void> {
 
   const plan = buildRuntimePlan(manifest.request);
   const planValidation = validateVoxyCharacterMotionFixturePlan(plan);
-  if (!planValidation.ok) {
-    throw new Error(`runtime_plan_invalid:${planValidation.errors.join(",")}`);
-  }
+  if (!planValidation.ok) throw new Error(`runtime_plan_invalid:${planValidation.errors.join(",")}`);
 
   const webRoot = resolve(import.meta.dirname, "..");
   const studioPath = publicAssetPath(webRoot, plan.studioAssetPath);
@@ -464,83 +457,19 @@ async function main(): Promise<void> {
 
     const frameInput = join(framesDirectory, "frame-%04d.png");
     run("ffmpeg", [
-      "-y",
-      "-framerate",
-      String(plan.fps),
-      "-i",
-      frameInput,
-      "-i",
-      audioPath,
-      "-i",
-      captionsVttPath,
-      "-map",
-      "0:v:0",
-      "-map",
-      "1:a:0",
-      "-map",
-      "2:s:0",
-      "-frames:v",
-      String(frameCount),
-      "-r",
-      String(plan.fps),
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      "20",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "160k",
-      "-c:s",
-      "mov_text",
-      "-movflags",
-      "+faststart",
-      "-shortest",
+      "-y", "-framerate", String(plan.fps), "-i", frameInput, "-i", audioPath, "-i", captionsVttPath,
+      "-map", "0:v:0", "-map", "1:a:0", "-map", "2:s:0",
+      "-frames:v", String(frameCount), "-r", String(plan.fps),
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "160k", "-c:s", "mov_text", "-movflags", "+faststart", "-shortest",
       masterPath,
     ]);
     run("ffmpeg", [
-      "-y",
-      "-framerate",
-      String(plan.fps),
-      "-i",
-      frameInput,
-      "-i",
-      audioPath,
-      "-i",
-      captionsVttPath,
-      "-map",
-      "0:v:0",
-      "-map",
-      "1:a:0",
-      "-map",
-      "2:s:0",
-      "-frames:v",
-      String(frameCount),
-      "-r",
-      String(plan.fps),
-      "-c:v",
-      "libvpx-vp9",
-      "-b:v",
-      "0",
-      "-crf",
-      "32",
-      "-deadline",
-      "realtime",
-      "-cpu-used",
-      "7",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "libopus",
-      "-b:a",
-      "128k",
-      "-c:s",
-      "webvtt",
-      "-shortest",
+      "-y", "-framerate", String(plan.fps), "-i", frameInput, "-i", audioPath, "-i", captionsVttPath,
+      "-map", "0:v:0", "-map", "1:a:0", "-map", "2:s:0",
+      "-frames:v", String(frameCount), "-r", String(plan.fps),
+      "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-deadline", "realtime", "-cpu-used", "7",
+      "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "128k", "-c:s", "webvtt", "-shortest",
       previewPath,
     ]);
 
@@ -551,10 +480,14 @@ async function main(): Promise<void> {
       jobId: manifest.job.jobId,
       identityKey: manifest.job.identityKey,
       inputFingerprint: manifest.job.inputFingerprint,
+      reviewBindingHash: manifest.job.reviewBindingHash,
       timelineHash: manifest.job.timelineHash,
       format: manifest.job.format,
       renderProfile: manifest.job.renderProfile,
       locale: manifest.job.locale,
+      previewReviewFlowId: manifest.job.previewReviewFlowId,
+      decisionGateId: manifest.job.decisionGateId,
+      dossierRefId: manifest.job.dossierRefId,
       masterMp4: await mediaFile({
         path: masterPath,
         storageKey: `${storagePrefix}/master.mp4`,
