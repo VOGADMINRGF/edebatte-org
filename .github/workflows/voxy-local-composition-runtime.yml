@@ -55,7 +55,7 @@ jobs:
           git diff --check
 
       - name: Real local MP4/WebM composition smoke
-        run: pnpm -C apps/web run render:voxy-local-composition-smoke -- --output-root=../../../artifacts/voxy-local-composition-runtime-smoke
+        run: pnpm -C apps/web run render:voxy-local-composition-smoke -- --output-root=../../artifacts/voxy-local-composition-runtime-smoke
 
       - name: Upload revisions-bound render evidence
         uses: actions/upload-artifact@v4
