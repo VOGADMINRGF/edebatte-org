@@ -7,6 +7,7 @@ on:
       - "apps/web/package.json"
       - "apps/web/scripts/render-voxy-local-composition.ts"
       - "apps/web/scripts/render-voxy-local-composition-smoke.ts"
+      - "apps/web/scripts/render-voxy-editorial-composition-smoke.ts"
       - "apps/web/src/features/voxyVideo/editorialCompositionHtml.ts"
       - "apps/web/src/features/voxyVideo/editorialStoryPlan.ts"
       - "apps/web/src/features/voxyVideo/finalCanon.ts"
@@ -62,6 +63,9 @@ jobs:
           pnpm -C apps/web run typecheck
           git diff --check
 
+      - name: Real final-canon editorial frame smoke
+        run: pnpm -C apps/web exec tsx scripts/render-voxy-editorial-composition-smoke.ts --output-root=../../artifacts/voxy-editorial-composition-smoke
+
       - name: Real three-format MP4/WebM composition and recovery smoke
         run: pnpm -C apps/web run render:voxy-local-composition-smoke -- --output-root=../../artifacts/voxy-local-composition-runtime-smoke
 
@@ -72,6 +76,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           path: |
+            artifacts/voxy-editorial-composition-smoke/editorial-smoke-manifest.json
+            artifacts/voxy-editorial-composition-smoke/editorial-16x9.png
+            artifacts/voxy-editorial-composition-smoke/editorial-9x16.png
+            artifacts/voxy-editorial-composition-smoke/editorial-1x1.png
             artifacts/voxy-local-composition-runtime-smoke/smoke-evidence.json
             artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/master.mp4
             artifacts/voxy-local-composition-runtime-smoke/voxy-local-job-*/preview.webm
