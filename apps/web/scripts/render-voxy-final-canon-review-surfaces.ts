@@ -232,37 +232,33 @@ async function edgeContrastScore(page: Page, pngPath: string): Promise<number> {
     `<canvas id="c"></canvas><img id="i" src="${source}" alt="">`,
     { waitUntil: "load" },
   );
-  await page.waitForFunction(() => (document.getElementById("i") as HTMLImageElement | null)?.complete === true);
-  return page.evaluate(() => {
-    const image = document.getElementById("i") as HTMLImageElement;
-    const canvas = document.getElementById("c") as HTMLCanvasElement;
+  await page.waitForFunction("document.getElementById('i')?.complete === true");
+  return page.evaluate<number>(`(() => {
+    const image = document.getElementById('i');
+    const canvas = document.getElementById('c');
     canvas.width = image.naturalWidth;
     canvas.height = image.naturalHeight;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return 0;
     context.drawImage(image, 0, 0);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
     const stride = Math.max(1, Math.floor(Math.min(canvas.width, canvas.height) / 120));
-    const gradients: number[] = [];
+    const gradients = [];
     for (let y = stride; y < canvas.height; y += stride) {
       for (let x = stride; x < canvas.width; x += stride) {
         const offset = (y * canvas.width + x) * 4;
         const left = (y * canvas.width + x - stride) * 4;
         const top = ((y - stride) * canvas.width + x) * 4;
-        const luminance = (i: number) =>
-          0.2126 * pixels[i]! + 0.7152 * pixels[i + 1]! + 0.0722 * pixels[i + 2]!;
-        gradients.push(
-          Math.max(
-            Math.abs(luminance(offset) - luminance(left)),
-            Math.abs(luminance(offset) - luminance(top)),
-          ),
-        );
+        const currentL = 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+        const leftL = 0.2126 * pixels[left] + 0.7152 * pixels[left + 1] + 0.0722 * pixels[left + 2];
+        const topL = 0.2126 * pixels[top] + 0.7152 * pixels[top + 1] + 0.0722 * pixels[top + 2];
+        gradients.push(Math.max(Math.abs(currentL - leftL), Math.abs(currentL - topL)));
       }
     }
     gradients.sort((a, b) => b - a);
     const strongest = gradients.slice(0, Math.max(1, Math.ceil(gradients.length * 0.08)));
     return Math.min(1, strongest.reduce((sum, value) => sum + value, 0) / strongest.length / 96);
-  });
+  })()`);
 }
 
 async function decodePng(page: Page, pngPath: string) {
@@ -272,20 +268,25 @@ async function decodePng(page: Page, pngPath: string) {
     `<canvas id="c"></canvas><img id="i" src="${source}" alt="">`,
     { waitUntil: "load" },
   );
-  const decoded = await page.evaluate(() => {
-    const image = document.getElementById("i") as HTMLImageElement;
-    const canvas = document.getElementById("c") as HTMLCanvasElement;
+  await page.waitForFunction("document.getElementById('i')?.complete === true");
+  const decoded = await page.evaluate<{
+    width: number;
+    height: number;
+    rgba: number[];
+  }>(`(() => {
+    const image = document.getElementById('i');
+    const canvas = document.getElementById('c');
     canvas.width = image.naturalWidth;
     canvas.height = image.naturalHeight;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) throw new Error("voxy_review_surface_png_context_missing");
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('voxy_review_surface_png_context_missing');
     context.drawImage(image, 0, 0);
     return {
       width: canvas.width,
       height: canvas.height,
       rgba: Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data),
     };
-  });
+  })()`);
   return {
     width: decoded.width,
     height: decoded.height,
