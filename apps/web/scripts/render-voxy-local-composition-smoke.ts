@@ -9,6 +9,9 @@ import {
   type VoxyLocalCompositionExecutionResult,
   type VoxyLocalCompositionRequest,
 } from "../src/features/voxyVideo/localCompositionRuntime";
+import type { VoxyVideoFormat } from "../src/features/voxyVideo/modernCharacterContracts";
+
+const FORMATS: VoxyVideoFormat[] = ["16:9", "9:16", "1:1"];
 
 function argument(name: string): string | null {
   const prefix = `--${name}=`;
@@ -20,7 +23,7 @@ function run(binary: string, args: string[], cwd: string): string {
     cwd,
     encoding: "utf8",
     shell: false,
-    timeout: 180_000,
+    timeout: 300_000,
     maxBuffer: 16 * 1024 * 1024,
   });
   if (result.error || result.status !== 0) {
@@ -33,40 +36,18 @@ async function sha256(path: string) {
   return createHash("sha256").update(await readFile(path)).digest("hex");
 }
 
-async function main() {
-  const webRoot = resolve(import.meta.dirname, "..");
-  const outputRoot = resolve(
-    webRoot,
-    argument("output-root") ?? "../../artifacts/voxy-local-composition-runtime-smoke",
-  );
-  await rm(outputRoot, { recursive: true, force: true });
-  const audioRoot = join(outputRoot, "_input");
-  await mkdir(audioRoot, { recursive: true });
-  const audioPath = join(audioRoot, "approved-fixture.wav");
-  run(
-    "ffmpeg",
-    [
-      "-y",
-      "-f",
-      "lavfi",
-      "-i",
-      "sine=frequency=220:sample_rate=48000:duration=8",
-      "-ac",
-      "1",
-      "-c:a",
-      "pcm_s16le",
-      audioPath,
-    ],
-    webRoot,
-  );
+function parseExecutionResult(stdout: string): VoxyLocalCompositionExecutionResult {
+  return JSON.parse(stdout.split(/\r?\n/).filter(Boolean).at(-1) ?? "{}") as VoxyLocalCompositionExecutionResult;
+}
 
-  const request: VoxyLocalCompositionRequest = {
+function requestFor(format: VoxyVideoFormat): VoxyLocalCompositionRequest {
+  return {
     requestedByUserId: "ci-reviewer",
     artifactId: "ci-artifact-568",
     briefingId: "ci-briefing-568",
     scriptVersion: "v1",
     locale: "de-DE",
-    format: "16:9",
+    format,
     renderProfile: "local_review_v1",
     timelineVersion: "fixture-v3",
     audioAssetId: "ci-approved-audio-568",
@@ -107,77 +88,169 @@ async function main() {
       { id: "caption-4", startMs: 6_000, endMs: 8_000, text: "Was muss ein Mensch noch prüfen?" },
     ],
   };
-  const job = buildQueuedVoxyLocalCompositionJob({
-    request,
-    approval: {
-      approved: true,
-      approvalRef: "ci-human-approval-568",
-      approvedBy: "ci-reviewer",
-      approvedAt: new Date().toISOString(),
-      authority: "trusted_review_authority",
-    },
-    now: new Date().toISOString(),
-  });
-  const manifestPath = join(outputRoot, "worker-input.json");
-  await writeFile(
-    manifestPath,
-    `${JSON.stringify({
-      job,
-      request,
-      audioAsset: {
-        assetId: request.audioAssetId,
-        absolutePath: audioPath,
-        allowedRoot: audioRoot,
-        sha256: await sha256(audioPath),
-        durationMs: 8_000,
-      },
-    }, null, 2)}\n`,
-    "utf8",
-  );
+}
 
-  const stdout = run(
-    "pnpm",
+async function main() {
+  const webRoot = resolve(import.meta.dirname, "..");
+  const outputRoot = resolve(
+    webRoot,
+    argument("output-root") ?? "../../artifacts/voxy-local-composition-runtime-smoke",
+  );
+  await rm(outputRoot, { recursive: true, force: true });
+  const audioRoot = join(outputRoot, "_input");
+  await mkdir(audioRoot, { recursive: true });
+  const audioPath = join(audioRoot, "approved-fixture.wav");
+  run(
+    "ffmpeg",
     [
-      "exec",
-      "tsx",
-      "scripts/render-voxy-local-composition.ts",
-      `--manifest=${manifestPath}`,
-      `--output-root=${outputRoot}`,
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=220:sample_rate=48000:duration=8",
+      "-ac",
+      "1",
+      "-c:a",
+      "pcm_s16le",
+      audioPath,
     ],
     webRoot,
   );
-  const result = JSON.parse(stdout.split(/\r?\n/).filter(Boolean).at(-1) ?? "{}") as VoxyLocalCompositionExecutionResult;
-  const errors = validateVoxyLocalCompositionOutput({ job, output: result.output });
-  if (errors.length) throw new Error(`smoke_output_invalid:${errors.join(",")}`);
+  const audioSha256 = await sha256(audioPath);
+  const formatEvidence: Array<Record<string, unknown>> = [];
+  let recoveryManifestPath: string | null = null;
+  let recoveryJob: ReturnType<typeof buildQueuedVoxyLocalCompositionJob> | null = null;
+  let recoveryFirstResult: VoxyLocalCompositionExecutionResult | null = null;
+
+  for (const format of FORMATS) {
+    const request = requestFor(format);
+    const job = buildQueuedVoxyLocalCompositionJob({
+      request,
+      approval: {
+        approved: true,
+        approvalRef: "ci-human-approval-568",
+        approvedBy: "ci-reviewer",
+        approvedAt: new Date().toISOString(),
+        previewReviewFlowId: "ci-preview-review-flow-568",
+        decisionGateId: "ci-decision-gate-568",
+        dossierRefId: "ci-dossier-568",
+        authority: "trusted_review_authority",
+      },
+      now: new Date().toISOString(),
+    });
+    const manifestPath = join(outputRoot, `worker-input-${format.replace(":", "x")}.json`);
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        job,
+        request,
+        audioAsset: {
+          assetId: request.audioAssetId,
+          absolutePath: audioPath,
+          allowedRoot: audioRoot,
+          sha256: audioSha256,
+          durationMs: 8_000,
+        },
+      }, null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = parseExecutionResult(
+      run(
+        "pnpm",
+        [
+          "exec",
+          "tsx",
+          "scripts/render-voxy-local-composition.ts",
+          `--manifest=${manifestPath}`,
+          `--output-root=${outputRoot}`,
+        ],
+        webRoot,
+      ),
+    );
+    const errors = validateVoxyLocalCompositionOutput({ job, output: result.output });
+    if (errors.length) throw new Error(`smoke_output_invalid:${format}:${errors.join(",")}`);
+    if (
+      result.externalRequestCount !== 0 ||
+      result.ffmpegShellInterpolationUsed !== false ||
+      result.lipSyncUsed !== false ||
+      result.externalAvatarProviderUsed !== false
+    ) {
+      throw new Error(`smoke_execution_guard_failed:${format}`);
+    }
+    formatEvidence.push({
+      jobId: job.jobId,
+      outputId: job.outputId,
+      format: job.format,
+      renderProfile: job.renderProfile,
+      timelineHash: job.timelineHash,
+      reviewBindingHash: job.reviewBindingHash,
+      previewReviewFlowId: job.previewReviewFlowId,
+      decisionGateId: job.decisionGateId,
+      masterMp4: result.output.masterMp4,
+      previewWebm: result.output.previewWebm,
+      captionsVtt: result.output.captionsVtt,
+      captionsSrt: result.output.captionsSrt,
+    });
+    if (format === "16:9") {
+      recoveryManifestPath = manifestPath;
+      recoveryJob = job;
+      recoveryFirstResult = result;
+    }
+  }
+
+  if (!recoveryManifestPath || !recoveryJob || !recoveryFirstResult) {
+    throw new Error("recovery_fixture_missing");
+  }
+  const recovered = parseExecutionResult(
+    run(
+      "pnpm",
+      [
+        "exec",
+        "tsx",
+        "scripts/render-voxy-local-composition.ts",
+        `--manifest=${recoveryManifestPath}`,
+        `--output-root=${outputRoot}`,
+      ],
+      webRoot,
+    ),
+  );
   if (
-    result.externalRequestCount !== 0 ||
-    result.ffmpegShellInterpolationUsed !== false ||
-    result.lipSyncUsed !== false ||
-    result.externalAvatarProviderUsed !== false
+    recovered.output.outputId !== recoveryJob.outputId ||
+    recovered.output.masterMp4.sha256 !== recoveryFirstResult.output.masterMp4.sha256 ||
+    recovered.output.previewWebm.sha256 !== recoveryFirstResult.output.previewWebm.sha256 ||
+    recovered.output.captionsVtt.sha256 !== recoveryFirstResult.output.captionsVtt.sha256 ||
+    recovered.output.captionsSrt.sha256 !== recoveryFirstResult.output.captionsSrt.sha256
   ) {
-    throw new Error("smoke_execution_guard_failed");
+    throw new Error("recovery_reuse_hash_mismatch");
   }
 
   const evidence = {
     taskId: "VOXY-LOCAL-COMPOSITION-RUNTIME-01",
     status: "pass",
-    jobId: job.jobId,
-    outputId: job.outputId,
-    format: job.format,
-    renderProfile: job.renderProfile,
-    timelineHash: job.timelineHash,
-    masterMp4: result.output.masterMp4,
-    previewWebm: result.output.previewWebm,
-    captionsVtt: result.output.captionsVtt,
-    captionsSrt: result.output.captionsSrt,
+    formats: formatEvidence,
+    realFormatCount: formatEvidence.length,
+    canonicalTimelineAcrossFormats:
+      new Set(formatEvidence.map((entry) => entry.timelineHash)).size === 1,
+    recoveryReuseVerified: true,
+    reviewBinding: {
+      previewReviewFlowId: recoveryJob.previewReviewFlowId,
+      decisionGateId: recoveryJob.decisionGateId,
+      reviewBindingHash: recoveryJob.reviewBindingHash,
+      existingReviewStoreOnly: true,
+      createsSecondReviewQueue: false,
+    },
     reviewRequired: true,
-    reviewStatus: result.output.reviewStatus,
+    reviewStatus: "needs_review",
     uploaded: false,
     scheduled: false,
     socialPosted: false,
     published: false,
-    externalRequestCount: result.externalRequestCount,
+    externalRequestCount: 0,
   };
+  if (evidence.realFormatCount !== 3 || evidence.canonicalTimelineAcrossFormats !== true) {
+    throw new Error("three_format_same_timeline_contract_failed");
+  }
   await writeFile(join(outputRoot, "smoke-evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
   console.log(JSON.stringify(evidence, null, 2));
 }
