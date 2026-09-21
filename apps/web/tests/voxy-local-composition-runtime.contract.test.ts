@@ -4,6 +4,7 @@ import {
   buildQueuedVoxyLocalCompositionJob,
   validateVoxyLocalCompositionOutput,
   validateVoxyLocalCompositionRequest,
+  type VoxyLocalCompositionApprovalSnapshot,
   type VoxyLocalCompositionExecutionResult,
   type VoxyLocalCompositionOutput,
   type VoxyLocalCompositionRequest,
@@ -14,9 +15,7 @@ import {
   retryVoxyLocalComposition,
   type VoxyLocalCompositionRuntimeDependencies,
 } from "@/features/voxyVideo/localCompositionRuntimeService";
-import {
-  createInMemoryVoxyLocalCompositionRepository,
-} from "@/features/voxyVideo/localCompositionRuntimeStore";
+import { createInMemoryVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
 
 function request(overrides?: Partial<VoxyLocalCompositionRequest>): VoxyLocalCompositionRequest {
   return {
@@ -41,6 +40,20 @@ function request(overrides?: Partial<VoxyLocalCompositionRequest>): VoxyLocalCom
       { id: "cue-3", startMs: 4_000, endMs: 6_000, text: "Was widerspricht?" },
       { id: "cue-4", startMs: 6_000, endMs: 8_000, text: "Was fehlt?" },
     ],
+    ...overrides,
+  };
+}
+
+function approval(overrides?: Partial<VoxyLocalCompositionApprovalSnapshot>): VoxyLocalCompositionApprovalSnapshot {
+  return {
+    approved: true,
+    approvalRef: "approval-1",
+    approvedBy: "reviewer-1",
+    approvedAt: "2026-09-21T15:59:00.000Z",
+    previewReviewFlowId: "preview-review-flow-1",
+    decisionGateId: "decision-gate-1",
+    dossierRefId: "dossier-1",
+    authority: "trusted_review_authority",
     ...overrides,
   };
 }
@@ -75,10 +88,14 @@ function outputFor(job: ReturnType<typeof buildQueuedVoxyLocalCompositionJob>): 
     jobId: job.jobId,
     identityKey: job.identityKey,
     inputFingerprint: job.inputFingerprint,
+    reviewBindingHash: job.reviewBindingHash,
     timelineHash: job.timelineHash,
     format: job.format,
     renderProfile: job.renderProfile,
     locale: job.locale,
+    previewReviewFlowId: job.previewReviewFlowId,
+    decisionGateId: job.decisionGateId,
+    dossierRefId: job.dossierRefId,
     masterMp4: video("master.mp4", "video/mp4"),
     previewWebm: video("preview.webm", "video/webm"),
     captionsVtt: caption("captions.vtt", "text/vtt"),
@@ -94,19 +111,16 @@ function outputFor(job: ReturnType<typeof buildQueuedVoxyLocalCompositionJob>): 
   };
 }
 
-function deps(options?: { approved?: boolean; executorFails?: boolean }) {
+function deps(options?: {
+  approval?: VoxyLocalCompositionApprovalSnapshot;
+  executorFails?: boolean;
+}) {
   const repository = createInMemoryVoxyLocalCompositionRepository();
   const runtime: VoxyLocalCompositionRuntimeDependencies = {
     repository,
     approvalAuthority: {
       async resolveApproval() {
-        return {
-          approved: options?.approved ?? true,
-          approvalRef: (options?.approved ?? true) ? "approval-1" : null,
-          approvedBy: (options?.approved ?? true) ? "reviewer-1" : null,
-          approvedAt: (options?.approved ?? true) ? "2026-09-21T15:59:00.000Z" : null,
-          authority: "trusted_review_authority",
-        };
+        return options?.approval ?? approval();
       },
     },
     audioResolver: {
@@ -151,6 +165,8 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
     expect(left.job.jobId).toBe(right.job.jobId);
     expect(left.job.identityKey).toBe(right.job.identityKey);
     expect(left.job.attempt).toBe(1);
+    expect(left.job.previewReviewFlowId).toBe("preview-review-flow-1");
+    expect(left.job.decisionGateId).toBe("decision-gate-1");
   });
 
   it("creates a distinct identity when the script version changes", async () => {
@@ -163,13 +179,24 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
   });
 
   it("blocks render queueing when trusted approval authority has not approved", async () => {
-    const runtime = deps({ approved: false });
-    const result = await queueVoxyLocalComposition(request(), runtime);
-    expect(result).toMatchObject({
-      ok: false,
-      status: "blocked_by_missing_approval",
-      job: null,
+    const runtime = deps({
+      approval: approval({
+        approved: false,
+        approvalRef: null,
+        approvedBy: null,
+        approvedAt: null,
+      }),
     });
+    const result = await queueVoxyLocalComposition(request(), runtime);
+    expect(result).toMatchObject({ ok: false, status: "blocked_by_missing_approval", job: null });
+  });
+
+  it("blocks render queueing when trusted approval lacks existing review architecture ids", async () => {
+    const runtime = deps({
+      approval: approval({ previewReviewFlowId: null, decisionGateId: null }),
+    });
+    const result = await queueVoxyLocalComposition(request(), runtime);
+    expect(result).toMatchObject({ ok: false, status: "blocked_by_missing_approval", job: null });
   });
 
   it("renders to review_ready and persists one verified output without publishing", async () => {
@@ -186,6 +213,9 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
     const output = await runtime.repository.getOutput(result.outputId);
     expect(output).not.toBeNull();
     expect(output).toMatchObject({
+      previewReviewFlowId: "preview-review-flow-1",
+      decisionGateId: "decision-gate-1",
+      dossierRefId: "dossier-1",
       reviewRequired: true,
       reviewStatus: "needs_review",
       uploaded: false,
@@ -231,17 +261,7 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
     ["1:1", 1080, 1080],
   ] as const)("validates %s output dimensions", (format, width, height) => {
     const input = request({ format });
-    const job = buildQueuedVoxyLocalCompositionJob({
-      request: input,
-      approval: {
-        approved: true,
-        approvalRef: "approval-1",
-        approvedBy: "reviewer-1",
-        approvedAt: "2026-09-21T15:59:00.000Z",
-        authority: "trusted_review_authority",
-      },
-      now: "2026-09-21T16:00:00.000Z",
-    });
+    const job = buildQueuedVoxyLocalCompositionJob({ request: input, approval: approval(), now: "2026-09-21T16:00:00.000Z" });
     const output = outputFor(job);
     expect(output.masterMp4.width).toBe(width);
     expect(output.masterMp4.height).toBe(height);
@@ -267,6 +287,21 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
       ),
     });
     const second = await queueVoxyLocalComposition(changed, runtime);
+    expect(second).toMatchObject({ ok: false, status: "idempotency_conflict" });
+  });
+
+  it("rejects a changed trusted review binding under an unchanged composition identity", async () => {
+    const repository = createInMemoryVoxyLocalCompositionRepository();
+    const firstRuntime = deps();
+    firstRuntime.repository = repository;
+    const first = await queueVoxyLocalComposition(request(), firstRuntime);
+    expect(first.ok).toBe(true);
+
+    const secondRuntime = deps({
+      approval: approval({ decisionGateId: "decision-gate-2" }),
+    });
+    secondRuntime.repository = repository;
+    const second = await queueVoxyLocalComposition(request(), secondRuntime);
     expect(second).toMatchObject({ ok: false, status: "idempotency_conflict" });
   });
 });
