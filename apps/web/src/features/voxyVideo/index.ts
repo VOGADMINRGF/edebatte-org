@@ -2,6 +2,7 @@ export * from "./contracts";
 export * from "./dualVoiceArchitecture";
 export * from "./dualVoiceExplainerPilot";
 export * from "./homepageReferenceFilms";
+export * from "./localCompositionReviewBridge";
 export * from "./localCompositionRuntime";
 export * from "./localCompositionRuntimeService";
 export * from "./localTts";
