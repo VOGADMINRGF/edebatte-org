@@ -60,6 +60,9 @@ export type VoxyLocalCompositionApprovalSnapshot = {
   approvalRef: string | null;
   approvedBy: string | null;
   approvedAt: string | null;
+  previewReviewFlowId: string | null;
+  decisionGateId: string | null;
+  dossierRefId: string | null;
   authority: "trusted_review_authority";
 };
 
@@ -76,6 +79,7 @@ export type VoxyLocalCompositionJob = {
   outputId: string;
   identityKey: string;
   inputFingerprint: string;
+  reviewBindingHash: string;
   requestedByUserId: string;
   artifactId: string;
   briefingId: string;
@@ -86,6 +90,9 @@ export type VoxyLocalCompositionJob = {
   timelineVersion: string;
   timelineHash: string;
   audioAssetId: string;
+  previewReviewFlowId: string;
+  decisionGateId: string;
+  dossierRefId: string | null;
   status: VoxyLocalCompositionStatus;
   attempt: number;
   approvalRef: string;
@@ -117,10 +124,14 @@ export type VoxyLocalCompositionOutput = {
   jobId: string;
   identityKey: string;
   inputFingerprint: string;
+  reviewBindingHash: string;
   timelineHash: string;
   format: VoxyVideoFormat;
   renderProfile: VoxyLocalCompositionRenderProfile;
   locale: string;
+  previewReviewFlowId: string;
+  decisionGateId: string;
+  dossierRefId: string | null;
   masterMp4: VoxyLocalCompositionMediaFile;
   previewWebm: VoxyLocalCompositionMediaFile;
   captionsVtt: VoxyLocalCompositionMediaFile;
@@ -286,12 +297,38 @@ export function buildVoxyLocalCompositionTimelineHash(
   );
 }
 
+export function buildVoxyLocalCompositionReviewBindingHash(
+  input: Pick<
+    VoxyLocalCompositionApprovalSnapshot,
+    "approvalRef" | "previewReviewFlowId" | "decisionGateId" | "dossierRefId"
+  >,
+): string {
+  return stableHash(
+    [
+      normalized(input.approvalRef),
+      normalized(input.previewReviewFlowId),
+      normalized(input.decisionGateId),
+      normalized(input.dossierRefId),
+    ].join(":"),
+  );
+}
+
 export function buildQueuedVoxyLocalCompositionJob(input: {
   request: VoxyLocalCompositionRequest;
   approval: VoxyLocalCompositionApprovalSnapshot;
   now?: string;
 }): VoxyLocalCompositionJob {
-  if (!input.approval.approved || !normalized(input.approval.approvalRef)) {
+  const approvalRef = normalized(input.approval.approvalRef);
+  const previewReviewFlowId = normalized(input.approval.previewReviewFlowId);
+  const decisionGateId = normalized(input.approval.decisionGateId);
+  const dossierRefId = normalized(input.approval.dossierRefId) || null;
+  if (
+    !input.approval.approved ||
+    !validId(approvalRef) ||
+    !validId(previewReviewFlowId) ||
+    !validId(decisionGateId) ||
+    (dossierRefId !== null && !validId(dossierRefId))
+  ) {
     throw new Error("voxy_local_composition_approval_required");
   }
   const errors = validateVoxyLocalCompositionRequest(input.request);
@@ -305,6 +342,7 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
     outputId: `voxy-local-output:${hash}`,
     identityKey,
     inputFingerprint,
+    reviewBindingHash: buildVoxyLocalCompositionReviewBindingHash(input.approval),
     requestedByUserId: normalized(input.request.requestedByUserId),
     artifactId: normalized(input.request.artifactId),
     briefingId: normalized(input.request.briefingId),
@@ -315,9 +353,12 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
     timelineVersion: normalized(input.request.timelineVersion),
     timelineHash: buildVoxyLocalCompositionTimelineHash(input.request),
     audioAssetId: normalized(input.request.audioAssetId),
+    previewReviewFlowId,
+    decisionGateId,
+    dossierRefId,
     status: "queued",
     attempt: 1,
-    approvalRef: normalized(input.approval.approvalRef),
+    approvalRef,
     createdAt: now,
     updatedAt: now,
     startedAt: null,
@@ -358,7 +399,11 @@ export function validateVoxyLocalCompositionOutput(input: {
   if (
     input.output.identityKey !== input.job.identityKey ||
     input.output.inputFingerprint !== input.job.inputFingerprint ||
-    input.output.timelineHash !== input.job.timelineHash
+    input.output.reviewBindingHash !== input.job.reviewBindingHash ||
+    input.output.timelineHash !== input.job.timelineHash ||
+    input.output.previewReviewFlowId !== input.job.previewReviewFlowId ||
+    input.output.decisionGateId !== input.job.decisionGateId ||
+    input.output.dossierRefId !== input.job.dossierRefId
   ) {
     errors.push("output_revision_binding_mismatch");
   }
