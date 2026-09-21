@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "apps/web/src/features/voxyVideo/**"
+      - "apps/web/src/app/admin/review/**"
       - "apps/web/scripts/capture-voxy-200pct-evidence.ts"
       - "apps/web/scripts/rebind-voxy-200pct-semantic-regions.ts"
       - "apps/web/scripts/render-voxy-head-alpha-compositing-proofs.ts"
       - "apps/web/tests/voxy-visual-qa-checkpoint.contract.test.ts"
       - "apps/web/tests/voxy-visual-qa-review-decision-bridge.contract.test.ts"
+      - "apps/web/tests/voxy-visual-qa-human-review-command.contract.test.ts"
       - "apps/web/tests/voxy-visual-detector-license-contract.test.ts"
       - "apps/web/tests/voxy-final-canon-lock.contract.test.ts"
       - "apps/web/THIRD_PARTY_NOTICES.voxy-visual-detector.md"
@@ -82,6 +84,7 @@ jobs:
             tests/voxy-visual-detector-license-contract.test.ts \
             tests/voxy-visual-qa-checkpoint.contract.test.ts \
             tests/voxy-visual-qa-review-decision-bridge.contract.test.ts \
+            tests/voxy-visual-qa-human-review-command.contract.test.ts \
             tests/voxy-final-canon-lock.contract.test.ts
 
       - name: Capture real 200-percent browser evidence
