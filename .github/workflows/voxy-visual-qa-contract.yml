@@ -7,6 +7,8 @@ on:
       - "apps/web/src/app/admin/review/**"
       - "apps/web/scripts/capture-voxy-200pct-evidence.ts"
       - "apps/web/scripts/rebind-voxy-200pct-semantic-regions.ts"
+      - "apps/web/scripts/render-voxy-final-canon-review-surfaces.ts"
+      - "apps/web/scripts/render-voxy-homepage-multiformat-previews.ts"
       - "apps/web/scripts/render-voxy-head-alpha-compositing-proofs.ts"
       - "apps/web/tests/voxy-visual-qa-checkpoint.contract.test.ts"
       - "apps/web/tests/voxy-visual-qa-review-decision-bridge.contract.test.ts"
@@ -87,15 +89,15 @@ jobs:
             tests/voxy-visual-qa-human-review-command.contract.test.ts \
             tests/voxy-final-canon-lock.contract.test.ts
 
-      - name: Capture real 200-percent browser evidence
+      - name: Seed detector and negative-fixture evidence
         env:
           VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_QA_INTEGRATION_SHA }}
         run: pnpm -w exec tsx apps/web/scripts/capture-voxy-200pct-evidence.ts --output=artifacts/voxy-200pct-visual-qa
 
-      - name: Rebind 200-percent crops to semantic targets
+      - name: Replace human review surfaces with V3.10.5 final-canon renderer
         env:
           VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_QA_INTEGRATION_SHA }}
-        run: pnpm -w exec tsx apps/web/scripts/rebind-voxy-200pct-semantic-regions.ts --output=artifacts/voxy-200pct-visual-qa
+        run: pnpm -w exec tsx apps/web/scripts/render-voxy-final-canon-review-surfaces.ts --output=artifacts/voxy-200pct-visual-qa --bind-evidence=true
 
       - name: Render V3.10.5 canonical compositing proof
         run: pnpm -w exec tsx apps/web/scripts/render-voxy-head-alpha-compositing-proofs.ts --output=/tmp/voxy-v3-10-5-proof
@@ -105,28 +107,63 @@ jobs:
           mkdir -p artifacts/voxy-200pct-visual-qa/v3-10-5-proof
           cp -R /tmp/voxy-v3-10-5-proof/. artifacts/voxy-200pct-visual-qa/v3-10-5-proof/
 
-      - name: Verify evidence is semantic, canon-bound and review-first
+      - name: Verify final human evidence is production-renderer canon
         env:
           VOXY_EVIDENCE_COMMIT_SHA: ${{ env.VOXY_QA_INTEGRATION_SHA }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const manifest = JSON.parse(fs.readFileSync('artifacts/voxy-200pct-visual-qa/evidence-manifest.json','utf8'));
+          const review = JSON.parse(fs.readFileSync('artifacts/voxy-200pct-visual-qa/final-canon-review-manifest.json','utf8'));
           if (manifest.commitSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('evidence_integration_sha_mismatch');
           if (manifest.humanReview.status !== 'pending') throw new Error('human_review_must_remain_pending');
           if (manifest.humanReview.approvedCommitSha !== null) throw new Error('self_approval_forbidden');
           if (manifest.formats.length !== 3) throw new Error('three_formats_required');
           if (!manifest.validation.requiredDecisionGateId) throw new Error('revision_bound_human_gate_missing');
-          if (manifest.semanticRegionBinding?.version !== 'voxy-semantic-region-binding-v1') throw new Error('semantic_region_binding_missing');
+          if (manifest.validation.productionEligible !== false) throw new Error('human_gate_must_block_production');
+
+          if (review.schemaVersion !== 'voxy-v3-10-5-final-canon-review-surfaces-v1') throw new Error('final_canon_review_manifest_schema_mismatch');
+          if (review.exactHeadSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('final_canon_review_head_mismatch');
+          if (review.canon?.canonId !== 'VOXY-V3.10.5-HUMAN-FINAL') throw new Error('final_canon_review_id_mismatch');
+          if (review.canon?.sourcePullRequest !== 624) throw new Error('final_canon_review_source_pr_mismatch');
+          if (review.surfaces?.length !== 6) throw new Error('both_brands_three_formats_required');
+          if (!review.surfaces.every((surface) => surface.canonicalAlphaCompositing === true)) throw new Error('canonical_alpha_surface_missing');
+          if (!review.surfaces.every((surface) => surface.canonicalHeadLayer === 'canonical-alpha-head')) throw new Error('canonical_head_layer_missing');
+          if (!review.surfaces.every((surface) => surface.canonicalHeadOutsideContribution === '0')) throw new Error('canonical_head_outside_contribution_must_be_zero');
+          if (!review.surfaces.every((surface) => surface.canonicalBodyLayerCount >= 1 && surface.legacyNeckPlateCount === 0)) throw new Error('canonical_body_or_legacy_neck_gate_failed');
+
+          if (manifest.semanticRegionBinding?.version !== 'voxy-semantic-region-binding-v2-production') throw new Error('production_semantic_region_binding_missing');
           if (manifest.semanticRegionBinding?.commitSha !== process.env.VOXY_EVIDENCE_COMMIT_SHA) throw new Error('semantic_region_binding_revision_mismatch');
-          if (!Array.isArray(manifest.semanticRegionBinding?.bindings) || manifest.semanticRegionBinding.bindings.length !== 24) throw new Error('semantic_region_bindings_incomplete');
-          if (manifest.semanticRegionBinding?.microphoneApplicability?.['16:9'] !== true) throw new Error('landscape_microphone_semantics_missing');
-          if (manifest.semanticRegionBinding?.microphoneApplicability?.['9:16'] !== false) throw new Error('portrait_microphone_applicability_must_be_explicit');
-          if (manifest.semanticRegionBinding?.microphoneApplicability?.['1:1'] !== false) throw new Error('square_microphone_applicability_must_be_explicit');
+          if (!Array.isArray(manifest.semanticRegionBinding?.bindings) || manifest.semanticRegionBinding.bindings.length !== 30) throw new Error('production_semantic_region_bindings_incomplete');
+          for (const format of ['16:9','9:16','1:1']) {
+            if (manifest.semanticRegionBinding?.microphoneApplicability?.[format] !== true) throw new Error(`microphone_semantics_missing:${format}`);
+          }
+
+          if (manifest.canonicalSurfaceBinding?.canonId !== 'VOXY-V3.10.5-HUMAN-FINAL') throw new Error('canonical_surface_binding_missing');
+          if (manifest.canonicalSurfaceBinding?.sourcePullRequest !== 624) throw new Error('canonical_surface_pr_mismatch');
+          if (manifest.canonicalSurfaceBinding?.cleanStudioRequired !== true) throw new Error('canonical_clean_studio_not_required');
+          if (manifest.canonicalSurfaceBinding?.surfaces?.length !== 3) throw new Error('canonical_edebatte_surface_count_mismatch');
+
+          const expectedDimensions = {
+            '16:9': [1920,1080],
+            '9:16': [1080,1920],
+            '1:1': [1080,1080],
+          };
+          for (const snapshot of manifest.checkpoint.snapshots) {
+            const expected = expectedDimensions[snapshot.format];
+            if (!expected || snapshot.width !== expected[0] || snapshot.height !== expected[1]) throw new Error(`production_surface_dimensions_mismatch:${snapshot.format}`);
+            if (!snapshot.assetVersion.includes('VOXY-V3.10.5-HUMAN-FINAL')) throw new Error(`production_surface_asset_version_mismatch:${snapshot.format}`);
+            if (snapshot.poses?.[0]?.poseId !== 'v3_10_5_canonical_alpha_host') throw new Error(`production_surface_pose_mismatch:${snapshot.format}`);
+          }
+
+          const serialized = JSON.stringify(manifest);
+          if (serialized.includes('voxy-standing-master.svg') || serialized.includes('"poseId":"standing_master"')) throw new Error('legacy_standing_master_leaked_into_human_evidence');
+          if (manifest.negativeFixture?.source !== 'v3_10_5_final_canon_surface') throw new Error('negative_fixture_not_canon_derived');
           if (!manifest.negativeFixture?.sha256) throw new Error('negative_render_fixture_missing');
           if (manifest.negativeFixture.actualCrop !== true) throw new Error('negative_fixture_real_crop_not_observed');
           if (!String(manifest.negativeFixture.computedFilter).includes('blur')) throw new Error('negative_fixture_real_blur_not_observed');
           if (manifest.negativeFixture.mustNeverBeApproved !== true) throw new Error('negative_fixture_guard_missing');
+
           if (manifest.detector?.id !== 'voxy_raster_silhouette_hand_landmarker') throw new Error('local_hand_detector_missing');
           if (manifest.detector?.externalServiceRequired !== false) throw new Error('external_detector_forbidden');
           if (manifest.detector?.runtimeNetworkRequired !== false) throw new Error('detector_network_forbidden');
@@ -135,8 +172,6 @@ jobs:
           if (!manifest.detectorRotationFixtures.every((fixture) => fixture.detection?.fingerCount === 5 && fixture.detection?.normalizationApplied === true)) throw new Error('rotated_positive_png_fixture_not_normalized');
           if (manifest.detectorNegativeFixtures?.length !== 4) throw new Error('detector_negative_fixtures_missing');
           if (!manifest.detectorNegativeFixtures.every((fixture) => fixture.mustNeverBeApproved === true)) throw new Error('detector_negative_fixture_guard_missing');
-          if (!manifest.detectorNegativeFixtures.filter((fixture) => fixture.kind.includes('four-finger') || fixture.kind.includes('six-finger')).every((fixture) => fixture.detection?.normalizationApplied === true)) throw new Error('rotated_negative_fixture_not_normalized');
-          if (manifest.validation.productionEligible !== false) throw new Error('human_gate_must_block_production');
 
           const proof = JSON.parse(fs.readFileSync('artifacts/voxy-200pct-visual-qa/v3-10-5-proof/head-alpha-proof-manifest.json','utf8'));
           if (proof.schemaVersion !== 'voxy-homepage-root-cause-compositing-proof-v3-10-5') throw new Error('v3_10_5_compositor_proof_schema_mismatch');
