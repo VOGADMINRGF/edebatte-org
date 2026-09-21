@@ -12,12 +12,42 @@ const REWRITE_METADATA = [
   "DOCUMENT_REWRITE_RATIONALE=",
   "DOCUMENT_REWRITE_SUPERSESSION=",
 ];
+const PRODUCT_CODE_PATTERN = /^(?:apps\/[^/]+\/src\/|features\/|core\/).+\.[cm]?[jt]sx?$/i;
+const TOPIC_CANONICAL_SYMBOLS = new Set([
+  "CanonicalTopic",
+  "JurisdictionContext",
+  "DecisionQuestion",
+]);
+const LEGACY_TOPIC_OWNER_PATH = "apps/web/src/features/create/canonicalTopicResolutionContract";
+
+export const PROTECTED_CANONICAL_OWNERS = new Map([
+  ["CanonicalTopic", "features/topic/canonicalTopicResolutionContract.ts"],
+  ["JurisdictionContext", "features/topic/canonicalTopicResolutionContract.ts"],
+  ["DecisionQuestion", "features/topic/canonicalTopicResolutionContract.ts"],
+  ["DurableSourceSnapshot", "features/feeds/sourceSnapshot.ts"],
+  ["SourceArtifact", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["SourceSegment", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["AtomicClaim", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["SourceFamily", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["ClaimSourceRelation", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["EvidenceAssessment", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["PublicationClassification", "features/analyze/atomicClaimSourceRelationContract.ts"],
+  ["SynthesisReceipt", "features/analyze/atomicClaimSourceRelationContract.ts"],
+]);
 
 // Keep exceptions narrow, path-specific, and reviewed in the same change that needs one.
 export const DOMAIN_OWNERSHIP_ALLOWLIST = new Set();
 
 function normalizePath(value) {
   return value.replaceAll("\\", "/");
+}
+
+function stripCodeExtension(value) {
+  return value.replace(/\.[cm]?[jt]sx?$/i, "");
+}
+
+function isProductCodeFile(filePath) {
+  return PRODUCT_CODE_PATTERN.test(normalizePath(filePath));
 }
 
 export function isProtectedDocument(filePath) {
@@ -44,6 +74,18 @@ export function extractHeadings(source) {
     .map((match) => `${match[1].length}:${match[2].trim().toLowerCase()}`);
 }
 
+export function extractDeclaredIdentifiers(source) {
+  const identifiers = [];
+  const declarationPattern =
+    /\b(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|enum|function|const|let|var)\s+([A-Za-z_$][\w$]*)/g;
+
+  for (const match of source.matchAll(declarationPattern)) {
+    identifiers.push(match[1]);
+  }
+
+  return identifiers;
+}
+
 function hasRequiredRewriteMetadata(source) {
   return REWRITE_METADATA.every((marker) => {
     const line = source.split("\n").find((candidate) => candidate.startsWith(marker));
@@ -64,6 +106,87 @@ export function classifyWebFeatureFile(source) {
   return source.match(CLASSIFICATION_PATTERN)?.[1].toLowerCase() ?? null;
 }
 
+export function findCanonicalOwnerCollisions(filePath, source) {
+  const normalized = normalizePath(filePath);
+  if (!isProductCodeFile(normalized)) return [];
+
+  return extractDeclaredIdentifiers(source)
+    .map((symbol) => ({ symbol, owner: PROTECTED_CANONICAL_OWNERS.get(symbol) }))
+    .filter(({ owner }) => owner && owner !== normalized);
+}
+
+function classifyRuntimeCollision(identifier) {
+  const lower = identifier.toLowerCase();
+
+  if (/^t9.*(?:runner|composer|providerrouter)$/.test(lower)) {
+    return "T9 orchestration belongs to #629/E150; no separate T9 runner/composer/provider router.";
+  }
+
+  if (/^c13.*(?:youtube|media|transcript).*(?:loader|fetcher|client|runtime)$/.test(lower)) {
+    return "C13 media acquisition belongs to #644; no second YouTube/media/transcript loader runtime.";
+  }
+
+  if (/^g6.*(?:evidence|graph).*(?:store|repository|collection)$/.test(lower)) {
+    return "G6 is derived/read-only; no new Evidence/Graph store, repository, or collection.";
+  }
+
+  if (/^observation.*(?:store|repository|collection)$/.test(lower)) {
+    return "DurableSourceSnapshot.snapshotId is Observation Identity; no parallel Observation store.";
+  }
+
+  return null;
+}
+
+export function findRuntimeOwnerCollisions(filePath, source) {
+  const normalized = normalizePath(filePath);
+  if (!isProductCodeFile(normalized)) return [];
+
+  return extractDeclaredIdentifiers(source)
+    .map((identifier) => ({ identifier, reason: classifyRuntimeCollision(identifier) }))
+    .filter(({ reason }) => reason);
+}
+
+function isLegacyTopicOwnerSpecifier(filePath, specifier) {
+  const normalizedFile = normalizePath(filePath);
+  const normalizedSpecifier = normalizePath(specifier);
+
+  if (normalizedSpecifier.startsWith(".")) {
+    const resolved = stripCodeExtension(
+      path.posix.normalize(path.posix.join(path.posix.dirname(normalizedFile), normalizedSpecifier)),
+    );
+    return resolved === LEGACY_TOPIC_OWNER_PATH;
+  }
+
+  const stripped = stripCodeExtension(normalizedSpecifier);
+  return (
+    stripped === LEGACY_TOPIC_OWNER_PATH ||
+    stripped.endsWith("/features/create/canonicalTopicResolutionContract")
+  );
+}
+
+export function findLegacyTopicOwnerImports(filePath, source) {
+  const normalized = normalizePath(filePath);
+  if (!isProductCodeFile(normalized)) return [];
+
+  const collisions = [];
+  const importPattern =
+    /import\s+(?:type\s+)?([^;]+?)\s+from\s+["']([^"']+)["']\s*;?/g;
+
+  for (const match of source.matchAll(importPattern)) {
+    const [, importedClause, specifier] = match;
+    if (!isLegacyTopicOwnerSpecifier(normalized, specifier)) continue;
+
+    const symbols = [...TOPIC_CANONICAL_SYMBOLS].filter((symbol) =>
+      new RegExp(`\\b${symbol}\\b`).test(importedClause),
+    );
+    if (symbols.length > 0) {
+      collisions.push({ specifier, symbols });
+    }
+  }
+
+  return collisions;
+}
+
 export function evaluateRepositoryIntegrity({ changes, exists, readBase, readHead }) {
   const errors = [];
 
@@ -80,6 +203,28 @@ export function evaluateRepositoryIntegrity({ changes, exists, readBase, readHea
             `${targetPath}: root features/${match[1]} owns this domain; new web feature files require @repository-integrity-classification: ui|adapter|runtime-bridge|readmodel, or a reviewed path allowlist entry.`,
           );
         }
+      }
+    }
+
+    if (change.status !== "D" && isProductCodeFile(targetPath)) {
+      const headSource = readHead(targetPath);
+
+      for (const collision of findCanonicalOwnerCollisions(targetPath, headSource)) {
+        errors.push(
+          `${targetPath}: ${collision.symbol} is canonically owned by ${collision.owner}; import/re-export the owner instead of defining a duplicate domain concept.`,
+        );
+      }
+
+      for (const collision of findRuntimeOwnerCollisions(targetPath, headSource)) {
+        errors.push(
+          `${targetPath}: ${collision.identifier} creates a runtime/owner collision. ${collision.reason}`,
+        );
+      }
+
+      for (const collision of findLegacyTopicOwnerImports(targetPath, headSource)) {
+        errors.push(
+          `${targetPath}: ${collision.symbols.join(", ")} must import directly from @features/topic/canonicalTopicResolutionContract; ${collision.specifier} is compatibility-only.`,
+        );
       }
     }
 
