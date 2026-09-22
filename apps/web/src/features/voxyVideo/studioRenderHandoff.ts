@@ -48,6 +48,8 @@ export type VoxyStudioEditorialCompositionBinding = {
   }>;
   evidenceSourcePackId: string;
   evidenceDecisionGateId: string;
+  approvalSource: "human" | "agent_council";
+  councilArtifactId: string | null;
   format: VoxyStudioDraft["selectedFormat"];
   locale: string;
   finalCanonId: string;
@@ -246,15 +248,18 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     throw new Error(`voxy_studio_render_handoff_request_invalid:${requestErrors.join(",")}`);
   }
   const timelineHash = buildVoxyLocalCompositionTimelineHash(request);
+  const renderApproval = input.draft.renderApproval;
 
   const approval: VoxyLocalCompositionApprovalSnapshot = {
     approved: true,
-    approvalRef: input.draft.renderApproval.reviewDecisionRecordId,
-    approvedBy: input.draft.renderApproval.approvedByUserId,
-    approvedAt: input.draft.renderApproval.approvedAt,
+    approvalRef: renderApproval.reviewDecisionRecordId,
+    approvedBy: renderApproval.approvedByUserId,
+    approvedAt: renderApproval.approvedAt,
     previewReviewFlowId: buildVoxyStudioPreviewReviewFlowId(input.draft),
-    decisionGateId: input.draft.renderApproval.decisionGateId,
+    decisionGateId: renderApproval.decisionGateId,
     dossierRefId: input.draft.dossierId,
+    approvalSource: renderApproval.approvalSource,
+    councilArtifactId: renderApproval.councilArtifactId,
     authority: "trusted_review_authority",
   };
 
@@ -280,7 +285,9 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
         motion: chapter.motion,
       })),
       evidenceSourcePackId,
-      evidenceDecisionGateId: input.draft.renderApproval.decisionGateId,
+      evidenceDecisionGateId: renderApproval.decisionGateId,
+      approvalSource: renderApproval.approvalSource,
+      councilArtifactId: renderApproval.councilArtifactId,
       format: input.draft.selectedFormat,
       locale: input.draft.storyPlan.outputLanguage.toLowerCase(),
       finalCanonId: VOXY_FINAL_CANON.canonId,
