@@ -139,6 +139,15 @@ function editorialRequest(
     ],
     editorialStoryPlan: editorialPlan(),
     editorialTimeline: editorialTimeline(),
+    editorialBinding: {
+      studioDraftId: "artifact-1",
+      studioDraftRevision: 1,
+      storyPlanId: "story-plan-1",
+      storyPlanRevision: 3,
+      evidenceSourcePackId: "source-pack-1",
+      evidenceDecisionGateId: "decision-gate-1",
+      finalCanonId: "VOXY-V3.10.5-HUMAN-FINAL",
+    },
     ...overrides,
   });
 }
@@ -294,6 +303,13 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
       height: 1920,
     });
     expect(validateVoxyLocalCompositionOutput({ job, output: outputFor(job) })).toEqual([]);
+  });
+
+  it("fails closed when editorial revision/evidence/canon binding is missing", () => {
+    const errors = validateVoxyLocalCompositionRequest(
+      editorialRequest({ editorialBinding: null }),
+    );
+    expect(errors).toContain("editorial_binding_missing");
   });
 
   it("fails closed when editorial captions do not end on the bound story timeline", () => {
