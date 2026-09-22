@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { renderVoxyEditorialCompositionFrameHtml } from "../src/features/voxyVideo/editorialCompositionHtml";
+import { buildVoxyEditorialRenderableStoryPlan } from "../src/features/voxyVideo/editorialRenderEvidence";
 import {
   VOXY_EDITORIAL_STORY_PLAN_VERSION,
   type VoxyEditorialStoryPlan,
@@ -29,9 +30,17 @@ const TARGETS = [
   { format: "1:1" as const, width: 1080, height: 1080 },
 ];
 
+const SMOKE_SOURCE_PACK_ID =
+  "voxy-studio-dossier:editorial-smoke-dossier:reviewed-evidence-smoke";
+
 function argument(name: string): string | null {
   const prefix = `--${name}=`;
-  return process.argv.slice(2).find((value) => value.startsWith(prefix))?.slice(prefix.length) ?? null;
+  return (
+    process.argv
+      .slice(2)
+      .find((value) => value.startsWith(prefix))
+      ?.slice(prefix.length) ?? null
+  );
 }
 
 function mimeForPath(file: string): string {
@@ -53,10 +62,16 @@ async function sha256(file: string): Promise<string> {
 async function assets(repositoryRoot: string): Promise<VoxyMotionV4EmbeddedAssets> {
   return {
     canonStageDataUrl: await dataUrl(
-      path.resolve(repositoryRoot, VOXY_POCKET_MARK_COMPOSITION_SOURCE.repositoryPath),
+      path.resolve(
+        repositoryRoot,
+        VOXY_POCKET_MARK_COMPOSITION_SOURCE.repositoryPath,
+      ),
     ),
     canonicalCleanStudioBackgroundDataUrl: await dataUrl(
-      path.resolve(repositoryRoot, VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND.repositoryPath),
+      path.resolve(
+        repositoryRoot,
+        VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND.repositoryPath,
+      ),
     ),
     studioLockupDataUrl: await dataUrl(
       path.resolve(repositoryRoot, VOXY_FIRST_EXPLAINER_STUDIO_LOCKUP_PATH),
@@ -65,12 +80,15 @@ async function assets(repositoryRoot: string): Promise<VoxyMotionV4EmbeddedAsset
       path.resolve(repositoryRoot, VOXY_STATIC_CANON_NATIVE_ASSETS.lapelPin),
     ),
     edebattePocketMarkDataUrl: await dataUrl(
-      path.resolve(repositoryRoot, VOXY_STATIC_CANON_NATIVE_ASSETS.edebattePocketMark),
+      path.resolve(
+        repositoryRoot,
+        VOXY_STATIC_CANON_NATIVE_ASSETS.edebattePocketMark,
+      ),
     ),
   };
 }
 
-function storyPlan(): VoxyEditorialStoryPlan {
+function baseStoryPlan(): VoxyEditorialStoryPlan {
   return {
     version: VOXY_EDITORIAL_STORY_PLAN_VERSION,
     storyPlanId: "editorial-smoke-story",
@@ -93,7 +111,8 @@ function storyPlan(): VoxyEditorialStoryPlan {
         chapterId: "what-happened",
         role: "what_happened",
         headline: "Was ist passiert?",
-        narration: "Voxy beginnt beim belegten Ausgangspunkt und trennt ihn von offenen Fragen.",
+        narration:
+          "Voxy beginnt beim belegten Ausgangspunkt und trennt ihn von offenen Fragen.",
         claimBindings: [],
         sourceIds: ["source-primary"],
         findingIds: ["finding-primary"],
@@ -110,7 +129,8 @@ function storyPlan(): VoxyEditorialStoryPlan {
         chapterId: "source-evidence",
         role: "source_evidence",
         headline: "Worauf stützt sich das?",
-        narration: "Die Quelle und der Prüfpfad bleiben sichtbar, statt Gewissheit nur zu behaupten.",
+        narration:
+          "Die Quelle und der Prüfpfad bleiben sichtbar, statt Gewissheit nur zu behaupten.",
         claimBindings: [],
         sourceIds: ["source-primary"],
         findingIds: ["finding-primary"],
@@ -125,6 +145,27 @@ function storyPlan(): VoxyEditorialStoryPlan {
       },
     ],
   };
+}
+
+function storyPlan() {
+  return buildVoxyEditorialRenderableStoryPlan({
+    plan: baseStoryPlan(),
+    sourcePackId: SMOKE_SOURCE_PACK_ID,
+    sources: [
+      {
+        sourceId: "source-primary",
+        canonicalUrlHash: "smoke-source-url-hash",
+        url: "https://example.org/amtliche-quelle",
+        title: "Amtliche Quelle zum Editorial-Smoke",
+        publisher: "Beispielbehörde",
+        type: "official",
+        language: "de",
+        snippet: "Reviewgebundener Smoke-Beleg",
+        publishedAt: "2026-09-21T12:00:00.000Z",
+        retrievedAt: "2026-09-22T01:00:00.000Z",
+      },
+    ],
+  });
 }
 
 function timeline(): VoxyEditorialTimeline {
@@ -152,19 +193,42 @@ function timeline(): VoxyEditorialTimeline {
   };
 }
 
-async function assertCompositor(page: Awaited<ReturnType<Awaited<ReturnType<typeof chromium.launch>>["newPage"]>>) {
+async function assertCompositor(
+  page: Awaited<
+    ReturnType<Awaited<ReturnType<typeof chromium.launch>>["newPage"]>
+  >,
+) {
   const state = await page.evaluate(() => ({
-    canonicalHeadCount: document.querySelectorAll('[data-head-layer="canonical-alpha-head"]').length,
+    canonicalHeadCount: document.querySelectorAll(
+      '[data-head-layer="canonical-alpha-head"]',
+    ).length,
     canonicalOutsideContribution:
-      document.querySelector('[data-head-layer="canonical-alpha-head"]')?.getAttribute(
-        "data-head-alpha-outside-contribution",
-      ) ?? null,
+      document
+        .querySelector('[data-head-layer="canonical-alpha-head"]')
+        ?.getAttribute("data-head-alpha-outside-contribution") ?? null,
     canonicalBodyCount: document.querySelectorAll(".canonical-body-master").length,
     legacyNeckPlateCount: document.querySelectorAll(".neck-plate").length,
     editorialRuntime:
-      document.querySelector("main.viewport")?.getAttribute("data-editorial-runtime") ?? null,
+      document.querySelector("main.viewport")?.getAttribute("data-editorial-runtime") ??
+      null,
     finalCanonId:
-      document.querySelector(".editorial-story-overlay")?.getAttribute("data-final-canon-id") ?? null,
+      document
+        .querySelector(".editorial-story-overlay")
+        ?.getAttribute("data-final-canon-id") ?? null,
+    evidenceSourcePackId:
+      document
+        .querySelector(".editorial-source-window")
+        ?.getAttribute("data-evidence-source-pack-id") ?? null,
+    sourceTitle:
+      document.querySelector(".editorial-source-entry strong")?.textContent?.trim() ??
+      null,
+    sourceOrigin:
+      document.querySelector(".editorial-source-meta")?.textContent?.trim() ?? null,
+    sourceUrl:
+      document.querySelector(".editorial-source-url")?.textContent?.trim() ?? null,
+    externalEvidenceLinks: document.querySelectorAll(
+      '.editorial-source-window a[href^="http"],.editorial-source-window img[src^="http"]',
+    ).length,
   }));
   if (
     state.canonicalHeadCount !== 1 ||
@@ -172,9 +236,16 @@ async function assertCompositor(page: Awaited<ReturnType<Awaited<ReturnType<type
     state.canonicalBodyCount < 1 ||
     state.legacyNeckPlateCount !== 0 ||
     state.editorialRuntime !== "editorial_v1" ||
-    state.finalCanonId !== VOXY_FINAL_CANON.canonId
+    state.finalCanonId !== VOXY_FINAL_CANON.canonId ||
+    state.evidenceSourcePackId !== SMOKE_SOURCE_PACK_ID ||
+    state.sourceTitle !== "Amtliche Quelle zum Editorial-Smoke" ||
+    state.sourceOrigin !== "Beispielbehörde · official · de" ||
+    state.sourceUrl !== "https://example.org/amtliche-quelle" ||
+    state.externalEvidenceLinks !== 0
   ) {
-    throw new Error(`editorial_smoke_canon_invariant_failed:${JSON.stringify(state)}`);
+    throw new Error(
+      `editorial_smoke_canon_invariant_failed:${JSON.stringify(state)}`,
+    );
   }
   return state;
 }
@@ -206,7 +277,10 @@ async function main() {
   ];
   const browser = await chromium.launch({
     headless: true,
-    args: typeof process.getuid === "function" && process.getuid() === 0 ? ["--no-sandbox"] : [],
+    args:
+      typeof process.getuid === "function" && process.getuid() === 0
+        ? ["--no-sandbox"]
+        : [],
   });
   const surfaces: Array<{
     format: VoxyVideoFormat;
@@ -218,6 +292,11 @@ async function main() {
     canonicalOutsideContribution: string | null;
     canonicalBodyCount: number;
     legacyNeckPlateCount: number;
+    evidenceSourcePackId: string | null;
+    sourceTitle: string | null;
+    sourceOrigin: string | null;
+    sourceUrl: string | null;
+    externalEvidenceLinks: number;
   }> = [];
 
   try {
@@ -246,7 +325,9 @@ async function main() {
         await Promise.all(Array.from(document.images).map((image) => image.decode()));
       });
       if (externalRequests.length) {
-        throw new Error(`editorial_smoke_external_request:${externalRequests.join(",")}`);
+        throw new Error(
+          `editorial_smoke_external_request:${externalRequests.join(",")}`,
+        );
       }
       const state = await assertCompositor(page);
       const fileName = `editorial-${target.format.replace(":", "x")}.png`;
@@ -267,6 +348,11 @@ async function main() {
         canonicalOutsideContribution: state.canonicalOutsideContribution,
         canonicalBodyCount: state.canonicalBodyCount,
         legacyNeckPlateCount: state.legacyNeckPlateCount,
+        evidenceSourcePackId: state.evidenceSourcePackId,
+        sourceTitle: state.sourceTitle,
+        sourceOrigin: state.sourceOrigin,
+        sourceUrl: state.sourceUrl,
+        externalEvidenceLinks: state.externalEvidenceLinks,
       });
       await context.close();
     }
@@ -284,6 +370,7 @@ async function main() {
       reviewRequired: plan.reviewRequired,
       autoRender: plan.autoRender,
       autoPublish: plan.autoPublish,
+      evidenceSourcePackId: plan.renderEvidenceProjection.sourcePackId,
     },
     renderPath: [
       "renderVoxyEditorialCompositionFrameHtml",
@@ -306,7 +393,8 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "unknown_editorial_smoke_error";
+  const message =
+    error instanceof Error ? error.message : "unknown_editorial_smoke_error";
   console.error(`VOXY_EDITORIAL_COMPOSITION_SMOKE_FAILED:${message}`);
   process.exitCode = 1;
 });
