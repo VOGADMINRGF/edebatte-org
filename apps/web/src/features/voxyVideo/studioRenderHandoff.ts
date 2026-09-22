@@ -1,14 +1,17 @@
 import "server-only";
 
 import { stableHash } from "@core/utils/hash";
+import { VOXY_FINAL_CANON } from "./finalCanon";
 import {
   buildVoxyEditorialTimeline,
   type VoxyEditorialTimeline,
 } from "./editorialStoryPlan";
 import {
+  buildVoxyLocalCompositionTimelineHash,
   validateVoxyLocalCompositionRequest,
   type VoxyLocalCompositionApprovalSnapshot,
   type VoxyLocalCompositionCaptionCue,
+  type VoxyLocalCompositionEditorialBinding,
   type VoxyLocalCompositionRequest,
 } from "./localCompositionRuntime";
 import {
@@ -29,12 +32,35 @@ import {
   type VoxyStudioDraft,
 } from "./studioDraft";
 
+export type VoxyStudioEditorialCompositionBinding = {
+  studioDraftId: string;
+  studioDraftRevision: number;
+  storyPlanId: string;
+  storyPlanRevision: number;
+  timelineVersion: string;
+  timelineHash: string;
+  durationMs: number;
+  chapterBoundaries: Array<{
+    chapterId: string;
+    startMs: number;
+    endMs: number;
+    motion: VoxyEditorialTimeline["chapters"][number]["motion"];
+  }>;
+  evidenceSourcePackId: string;
+  evidenceDecisionGateId: string;
+  format: VoxyStudioDraft["selectedFormat"];
+  locale: string;
+  finalCanonId: string;
+};
+
 export type VoxyStudioEditorialCompositionHandoff = {
   request: VoxyLocalCompositionRequest;
   approval: VoxyLocalCompositionApprovalSnapshot;
   audioInput: VoxyLocalCompositionAudioInputRecord;
   timeline: VoxyEditorialTimeline;
+  timelineHash: string;
   captionCues: VoxyLocalCompositionCaptionCue[];
+  binding: VoxyStudioEditorialCompositionBinding;
 };
 
 function normalized(value: unknown): string {
@@ -148,6 +174,7 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
   draft: VoxyStudioDraft;
   audioInput: VoxyLocalCompositionAudioInputRecord;
   requestedByUserId: string;
+  evidenceSourcePackId: string;
 }): VoxyStudioEditorialCompositionHandoff {
   const draftErrors = validateVoxyStudioDraft(input.draft);
   if (draftErrors.length) {
@@ -162,6 +189,10 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
   const requestedByUserId = normalized(input.requestedByUserId);
   if (!requestedByUserId) {
     throw new Error("voxy_studio_render_handoff_operator_missing");
+  }
+  const evidenceSourcePackId = normalized(input.evidenceSourcePackId);
+  if (!evidenceSourcePackId) {
+    throw new Error("voxy_studio_render_handoff_evidence_binding_missing");
   }
 
   assertAudioBinding({ draft: input.draft, audioInput: input.audioInput });
@@ -185,6 +216,15 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     captionCues,
   });
 
+  const editorialBinding: VoxyLocalCompositionEditorialBinding = {
+    studioDraftId: input.draft.draftId,
+    studioDraftRevision: input.draft.revision,
+    storyPlanId: input.draft.storyPlan.storyPlanId,
+    storyPlanRevision: input.draft.storyPlan.revision,
+    evidenceSourcePackId,
+    evidenceDecisionGateId: input.draft.renderApproval.decisionGateId,
+    finalCanonId: VOXY_FINAL_CANON.canonId,
+  };
   const request: VoxyLocalCompositionRequest = {
     requestedByUserId,
     artifactId: input.draft.draftId,
@@ -199,11 +239,13 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     captionCues,
     editorialStoryPlan: input.draft.storyPlan,
     editorialTimeline: timeline,
+    editorialBinding,
   };
   const requestErrors = validateVoxyLocalCompositionRequest(request);
   if (requestErrors.length) {
     throw new Error(`voxy_studio_render_handoff_request_invalid:${requestErrors.join(",")}`);
   }
+  const timelineHash = buildVoxyLocalCompositionTimelineHash(request);
 
   const approval: VoxyLocalCompositionApprovalSnapshot = {
     approved: true,
@@ -221,7 +263,28 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     approval,
     audioInput: input.audioInput,
     timeline,
+    timelineHash,
     captionCues,
+    binding: {
+      studioDraftId: input.draft.draftId,
+      studioDraftRevision: input.draft.revision,
+      storyPlanId: input.draft.storyPlan.storyPlanId,
+      storyPlanRevision: input.draft.storyPlan.revision,
+      timelineVersion: input.audioInput.timelineVersion,
+      timelineHash,
+      durationMs: timeline.durationMs,
+      chapterBoundaries: timeline.chapters.map((chapter) => ({
+        chapterId: chapter.chapterId,
+        startMs: chapter.startMs,
+        endMs: chapter.endMs,
+        motion: chapter.motion,
+      })),
+      evidenceSourcePackId,
+      evidenceDecisionGateId: input.draft.renderApproval.decisionGateId,
+      format: input.draft.selectedFormat,
+      locale: input.draft.storyPlan.outputLanguage.toLowerCase(),
+      finalCanonId: VOXY_FINAL_CANON.canonId,
+    },
   };
 }
 
