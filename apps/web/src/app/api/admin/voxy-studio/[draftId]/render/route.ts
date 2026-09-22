@@ -21,6 +21,14 @@ const BodySchema = z
   })
   .strict();
 
+const RUNTIME_STATUSES = [
+  "queued",
+  "rendering",
+  "rendered",
+  "failed",
+  "review_ready",
+] as const;
+
 function safeAudioSummary(record: {
   assetId: string;
   locale: string;
@@ -73,13 +81,70 @@ export async function GET(
   const audioRepository = getVoxyLocalCompositionAudioInputRepository();
   const runtimeRepository = getVoxyLocalCompositionRepository();
   const scriptVersion = `story-r${draft.storyPlan.revision}`;
-  const audioInputs = await audioRepository.listForBinding({
-    artifactId: draft.draftId,
-    briefingId: draft.briefingId,
-    scriptVersion,
-    locale: draft.storyPlan.outputLanguage,
-    limit: 20,
-  });
+  const [audioInputs, ...jobGroups] = await Promise.all([
+    audioRepository.listForBinding({
+      artifactId: draft.draftId,
+      briefingId: draft.briefingId,
+      scriptVersion,
+      locale: draft.storyPlan.outputLanguage,
+      limit: 20,
+    }),
+    ...RUNTIME_STATUSES.map((status) => runtimeRepository.listJobsByStatus(status, 50)),
+  ]);
+  const jobs = Array.from(
+    new Map(
+      jobGroups
+        .flat()
+        .filter((job) => job.artifactId === draft.draftId)
+        .map((job) => [job.jobId, job] as const),
+    ).values(),
+  ).sort(
+    (left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt) || right.jobId.localeCompare(left.jobId),
+  );
+  const renderJobs = await Promise.all(
+    jobs.map(async (job) => {
+      const output = await runtimeRepository.getOutput(job.outputId);
+      return {
+        jobId: job.jobId,
+        outputId: job.outputId,
+        status: job.status,
+        renderProfile: job.renderProfile,
+        format: job.format,
+        locale: job.locale,
+        scriptVersion: job.scriptVersion,
+        audioAssetId: job.audioAssetId,
+        durationMs: job.durationMs ?? null,
+        attempt: job.attempt,
+        updatedAt: job.updatedAt,
+        completedAt: job.completedAt,
+        safeErrorCode: job.safeErrorCode,
+        safeErrorMessage: job.safeErrorMessage,
+        previewReviewFlowId: job.previewReviewFlowId,
+        decisionGateId: job.decisionGateId,
+        reviewRequired: job.reviewRequired,
+        output: output
+          ? {
+              masterSha256: output.masterMp4.sha256,
+              previewSha256: output.previewWebm.sha256,
+              durationMs: output.previewWebm.durationMs,
+              width: output.previewWebm.width,
+              height: output.previewWebm.height,
+              createdAt: output.createdAt,
+              publicAsset: output.publicAsset,
+              uploaded: output.uploaded,
+              published: output.published,
+            }
+          : null,
+        bindAllowed:
+          draft.status === "approved_for_render" &&
+          job.status === "review_ready" &&
+          Boolean(output),
+        storageKeyExposed: false,
+        absolutePathExposed: false,
+      };
+    }),
+  );
 
   return NextResponse.json({
     ok: true,
@@ -90,6 +155,7 @@ export async function GET(
     locale: draft.storyPlan.outputLanguage,
     renderProfile: "editorial_v1",
     audioInputs: audioInputs.map(safeAudioSummary),
+    renderJobs,
     audioPersistence: audioRepository.getPersistenceState(),
     runtimePersistence: runtimeRepository.getPersistenceState(),
     manualQueueAllowed:
