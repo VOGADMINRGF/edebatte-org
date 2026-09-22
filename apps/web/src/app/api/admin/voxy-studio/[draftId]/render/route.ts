@@ -81,6 +81,19 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "voxy_studio_draft_missing" }, { status: 404 });
   }
 
+  const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
+  const evidence = await evidenceAuthority.resolveEvidenceContext(draft);
+  const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+  const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+    draft,
+    evidence.sourcePack.sourcePackId,
+  );
+  const approvalEvidenceCurrent =
+    draft.status === "approved_for_render" &&
+    Boolean(draft.renderApproval) &&
+    draft.renderApproval?.decisionGateId === currentDecisionGateId &&
+    validation.renderEligible;
+
   const audioRepository = getVoxyLocalCompositionAudioInputRepository();
   const runtimeRepository = getVoxyLocalCompositionRepository();
   const scriptVersion = `story-r${draft.storyPlan.revision}`;
@@ -108,6 +121,10 @@ export async function GET(
   const renderJobs = await Promise.all(
     jobs.map(async (job) => {
       const output = await runtimeRepository.getOutput(job.outputId);
+      const jobEvidenceCurrent =
+        approvalEvidenceCurrent &&
+        job.decisionGateId === currentDecisionGateId &&
+        output?.decisionGateId === currentDecisionGateId;
       return {
         jobId: job.jobId,
         outputId: job.outputId,
@@ -140,15 +157,16 @@ export async function GET(
             }
           : null,
         bindAllowed:
-          draft.status === "approved_for_render" &&
-          job.status === "review_ready" &&
-          Boolean(output),
+          jobEvidenceCurrent && job.status === "review_ready" && Boolean(output),
+        evidenceCurrent: jobEvidenceCurrent,
         storageKeyExposed: false,
         absolutePathExposed: false,
       };
     }),
   );
 
+  const audioPersistence = audioRepository.getPersistenceState();
+  const runtimePersistence = runtimeRepository.getPersistenceState();
   return NextResponse.json({
     ok: true,
     draftId: draft.draftId,
@@ -157,14 +175,19 @@ export async function GET(
     scriptVersion,
     locale: draft.storyPlan.outputLanguage,
     renderProfile: "editorial_v1",
+    evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+    currentDecisionGateId,
+    approvalEvidenceCurrent,
+    evidenceValidation: validation,
     audioInputs: audioInputs.map(safeAudioSummary),
     renderJobs,
-    audioPersistence: audioRepository.getPersistenceState(),
-    runtimePersistence: runtimeRepository.getPersistenceState(),
+    audioPersistence,
+    runtimePersistence,
     manualQueueAllowed:
-      draft.status === "approved_for_render" &&
-      audioRepository.getPersistenceState().mode === "persistent_primary" &&
-      runtimeRepository.getPersistenceState().mode === "persistent_primary" &&
+      approvalEvidenceCurrent &&
+      audioPersistence.mode === "persistent_primary" &&
+      runtimePersistence.mode === "persistent_primary" &&
+      runtimePersistence.restartReconstructable === true &&
       audioInputs.length > 0,
     renderExecutedByHttp: false,
     autoRender: false,
