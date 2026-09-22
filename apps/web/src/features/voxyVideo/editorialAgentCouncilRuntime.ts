@@ -325,7 +325,7 @@ async function runCriticRole(input: {
       operationId: `${input.roleId}:${input.pass}`,
       operationType: "voxy_editorial_adversarial_review",
       dossierId: input.runtime.draft.dossierId,
-      pipeline: "analyze",
+      pipeline: "admin_orchestrate",
     },
   });
   const runs: VoxyEditorialCouncilRun[] = [];
@@ -410,7 +410,7 @@ async function runDefense(input: {
       operationId: "defense",
       operationType: "voxy_editorial_objection_defense",
       dossierId: input.runtime.draft.dossierId,
-      pipeline: "analyze",
+      pipeline: "admin_orchestrate",
     },
   });
 
@@ -559,7 +559,7 @@ async function runJudge(input: {
       operationId: "chief-judge",
       operationType: "voxy_editorial_chief_judge",
       dossierId: input.runtime.draft.dossierId,
-      pipeline: "analyze",
+      pipeline: "admin_orchestrate",
     },
   });
   const inputFingerprint = buildVoxyEditorialCouncilInputFingerprint(input.binding);
