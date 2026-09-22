@@ -5,12 +5,16 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
+import { resolveVoxyEditorialAudioFrameAmplitude } from "@/features/voxyVideo/editorialAudioMotion.server";
 import {
   loadVoxyEditorialCompositionEmbeddedAssets,
   resolveVoxyEditorialCompositionRepositoryRoot,
 } from "@/features/voxyVideo/editorialCompositionAssets.server";
 import { renderVoxyEditorialCompositionFrameHtml } from "@/features/voxyVideo/editorialCompositionHtml";
-import { getVoxyLocalCompositionAudioInputRepository } from "@/features/voxyVideo/localCompositionAudioAssetStore";
+import {
+  getVoxyLocalCompositionAudioInputRepository,
+  resolveVoxyLocalCompositionAudioAssetFromRecord,
+} from "@/features/voxyVideo/localCompositionAudioAssetStore";
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 import {
   createFailClosedDossierStudioEvidenceAuthority,
@@ -103,7 +107,9 @@ export async function GET(
     const audioPersistence = audioRepository.getPersistenceState();
     if (
       audioPersistence.mode !== "persistent_primary" ||
-      audioPersistence.productionTruth !== true
+      audioPersistence.productionTruth !== true ||
+      audioPersistence.restartReconstructable !== true ||
+      audioPersistence.deploymentReconstructable !== true
     ) {
       return new Response("Audio registry unavailable", { status: 503 });
     }
@@ -120,9 +126,23 @@ export async function GET(
       return new Response("Preview time outside timeline", { status: 416 });
     }
 
+    const trustedAudioRoot = process.env.VOXY_LOCAL_COMPOSITION_AUDIO_ROOT?.trim() ?? "";
+    if (!trustedAudioRoot) {
+      return new Response("Audio preview root unavailable", { status: 503 });
+    }
+    const audioAsset = resolveVoxyLocalCompositionAudioAssetFromRecord({
+      record: audioInput,
+      trustedAudioRoot,
+    });
+    const frameIndex = Math.floor((query.data.atMs * FPS) / 1_000);
+    const amplitude = await resolveVoxyEditorialAudioFrameAmplitude({
+      audioAsset,
+      frameIndex,
+      fps: FPS,
+    });
+
     const repositoryRoot = await resolveVoxyEditorialCompositionRepositoryRoot();
     const assets = await loadVoxyEditorialCompositionEmbeddedAssets(repositoryRoot);
-    const frameIndex = Math.floor((query.data.atMs * FPS) / 1_000);
     const html = renderVoxyEditorialCompositionFrameHtml({
       plan: snapshot.renderStoryPlan,
       timeline: snapshot.timeline,
@@ -130,20 +150,30 @@ export async function GET(
       assets,
       format: query.data.format,
       frameIndex,
-      amplitude: 0,
+      amplitude,
     });
     assertLocalOnlyPreviewHtml(html);
 
     const headers = htmlHeaders();
     headers.set("X-Voxy-Preview-Frame", String(frameIndex));
+    headers.set("X-Voxy-Preview-Audio-Amplitude", String(amplitude));
+    headers.set("X-Voxy-Preview-Audio-Sha256", audioInput.sha256);
     headers.set("X-Voxy-Preview-Duration-Ms", String(snapshot.timeline.durationMs));
     headers.set("X-Voxy-Preview-Draft-Revision", String(draft.revision));
     headers.set("X-Voxy-Preview-Story-Revision", String(draft.storyPlan.revision));
     return new Response(html, { status: 200, headers });
   } catch (error) {
     const message = error instanceof Error ? error.message : "voxy_studio_frame_preview_failed";
-    if (message.includes("missing") || message.includes("mismatch") || message.includes("invalid")) {
+    if (
+      message.includes("missing") ||
+      message.includes("mismatch") ||
+      message.includes("invalid") ||
+      message.includes("outside_trusted_root")
+    ) {
       return new Response("Preview binding unavailable", { status: 409 });
+    }
+    if (message.includes("ffmpeg_failed")) {
+      return new Response("Audio motion preview unavailable", { status: 503 });
     }
     return new Response("Preview unavailable", { status: 500 });
   }
