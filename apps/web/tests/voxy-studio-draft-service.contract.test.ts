@@ -19,10 +19,14 @@ import {
   createVoxyStudioDraft,
   editVoxyStudioDraft,
   requestVoxyStudioDraftChanges,
+  resolveVoxyStudioDraftRevisionAuthorActor,
   submitVoxyStudioDraftForReview,
   type VoxyStudioDraftServiceDependencies,
 } from "@/features/voxyVideo/studioDraftService";
-import { createInMemoryVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import {
+  createInMemoryVoxyStudioDraftRepository,
+  type VoxyStudioDraftRepository,
+} from "@/features/voxyVideo/studioDraftStore";
 import type {
   ReviewQueueOperationAuditEvent,
   ReviewQueueOperationRecord,
@@ -252,6 +256,22 @@ function deps(): TestRuntime {
   return state;
 }
 
+function asPersistentDraftRepository(
+  repository: VoxyStudioDraftRepository,
+): VoxyStudioDraftRepository {
+  return {
+    ...repository,
+    getPersistenceState() {
+      return {
+        mode: "persistent_primary",
+        productionTruth: true,
+        restartReconstructable: true,
+        deploymentReconstructable: true,
+      };
+    },
+  };
+}
+
 async function createAndSubmit(runtime = deps()) {
   const draft = await createVoxyStudioDraft(
     {
@@ -332,6 +352,54 @@ async function approve(runtime: TestRuntime, draft: VoxyStudioDraft) {
 }
 
 describe("Voxy Studio Draft Service", () => {
+  it("resolves the exact revision author from content audit instead of the later submitter", async () => {
+    const runtime = deps();
+    const created = await createVoxyStudioDraft(
+      {
+        clientRequestId: "author-audit-request",
+        sourceKind: "dossier",
+        dossierId: "dossier-1",
+        briefingId: "briefing-1",
+        title: "Author audit",
+        storyPlan: storyPlan(),
+        selectedFormat: "16:9",
+        safeZoneProfile: "video",
+        createdByUserId: "admin-author-1",
+      },
+      runtime,
+    );
+    const submitted = await submitVoxyStudioDraftForReview(
+      {
+        draftId: created.draftId,
+        expectedRevision: created.revision,
+        submittedByUserId: "admin-submitter-2",
+      },
+      runtime,
+    );
+    expect(submitted.draft.updatedByUserId).toBe("admin-submitter-2");
+    await expect(
+      resolveVoxyStudioDraftRevisionAuthorActor(submitted.draft, runtime.repository),
+    ).rejects.toThrow("voxy_studio_revision_author_not_persistent");
+
+    const persistentRepository = asPersistentDraftRepository(runtime.repository);
+    await expect(
+      resolveVoxyStudioDraftRevisionAuthorActor(submitted.draft, persistentRepository),
+    ).resolves.toBe("admin-author-1");
+
+    const edited = await editVoxyStudioDraft(
+      {
+        draftId: submitted.draft.draftId,
+        expectedRevision: submitted.draft.revision,
+        patch: { title: "Author audit revised" },
+        updatedByUserId: "admin-author-3",
+      },
+      runtime,
+    );
+    await expect(
+      resolveVoxyStudioDraftRevisionAuthorActor(edited, persistentRepository),
+    ).resolves.toBe("admin-author-3");
+  });
+
   it("binds render approval to the persisted unified review audit instead of preview-review truth", async () => {
     const { runtime, draft, submitted } = await createAndSubmit();
     expect(submitted.reviewItemId).toBe(
