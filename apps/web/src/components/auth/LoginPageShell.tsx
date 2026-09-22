@@ -148,6 +148,12 @@ export function LoginPageShell({
           <button type="submit" className={primaryButtonClass} disabled={loading}>
             {loading ? "Prüfe Zugang …" : "Einloggen"}
           </button>
+          <a
+            href="https://www.voiceopengov.org/api/auth/edebatte-handoff?next=/"
+            className="inline-flex w-full items-center justify-center rounded-full border border-cyan-300 bg-cyan-50 px-4 py-2.5 text-sm font-semibold text-cyan-800 transition hover:border-cyan-400 hover:bg-cyan-100 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-100"
+          >
+            Mit VoiceOpenGov anmelden
+          </a>
           <p className="text-center text-sm text-[rgb(var(--muted))]">
             Noch kein Konto?{" "}
             <Link href={registerHref} className="font-semibold text-sky-700 underline-offset-2 hover:underline">
