@@ -105,6 +105,7 @@ function viewportGeometry(format: VoxyVideoFormat): VoxyMotionV4ViewportGeometry
 }
 
 function renderSourceWindow(chapter: VoxyEditorialStoryChapter): string {
+  if (chapter.evidenceWindow.visible === false) return "";
   const sourceIds = Array.from(
     new Set([...chapter.sourceIds, ...chapter.evidenceWindow.sourceIds]),
   ).filter(Boolean);
