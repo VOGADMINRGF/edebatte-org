@@ -15,6 +15,7 @@ import {
   approveVoxyStudioDraftForRender,
   bindVoxyStudioVerifiedRender,
   buildVoxyStudioEditorialReviewItemId,
+  buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createVoxyStudioDraft,
   editVoxyStudioDraft,
   requestVoxyStudioDraftChanges,
@@ -282,7 +283,10 @@ function markEditorialReady(
   draft: VoxyStudioDraft,
   actor = "admin-2",
 ) {
-  const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft);
+  const reviewItemId = buildVoxyStudioEditorialReviewItemId(
+    draft,
+    runtime.evidenceContext.sourcePack.sourcePackId,
+  );
   const at = "2026-09-21T19:09:00.000Z";
   runtime.reviewRecord = {
     itemId: reviewItemId,
@@ -331,7 +335,16 @@ describe("Voxy Studio Draft Service", () => {
   it("binds render approval to the persisted unified review audit instead of preview-review truth", async () => {
     const { runtime, draft, submitted } = await createAndSubmit();
     expect(submitted.reviewItemId).toBe(
-      buildVoxyStudioEditorialReviewItemId(draft),
+      buildVoxyStudioEditorialReviewItemId(
+        draft,
+        runtime.evidenceContext.sourcePack.sourcePackId,
+      ),
+    );
+    expect(submitted.decisionGateId).toBe(
+      buildVoxyStudioEvidenceBoundRenderReviewGateId(
+        draft,
+        runtime.evidenceContext.sourcePack.sourcePackId,
+      ),
     );
     markEditorialReady(runtime, draft);
     const approved = await approveVoxyStudioDraftForRender(
@@ -346,12 +359,85 @@ describe("Voxy Studio Draft Service", () => {
     expect(approved.status).toBe("approved_for_render");
     expect(approved.renderApproval).toMatchObject({
       reviewDecisionRecordId: "review-queue-audit-voxy-ready",
+      decisionGateId: submitted.decisionGateId,
       approvedByUserId: "admin-2",
       approvedAt: "2026-09-21T19:09:00.000Z",
       studioDraftRevision: draft.revision,
       storyPlanRevision: draft.storyPlan.revision,
     });
     expect(approved.renderBinding).toBeNull();
+  });
+
+  it("changes the review identity and render gate when the evidence source pack revision changes", async () => {
+    const { runtime, draft, submitted } = await createAndSubmit();
+    runtime.evidenceContext = {
+      ...runtime.evidenceContext,
+      sourcePack: {
+        ...runtime.evidenceContext.sourcePack,
+        sourcePackId: "pack-next-revision",
+      },
+    };
+
+    const resubmitted = await submitVoxyStudioDraftForReview(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        submittedByUserId: "admin-1",
+      },
+      runtime,
+    );
+
+    expect(resubmitted.reviewItemId).not.toBe(submitted.reviewItemId);
+    expect(resubmitted.decisionGateId).not.toBe(submitted.decisionGateId);
+  });
+
+  it("fails closed when evidence changes after mark_ready but before render approval", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    markEditorialReady(runtime, draft);
+    runtime.evidenceContext = {
+      ...runtime.evidenceContext,
+      sourcePack: {
+        ...runtime.evidenceContext.sourcePack,
+        sourcePackId: "pack-after-editorial-review",
+      },
+    };
+
+    await expect(
+      approveVoxyStudioDraftForRender(
+        {
+          draftId: draft.draftId,
+          expectedRevision: draft.revision,
+          approvedByUserId: "admin-2",
+        },
+        runtime,
+      ),
+    ).rejects.toThrow("voxy_studio_editorial_review_missing");
+  });
+
+  it("can reopen an approved draft for evidence-bound editorial review", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    const approved = await approve(runtime, draft);
+    const oldGate = approved.renderApproval?.decisionGateId;
+    runtime.evidenceContext = {
+      ...runtime.evidenceContext,
+      sourcePack: {
+        ...runtime.evidenceContext.sourcePack,
+        sourcePackId: "pack-reopened-revision",
+      },
+    };
+
+    const reopened = await submitVoxyStudioDraftForReview(
+      {
+        draftId: approved.draftId,
+        expectedRevision: approved.revision,
+        submittedByUserId: "admin-1",
+      },
+      runtime,
+    );
+
+    expect(reopened.draft.status).toBe("needs_review");
+    expect(reopened.draft.renderApproval).toBeNull();
+    expect(reopened.decisionGateId).not.toBe(oldGate);
   });
 
   it("fails closed until the exact editorial review item is marked ready", async () => {
