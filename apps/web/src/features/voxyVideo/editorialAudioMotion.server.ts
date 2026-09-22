@@ -15,6 +15,7 @@ const MAX_ANALYSIS_WAV_BYTES = 256_000_000;
 const MAX_CACHE_ENTRIES = 8;
 
 const envelopeCache = new Map<string, readonly number[]>();
+const analysisInFlight = new Map<string, Promise<readonly number[]>>();
 
 async function sha256File(path: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -110,23 +111,10 @@ function rememberEnvelope(key: string, levels: readonly number[]) {
   }
 }
 
-export async function loadVoxyEditorialAudioMotionAnalysis(input: {
-  audioAsset: VoxyLocalCompositionAudioAsset;
-  fps?: number;
-}): Promise<{ absolutePath: string; levels: readonly number[] }> {
-  const fps = input.fps ?? DEFAULT_FPS;
-  if (!Number.isInteger(fps) || fps < 1 || fps > 120) {
-    throw new Error("editorial_audio_motion_fps_invalid");
-  }
-  const absolutePath = await trustedAudioPath(input.audioAsset);
-  const cacheKey = `${input.audioAsset.sha256.toLowerCase()}:${fps}`;
-  const cached = envelopeCache.get(cacheKey);
-  if (cached) {
-    envelopeCache.delete(cacheKey);
-    envelopeCache.set(cacheKey, cached);
-    return { absolutePath, levels: cached };
-  }
-
+async function analyzeAudioFile(input: {
+  absolutePath: string;
+  fps: number;
+}): Promise<readonly number[]> {
   const tempRoot = await mkdtemp(join(tmpdir(), "voxy-editorial-audio-motion-"));
   const wavPath = join(tempRoot, "analysis.wav");
   try {
@@ -137,7 +125,7 @@ export async function loadVoxyEditorialAudioMotionAnalysis(input: {
         "-v",
         "error",
         "-i",
-        absolutePath,
+        input.absolutePath,
         "-vn",
         "-ac",
         "1",
@@ -165,11 +153,42 @@ export async function loadVoxyEditorialAudioMotionAnalysis(input: {
     ) {
       throw new Error("editorial_audio_motion_analysis_size_invalid");
     }
-    const levels = buildVoxyEditorialAudioLevelsFromPcmWav(await readFile(wavPath), fps);
+    return buildVoxyEditorialAudioLevelsFromPcmWav(await readFile(wavPath), input.fps);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
+export async function loadVoxyEditorialAudioMotionAnalysis(input: {
+  audioAsset: VoxyLocalCompositionAudioAsset;
+  fps?: number;
+}): Promise<{ absolutePath: string; levels: readonly number[] }> {
+  const fps = input.fps ?? DEFAULT_FPS;
+  if (!Number.isInteger(fps) || fps < 1 || fps > 120) {
+    throw new Error("editorial_audio_motion_fps_invalid");
+  }
+  const absolutePath = await trustedAudioPath(input.audioAsset);
+  const cacheKey = `${input.audioAsset.sha256.toLowerCase()}:${fps}`;
+  const cached = envelopeCache.get(cacheKey);
+  if (cached) {
+    envelopeCache.delete(cacheKey);
+    envelopeCache.set(cacheKey, cached);
+    return { absolutePath, levels: cached };
+  }
+
+  let pending = analysisInFlight.get(cacheKey);
+  if (!pending) {
+    pending = analyzeAudioFile({ absolutePath, fps });
+    analysisInFlight.set(cacheKey, pending);
+  }
+  try {
+    const levels = await pending;
     rememberEnvelope(cacheKey, levels);
     return { absolutePath, levels };
   } finally {
-    await rm(tempRoot, { recursive: true, force: true });
+    if (analysisInFlight.get(cacheKey) === pending) {
+      analysisInFlight.delete(cacheKey);
+    }
   }
 }
 
