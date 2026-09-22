@@ -8,6 +8,15 @@ export type VoxyEditorialAutonomyMode = (typeof VOXY_EDITORIAL_AUTONOMY_MODES)[n
 export const VOXY_EDITORIAL_QUALITY_LEVELS = ["standard", "high", "maximum"] as const;
 export type VoxyEditorialQualityLevel = (typeof VOXY_EDITORIAL_QUALITY_LEVELS)[number];
 
+export const VOXY_EDITORIAL_COUNCIL_STAGES = [
+  "dossier",
+  "editorial",
+  "translation",
+  "voiceAv",
+  "distributionQa",
+] as const;
+export type VoxyEditorialCouncilStage = (typeof VOXY_EDITORIAL_COUNCIL_STAGES)[number];
+
 export const VOXY_EDITORIAL_COUNCIL_ROLE_IDS = [
   "evidence_prosecutor",
   "claim_auditor",
@@ -21,6 +30,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLE_IDS = [
   "voice_av_critic",
   "brand_trust_critic",
   "risk_governor",
+  "defense_advocate",
   "chief_judge",
   "knowledge_curator",
 ] as const;
@@ -56,7 +66,16 @@ export type VoxyEditorialCouncilRoleDefinition = {
   adversarialQuestion: string;
   mayApprove: boolean;
   requiredAtQuality: VoxyEditorialQualityLevel[];
+  stages: VoxyEditorialCouncilStage[];
 };
+
+const ALL_REVIEW_STAGES: VoxyEditorialCouncilStage[] = [
+  "dossier",
+  "editorial",
+  "translation",
+  "voiceAv",
+  "distributionQa",
+];
 
 export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefinition[] = [
   {
@@ -66,6 +85,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "What evidence-based reasons make this claim unsafe or misleading to publish?",
     mayApprove: false,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["dossier", "editorial"],
   },
   {
     id: "claim_auditor",
@@ -74,6 +94,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "Which exact claim exceeds, distorts or loses the support of its cited evidence?",
     mayApprove: false,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["dossier", "editorial", "translation"],
   },
   {
     id: "counter_evidence_researcher",
@@ -82,6 +103,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "What credible evidence would materially weaken or qualify this account?",
     mayApprove: false,
     requiredAtQuality: ["high", "maximum"],
+    stages: ["dossier", "editorial"],
   },
   {
     id: "dossier_critic",
@@ -90,6 +112,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "What is missing from the dossier that could cause a reasonable reader to form a false overall picture?",
     mayApprove: false,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["dossier", "editorial"],
   },
   {
     id: "editorial_critic",
@@ -98,6 +121,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "Why should an editor stop this story in its current form?",
     mayApprove: false,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["editorial", "voiceAv", "distributionQa"],
   },
   {
     id: "neutrality_red_team",
@@ -106,22 +130,25 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "Where are comparable positions being treated by different evidentiary or editorial standards?",
     mayApprove: false,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["dossier", "editorial", "translation", "distributionQa"],
   },
   {
     id: "marketing_critic",
     alpha2RoleId: "growth_agent",
-    mission: "Challenge clarity, hook, comprehension and audience relevance without changing factual meaning.",
-    adversarialQuestion: "Why could this fail to earn attention or be misunderstood without altering any claim?",
+    mission: "Challenge clarity, comprehension and accessibility without optimizing political persuasion or changing factual meaning.",
+    adversarialQuestion: "Where could the presentation confuse or lose a reader without changing any claim, certainty or political framing?",
     mayApprove: false,
     requiredAtQuality: ["high", "maximum"],
+    stages: ["distributionQa"],
   },
   {
     id: "social_critic",
     alpha2RoleId: "distribution_agent",
-    mission: "Challenge channel fit, truncation risk, context loss, caption framing and platform-specific misunderstanding.",
+    mission: "Challenge channel fit, truncation risk, context loss and platform-specific misunderstanding without political targeting.",
     adversarialQuestion: "How could this specific social format distort or decontextualize the approved story?",
     mayApprove: false,
     requiredAtQuality: ["high", "maximum"],
+    stages: ["distributionQa"],
   },
   {
     id: "language_critic",
@@ -129,7 +156,8 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     mission: "Verify cross-language semantic, evidence and certainty parity.",
     adversarialQuestion: "Where does this language version change meaning, certainty, attribution, numbers or source scope?",
     mayApprove: false,
-    requiredAtQuality: ["high", "maximum"],
+    requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["translation", "voiceAv"],
   },
   {
     id: "voice_av_critic",
@@ -137,15 +165,17 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     mission: "Verify spoken audio, pronunciation, captions, timing and AV representation against the approved script.",
     adversarialQuestion: "What did the rendered audio/video say or imply differently from the approved script?",
     mayApprove: false,
-    requiredAtQuality: ["high", "maximum"],
+    requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ["voiceAv"],
   },
   {
     id: "brand_trust_critic",
     alpha2RoleId: "brand_trust_agent",
-    mission: "Challenge provenance wording, trust impact and claims that overstate eDebatte certainty or authority.",
+    mission: "Challenge provenance wording and claims that overstate eDebatte certainty, authority or neutrality.",
     adversarialQuestion: "What wording could make eDebatte appear more certain, authoritative or partisan than the evidence allows?",
     mayApprove: false,
     requiredAtQuality: ["maximum"],
+    stages: ["editorial", "distributionQa"],
   },
   {
     id: "risk_governor",
@@ -154,6 +184,16 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "Which policy or risk condition requires the autonomous path to stop?",
     mayApprove: false,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ALL_REVIEW_STAGES,
+  },
+  {
+    id: "defense_advocate",
+    alpha2RoleId: "review_agent",
+    mission: "Attempt to resolve each objection using only the bound evidence and explicit counter-evidence; never waive an objection by assertion.",
+    adversarialQuestion: "Which objections can actually be defeated by evidence, and which remain unresolved or disputed?",
+    mayApprove: false,
+    requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ALL_REVIEW_STAGES,
   },
   {
     id: "chief_judge",
@@ -162,6 +202,7 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     adversarialQuestion: "Which unresolved objection still makes release unjustified?",
     mayApprove: true,
     requiredAtQuality: ["standard", "high", "maximum"],
+    stages: ALL_REVIEW_STAGES,
   },
   {
     id: "knowledge_curator",
@@ -169,7 +210,8 @@ export const VOXY_EDITORIAL_COUNCIL_ROLES: readonly VoxyEditorialCouncilRoleDefi
     mission: "Turn confirmed misses and corrections into versioned learning candidates, never silent self-modification.",
     adversarialQuestion: "What repeatable lesson should become an evaluated future rule, and what evidence supports that lesson?",
     mayApprove: false,
-    requiredAtQuality: ["maximum"],
+    requiredAtQuality: [],
+    stages: ALL_REVIEW_STAGES,
   },
 ] as const;
 
@@ -177,13 +219,7 @@ export type VoxyEditorialAutonomyPolicy = {
   version: typeof VOXY_EDITORIAL_COUNCIL_VERSION;
   policyRevision: number;
   qualityLevel: VoxyEditorialQualityLevel;
-  modes: {
-    dossier: VoxyEditorialAutonomyMode;
-    editorial: VoxyEditorialAutonomyMode;
-    translation: VoxyEditorialAutonomyMode;
-    voiceAv: VoxyEditorialAutonomyMode;
-    distributionQa: VoxyEditorialAutonomyMode;
-  };
+  modes: Record<VoxyEditorialCouncilStage, VoxyEditorialAutonomyMode>;
   jobOverridesAllowed: true;
   learningMode: "propose_validate_promote";
   requireExactInputFingerprint: true;
@@ -213,7 +249,7 @@ export const VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY: VoxyEditorialAutonomyPolicy
   requireObjectionDefense: true,
   requireCriticalHumanEscalation: true,
   minIndependentReviewRuns: 12,
-  requiredDistinctModelFamilies: 1,
+  requiredDistinctModelFamilies: 2,
   maxUnresolvedWarningsForAutonomy: 0,
 };
 
@@ -247,6 +283,7 @@ export type VoxyEditorialCouncilRun = {
   runId: string;
   roleId: VoxyEditorialCouncilRoleId;
   alpha2RoleId: Alpha2RoleId;
+  reviewerActorId: string;
   inputFingerprint: string;
   creatorRunId: string | null;
   providerId: string;
@@ -264,6 +301,7 @@ export type VoxyEditorialCouncilRun = {
 
 export type VoxyEditorialCouncilDecision = {
   decisionId: string;
+  stage: VoxyEditorialCouncilStage;
   inputFingerprint: string;
   policyRevision: number;
   outcome: "agent_approved" | "blocked" | "human_required" | "shadow_pass";
@@ -299,22 +337,29 @@ export function buildVoxyEditorialCouncilInputFingerprint(
 
 export function listRequiredVoxyEditorialCouncilRoles(
   qualityLevel: VoxyEditorialQualityLevel,
+  stage: VoxyEditorialCouncilStage = "editorial",
 ): VoxyEditorialCouncilRoleId[] {
   return VOXY_EDITORIAL_COUNCIL_ROLES
-    .filter((role) => role.requiredAtQuality.includes(qualityLevel))
+    .filter(
+      (role) =>
+        role.stages.includes(stage) && role.requiredAtQuality.includes(qualityLevel),
+    )
     .map((role) => role.id);
 }
 
 export function evaluateVoxyEditorialCouncil(input: {
+  stage?: VoxyEditorialCouncilStage;
   binding: VoxyEditorialCouncilInputBinding;
   policy: VoxyEditorialAutonomyPolicy;
   creatorRunId: string | null;
+  creatorActorId?: string | null;
   runs: VoxyEditorialCouncilRun[];
   criticalRiskFlags?: VoxyEditorialCriticalRiskFlag[];
 }): VoxyEditorialCouncilDecision {
+  const stage = input.stage ?? "editorial";
   const inputFingerprint = buildVoxyEditorialCouncilInputFingerprint(input.binding);
   const reasonCodes: string[] = [];
-  const requiredRoles = listRequiredVoxyEditorialCouncilRoles(input.policy.qualityLevel);
+  const requiredRoles = listRequiredVoxyEditorialCouncilRoles(input.policy.qualityLevel, stage);
   const criticalRiskFlags = unique(input.criticalRiskFlags ?? []) as VoxyEditorialCriticalRiskFlag[];
   const completedRuns = input.runs.filter((run) => run.completed);
   const runIds = completedRuns.map((run) => run.runId);
@@ -337,14 +382,20 @@ export function evaluateVoxyEditorialCouncil(input: {
   ) {
     reasonCodes.push("stale_or_foreign_input_fingerprint");
   }
+  if (input.policy.requireCreatorReviewerSeparation && input.creatorRunId) {
+    if (completedRuns.some((run) => run.runId === input.creatorRunId)) {
+      reasonCodes.push("creator_reviewer_separation_broken");
+    }
+    if (completedRuns.some((run) => run.creatorRunId !== input.creatorRunId)) {
+      reasonCodes.push("creator_lineage_mismatch");
+    }
+  }
   if (
     input.policy.requireCreatorReviewerSeparation &&
-    input.creatorRunId &&
-    completedRuns.some(
-      (run) => run.runId === input.creatorRunId || run.creatorRunId === run.runId,
-    )
+    input.creatorActorId &&
+    completedRuns.some((run) => run.reviewerActorId === input.creatorActorId)
   ) {
-    reasonCodes.push("creator_reviewer_separation_broken");
+    reasonCodes.push("creator_reviewer_actor_separation_broken");
   }
   if (completedRuns.some((run) => run.policyRevision !== input.policy.policyRevision)) {
     reasonCodes.push("mixed_policy_revision");
@@ -378,24 +429,24 @@ export function evaluateVoxyEditorialCouncil(input: {
   if (!judge) reasonCodes.push("chief_judge_missing");
   else if (judge.verdict === "fail") reasonCodes.push("chief_judge_rejected");
   else if (judge.verdict === "escalate") reasonCodes.push("chief_judge_escalated");
+  else if (judge.verdict === "pass_with_warnings") reasonCodes.push("chief_judge_not_clean_pass");
 
   const criticalHumanRequired =
     input.policy.requireCriticalHumanEscalation && criticalRiskFlags.length > 0;
   if (criticalHumanRequired) reasonCodes.push("critical_human_escalation_required");
 
-  const auditComplete = reasonCodes.every((code) =>
-    ["critical_human_escalation_required"].includes(code),
-  );
   const hardFailureCodes = reasonCodes.filter(
     (code) => code !== "critical_human_escalation_required",
   );
+  const auditComplete = hardFailureCodes.length === 0;
+  const mode = input.policy.modes[stage];
 
   let outcome: VoxyEditorialCouncilDecision["outcome"];
-  if (criticalHumanRequired || input.policy.modes.editorial === "human") {
+  if (criticalHumanRequired || mode === "human") {
     outcome = "human_required";
   } else if (hardFailureCodes.length > 0 || !judge || judge.verdict !== "pass") {
     outcome = "blocked";
-  } else if (input.policy.modes.editorial === "shadow") {
+  } else if (mode === "shadow") {
     outcome = "shadow_pass";
   } else {
     outcome = "agent_approved";
@@ -403,15 +454,16 @@ export function evaluateVoxyEditorialCouncil(input: {
 
   const publicDecisionSummary =
     outcome === "agent_approved"
-      ? "All required adversarial reviews completed on the exact revision; no unresolved objection remains and the chief judge approved the evidence-backed record."
+      ? "All required adversarial reviews completed on the exact revision; every material objection was resolved with bound evidence and the independent chief judge approved the record."
       : outcome === "human_required"
-        ? "The council stopped autonomous release because a configured critical-risk gate requires human judgment."
+        ? "The council stopped autonomous release because a configured critical-risk or human-review gate requires human judgment."
         : outcome === "shadow_pass"
           ? "The council passed in shadow mode; its decision is informative and does not authorize release."
           : "The council blocked release because one or more required reviews, evidence bindings or objections remain unresolved.";
 
   return {
-    decisionId: `voxy-council-${stableHash({ inputFingerprint, policyRevision: input.policy.policyRevision, runIds, outcome, reasonCodes }).slice(0, 32)}`,
+    decisionId: `voxy-council-${stableHash({ stage, inputFingerprint, policyRevision: input.policy.policyRevision, runIds, outcome, reasonCodes }).slice(0, 32)}`,
+    stage,
     inputFingerprint,
     policyRevision: input.policy.policyRevision,
     outcome,
