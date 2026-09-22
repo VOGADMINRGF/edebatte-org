@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     },
     runtime: {
       editorialLongformRenderEnabled: false,
-      reason: "editorial_v1_final_canon_worker_not_active",
+      reason: "studio_render_handoff_not_enabled",
       autoRender: false,
       autoPublish: false,
     },
@@ -140,6 +140,7 @@ export async function POST(req: NextRequest) {
         renderApprovalBlocked: !validation.renderEligible,
         runtime: {
           editorialLongformRenderEnabled: false,
+          reason: "studio_render_handoff_not_enabled",
           autoRender: false,
           autoPublish: false,
         },
