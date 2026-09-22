@@ -107,6 +107,6 @@ describe("Voxy editorial final-canon composition adapter", () => {
     expect(html).not.toContain('class="motion-plate neck-plate"');
     expect(html).not.toContain("voxy-standing-master.svg");
     expect(html).toContain("source-1");
-    expect(html).toContain("finding");
+    expect(html).toContain('data-evidence-window-kind="source"');
   });
 });
