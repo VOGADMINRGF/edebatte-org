@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 
@@ -73,6 +73,8 @@ export default function VoxyStudioFramePreviewPanel() {
   const [atMs, setAtMs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const previewHostRef = useRef<HTMLDivElement | null>(null);
+  const [availablePreviewWidth, setAvailablePreviewWidth] = useState(520);
 
   const loadDrafts = useCallback(async () => {
     setLoading(true);
@@ -147,12 +149,25 @@ export default function VoxyStudioFramePreviewPanel() {
     };
   }, [selectedDraft]);
 
+  useEffect(() => {
+    const host = previewHostRef.current;
+    if (!host) return;
+    const updateWidth = () => {
+      const preferred = format === "9:16" ? 360 : 520;
+      setAvailablePreviewWidth(Math.max(1, Math.min(preferred, host.clientWidth)));
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [format, selectedDraftId]);
+
   const selectedAudio = useMemo(
     () => audioState?.inputs.find((input) => input.assetId === selectedAudioId) ?? null,
     [audioState, selectedAudioId],
   );
   const dimensions = DIMENSIONS[format];
-  const previewWidth = format === "9:16" ? 360 : 520;
+  const previewWidth = availablePreviewWidth;
   const scale = previewWidth / dimensions.width;
   const previewHeight = Math.round(dimensions.height * scale);
   const maxAtMs = Math.max(0, (selectedAudio?.durationMs ?? 1) - 1);
@@ -300,7 +315,10 @@ export default function VoxyStudioFramePreviewPanel() {
             </div>
           </div>
 
-          <div className="min-w-0 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
+          <div
+            ref={previewHostRef}
+            className="min-w-0 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3"
+          >
             {previewUrl ? (
               <div className="mx-auto" style={{ width: previewWidth, maxWidth: "100%" }}>
                 <div
