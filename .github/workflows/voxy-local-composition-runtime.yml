@@ -25,12 +25,14 @@ on:
       - "apps/web/src/features/voxyVideo/studioDraftStore.ts"
       - "apps/web/src/features/voxyVideo/studioDossierEvidenceAuthority.ts"
       - "apps/web/src/features/voxyVideo/studioOperatorEdit.ts"
+      - "apps/web/src/features/voxyVideo/studioRenderBindingGuard.ts"
       - "apps/web/src/features/voxyVideo/studioStoryPlanBuilder.ts"
       - "apps/web/src/features/voxyVideo/index.ts"
       - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
       - "apps/web/tests/voxy-editorial-composition-html.contract.test.ts"
       - "apps/web/tests/voxy-studio-draft-service.contract.test.ts"
+      - "apps/web/tests/voxy-studio-immutable-render-binding.contract.test.ts"
       - "apps/web/tests/voxy-studio-operator-edit.contract.test.ts"
       - "docs/E150/VOXY-LOCAL-COMPOSITION-RUNTIME-01_2026-09-21.md"
   workflow_dispatch:
@@ -68,7 +70,7 @@ jobs:
       - name: Runtime, editorial-canon and Studio contract tests
         run: |
           pnpm -C apps/web run test:voxy-local-composition-runtime
-          pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts
+          pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts
 
       - name: Typecheck and diff guard
         run: |
