@@ -130,6 +130,27 @@ async function requireDraft(
   return draft;
 }
 
+export async function resolveVoxyStudioDraftRevisionAuthorActor(
+  draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan">,
+  repository: VoxyStudioDraftRepository = getVoxyStudioDraftRepository(),
+): Promise<string> {
+  if (repository.getPersistenceState().mode !== "persistent_primary") {
+    throw new Error("voxy_studio_revision_author_not_persistent");
+  }
+  const audits = await repository.listAuditEvents(draft.draftId);
+  const authoringEvent = audits.find(
+    (event) =>
+      event.draftId === draft.draftId &&
+      event.draftRevision === draft.revision &&
+      event.storyPlanRevision === draft.storyPlan.revision &&
+      (event.action === "created" || event.action === "edited"),
+  );
+  if (!authoringEvent) {
+    throw new Error("voxy_studio_revision_author_audit_missing");
+  }
+  return requireActor(authoringEvent.byUserId);
+}
+
 async function replaceDraftOrThrow(input: {
   repository: VoxyStudioDraftRepository;
   current: VoxyStudioDraft;
