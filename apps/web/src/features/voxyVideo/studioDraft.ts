@@ -33,10 +33,16 @@ export type VoxyStudioCaptionAdjustment = {
   textOverride: string | null;
 };
 
-export type VoxyStudioHumanApproval = {
+export const VOXY_STUDIO_REVIEW_APPROVAL_SOURCES = ["human", "agent_council"] as const;
+export type VoxyStudioReviewApprovalSource =
+  (typeof VOXY_STUDIO_REVIEW_APPROVAL_SOURCES)[number];
+
+export type VoxyStudioReviewApproval = {
+  approvalSource: VoxyStudioReviewApprovalSource;
   reviewDecisionRecordId: string;
   decisionGateId: string;
   approvedByUserId: string;
+  councilArtifactId: string | null;
   approvedAt: string;
   studioDraftRevision: number;
   storyPlanRevision: number;
@@ -75,9 +81,9 @@ export type VoxyStudioDraft = {
   safeZoneProfile: VoxyStudioSafeZoneProfile;
   captionAdjustments: VoxyStudioCaptionAdjustment[];
   status: VoxyStudioDraftStatus;
-  renderApproval: VoxyStudioHumanApproval | null;
+  renderApproval: VoxyStudioReviewApproval | null;
   renderBinding: VoxyStudioRenderBinding | null;
-  publishApproval: VoxyStudioHumanApproval | null;
+  publishApproval: VoxyStudioReviewApproval | null;
   createdByUserId: string;
   updatedByUserId: string;
   createdAt: string;
@@ -185,19 +191,32 @@ export function validateVoxyStudioDraft(draft: VoxyStudioDraft): string[] {
     cueIds.add(adjustment.cueId);
   }
   if (draft.status === "approved_for_render" && !draft.renderApproval) {
-    errors.push("approved_for_render_requires_human_approval");
+    errors.push("approved_for_render_requires_review_approval");
   }
   if (["rendered", "approved_for_publish"].includes(draft.status) && !draft.renderBinding) {
     errors.push("rendered_state_requires_output_binding");
   }
   if (draft.status === "approved_for_publish" && !draft.publishApproval) {
-    errors.push("approved_for_publish_requires_human_approval");
+    errors.push("approved_for_publish_requires_review_approval");
   }
   for (const approval of [draft.renderApproval, draft.publishApproval]) {
     if (!approval) continue;
+    if (!VOXY_STUDIO_REVIEW_APPROVAL_SOURCES.includes(approval.approvalSource)) {
+      errors.push("approval_source_invalid");
+    }
     if (!SAFE_ID.test(approval.reviewDecisionRecordId)) errors.push("approval_decision_record_invalid");
     if (!normalize(approval.decisionGateId)) errors.push("approval_decision_gate_missing");
     if (!SAFE_ID.test(approval.approvedByUserId)) errors.push("approval_actor_invalid");
+    if (approval.approvalSource === "agent_council") {
+      if (!approval.approvedByUserId.startsWith("agent:voxy-chief-judge:")) {
+        errors.push("agent_council_approval_actor_invalid");
+      }
+      if (!approval.councilArtifactId || !SAFE_ID.test(approval.councilArtifactId)) {
+        errors.push("agent_council_approval_artifact_invalid");
+      }
+    } else if (approval.councilArtifactId !== null) {
+      errors.push("human_approval_must_not_bind_council_artifact");
+    }
     if (!ISO_DATE.test(approval.approvedAt)) errors.push("approval_timestamp_invalid");
     if (approval.studioDraftRevision !== draft.revision) errors.push("approval_studio_revision_stale");
     if (approval.storyPlanRevision !== draft.storyPlan.revision) errors.push("approval_story_revision_stale");
