@@ -5,6 +5,7 @@ import {
   type HomepageFilmLayoutProfile,
   type HomepageFilmRect,
 } from "./homepageReferenceFilmLayouts";
+import type { VoxyLocalCompositionCaptionCue } from "./localCompositionRuntime";
 import type { VoxyVideoFormat } from "./modernCharacterContracts";
 import type { VoxyStudioDraft, VoxyStudioSafeZoneProfile } from "./studioDraft";
 
@@ -36,6 +37,14 @@ export type VoxyStudioLayoutSafetyResult = {
   approvalEligible: boolean;
 };
 
+export type VoxyStudioCaptionLayoutSafetyResult = {
+  format: VoxyVideoFormat;
+  captionBudget: number;
+  warnings: VoxyStudioLayoutSafetyIssue[];
+  blockers: VoxyStudioLayoutSafetyIssue[];
+  renderEligible: boolean;
+};
+
 function normalized(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
@@ -62,6 +71,7 @@ function evaluateCopy(input: {
   value: string;
   warningAt: number;
   blockerAt: number;
+  blockerEnabled?: boolean;
   format: VoxyVideoFormat;
   chapterId: string | null;
   region: VoxyStudioLayoutSafetyIssue["region"];
@@ -70,7 +80,7 @@ function evaluateCopy(input: {
 }): VoxyStudioLayoutSafetyIssue | null {
   const value = normalized(input.value);
   if (!value) return null;
-  if (value.length > input.blockerAt) {
+  if (input.blockerEnabled !== false && value.length > input.blockerAt) {
     return {
       severity: "blocker",
       code: `${input.code}_overflow_risk`,
@@ -108,6 +118,15 @@ function structuralIssue(input: {
     region: input.region,
     message: `Die kanonische ${input.region}-Region liegt in ${input.format} außerhalb der definierten Safe Area. Renderfreigabe bleibt fail-closed.`,
   };
+}
+
+function captionBudget(format: VoxyVideoFormat): number {
+  const layout = layoutFor(format);
+  return textCapacity({
+    rect: layout.regions.caption,
+    fontPx: layout.typography.captionPx,
+    lines: 3,
+  });
 }
 
 export function evaluateVoxyStudioLayoutSafety(input: {
@@ -149,11 +168,7 @@ export function evaluateVoxyStudioLayoutSafety(input: {
     fontPx: layout.typography.brandPx,
     lines: 2,
   });
-  const captionBudget = textCapacity({
-    rect: layout.regions.caption,
-    fontPx: layout.typography.captionPx,
-    lines: 3,
-  });
+  const narrationBudget = captionBudget(input.format);
   for (const chapter of input.draft.storyPlan.chapters) {
     const headlineIssue = evaluateCopy({
       value: chapter.headline,
@@ -169,8 +184,9 @@ export function evaluateVoxyStudioLayoutSafety(input: {
 
     const narrationIssue = evaluateCopy({
       value: chapter.narration,
-      warningAt: Math.floor(captionBudget * 0.78),
-      blockerAt: captionBudget,
+      warningAt: Math.floor(narrationBudget * 0.78),
+      blockerAt: narrationBudget,
+      blockerEnabled: false,
       format: input.format,
       chapterId: chapter.chapterId,
       region: "caption",
@@ -198,6 +214,36 @@ export function evaluateVoxyStudioLayoutSafety(input: {
   };
 }
 
+export function evaluateVoxyStudioCaptionLayoutSafety(input: {
+  format: VoxyVideoFormat;
+  captionCues: readonly VoxyLocalCompositionCaptionCue[];
+}): VoxyStudioCaptionLayoutSafetyResult {
+  const budget = captionBudget(input.format);
+  const issues: VoxyStudioLayoutSafetyIssue[] = [];
+  for (const cue of input.captionCues) {
+    const issue = evaluateCopy({
+      value: cue.text,
+      warningAt: Math.floor(budget * 0.78),
+      blockerAt: budget,
+      format: input.format,
+      chapterId: null,
+      region: "caption",
+      code: `caption_cue:${cue.id}`,
+      label: `Caption ${cue.id}`,
+    });
+    if (issue) issues.push(issue);
+  }
+  const warnings = issues.filter((issue) => issue.severity === "warning");
+  const blockers = issues.filter((issue) => issue.severity === "blocker");
+  return {
+    format: input.format,
+    captionBudget: budget,
+    warnings,
+    blockers,
+    renderEligible: blockers.length === 0,
+  };
+}
+
 export function evaluateVoxyStudioAllFormatLayoutSafety(
   draft: Pick<VoxyStudioDraft, "storyPlan" | "safeZoneProfile">,
 ): Record<VoxyVideoFormat, VoxyStudioLayoutSafetyResult> {
@@ -215,6 +261,19 @@ export function assertVoxyStudioSelectedFormatLayoutSafety(
   if (!result.approvalEligible) {
     throw new Error(
       `voxy_studio_layout_approval_blocked:${result.blockers.map((item) => item.code).join(",")}`,
+    );
+  }
+  return result;
+}
+
+export function assertVoxyStudioCaptionLayoutSafety(input: {
+  format: VoxyVideoFormat;
+  captionCues: readonly VoxyLocalCompositionCaptionCue[];
+}): VoxyStudioCaptionLayoutSafetyResult {
+  const result = evaluateVoxyStudioCaptionLayoutSafety(input);
+  if (!result.renderEligible) {
+    throw new Error(
+      `voxy_studio_caption_layout_blocked:${result.blockers.map((item) => item.code).join(",")}`,
     );
   }
   return result;
