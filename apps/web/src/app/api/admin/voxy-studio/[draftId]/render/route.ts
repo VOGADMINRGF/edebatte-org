@@ -18,6 +18,7 @@ import {
 } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { buildVoxyStudioEvidenceBoundRenderReviewGateId } from "@/features/voxyVideo/studioDraftService";
+import { mergeVoxyStudioAllFormatLayoutSafetyIntoValidation } from "@/features/voxyVideo/studioLayoutSafety";
 import { buildVoxyStudioEditorialCompositionHandoff } from "@/features/voxyVideo/studioRenderHandoff";
 
 const BodySchema = z
@@ -72,6 +73,13 @@ async function loadDraft(rawDraftId: string) {
   return { draftId, draft };
 }
 
+function validateRenderReadiness(draft: NonNullable<Awaited<ReturnType<typeof loadDraft>>["draft"]>, evidence: Awaited<ReturnType<ReturnType<typeof createFailClosedDossierStudioEvidenceAuthority>["resolveEvidenceContext"]>>) {
+  return mergeVoxyStudioAllFormatLayoutSafetyIntoValidation({
+    draft,
+    validation: validateVoxyEditorialStoryPlan(draft.storyPlan, evidence),
+  });
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ draftId: string }> },
@@ -86,7 +94,7 @@ export async function GET(
 
   const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
   const evidence = await evidenceAuthority.resolveEvidenceContext(draft);
-  const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+  const validation = validateRenderReadiness(draft, evidence);
   const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
     draft,
     evidence.sourcePack.sourcePackId,
@@ -244,7 +252,7 @@ export async function POST(
       evidenceAuthority.resolveEvidenceContext(draft),
       loadVoxyStudioDossierEvidenceReviewState(draft.dossierId),
     ]);
-    const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+    const validation = validateRenderReadiness(draft, evidence);
     if (!validation.renderEligible || !evidenceReview.approved) {
       return NextResponse.json(
         {
