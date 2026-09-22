@@ -1,5 +1,6 @@
 import { stableHash } from "@core/utils/hash";
 import { getVoxyFixtureDimensions } from "@/features/voxyVideo/characterMotionFixture";
+import { VOXY_FINAL_CANON } from "@/features/voxyVideo/finalCanon";
 import type { VoxyVideoFormat } from "@/features/voxyVideo/modernCharacterContracts";
 import {
   VOXY_EDITORIAL_DURATION_LIMITS_MS,
@@ -50,6 +51,16 @@ export type VoxyLocalCompositionCaptionCue = {
   text: string;
 };
 
+export type VoxyLocalCompositionEditorialBinding = {
+  studioDraftId: string;
+  studioDraftRevision: number;
+  storyPlanId: string;
+  storyPlanRevision: number;
+  evidenceSourcePackId: string;
+  evidenceDecisionGateId: string;
+  finalCanonId: string;
+};
+
 export type VoxyLocalCompositionRequest = {
   requestedByUserId: string;
   artifactId: string;
@@ -64,6 +75,7 @@ export type VoxyLocalCompositionRequest = {
   captionCues: VoxyLocalCompositionCaptionCue[];
   editorialStoryPlan?: VoxyEditorialStoryPlan | null;
   editorialTimeline?: VoxyEditorialTimeline | null;
+  editorialBinding?: VoxyLocalCompositionEditorialBinding | null;
 };
 
 export type VoxyLocalCompositionApprovalSnapshot = {
@@ -240,6 +252,17 @@ function canonicalRequestPayload(input: VoxyLocalCompositionRequest) {
     })),
     editorialStoryPlan: input.editorialStoryPlan ?? null,
     editorialTimeline: input.editorialTimeline ?? null,
+    editorialBinding: input.editorialBinding
+      ? {
+          studioDraftId: normalized(input.editorialBinding.studioDraftId),
+          studioDraftRevision: Math.trunc(input.editorialBinding.studioDraftRevision),
+          storyPlanId: normalized(input.editorialBinding.storyPlanId),
+          storyPlanRevision: Math.trunc(input.editorialBinding.storyPlanRevision),
+          evidenceSourcePackId: normalized(input.editorialBinding.evidenceSourcePackId),
+          evidenceDecisionGateId: normalized(input.editorialBinding.evidenceDecisionGateId),
+          finalCanonId: normalized(input.editorialBinding.finalCanonId),
+        }
+      : null,
   };
 }
 
@@ -265,7 +288,7 @@ function validateLegacyFixtureScenes(input: VoxyLocalCompositionRequest, errors:
   if (input.sceneContent.length !== VOXY_LOCAL_COMPOSITION_SCENE_IDS.length) {
     errors.push("scene_count_invalid");
   }
-  if (input.editorialStoryPlan || input.editorialTimeline) {
+  if (input.editorialStoryPlan || input.editorialTimeline || input.editorialBinding) {
     errors.push("legacy_fixture_must_not_bind_editorial_plan");
   }
 }
@@ -292,6 +315,33 @@ function validateEditorialBinding(input: VoxyLocalCompositionRequest, errors: st
     timeline.durationClass !== plan.durationClass
   ) {
     errors.push("editorial_timeline_story_binding_mismatch");
+  }
+  const binding = input.editorialBinding;
+  if (binding) {
+    if (
+      !validId(normalized(binding.studioDraftId)) ||
+      normalized(binding.studioDraftId) !== normalized(input.artifactId)
+    ) {
+      errors.push("editorial_studio_draft_binding_mismatch");
+    }
+    if (!Number.isInteger(binding.studioDraftRevision) || binding.studioDraftRevision < 1) {
+      errors.push("editorial_studio_draft_revision_invalid");
+    }
+    if (
+      normalized(binding.storyPlanId) !== plan.storyPlanId ||
+      binding.storyPlanRevision !== plan.revision
+    ) {
+      errors.push("editorial_binding_story_revision_mismatch");
+    }
+    if (!normalized(binding.evidenceSourcePackId) || normalized(binding.evidenceSourcePackId).length > 320) {
+      errors.push("editorial_evidence_source_pack_binding_invalid");
+    }
+    if (!normalized(binding.evidenceDecisionGateId) || normalized(binding.evidenceDecisionGateId).length > 512) {
+      errors.push("editorial_evidence_decision_gate_binding_invalid");
+    }
+    if (normalized(binding.finalCanonId) !== VOXY_FINAL_CANON.canonId) {
+      errors.push("editorial_final_canon_binding_mismatch");
+    }
   }
   const limits = VOXY_EDITORIAL_DURATION_LIMITS_MS[plan.durationClass];
   if (
@@ -378,15 +428,22 @@ export function buildVoxyLocalCompositionIdentityKey(
   input: VoxyLocalCompositionRequest,
 ): string {
   const payload = canonicalRequestPayload(input);
-  return `voxy-local-composition:${stableHash(
-    [
-      payload.briefingId,
-      payload.scriptVersion,
-      payload.locale,
-      payload.format,
-      payload.renderProfile,
-    ].join(":"),
-  ).slice(0, 32)}`;
+  const identityParts = [
+    payload.briefingId,
+    payload.scriptVersion,
+    payload.locale,
+    payload.format,
+    payload.renderProfile,
+  ];
+  if (input.renderProfile === "editorial_v1" && payload.editorialBinding) {
+    identityParts.push(
+      payload.artifactId,
+      String(payload.editorialBinding.studioDraftRevision),
+      payload.editorialBinding.evidenceSourcePackId,
+      payload.editorialBinding.finalCanonId,
+    );
+  }
+  return `voxy-local-composition:${stableHash(identityParts.join(":")).slice(0, 32)}`;
 }
 
 export function buildVoxyLocalCompositionInputFingerprint(
@@ -443,6 +500,13 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
     (dossierRefId !== null && !validId(dossierRefId))
   ) {
     throw new Error("voxy_local_composition_approval_required");
+  }
+  if (
+    input.request.renderProfile === "editorial_v1" &&
+    input.request.editorialBinding &&
+    normalized(input.request.editorialBinding.evidenceDecisionGateId) !== decisionGateId
+  ) {
+    throw new Error("voxy_local_composition_editorial_approval_binding_mismatch");
   }
   const errors = validateVoxyLocalCompositionRequest(input.request);
   if (errors.length) throw new Error(`voxy_local_composition_request_invalid:${errors.join(",")}`);
