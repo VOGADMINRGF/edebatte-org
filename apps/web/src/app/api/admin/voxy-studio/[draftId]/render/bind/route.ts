@@ -11,6 +11,7 @@ import {
   createDefaultVoxyStudioServiceDependencies,
 } from "@/features/voxyVideo/studioDraftService";
 import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
+import { assertVoxyStudioEditorialRenderCandidate } from "@/features/voxyVideo/studioRenderBindingGuard";
 
 const BodySchema = z
   .object({
@@ -55,6 +56,18 @@ export async function POST(
       );
     }
 
+    const [job, output] = await Promise.all([
+      runtimeRepository.getJob(parsed.data.jobId),
+      runtimeRepository.getOutput(parsed.data.outputId),
+    ]);
+    if (!job || !output) {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_composition_missing" },
+        { status: 404 },
+      );
+    }
+    assertVoxyStudioEditorialRenderCandidate({ job, output });
+
     const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
     const deps = createDefaultVoxyStudioServiceDependencies({ evidenceAuthority });
     const draft = await bindVoxyStudioVerifiedRender(
@@ -67,11 +80,7 @@ export async function POST(
       },
       deps,
     );
-    const [job, output] = await Promise.all([
-      runtimeRepository.getJob(parsed.data.jobId),
-      runtimeRepository.getOutput(parsed.data.outputId),
-    ]);
-    if (!job || !output || !draft.renderBinding) {
+    if (!draft.renderBinding) {
       throw new Error("voxy_studio_render_binding_postcondition_failed");
     }
 
