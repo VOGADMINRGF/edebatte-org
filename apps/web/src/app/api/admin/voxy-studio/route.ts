@@ -6,6 +6,7 @@ import { z } from "zod";
 import { SUPPORTED_LOCALES } from "@/config/locales";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
 import { validateVoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
+import { getVoxyLocalCompositionAudioInputRepository } from "@/features/voxyVideo/localCompositionAudioAssetStore";
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 import {
   createFailClosedDossierStudioEvidenceAuthority,
@@ -20,6 +21,7 @@ import {
 } from "@/features/voxyVideo/studioDraftService";
 import { VOXY_STUDIO_SAFE_ZONE_PROFILES } from "@/features/voxyVideo/studioDraft";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";
 import { buildVoxyStudioStoryPlanFromDossier } from "@/features/voxyVideo/studioStoryPlanBuilder";
 import { getReviewQueueOperationsRepository } from "@features/reviewQueueOperations";
 
@@ -59,52 +61,74 @@ export async function GET(req: NextRequest) {
 
   const repository = getVoxyStudioDraftRepository();
   const reviewRepository = getReviewQueueOperationsRepository();
+  const audioRepository = getVoxyLocalCompositionAudioInputRepository();
   const dossierId = req.nextUrl.searchParams.get("dossierId")?.trim() || null;
   const drafts = await repository.listDrafts({ dossierId, limit: parseLimit(req) });
 
-  const items = await Promise.all(
-    drafts.map(async (draft) => {
-      const [evidence, evidenceReview] = await Promise.all([
-        loadFailClosedDossierStudioEvidenceContext(draft.dossierId),
-        draft.dossierId
-          ? loadVoxyStudioDossierEvidenceReviewState(draft.dossierId)
-          : Promise.resolve(null),
-      ]);
-      const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
-      const reviewItemId = buildVoxyStudioEditorialReviewItemId(
-        draft,
-        evidence.sourcePack.sourcePackId,
-      );
-      const decisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
-        draft,
-        evidence.sourcePack.sourcePackId,
-      );
-      const [reviewRecord, reviewAuditEvents] = await Promise.all([
-        reviewRepository.getRecord(reviewItemId),
-        reviewRepository.listAuditEvents(reviewItemId),
-      ]);
-      return {
-        draft,
-        validation,
-        evidenceReview,
-        evidenceSourcePackId: evidence.sourcePack.sourcePackId,
-        reviewItemId,
-        decisionGateId,
-        approvalEvidenceStale:
-          draft.status === "approved_for_render" &&
-          draft.renderApproval?.decisionGateId !== decisionGateId,
-        reviewRecord,
-        reviewAuditEvents: reviewAuditEvents.slice(0, 10),
-      };
-    }),
-  );
+  const [items, audioEntries] = await Promise.all([
+    Promise.all(
+      drafts.map(async (draft) => {
+        const [evidence, evidenceReview] = await Promise.all([
+          loadFailClosedDossierStudioEvidenceContext(draft.dossierId),
+          draft.dossierId
+            ? loadVoxyStudioDossierEvidenceReviewState(draft.dossierId)
+            : Promise.resolve(null),
+        ]);
+        const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+        const reviewItemId = buildVoxyStudioEditorialReviewItemId(
+          draft,
+          evidence.sourcePack.sourcePackId,
+        );
+        const decisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+          draft,
+          evidence.sourcePack.sourcePackId,
+        );
+        const [reviewRecord, reviewAuditEvents] = await Promise.all([
+          reviewRepository.getRecord(reviewItemId),
+          reviewRepository.listAuditEvents(reviewItemId),
+        ]);
+        return {
+          draft,
+          validation,
+          evidenceReview,
+          evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+          reviewItemId,
+          decisionGateId,
+          approvalEvidenceStale:
+            draft.status === "approved_for_render" &&
+            draft.renderApproval?.decisionGateId !== decisionGateId,
+          reviewRecord,
+          reviewAuditEvents: reviewAuditEvents.slice(0, 10),
+        };
+      }),
+    ),
+    Promise.all(
+      drafts.map(async (draft) => [
+        draft.draftId,
+        await audioRepository.listForBinding({
+          artifactId: draft.draftId,
+          briefingId: draft.briefingId,
+          scriptVersion: `story-r${draft.storyPlan.revision}`,
+          locale: draft.storyPlan.outputLanguage.toLowerCase(),
+          limit: 20,
+        }),
+      ] as const),
+    ),
+  ]);
+  const audioInputsByDraftId = Object.fromEntries(audioEntries);
+  const localeReviewMatrices = buildVoxyStudioLocaleReviewMatrices({
+    drafts,
+    audioInputsByDraftId,
+  });
 
   return NextResponse.json({
     ok: true,
     items,
+    localeReviewMatrices,
     persistence: {
       drafts: repository.getPersistenceState(),
       editorialReview: reviewRepository.getPersistenceState(),
+      audioInputs: audioRepository.getPersistenceState(),
     },
     runtime: studioRuntimeState(),
   });
