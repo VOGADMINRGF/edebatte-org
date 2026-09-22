@@ -51,7 +51,9 @@ function envValue(source: EnvSource, key: string): string | null {
 function mongoHost(uri: string | null): string | null {
   if (!uri) return null;
   try {
-    return new URL(uri).hostname.toLowerCase();
+    const parsed = new URL(uri);
+    if (parsed.protocol !== "mongodb:" && parsed.protocol !== "mongodb+srv:") return null;
+    return parsed.hostname.toLowerCase() || null;
   } catch {
     return null;
   }
@@ -90,10 +92,13 @@ export function validateProductionMongoTopology(source: EnvSource = process.env)
   const dbNames = new Map<string, string>();
 
   for (const zone of zones) {
+    if (!zone.uri) errors.push(`Missing production value: ${zone.uriKey}`);
+    if (!zone.db) errors.push(`Missing production value: ${zone.dbKey}`);
     if (!zone.uri || !zone.db) continue;
+
     const host = mongoHost(zone.uri);
     if (!host) {
-      errors.push(`${zone.uriKey} must be a valid MongoDB URI with a hostname`);
+      errors.push(`${zone.uriKey} must be a valid mongodb:// or mongodb+srv:// URI with a hostname`);
       continue;
     }
 
