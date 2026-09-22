@@ -6,6 +6,7 @@ import {
   buildVoxyEditorialTimeline,
   type VoxyEditorialTimeline,
 } from "./editorialStoryPlan";
+import { buildVoxyEditorialRenderableStoryPlan } from "./editorialRenderEvidence";
 import {
   buildVoxyLocalCompositionTimelineHash,
   validateVoxyLocalCompositionRequest,
@@ -21,6 +22,7 @@ import {
   type VoxyLocalCompositionAudioInputRepository,
 } from "./localCompositionAudioAssetStore";
 import type { VoxyLocalCompositionAudioResolver } from "./localCompositionRuntimeService";
+import type { VoxyStudioEvidenceSnapshot } from "./studioEvidenceReview";
 import { assertVoxyStudioCaptionLayoutSafety } from "./studioLayoutSafety";
 import {
   buildVoxyVoiceLocaleReadiness,
@@ -177,6 +179,7 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
   audioInput: VoxyLocalCompositionAudioInputRecord;
   requestedByUserId: string;
   evidenceSourcePackId: string;
+  evidenceSources: VoxyStudioEvidenceSnapshot["sources"];
 }): VoxyStudioEditorialCompositionHandoff {
   const draftErrors = validateVoxyStudioDraft(input.draft);
   if (draftErrors.length) {
@@ -217,6 +220,11 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     format: input.draft.selectedFormat,
     captionCues,
   });
+  const renderStoryPlan = buildVoxyEditorialRenderableStoryPlan({
+    plan: input.draft.storyPlan,
+    sourcePackId: evidenceSourcePackId,
+    sources: input.evidenceSources,
+  });
 
   const renderApproval = input.draft.renderApproval;
   const editorialBinding: VoxyLocalCompositionEditorialBinding = {
@@ -242,7 +250,7 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     audioAssetId: input.audioInput.assetId,
     sceneContent: [],
     captionCues,
-    editorialStoryPlan: input.draft.storyPlan,
+    editorialStoryPlan: renderStoryPlan,
     editorialTimeline: timeline,
     editorialBinding,
   };
