@@ -42,6 +42,19 @@ function parseLimit(req: NextRequest) {
   return Number.isFinite(raw) ? Math.max(1, Math.min(100, Math.trunc(raw))) : 30;
 }
 
+function studioRuntimeState() {
+  return {
+    editorialLongformRenderEnabled: true,
+    reason: "manual_persistent_audio_bound_editorial_v1_queue_available",
+    manualQueueOnly: true,
+    requiresRegisteredAudioAsset: true,
+    requiresPersistentPrimary: true,
+    humanPreviewReviewRequiredAfterRender: true,
+    autoRender: false as const,
+    autoPublish: false as const,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const gate = await requireAdminOrResponse(req);
   if (gate instanceof Response) return gate;
@@ -84,12 +97,7 @@ export async function GET(req: NextRequest) {
       drafts: repository.getPersistenceState(),
       editorialReview: reviewRepository.getPersistenceState(),
     },
-    runtime: {
-      editorialLongformRenderEnabled: false,
-      reason: "studio_render_handoff_not_enabled",
-      autoRender: false,
-      autoPublish: false,
-    },
+    runtime: studioRuntimeState(),
   });
 }
 
@@ -149,12 +157,7 @@ export async function POST(req: NextRequest) {
         reviewItemId: buildVoxyStudioEditorialReviewItemId(draft),
         decisionGateId: buildVoxyStudioRenderReviewGateId(draft),
         renderApprovalBlocked: !validation.renderEligible,
-        runtime: {
-          editorialLongformRenderEnabled: false,
-          reason: "studio_render_handoff_not_enabled",
-          autoRender: false,
-          autoPublish: false,
-        },
+        runtime: studioRuntimeState(),
       },
       { status: 201 },
     );
