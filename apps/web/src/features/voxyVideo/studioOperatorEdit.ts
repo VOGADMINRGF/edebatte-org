@@ -1,4 +1,8 @@
 import type { VoxyVideoFormat } from "./modernCharacterContracts";
+import {
+  VOXY_EDITORIAL_ALLOWED_MOTIONS,
+  type VoxyEditorialMotion,
+} from "./editorialStoryPlan";
 import type {
   VoxyStudioCaptionAdjustment,
   VoxyStudioDraft,
@@ -10,6 +14,7 @@ export type VoxyStudioOperatorChapterUpdate = {
   chapterId: string;
   headline?: string;
   narration?: string;
+  motion?: VoxyEditorialMotion;
 };
 
 export type VoxyStudioOperatorEditCommand = {
@@ -73,13 +78,17 @@ export function buildVoxyStudioOperatorEditablePatch(input: {
         update.headline === undefined ? chapter.headline : normalized(update.headline);
       const narration =
         update.narration === undefined ? chapter.narration : normalized(update.narration);
+      const motion = update.motion ?? chapter.motion;
       if (!headline) {
         throw new Error(`voxy_studio_operator_chapter_headline_missing:${chapter.chapterId}`);
       }
       if (!narration) {
         throw new Error(`voxy_studio_operator_chapter_narration_missing:${chapter.chapterId}`);
       }
-      return { ...chapter, headline, narration };
+      if (!VOXY_EDITORIAL_ALLOWED_MOTIONS.includes(motion)) {
+        throw new Error(`voxy_studio_operator_chapter_motion_invalid:${chapter.chapterId}`);
+      }
+      return { ...chapter, headline, narration, motion };
     });
 
     let chapters = updatedChapters;
