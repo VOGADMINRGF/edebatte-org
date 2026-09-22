@@ -23,11 +23,13 @@ describe("runtime mongo env aliases", () => {
     });
   });
 
-  it("falls back to legacy keys when core keys are missing", () => {
-    const resolved = resolveCoreMongoRuntimeConfig({
+  it("falls back to legacy keys only outside production", () => {
+    const source = {
+      NODE_ENV: "development",
       MONGODB_URI: "mongodb://legacy-uri",
       MONGODB_DB: "legacy-db",
-    });
+    };
+    const resolved = resolveCoreMongoRuntimeConfig(source);
 
     expect(resolved).toMatchObject({
       uri: "mongodb://legacy-uri",
@@ -35,11 +37,30 @@ describe("runtime mongo env aliases", () => {
       usedLegacyUri: true,
       usedLegacyDbName: true,
     });
-    expect(hasCoreMongoRuntimeConfig({ MONGODB_URI: "mongodb://legacy-uri", MONGODB_DB: "legacy-db" })).toBe(true);
+    expect(hasCoreMongoRuntimeConfig(source)).toBe(true);
   });
 
-  it("resolves zone URIs with zone-first and legacy fallback behavior", () => {
+  it("fails closed instead of using legacy keys in production", () => {
     const source = {
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb://legacy-uri",
+      MONGODB_DB: "legacy-db",
+    };
+    expect(resolveCoreMongoRuntimeConfig(source)).toMatchObject({
+      uri: null,
+      dbName: null,
+      usedLegacyUri: false,
+      usedLegacyDbName: false,
+    });
+    expect(hasCoreMongoRuntimeConfig(source)).toBe(false);
+    expect(resolveMongoUriForZone("core", source)).toBeNull();
+    expect(resolveMongoUriForZone("votes", source)).toBeNull();
+    expect(resolveMongoUriForZone("pii", source)).toBeNull();
+  });
+
+  it("resolves zone URIs with zone-first and development-only legacy fallback behavior", () => {
+    const source = {
+      NODE_ENV: "development",
       MONGODB_URI: "mongodb://legacy-uri",
       CORE_MONGODB_URI: "mongodb://core-uri",
       VOTES_MONGODB_URI: "mongodb://votes-uri",
