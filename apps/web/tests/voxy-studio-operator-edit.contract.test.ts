@@ -113,6 +113,22 @@ describe("Voxy Studio bounded operator edit adapter", () => {
     expect(patch.storyPlan?.chapters[0]?.narration).toBe("B neue Narration");
   });
 
+  it("allows only canonical bounded motion changes and advances story revision once", () => {
+    const patch = buildVoxyStudioOperatorEditablePatch({
+      draft: draft(),
+      command: {
+        chapterUpdates: [
+          { chapterId: "chapter-a", motion: "listening" },
+          { chapterId: "chapter-b", motion: "showing_contrast" },
+        ],
+      },
+    });
+
+    expect(patch.storyPlan?.revision).toBe(8);
+    expect(patch.storyPlan?.chapters[0]?.motion).toBe("listening");
+    expect(patch.storyPlan?.chapters[1]?.motion).toBe("showing_contrast");
+  });
+
   it("keeps story revision untouched for format, safe-zone and bounded caption edits", () => {
     const patch = buildVoxyStudioOperatorEditablePatch({
       draft: draft(),
