@@ -1,37 +1,56 @@
 import { NextResponse } from "next/server";
-import { getServerUser } from "@/lib/auth/getServerUser";
-import { mongo } from "@/db/mongoose";
-import mongoose from "mongoose";
+import { ObjectId, coreCol, piiCol, votesCol } from "@core/db/triMongo";
+import { readSession } from "@/utils/session";
 
-// Beispiel: sammle Kernressourcen; erweitere bei Bedarf
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+async function collectByUser(
+  collection: Awaited<ReturnType<typeof coreCol>>,
+  userId: ObjectId,
+) {
+  return collection
+    .find({
+      $or: [
+        { _id: userId },
+        { userId },
+        { coreUserId: userId },
+      ],
+    } as any)
+    .toArray();
+}
+
 export async function GET() {
-  const user = await getServerUser();
-  if (!user)
+  const session = await readSession();
+  if (!session?.uid || !ObjectId.isValid(session.uid)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  await mongo();
-  const db = mongoose.connection.db;
-
-  const out: Record<string, unknown[]> = {};
-  for (const col of ["users", "userprofiles", "votes", "contributions"]) {
-    const exists = await (db as any).listCollections({ name: col }).hasNext();
-    if (!exists) continue;
-    const arr = await (db as any)
-      .collection(col)
-      .find({
-        $or: [
-          { _id: new mongoose.Types.ObjectId(user.id) },
-          { userId: new mongoose.Types.ObjectId(user.id) },
-        ],
-      })
-      .toArray();
-    if (arr.length) out[col] = arr;
   }
 
-  return NextResponse.json(JSON.stringify({ ok: true, data: out }), {
+  const userId = new ObjectId(session.uid);
+  const [users, contributions, profiles, votes] = await Promise.all([
+    collectByUser(await coreCol("users"), userId),
+    collectByUser(await coreCol("contributions"), userId),
+    collectByUser(await piiCol("user_profiles") as any, userId),
+    collectByUser(await votesCol("votes") as any, userId),
+  ]);
+
+  const payload = {
+    ok: true,
+    exportedAt: new Date().toISOString(),
+    data: {
+      core: { users, contributions },
+      pii: { user_profiles: profiles },
+      votes: { votes },
+    },
+  };
+
+  return new NextResponse(JSON.stringify(payload), {
+    status: 200,
     headers: {
-      "Content-Type": "application/json",
-      "Content-Disposition": `attachment; filename="vog_export_${user.id}.json"`,
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="edebatte_export_${session.uid}.json"`,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
