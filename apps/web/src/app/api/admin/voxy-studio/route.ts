@@ -21,6 +21,10 @@ import {
 } from "@/features/voxyVideo/studioDraftService";
 import { VOXY_STUDIO_SAFE_ZONE_PROFILES } from "@/features/voxyVideo/studioDraft";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import {
+  evaluateVoxyStudioAllFormatLayoutSafety,
+  mergeVoxyStudioAllFormatLayoutSafetyIntoValidation,
+} from "@/features/voxyVideo/studioLayoutSafety";
 import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";
 import { buildVoxyStudioProductionContext } from "@/features/voxyVideo/studioProductionContext";
 import { buildVoxyStudioStoryPlanFromDossier } from "@/features/voxyVideo/studioStoryPlanBuilder";
@@ -80,7 +84,11 @@ export async function GET(req: NextRequest) {
             ? workspaceRepository.getDossierStudioWorkspace(draft.dossierId)
             : Promise.resolve(null),
         ]);
-        const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+        const layoutSafety = evaluateVoxyStudioAllFormatLayoutSafety(draft);
+        const validation = mergeVoxyStudioAllFormatLayoutSafetyIntoValidation({
+          draft,
+          validation: validateVoxyEditorialStoryPlan(draft.storyPlan, evidence),
+        });
         const reviewItemId = buildVoxyStudioEditorialReviewItemId(
           draft,
           evidence.sourcePack.sourcePackId,
@@ -96,6 +104,7 @@ export async function GET(req: NextRequest) {
         return {
           draft,
           validation,
+          layoutSafety,
           evidenceReview,
           productionContext: buildVoxyStudioProductionContext(workspace),
           evidenceSourcePackId: evidence.sourcePack.sourcePackId,
@@ -183,10 +192,12 @@ export async function POST(req: NextRequest) {
       },
       deps,
     );
-    const [validation, evidenceReview] = await Promise.all([
-      Promise.resolve(validateVoxyEditorialStoryPlan(draft.storyPlan, evidence)),
-      loadVoxyStudioDossierEvidenceReviewState(parsed.data.dossierId),
-    ]);
+    const layoutSafety = evaluateVoxyStudioAllFormatLayoutSafety(draft);
+    const validation = mergeVoxyStudioAllFormatLayoutSafetyIntoValidation({
+      draft,
+      validation: validateVoxyEditorialStoryPlan(draft.storyPlan, evidence),
+    });
+    const evidenceReview = await loadVoxyStudioDossierEvidenceReviewState(parsed.data.dossierId);
     const reviewItemId = buildVoxyStudioEditorialReviewItemId(
       draft,
       evidence.sourcePack.sourcePackId,
@@ -201,6 +212,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         draft,
         validation,
+        layoutSafety,
         evidenceReview,
         evidenceSourcePackId: evidence.sourcePack.sourcePackId,
         reviewItemId,
