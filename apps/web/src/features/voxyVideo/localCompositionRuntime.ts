@@ -317,7 +317,9 @@ function validateEditorialBinding(input: VoxyLocalCompositionRequest, errors: st
     errors.push("editorial_timeline_story_binding_mismatch");
   }
   const binding = input.editorialBinding;
-  if (binding) {
+  if (!binding) {
+    errors.push("editorial_binding_missing");
+  } else {
     if (
       !validId(normalized(binding.studioDraftId)) ||
       normalized(binding.studioDraftId) !== normalized(input.artifactId)
@@ -443,7 +445,7 @@ export function buildVoxyLocalCompositionIdentityKey(
       payload.editorialBinding.finalCanonId,
     );
   }
-  return `voxy-local-composition:${stableHash(identityParts.join(":")).slice(0, 32)}`;
+  return `voxy-local-composition:${stableHash(identityParts.join(":" )).slice(0, 32)}`;
 }
 
 export function buildVoxyLocalCompositionInputFingerprint(
