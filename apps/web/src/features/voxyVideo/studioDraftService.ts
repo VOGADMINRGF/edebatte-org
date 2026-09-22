@@ -38,6 +38,7 @@ import {
   getVoxyStudioDraftRepository,
   type VoxyStudioDraftRepository,
 } from "./studioDraftStore";
+import { mergeVoxyStudioAllFormatLayoutSafetyIntoValidation } from "./studioLayoutSafety";
 
 export type VoxyStudioEvidenceAuthority = {
   resolveEvidenceContext(
@@ -176,9 +177,13 @@ async function resolveCurrentStoryReview(
   deps: VoxyStudioDraftServiceDependencies,
 ): Promise<VoxyStudioCurrentStoryReview> {
   const evidence = await deps.evidenceAuthority.resolveEvidenceContext(draft);
+  const editorialValidation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
   return {
     evidence,
-    validation: validateVoxyEditorialStoryPlan(draft.storyPlan, evidence),
+    validation: mergeVoxyStudioAllFormatLayoutSafetyIntoValidation({
+      draft,
+      validation: editorialValidation,
+    }),
   };
 }
 
