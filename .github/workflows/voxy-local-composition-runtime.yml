@@ -9,7 +9,7 @@ on:
       - "apps/web/scripts/render-voxy-local-composition-smoke.ts"
       - "apps/web/scripts/render-voxy-editorial-composition-smoke.ts"
       - "apps/web/src/app/api/admin/voxy-studio/**"
-      - "apps/web/src/app/api/dossier/[id]/studio/workspace/route.ts"
+      - "apps/web/src/app/api/dossier/**/studio/workspace/route.ts"
       - "apps/web/src/app/admin/review/voxy-studio/**"
       - "apps/web/src/features/voxyVideo/editorialAgent*.ts"
       - "apps/web/src/features/voxyVideo/editorialAutonomyStore.ts"
