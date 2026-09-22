@@ -18,6 +18,7 @@ import {
   type VoxyLocalCompositionAudioInputRepository,
 } from "./localCompositionAudioAssetStore";
 import type { VoxyLocalCompositionAudioResolver } from "./localCompositionRuntimeService";
+import { assertVoxyStudioCaptionLayoutSafety } from "./studioLayoutSafety";
 import {
   buildVoxyVoiceLocaleReadiness,
   isVoxyVideoOutputLocale,
@@ -178,6 +179,10 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     cues: input.audioInput.captionCues,
     adjustments: input.draft.captionAdjustments,
     durationMs: timeline.durationMs,
+  });
+  assertVoxyStudioCaptionLayoutSafety({
+    format: input.draft.selectedFormat,
+    captionCues,
   });
 
   const request: VoxyLocalCompositionRequest = {
