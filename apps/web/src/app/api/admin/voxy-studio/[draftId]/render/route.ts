@@ -5,13 +5,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
+import { validateVoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
 import { getVoxyLocalCompositionAudioInputRepository } from "@/features/voxyVideo/localCompositionAudioAssetStore";
 import {
   queueVoxyLocalComposition,
   type VoxyLocalCompositionRuntimeDependencies,
 } from "@/features/voxyVideo/localCompositionRuntimeService";
 import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
+import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import { buildVoxyStudioEvidenceBoundRenderReviewGateId } from "@/features/voxyVideo/studioDraftService";
 import { buildVoxyStudioEditorialCompositionHandoff } from "@/features/voxyVideo/studioRenderHandoff";
 
 const BodySchema = z
@@ -197,9 +200,42 @@ export async function POST(
     if (draft.revision !== parsed.data.expectedRevision) {
       return NextResponse.json({ ok: false, error: "voxy_studio_revision_conflict" }, { status: 409 });
     }
-    if (draft.status !== "approved_for_render") {
+    if (draft.status !== "approved_for_render" || !draft.renderApproval) {
       return NextResponse.json(
         { ok: false, error: `voxy_studio_render_queue_not_allowed:${draft.status}` },
+        { status: 409 },
+      );
+    }
+
+    const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
+    const evidence = await evidenceAuthority.resolveEvidenceContext(draft);
+    const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+    if (!validation.renderEligible) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_evidence_not_eligible",
+          validation,
+          sourcePackReviewState: evidence.sourcePack.reviewState,
+        },
+        { status: 409 },
+      );
+    }
+    const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+      draft,
+      evidence.sourcePack.sourcePackId,
+    );
+    if (draft.renderApproval.decisionGateId !== currentDecisionGateId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_approval_evidence_stale",
+          currentDecisionGateId,
+          approvedDecisionGateId: draft.renderApproval.decisionGateId,
+          renderTriggered: false,
+          uploadTriggered: false,
+          publishTriggered: false,
+        },
         { status: 409 },
       );
     }
