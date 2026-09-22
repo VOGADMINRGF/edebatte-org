@@ -51,9 +51,11 @@ function buildDraft(): VoxyStudioDraft {
     captionAdjustments: [],
     status: "rendered",
     renderApproval: {
+      approvalSource: "human",
       reviewDecisionRecordId: "review-audit-1",
       decisionGateId: "voxy-studio-render:studio-draft-1:r3:story-r2",
       approvedByUserId: "admin-1",
+      councilArtifactId: null,
       approvedAt: "2026-09-22T08:00:00.000Z",
       studioDraftRevision: 3,
       storyPlanRevision: 2,
