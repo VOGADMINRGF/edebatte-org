@@ -22,8 +22,10 @@ import {
 import { VOXY_STUDIO_SAFE_ZONE_PROFILES } from "@/features/voxyVideo/studioDraft";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";
+import { buildVoxyStudioProductionContext } from "@/features/voxyVideo/studioProductionContext";
 import { buildVoxyStudioStoryPlanFromDossier } from "@/features/voxyVideo/studioStoryPlanBuilder";
 import { getReviewQueueOperationsRepository } from "@features/reviewQueueOperations";
+import { getDossierStudioWorkspaceRepo } from "@features/dossier/server/studioPersistence";
 
 const CreateSchema = z
   .object({
@@ -62,16 +64,20 @@ export async function GET(req: NextRequest) {
   const repository = getVoxyStudioDraftRepository();
   const reviewRepository = getReviewQueueOperationsRepository();
   const audioRepository = getVoxyLocalCompositionAudioInputRepository();
+  const workspaceRepository = getDossierStudioWorkspaceRepo();
   const dossierId = req.nextUrl.searchParams.get("dossierId")?.trim() || null;
   const drafts = await repository.listDrafts({ dossierId, limit: parseLimit(req) });
 
   const [items, audioEntries] = await Promise.all([
     Promise.all(
       drafts.map(async (draft) => {
-        const [evidence, evidenceReview] = await Promise.all([
+        const [evidence, evidenceReview, workspace] = await Promise.all([
           loadFailClosedDossierStudioEvidenceContext(draft.dossierId),
           draft.dossierId
             ? loadVoxyStudioDossierEvidenceReviewState(draft.dossierId)
+            : Promise.resolve(null),
+          draft.dossierId
+            ? workspaceRepository.getDossierStudioWorkspace(draft.dossierId)
             : Promise.resolve(null),
         ]);
         const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
@@ -91,6 +97,7 @@ export async function GET(req: NextRequest) {
           draft,
           validation,
           evidenceReview,
+          productionContext: buildVoxyStudioProductionContext(workspace),
           evidenceSourcePackId: evidence.sourcePack.sourcePackId,
           reviewItemId,
           decisionGateId,
