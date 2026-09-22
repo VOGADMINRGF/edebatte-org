@@ -102,7 +102,12 @@ export async function PATCH(
         safeZoneProfile: parsed.data.safeZoneProfile,
         chapterOrder: parsed.data.chapterOrder,
         chapterUpdates: parsed.data.chapterUpdates,
-        captionAdjustments: parsed.data.captionAdjustments,
+        captionAdjustments: parsed.data.captionAdjustments?.map((item) => ({
+          cueId: item.cueId,
+          startDeltaMs: item.startDeltaMs,
+          endDeltaMs: item.endDeltaMs,
+          textOverride: item.textOverride ?? null,
+        })),
       },
     });
     const draft = await editVoxyStudioDraft(
