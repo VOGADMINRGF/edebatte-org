@@ -261,7 +261,7 @@ export async function POST(
       },
     };
     const queued = await queueVoxyLocalComposition(handoff.request, deps);
-    if (!queued.ok) {
+    if (queued.ok === false) {
       return NextResponse.json(
         { ok: false, error: queued.status, errors: queued.errors },
         { status: queued.status === "invalid_request" ? 400 : 409 },
