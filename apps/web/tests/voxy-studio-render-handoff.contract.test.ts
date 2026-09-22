@@ -100,9 +100,11 @@ function draft(): VoxyStudioDraft {
     captionAdjustments: [],
     status: "approved_for_render",
     renderApproval: {
+      approvalSource: "human",
       reviewDecisionRecordId: "review-audit-1",
       decisionGateId: "voxy-studio-render:studio-draft-1:r4:story-r3:evidence-1234567890abcdef",
       approvedByUserId: "admin-2",
+      councilArtifactId: null,
       approvedAt: "2026-09-22T04:00:00.000Z",
       studioDraftRevision: 4,
       storyPlanRevision: 3,
