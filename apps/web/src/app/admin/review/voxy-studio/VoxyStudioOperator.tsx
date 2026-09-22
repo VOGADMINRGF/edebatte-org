@@ -38,8 +38,10 @@ type StudioItem = {
     warnings: string[];
     renderEligible: boolean;
   };
+  evidenceSourcePackId: string;
   reviewItemId: string;
   decisionGateId: string;
+  approvalEvidenceStale: boolean;
   reviewRecord: {
     operationalStatus: string;
     latestAction: string | null;
@@ -397,7 +399,9 @@ export default function VoxyStudioOperator() {
       <div className="space-y-4">
         {data?.items.map((item) => {
           const draft = item.draft;
-          const canSubmit = ["draft", "needs_changes", "needs_review"].includes(draft.status);
+          const canSubmit =
+            ["draft", "needs_changes", "needs_review"].includes(draft.status) ||
+            (draft.status === "approved_for_render" && item.approvalEvidenceStale);
           const canReview = draft.status === "needs_review";
           const canReady = canReview && item.validation.renderEligible && persistent;
           const itemBusy = busy?.startsWith(`${draft.draftId}:`) ?? false;
@@ -420,6 +424,15 @@ export default function VoxyStudioOperator() {
                   Review: {item.reviewRecord?.operationalStatus ?? "noch nicht eröffnet"}
                 </div>
               </div>
+
+              {item.approvalEvidenceStale ? (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
+                  <p className="font-semibold">Evidence-Revision hat sich geändert</p>
+                  <p className="mt-1 leading-5">
+                    Die bisherige Renderfreigabe gehört zu einer älteren Evidence-Wahrheit. Die Render Queue bleibt fail-closed, bis dieser Draft erneut in die redaktionelle Prüfung gegeben und für die aktuelle Evidence-Revision freigegeben wurde.
+                  </p>
+                </div>
+              ) : null}
 
               <form
                 className="space-y-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-4"
@@ -560,6 +573,7 @@ export default function VoxyStudioOperator() {
 
                   <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3 text-xs text-[rgb(var(--muted))]">
                     <p className="font-semibold text-[rgb(var(--fg))]">Revisionsbindung</p>
+                    <p className="mt-1 break-all">Evidence: {item.evidenceSourcePackId}</p>
                     <p className="mt-1 break-all">{item.reviewItemId}</p>
                     <p className="mt-1 break-all">{item.decisionGateId}</p>
                   </div>
@@ -580,7 +594,7 @@ export default function VoxyStudioOperator() {
                       onClick={() => void reviewAction(item, "submit_for_review")}
                       className="rounded-full border border-[rgb(var(--border))] px-4 py-2 text-sm font-semibold text-[rgb(var(--fg))] disabled:opacity-40"
                     >
-                      In Review geben
+                      {item.approvalEvidenceStale ? "Evidence neu prüfen" : "In Review geben"}
                     </button>
                     <button
                       type="button"
