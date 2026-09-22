@@ -15,6 +15,7 @@ export type VoxyStudioOperatorChapterUpdate = {
   headline?: string;
   narration?: string;
   motion?: VoxyEditorialMotion;
+  evidenceWindowVisible?: boolean;
 };
 
 export type VoxyStudioOperatorEditCommand = {
@@ -79,6 +80,10 @@ export function buildVoxyStudioOperatorEditablePatch(input: {
       const narration =
         update.narration === undefined ? chapter.narration : normalized(update.narration);
       const motion = update.motion ?? chapter.motion;
+      const evidenceWindow =
+        update.evidenceWindowVisible === undefined
+          ? chapter.evidenceWindow
+          : { ...chapter.evidenceWindow, visible: update.evidenceWindowVisible };
       if (!headline) {
         throw new Error(`voxy_studio_operator_chapter_headline_missing:${chapter.chapterId}`);
       }
@@ -88,7 +93,7 @@ export function buildVoxyStudioOperatorEditablePatch(input: {
       if (!VOXY_EDITORIAL_ALLOWED_MOTIONS.includes(motion)) {
         throw new Error(`voxy_studio_operator_chapter_motion_invalid:${chapter.chapterId}`);
       }
-      return { ...chapter, headline, narration, motion };
+      return { ...chapter, headline, narration, motion, evidenceWindow };
     });
 
     let chapters = updatedChapters;
