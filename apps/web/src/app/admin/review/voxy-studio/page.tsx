@@ -6,6 +6,7 @@ import VoxyStudioLocaleReviewMatrixPanel from "./VoxyStudioLocaleReviewMatrixPan
 import VoxyStudioOperator from "./VoxyStudioOperator";
 import VoxyStudioPreviewReviewPanel from "./VoxyStudioPreviewReviewPanel";
 import VoxyStudioRenderQueuePanel from "./VoxyStudioRenderQueuePanel";
+import VoxyStudioSourceBindingPanel from "./VoxyStudioSourceBindingPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export default function VoxyStudioReviewPage() {
       <VoxyStudioAutonomyPanel />
       <VoxyStudioAgentReviewPanel />
       <VoxyStudioEvidenceReviewPanel />
+      <VoxyStudioSourceBindingPanel />
       <VoxyStudioFineTunePanel />
       <VoxyStudioRenderQueuePanel />
       <VoxyStudioPreviewReviewPanel />
