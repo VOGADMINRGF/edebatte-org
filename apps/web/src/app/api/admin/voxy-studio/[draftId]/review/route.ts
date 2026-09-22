@@ -9,11 +9,11 @@ import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyV
 import {
   approveVoxyStudioDraftForRender,
   buildVoxyStudioEditorialReviewItemId,
+  buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createDefaultVoxyStudioServiceDependencies,
   requestVoxyStudioDraftChanges,
   submitVoxyStudioDraftForReview,
 } from "@/features/voxyVideo/studioDraftService";
-import { buildVoxyStudioRenderReviewGateId } from "@/features/voxyVideo/studioDraft";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { evaluateVoxyStudioLayoutSafety } from "@/features/voxyVideo/studioLayoutSafety";
 import {
@@ -68,8 +68,6 @@ export async function POST(
     const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
     const deps = createDefaultVoxyStudioServiceDependencies({ evidenceAuthority });
     const reviewRepository = getReviewQueueOperationsRepository();
-    const reviewItemId = buildVoxyStudioEditorialReviewItemId(current);
-    const decisionGateId = buildVoxyStudioRenderReviewGateId(current);
 
     if (parsed.data.action === "submit_for_review") {
       const submitted = await submitVoxyStudioDraftForReview(
@@ -103,6 +101,16 @@ export async function POST(
         { status: 409 },
       );
     }
+
+    const evidence = await evidenceAuthority.resolveEvidenceContext(current);
+    const reviewItemId = buildVoxyStudioEditorialReviewItemId(
+      current,
+      evidence.sourcePack.sourcePackId,
+    );
+    const decisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+      current,
+      evidence.sourcePack.sourcePackId,
+    );
 
     if (parsed.data.action === "mark_in_review") {
       const review = await applyReviewQueueOperation({
@@ -154,7 +162,6 @@ export async function POST(
       });
     }
 
-    const evidence = await evidenceAuthority.resolveEvidenceContext(current);
     const validation = validateVoxyEditorialStoryPlan(current.storyPlan, evidence);
     if (!validation.renderEligible) {
       return NextResponse.json(
