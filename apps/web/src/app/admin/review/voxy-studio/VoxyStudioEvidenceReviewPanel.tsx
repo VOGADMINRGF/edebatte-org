@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type EvidenceSource = {
   sourceId: string;
+  url: string;
   title: string;
   publisher: string;
   type: string;
@@ -285,6 +286,9 @@ export default function VoxyStudioEvidenceReviewPanel() {
                       {source.publisher} · {humanize(source.type)} · {source.language ?? "Sprache offen"}
                     </p>
                     <p className="mt-1 font-semibold text-[rgb(var(--fg))]">{source.title}</p>
+                    <p className="mt-1 break-all text-xs leading-5 text-[rgb(var(--muted))]">
+                      {source.url}
+                    </p>
                     {source.snippet ? (
                       <p className="mt-1 line-clamp-3 text-sm leading-5 text-[rgb(var(--muted))]">
                         {source.snippet}
