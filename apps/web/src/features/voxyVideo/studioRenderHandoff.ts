@@ -26,7 +26,10 @@ import {
 } from "./localCompositionAudioAssetStore";
 import type { VoxyLocalCompositionAudioResolver } from "./localCompositionRuntimeService";
 import type { VoxyStudioEvidenceSnapshot } from "./studioEvidenceReview";
-import { assertVoxyStudioCaptionLayoutSafety } from "./studioLayoutSafety";
+import {
+  assertVoxyStudioAllFormatLayoutSafety,
+  assertVoxyStudioCaptionLayoutSafety,
+} from "./studioLayoutSafety";
 import {
   buildVoxyVoiceLocaleReadiness,
   isVoxyVideoOutputLocale,
@@ -255,6 +258,7 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     evidenceSourcePackId: input.evidenceSourcePackId,
     evidenceSources: input.evidenceSources,
   });
+  assertVoxyStudioAllFormatLayoutSafety(input.draft);
   assertVoxyStudioCaptionLayoutSafety({
     format: input.draft.selectedFormat,
     captionCues: snapshot.captionCues,
