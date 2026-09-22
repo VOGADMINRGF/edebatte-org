@@ -50,6 +50,14 @@ function now(deps: VoxyLocalCompositionRuntimeDependencies) {
   return deps.now?.() ?? new Date().toISOString();
 }
 
+function isExpectedCompositionIdentityConflict(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return [
+    "voxy_local_composition_request_snapshot_immutable_conflict",
+    "voxy_local_composition_request_snapshot_binding_mismatch",
+  ].includes(error.message);
+}
+
 export async function queueVoxyLocalComposition(
   request: VoxyLocalCompositionRequest,
   deps: VoxyLocalCompositionRuntimeDependencies,
@@ -94,7 +102,22 @@ export async function queueVoxyLocalComposition(
       errors: ["trusted_render_approval_or_review_binding_invalid"],
     };
   }
-  const existing = await deps.repository.createOrGetJob(candidate, request);
+
+  let existing: VoxyLocalCompositionJob;
+  try {
+    existing = await deps.repository.createOrGetJob(candidate, request);
+  } catch (error) {
+    if (isExpectedCompositionIdentityConflict(error)) {
+      return {
+        ok: false,
+        status: "idempotency_conflict",
+        job: null,
+        errors: ["composition_identity_reused_with_changed_input_or_review_binding"],
+      };
+    }
+    throw error;
+  }
+
   if (
     existing.inputFingerprint !== candidate.inputFingerprint ||
     existing.reviewBindingHash !== candidate.reviewBindingHash
