@@ -1,5 +1,6 @@
 import "server-only";
 
+import { stableHash } from "@core/utils/hash";
 import {
   getReviewQueueOperationsRepository,
   type ReviewQueueOperationAuditEvent,
@@ -143,18 +144,53 @@ async function replaceDraftOrThrow(input: {
   return input.next;
 }
 
+type VoxyStudioCurrentStoryReview = {
+  evidence: VoxyEditorialEvidenceContext;
+  validation: VoxyEditorialStoryPlanValidation;
+};
+
+async function resolveCurrentStoryReview(
+  draft: VoxyStudioDraft,
+  deps: VoxyStudioDraftServiceDependencies,
+): Promise<VoxyStudioCurrentStoryReview> {
+  const evidence = await deps.evidenceAuthority.resolveEvidenceContext(draft);
+  return {
+    evidence,
+    validation: validateVoxyEditorialStoryPlan(draft.storyPlan, evidence),
+  };
+}
+
 async function validateCurrentStory(
   draft: VoxyStudioDraft,
   deps: VoxyStudioDraftServiceDependencies,
 ): Promise<VoxyEditorialStoryPlanValidation> {
-  const evidence = await deps.evidenceAuthority.resolveEvidenceContext(draft);
-  return validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+  return (await resolveCurrentStoryReview(draft, deps)).validation;
+}
+
+function evidenceBindingToken(sourcePackId: string): string {
+  const normalized = normalize(sourcePackId);
+  if (!normalized) throw new Error("voxy_studio_evidence_source_pack_binding_missing");
+  return stableHash(normalized).slice(0, 24);
+}
+
+export function buildVoxyStudioEvidenceBoundRenderReviewGateId(
+  draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan">,
+  evidenceSourcePackId: string,
+): string {
+  return `${buildVoxyStudioRenderReviewGateId(draft)}:evidence-${evidenceBindingToken(
+    evidenceSourcePackId,
+  )}`;
 }
 
 export function buildVoxyStudioEditorialReviewItemId(
   draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan">,
+  evidenceSourcePackId?: string | null,
 ): string {
-  return `voxy-studio-editorial:${draft.draftId}:r${draft.revision}:story-r${draft.storyPlan.revision}`;
+  const base = `voxy-studio-editorial:${draft.draftId}:r${draft.revision}:story-r${draft.storyPlan.revision}`;
+  const sourcePackId = normalize(evidenceSourcePackId);
+  return sourcePackId
+    ? `${base}:evidence-${evidenceBindingToken(sourcePackId)}`
+    : base;
 }
 
 export function createDefaultVoxyStudioEditorialReviewAuthority(
@@ -328,10 +364,15 @@ export async function submitVoxyStudioDraftForReview(input: {
   if (current.revision !== input.expectedRevision) {
     throw new Error("voxy_studio_revision_conflict");
   }
-  if (!["draft", "needs_changes", "needs_review"].includes(current.status)) {
+  if (
+    !["draft", "needs_changes", "needs_review", "approved_for_render"].includes(
+      current.status,
+    )
+  ) {
     throw new Error(`voxy_studio_submit_not_allowed:${current.status}`);
   }
-  const validation = await validateCurrentStory(current, deps);
+  const storyReview = await resolveCurrentStoryReview(current, deps);
+  const validation = storyReview.validation;
   if (validation.errors.length) {
     throw new Error(
       `voxy_studio_story_structure_invalid:${validation.errors.join(",")}`,
@@ -363,11 +404,18 @@ export async function submitVoxyStudioDraftForReview(input: {
     );
   }
   const effectiveDraft = current.status === "needs_review" ? current : next;
+  const evidenceSourcePackId = storyReview.evidence.sourcePack.sourcePackId;
   return {
     draft: effectiveDraft,
     validation,
-    decisionGateId: buildVoxyStudioRenderReviewGateId(effectiveDraft),
-    reviewItemId: buildVoxyStudioEditorialReviewItemId(effectiveDraft),
+    decisionGateId: buildVoxyStudioEvidenceBoundRenderReviewGateId(
+      effectiveDraft,
+      evidenceSourcePackId,
+    ),
+    reviewItemId: buildVoxyStudioEditorialReviewItemId(
+      effectiveDraft,
+      evidenceSourcePackId,
+    ),
   };
 }
 
@@ -423,7 +471,8 @@ export async function approveVoxyStudioDraftForRender(input: {
   if (current.status !== "needs_review") {
     throw new Error(`voxy_studio_render_approval_not_allowed:${current.status}`);
   }
-  const validation = await validateCurrentStory(current, deps);
+  const storyReview = await resolveCurrentStoryReview(current, deps);
+  const validation = storyReview.validation;
   if (!validation.renderEligible) {
     throw new Error(
       `voxy_studio_editorial_approval_blocked:${[
@@ -433,8 +482,15 @@ export async function approveVoxyStudioDraftForRender(input: {
     );
   }
 
-  const decisionGateId = buildVoxyStudioRenderReviewGateId(current);
-  const reviewItemId = buildVoxyStudioEditorialReviewItemId(current);
+  const evidenceSourcePackId = storyReview.evidence.sourcePack.sourcePackId;
+  const decisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+    current,
+    evidenceSourcePackId,
+  );
+  const reviewItemId = buildVoxyStudioEditorialReviewItemId(
+    current,
+    evidenceSourcePackId,
+  );
   const review = await deps.editorialReviewAuthority.resolveEditorialReview({
     draft: current,
     reviewItemId,
@@ -498,7 +554,7 @@ export async function approveVoxyStudioDraftForRender(input: {
       byUserId: actor,
       at: timestamp,
       reviewDecisionRecordId: readyAudit.id,
-      note: `Persistierte redaktionelle Renderfreigabe aus Review Queue ${reviewItemId}; startet keinen Render automatisch.`,
+      note: `Persistierte redaktionelle Renderfreigabe aus Review Queue ${reviewItemId}, revisionsgebunden an ${decisionGateId}; startet keinen Render automatisch.`,
     }),
   );
   return next;
