@@ -203,9 +203,9 @@ export default function VoxyStudioOperator() {
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">
           Voxy · Editorial Engine
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-[rgb(var(--fg))]">
+        <h2 className="mt-2 text-2xl font-semibold text-[rgb(var(--fg))]">
           Admin Video Studio
-        </h1>
+        </h2>
         <p className="mt-2 max-w-4xl text-sm leading-6 text-[rgb(var(--muted))]">
           Hier wird aus bestehender Dossier-Wahrheit ein revisionsgebundener Voxy-Entwurf. Die
           redaktionelle Freigabe läuft über denselben persistenten Review-Operations-Store wie die
@@ -226,7 +226,7 @@ export default function VoxyStudioOperator() {
           </div>
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
             <p className="font-semibold">Longform-Render</p>
-            <p className="mt-1">Noch fail-closed: `editorial_v1` muss zuerst die V3.10.5-Final-Canon-Framechain nutzen.</p>
+            <p className="mt-1">V3.10.5-Final-Canon-Worker bereit; Studio-Handoff bleibt fail-closed, bis ein revisionsgebundener Produktions-Audio-Asset-Resolver verfügbar ist.</p>
           </div>
         </div>
       </section>
@@ -420,7 +420,7 @@ export default function VoxyStudioOperator() {
                   </div>
 
                   <p className="text-xs leading-5 text-[rgb(var(--muted))]">
-                    Auch eine redaktionelle Freigabe startet keinen Render. Der finale Longform-Render bleibt deaktiviert, bis derselbe #568-Worker `editorial_v1` über die V3.10.5-Final-Canon-Framechain ausführt.
+                    Auch eine redaktionelle Freigabe startet keinen Render. Der #568-Worker kann `editorial_v1` bereits über die V3.10.5-Final-Canon-Framechain rendern; der Studio-Handoff bleibt deaktiviert, bis Audio-Asset, Hash, Dauer und lokaler Allowed-Root revisionsgebunden aus einer persistenten Produktionswahrheit aufgelöst werden können.
                   </p>
                 </div>
               </div>
