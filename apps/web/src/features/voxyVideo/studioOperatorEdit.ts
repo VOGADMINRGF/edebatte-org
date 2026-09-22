@@ -16,6 +16,7 @@ export type VoxyStudioOperatorChapterUpdate = {
   narration?: string;
   motion?: VoxyEditorialMotion;
   evidenceWindowVisible?: boolean;
+  evidenceWindowSourceId?: string;
 };
 
 export type VoxyStudioOperatorEditCommand = {
@@ -80,10 +81,39 @@ export function buildVoxyStudioOperatorEditablePatch(input: {
       const narration =
         update.narration === undefined ? chapter.narration : normalized(update.narration);
       const motion = update.motion ?? chapter.motion;
-      const evidenceWindow =
-        update.evidenceWindowVisible === undefined
-          ? chapter.evidenceWindow
-          : { ...chapter.evidenceWindow, visible: update.evidenceWindowVisible };
+      const requestedSourceId =
+        update.evidenceWindowSourceId === undefined
+          ? undefined
+          : normalized(update.evidenceWindowSourceId);
+      if (update.evidenceWindowSourceId !== undefined && !requestedSourceId) {
+        throw new Error(
+          `voxy_studio_operator_evidence_source_missing:${chapter.chapterId}`,
+        );
+      }
+      if (requestedSourceId) {
+        if (chapter.evidenceWindow.kind === "none") {
+          throw new Error(
+            `voxy_studio_operator_evidence_source_window_missing:${chapter.chapterId}`,
+          );
+        }
+        if (chapter.evidenceWindow.kind === "comparison") {
+          throw new Error(
+            `voxy_studio_operator_comparison_source_edit_forbidden:${chapter.chapterId}`,
+          );
+        }
+        if (!chapter.sourceIds.includes(requestedSourceId)) {
+          throw new Error(
+            `voxy_studio_operator_evidence_source_not_bound:${chapter.chapterId}:${requestedSourceId}`,
+          );
+        }
+      }
+      const evidenceWindow = {
+        ...chapter.evidenceWindow,
+        ...(update.evidenceWindowVisible === undefined
+          ? {}
+          : { visible: update.evidenceWindowVisible }),
+        ...(requestedSourceId ? { sourceIds: [requestedSourceId] } : {}),
+      };
       if (!headline) {
         throw new Error(`voxy_studio_operator_chapter_headline_missing:${chapter.chapterId}`);
       }
