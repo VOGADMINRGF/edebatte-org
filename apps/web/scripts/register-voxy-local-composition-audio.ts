@@ -5,6 +5,11 @@ import { resolve, sep } from "node:path";
 import { z } from "zod";
 
 import {
+  buildVoxyEditorialAudioMotionEnvelope,
+  loadVoxyEditorialAudioMotionAnalysis,
+  VOXY_EDITORIAL_AUDIO_MOTION_FPS,
+} from "../src/features/voxyVideo/editorialAudioMotion.server";
+import {
   VOXY_LOCAL_COMPOSITION_AUDIO_INPUT_VERSION,
   getVoxyLocalCompositionAudioInputRepository,
   resolveVoxyLocalCompositionAudioAssetFromRecord,
@@ -123,6 +128,22 @@ async function main() {
     storageKey: manifest.storageKey,
   });
   const actualDurationMs = durationMs(trusted.absolutePath);
+  const actualSha256 = await sha256(trusted.absolutePath);
+  const motionAnalysis = await loadVoxyEditorialAudioMotionAnalysis({
+    audioAsset: {
+      assetId: manifest.assetId,
+      absolutePath: trusted.absolutePath,
+      allowedRoot: trusted.allowedRoot,
+      sha256: actualSha256,
+      durationMs: actualDurationMs,
+    },
+    fps: VOXY_EDITORIAL_AUDIO_MOTION_FPS,
+  });
+  const motionEnvelope = buildVoxyEditorialAudioMotionEnvelope({
+    sourceSha256: actualSha256,
+    levels: motionAnalysis.levels,
+  });
+
   const record: VoxyLocalCompositionAudioInputRecord = {
     version: VOXY_LOCAL_COMPOSITION_AUDIO_INPUT_VERSION,
     assetId: manifest.assetId,
@@ -136,8 +157,9 @@ async function main() {
     voiceUsageApproved: true,
     fallbackLocale: null,
     storageKey: manifest.storageKey,
-    sha256: await sha256(trusted.absolutePath),
+    sha256: actualSha256,
     durationMs: actualDurationMs,
+    motionEnvelope,
     timelineVersion: manifest.timelineVersion,
     chapterTimings: manifest.chapterTimings,
     captionCues: manifest.captionCues,
@@ -182,6 +204,9 @@ async function main() {
       sha256: persisted.sha256,
       durationMs: persisted.durationMs,
       timelineVersion: persisted.timelineVersion,
+      motionEnvelopeVersion: persisted.motionEnvelope?.version ?? null,
+      motionEnvelopeFps: persisted.motionEnvelope?.fps ?? null,
+      motionEnvelopeFrames: persisted.motionEnvelope?.levels.length ?? 0,
       persistence,
       absolutePathExposed: false,
       autoRender: false,
