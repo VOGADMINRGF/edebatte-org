@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Contribution from "@/data/models/Contribution";
+import { mongo } from "../db/mongoose";
 
 export async function storeContribution({
   originalText,
@@ -29,7 +30,7 @@ export async function storeContribution({
   userId?: string;
 }) {
   if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(process.env.MONGODB_URI!);
+    await mongo();
   }
 
   const entry = new Contribution({
