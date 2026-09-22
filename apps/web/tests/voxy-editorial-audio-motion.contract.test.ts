@@ -7,8 +7,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   buildVoxyEditorialAudioLevelsFromPcmWav,
+  buildVoxyEditorialAudioMotionEnvelope,
   loadVoxyEditorialAudioMotionAnalysis,
+  resolveVoxyEditorialAudioEnvelopeFrameAmplitude,
   resolveVoxyEditorialAudioFrameAmplitude,
+  validateVoxyEditorialAudioMotionEnvelope,
 } from "@/features/voxyVideo/editorialAudioMotion.server";
 import type { VoxyLocalCompositionAudioAsset } from "@/features/voxyVideo/localCompositionRuntime";
 
@@ -106,6 +109,67 @@ describe("Voxy editorial audio motion analysis", () => {
     expect(analysis.absolutePath).toBe(asset.absolutePath);
     expect(amplitude).toBe(analysis.levels[12]);
     expect(amplitude).toBeGreaterThan(0);
+  });
+
+  it("persists a SHA-bound envelope that resolves the same frame amplitude without filesystem access", () => {
+    const wav = pcmWav({
+      seconds: 2,
+      sample: (index, sampleRate) =>
+        Math.sin((2 * Math.PI * 190 * index) / sampleRate) * 0.4,
+    });
+    const sourceSha256 = sha256(wav);
+    const levels = buildVoxyEditorialAudioLevelsFromPcmWav(wav, 24);
+    const envelope = buildVoxyEditorialAudioMotionEnvelope({
+      sourceSha256,
+      levels,
+    });
+
+    expect(
+      validateVoxyEditorialAudioMotionEnvelope({
+        envelope,
+        sourceSha256,
+        durationMs: 2_000,
+      }),
+    ).toEqual([]);
+    expect(
+      resolveVoxyEditorialAudioEnvelopeFrameAmplitude({
+        envelope,
+        sourceSha256,
+        durationMs: 2_000,
+        frameIndex: 12,
+      }),
+    ).toBe(levels[12]);
+  });
+
+  it("fails closed when a persisted envelope is bound to a different audio SHA", () => {
+    const envelope = buildVoxyEditorialAudioMotionEnvelope({
+      sourceSha256: "a".repeat(64),
+      levels: Array.from({ length: 48 }, () => 0.25),
+    });
+
+    expect(() =>
+      resolveVoxyEditorialAudioEnvelopeFrameAmplitude({
+        envelope,
+        sourceSha256: "b".repeat(64),
+        durationMs: 2_000,
+        frameIndex: 0,
+      }),
+    ).toThrow("audio_motion_envelope_sha256_mismatch");
+  });
+
+  it("fails closed when a persisted envelope is too short for the registered duration", () => {
+    const envelope = buildVoxyEditorialAudioMotionEnvelope({
+      sourceSha256: "a".repeat(64),
+      levels: Array.from({ length: 24 }, () => 0.25),
+    });
+
+    expect(
+      validateVoxyEditorialAudioMotionEnvelope({
+        envelope,
+        sourceSha256: "a".repeat(64),
+        durationMs: 2_000,
+      }),
+    ).toContain("audio_motion_envelope_levels_invalid");
   });
 
   it("fails closed when the registered SHA no longer matches the trusted audio file", async () => {
