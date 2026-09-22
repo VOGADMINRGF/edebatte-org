@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "@core/db/triMongo";
 import { coreCol, piiCol } from "@core/db/db/triMongo";
 import { hashPassword } from "@/utils/password";
-import { applySessionCookies, CREDENTIAL_COLLECTION, issueTwoFactorChallenge, resolveAvailableTwoFactorMethods, resolveTwoFactorMethod, sanitizeRedirect, type CoreUserAuthSnapshot, type PiiUserCredentials } from "../sharedAuth";
+import { applySessionCookies, CREDENTIAL_COLLECTION, issueTwoFactorChallenge, resolveAvailableTwoFactorMethods, resolveTwoFactorMethod, sanitizeRedirect, type CoreUserAuthSnapshot, type PiiUserCredentials } from "../../sharedAuth";
 import { mailLocaleFromUser } from "@/utils/mailRenderer";
 import { verifyVogEdebatteHandoff, sanitizeVogHandoffNext } from "@/lib/auth/vogEdebatteHandoff";
 export const runtime="nodejs"; export const dynamic="force-dynamic";
