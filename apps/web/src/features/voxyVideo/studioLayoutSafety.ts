@@ -5,6 +5,7 @@ import {
   type HomepageFilmLayoutProfile,
   type HomepageFilmRect,
 } from "./homepageReferenceFilmLayouts";
+import type { VoxyEditorialStoryPlanValidation } from "./editorialStoryPlan";
 import type { VoxyLocalCompositionCaptionCue } from "./localCompositionRuntime";
 import type { VoxyVideoFormat } from "./modernCharacterContracts";
 import type { VoxyStudioDraft, VoxyStudioSafeZoneProfile } from "./studioDraft";
@@ -14,6 +15,8 @@ const FORMAT_LAYOUT: Readonly<Record<VoxyVideoFormat, HomepageFilmLayoutProfile>
   "9:16": "vertical_9_16",
   "1:1": "square_1_1",
 };
+
+const TARGET_FORMATS = ["16:9", "9:16", "1:1"] as const satisfies readonly VoxyVideoFormat[];
 
 export type VoxyStudioLayoutSafetyIssue = {
   severity: "warning" | "blocker";
@@ -47,6 +50,10 @@ export type VoxyStudioCaptionLayoutSafetyResult = {
 
 function normalized(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function pushUnique(target: string[], value: string) {
+  if (!target.includes(value)) target.push(value);
 }
 
 function layoutFor(format: VoxyVideoFormat): HomepageFilmLayoutContract {
@@ -252,6 +259,31 @@ export function evaluateVoxyStudioAllFormatLayoutSafety(
     "9:16": evaluateVoxyStudioLayoutSafety({ draft, format: "9:16" }),
     "1:1": evaluateVoxyStudioLayoutSafety({ draft, format: "1:1" }),
   };
+}
+
+export function mergeVoxyStudioAllFormatLayoutSafetyIntoValidation(input: {
+  draft: Pick<VoxyStudioDraft, "storyPlan" | "safeZoneProfile">;
+  validation: VoxyEditorialStoryPlanValidation;
+}): VoxyEditorialStoryPlanValidation {
+  const validation: VoxyEditorialStoryPlanValidation = {
+    errors: [...input.validation.errors],
+    approvalBlockers: [...input.validation.approvalBlockers],
+    warnings: [...input.validation.warnings],
+    renderEligible: false,
+  };
+  const matrix = evaluateVoxyStudioAllFormatLayoutSafety(input.draft);
+  for (const format of TARGET_FORMATS) {
+    const result = matrix[format];
+    for (const warning of result.warnings) {
+      pushUnique(validation.warnings, `layout:${format}:${warning.code}`);
+    }
+    for (const blocker of result.blockers) {
+      pushUnique(validation.approvalBlockers, `layout:${format}:${blocker.code}`);
+    }
+  }
+  validation.renderEligible =
+    validation.errors.length === 0 && validation.approvalBlockers.length === 0;
+  return validation;
 }
 
 export function assertVoxyStudioSelectedFormatLayoutSafety(
