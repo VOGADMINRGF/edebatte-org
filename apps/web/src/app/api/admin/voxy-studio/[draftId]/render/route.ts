@@ -268,6 +268,7 @@ export async function POST(
       draft,
       audioInput,
       requestedByUserId: userId,
+      evidenceSourcePackId: evidence.sourcePack.sourcePackId,
     });
 
     const deps: VoxyLocalCompositionRuntimeDependencies = {
@@ -318,10 +319,12 @@ export async function POST(
         format: queued.job.format,
         locale: queued.job.locale,
         durationMs: queued.job.durationMs ?? handoff.timeline.durationMs,
+        timelineHash: queued.job.timelineHash,
         audioAssetId: queued.job.audioAssetId,
         previewReviewFlowId: queued.job.previewReviewFlowId,
         decisionGateId: queued.job.decisionGateId,
       },
+      binding: handoff.binding,
       audioInput: safeAudioSummary(audioInput),
       renderExecutedByHttp: false,
       workerRequired: true,
