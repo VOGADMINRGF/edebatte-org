@@ -2,6 +2,10 @@ import "server-only";
 
 import { resolve, sep } from "node:path";
 import { coreCol, shouldUseInMemoryMongoFallback } from "@core/db/triMongo";
+import {
+  validateVoxyEditorialAudioMotionEnvelope,
+  type VoxyEditorialAudioMotionEnvelope,
+} from "./editorialAudioMotion.server";
 import type {
   VoxyLocalCompositionAudioAsset,
   VoxyLocalCompositionCaptionCue,
@@ -31,6 +35,7 @@ export type VoxyLocalCompositionAudioInputRecord = {
   storageKey: string;
   sha256: string;
   durationMs: number;
+  motionEnvelope?: VoxyEditorialAudioMotionEnvelope | null;
   timelineVersion: string;
   chapterTimings: VoxyLocalCompositionAudioChapterTiming[];
   captionCues: VoxyLocalCompositionCaptionCue[];
@@ -139,6 +144,15 @@ export function validateVoxyLocalCompositionAudioInputRecord(
     record.durationMs > MAX_AUDIO_DURATION_MS
   ) {
     errors.push("audio_input_duration_invalid");
+  }
+  if (record.motionEnvelope) {
+    for (const error of validateVoxyEditorialAudioMotionEnvelope({
+      envelope: record.motionEnvelope,
+      sourceSha256: record.sha256,
+      durationMs: record.durationMs,
+    })) {
+      errors.push(`audio_input_${error}`);
+    }
   }
   if (!ISO_DATE.test(record.approvedAt) || !ISO_DATE.test(record.createdAt)) {
     errors.push("audio_input_timestamp_invalid");
