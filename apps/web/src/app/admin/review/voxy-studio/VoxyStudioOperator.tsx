@@ -5,6 +5,30 @@ import { SUPPORTED_LOCALES } from "@/config/locales";
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 import { VOXY_STUDIO_SAFE_ZONE_PROFILES } from "@/features/voxyVideo/studioDraft";
 
+type StudioFormat = (typeof VOXY_VIDEO_FORMATS)[number];
+
+type LayoutSafetyIssue = {
+  severity: "warning" | "blocker";
+  code: string;
+  format: StudioFormat;
+  chapterId: string | null;
+  region: string;
+  message: string;
+};
+
+type LayoutSafetyResult = {
+  format: StudioFormat;
+  layoutProfile: string;
+  safeZoneProfile: string;
+  conservativePlatformPreset: string;
+  output: { width: number; height: number };
+  safeArea: { top: number; right: number; bottom: number; left: number };
+  semanticRegionsInsideSafeArea: boolean;
+  warnings: LayoutSafetyIssue[];
+  blockers: LayoutSafetyIssue[];
+  approvalEligible: boolean;
+};
+
 type StudioItem = {
   draft: {
     draftId: string;
@@ -41,6 +65,7 @@ type StudioItem = {
     warnings: string[];
     renderEligible: boolean;
   };
+  layoutSafety?: Partial<Record<StudioFormat, LayoutSafetyResult>>;
   evidenceSourcePackId: string;
   reviewItemId: string;
   decisionGateId: string;
@@ -662,6 +687,76 @@ export default function VoxyStudioOperator() {
                     ) : null}
                   </div>
 
+                  <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-[rgb(var(--fg))]">Format-Safety vor Freigabe</p>
+                        <p className="mt-1 text-xs leading-5 text-[rgb(var(--muted))]">
+                          Dieselbe serverseitige Layout-Prüfung gilt für 16:9, 9:16 und 1:1. Das Arbeitsprofil wird angezeigt; die Geometrie stammt ausschließlich aus den kanonischen Format-Presets.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                      {VOXY_VIDEO_FORMATS.map((format) => {
+                        const safety = item.layoutSafety?.[format];
+                        const missing = !safety;
+                        const blocked = missing || safety.approvalEligible !== true;
+                        return (
+                          <div
+                            key={format}
+                            className={`rounded-lg border p-3 ${
+                              blocked
+                                ? "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/20"
+                                : "border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-950/20"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-semibold text-[rgb(var(--fg))]">{format}</p>
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
+                                {missing ? "unbekannt" : safety.approvalEligible ? "frei" : "blockiert"}
+                              </span>
+                            </div>
+                            {safety ? (
+                              <>
+                                <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                                  {safety.output.width}×{safety.output.height} · Arbeitsprofil {safety.safeZoneProfile}
+                                </p>
+                                <p className="mt-1 text-[11px] text-[rgb(var(--muted))]">
+                                  Canonical preset: {safety.conservativePlatformPreset}
+                                </p>
+                                <p className="mt-1 text-[11px] text-[rgb(var(--muted))]">
+                                  Safe Area T{safety.safeArea.top} · R{safety.safeArea.right} · B{safety.safeArea.bottom} · L{safety.safeArea.left}
+                                </p>
+                                {safety.blockers.length ? (
+                                  <ul className="mt-2 space-y-1 text-xs text-amber-950 dark:text-amber-100">
+                                    {safety.blockers.map((issue) => (
+                                      <li key={`${format}:${issue.code}:${issue.chapterId ?? "global"}`}>
+                                        • {issue.message}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {safety.warnings.length ? (
+                                  <ul className="mt-2 space-y-1 text-[11px] text-[rgb(var(--muted))]">
+                                    {safety.warnings.map((issue) => (
+                                      <li key={`${format}:warning:${issue.code}:${issue.chapterId ?? "global"}`}>
+                                        Hinweis: {issue.message}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </>
+                            ) : (
+                              <p className="mt-2 text-xs leading-5 text-amber-950 dark:text-amber-100">
+                                Keine serverseitige Layout-Safety-Wahrheit geladen. Freigabe bleibt vorsorglich blockiert.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3 text-xs text-[rgb(var(--muted))]">
                     <p className="font-semibold text-[rgb(var(--fg))]">Revisionsbindung</p>
                     <p className="mt-1 break-all">Evidence: {item.evidenceSourcePackId}</p>
@@ -704,7 +799,7 @@ export default function VoxyStudioOperator() {
                           ? "Autosave muss zuerst abgeschlossen sein"
                           : canReady
                             ? "Redaktionell für den späteren Render freigeben"
-                            : "Nur bei vollständig freigegebener Evidenz und persistenter Review-Wahrheit möglich"
+                            : "Nur bei vollständig freigegebener Evidenz, sicheren Zielformaten und persistenter Review-Wahrheit möglich"
                       }
                       className="rounded-full border border-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-100"
                     >
