@@ -112,6 +112,7 @@ export type VoxyEditorialEvidenceWindow = {
   kind: VoxyEditorialEvidenceWindowKind;
   sourceIds: string[];
   findingIds: string[];
+  visible?: boolean;
 };
 
 export type VoxyEditorialConsequence = {
@@ -574,7 +575,7 @@ export function resolveVoxyEvidenceWindowPresentation(input: {
   format: VoxyVideoFormat;
   window: VoxyEditorialEvidenceWindow;
 }): "hidden" | "single" | "side_by_side" | "sequence" {
-  if (input.window.kind === "none") return "hidden";
+  if (input.window.visible === false || input.window.kind === "none") return "hidden";
   if (input.window.kind === "comparison") {
     return input.format === "16:9" ? "side_by_side" : "sequence";
   }
