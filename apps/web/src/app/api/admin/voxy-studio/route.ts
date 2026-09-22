@@ -10,6 +10,7 @@ import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContract
 import {
   createFailClosedDossierStudioEvidenceAuthority,
   loadFailClosedDossierStudioEvidenceContext,
+  loadVoxyStudioDossierEvidenceReviewState,
 } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import {
   buildVoxyStudioEditorialReviewItemId,
@@ -52,7 +53,12 @@ export async function GET(req: NextRequest) {
 
   const items = await Promise.all(
     drafts.map(async (draft) => {
-      const evidence = await loadFailClosedDossierStudioEvidenceContext(draft.dossierId);
+      const [evidence, evidenceReview] = await Promise.all([
+        loadFailClosedDossierStudioEvidenceContext(draft.dossierId),
+        draft.dossierId
+          ? loadVoxyStudioDossierEvidenceReviewState(draft.dossierId)
+          : Promise.resolve(null),
+      ]);
       const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
       const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft);
       const [reviewRecord, reviewAuditEvents] = await Promise.all([
@@ -62,6 +68,7 @@ export async function GET(req: NextRequest) {
       return {
         draft,
         validation,
+        evidenceReview,
         reviewItemId,
         decisionGateId: buildVoxyStudioRenderReviewGateId(draft),
         reviewRecord,
@@ -128,13 +135,17 @@ export async function POST(req: NextRequest) {
       },
       deps,
     );
-    const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+    const [validation, evidenceReview] = await Promise.all([
+      Promise.resolve(validateVoxyEditorialStoryPlan(draft.storyPlan, evidence)),
+      loadVoxyStudioDossierEvidenceReviewState(parsed.data.dossierId),
+    ]);
 
     return NextResponse.json(
       {
         ok: true,
         draft,
         validation,
+        evidenceReview,
         reviewItemId: buildVoxyStudioEditorialReviewItemId(draft),
         decisionGateId: buildVoxyStudioRenderReviewGateId(draft),
         renderApprovalBlocked: !validation.renderEligible,
