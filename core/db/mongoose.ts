@@ -1,13 +1,25 @@
 // core/db/mongoose.ts
 import mongoose from "mongoose";
 
-const URI = process.env.CORE_MONGODB_URI || process.env.MONGODB_URI;
-const DB  = process.env.CORE_DB_NAME     || process.env.MONGODB_DB || "vog";
-if (!URI) throw new Error("CORE_MONGODB_URI|MONGODB_URI missing");
+const isProd = process.env.NODE_ENV === "production";
+const URI =
+  process.env.CORE_MONGODB_URI ||
+  (!isProd ? process.env.MONGODB_URI : undefined);
+const DB =
+  process.env.CORE_DB_NAME ||
+  (!isProd ? process.env.MONGODB_DB : undefined) ||
+  (!isProd ? "vog" : undefined);
+
+if (!URI || !DB) {
+  throw new Error(
+    isProd
+      ? "CORE_MONGODB_URI and CORE_DB_NAME are required in production; legacy MONGODB_URI/MONGODB_DB fallback is disabled"
+      : "CORE_MONGODB_URI|MONGODB_URI and CORE_DB_NAME|MONGODB_DB missing",
+  );
+}
 
 // Empfohlene Defaults (harmlos in DEV, stabil in PROD)
-const isProd = process.env.NODE_ENV === "production";
-const appName = process.env.MONGODB_APPNAME || "vog-core";
+const appName = process.env.MONGODB_APPNAME || "edebatte-core";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -31,4 +43,4 @@ export async function mongo() {
 }
 
 // nützlich für Tests: mongoose.connection.close()
-export { mongoose };
+export { mongoose } from "mongoose";
