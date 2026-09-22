@@ -161,6 +161,86 @@ describe("Voxy Studio bounded operator edit adapter", () => {
     expect(chapter?.findingIds).toEqual(["finding-1"]);
   });
 
+  it("switches a single evidence card only among already chapter-bound source ids", () => {
+    const current = draft();
+    const evidenceChapter = current.storyPlan.chapters[1]!;
+    evidenceChapter.sourceIds = ["source-1", "source-2"];
+    evidenceChapter.findingIds = ["finding-1"];
+    evidenceChapter.evidenceWindow = {
+      kind: "source",
+      sourceIds: ["source-1"],
+      findingIds: ["finding-1"],
+    };
+
+    const patch = buildVoxyStudioOperatorEditablePatch({
+      draft: current,
+      command: {
+        chapterUpdates: [
+          { chapterId: "chapter-b", evidenceWindowSourceId: "source-2" },
+        ],
+      },
+    });
+
+    const chapter = patch.storyPlan?.chapters[1];
+    expect(patch.storyPlan?.revision).toBe(8);
+    expect(chapter?.evidenceWindow.sourceIds).toEqual(["source-2"]);
+    expect(chapter?.sourceIds).toEqual(["source-1", "source-2"]);
+    expect(chapter?.findingIds).toEqual(["finding-1"]);
+  });
+
+  it("fails closed for unbound, comparison or source-less evidence-card changes", () => {
+    const unbound = draft();
+    unbound.storyPlan.chapters[1]!.sourceIds = ["source-1"];
+    unbound.storyPlan.chapters[1]!.evidenceWindow = {
+      kind: "source",
+      sourceIds: ["source-1"],
+      findingIds: [],
+    };
+    expect(() =>
+      buildVoxyStudioOperatorEditablePatch({
+        draft: unbound,
+        command: {
+          chapterUpdates: [
+            { chapterId: "chapter-b", evidenceWindowSourceId: "source-2" },
+          ],
+        },
+      }),
+    ).toThrow(
+      "voxy_studio_operator_evidence_source_not_bound:chapter-b:source-2",
+    );
+
+    const comparison = draft();
+    comparison.storyPlan.chapters[1]!.sourceIds = ["source-1", "source-2"];
+    comparison.storyPlan.chapters[1]!.evidenceWindow = {
+      kind: "comparison",
+      sourceIds: ["source-1", "source-2"],
+      findingIds: [],
+    };
+    expect(() =>
+      buildVoxyStudioOperatorEditablePatch({
+        draft: comparison,
+        command: {
+          chapterUpdates: [
+            { chapterId: "chapter-b", evidenceWindowSourceId: "source-1" },
+          ],
+        },
+      }),
+    ).toThrow(
+      "voxy_studio_operator_comparison_source_edit_forbidden:chapter-b",
+    );
+
+    expect(() =>
+      buildVoxyStudioOperatorEditablePatch({
+        draft: draft(),
+        command: {
+          chapterUpdates: [
+            { chapterId: "chapter-b", evidenceWindowSourceId: "source-1" },
+          ],
+        },
+      }),
+    ).toThrow("voxy_studio_operator_evidence_source_window_missing:chapter-b");
+  });
+
   it("keeps story revision untouched for format, safe-zone and bounded caption edits", () => {
     const patch = buildVoxyStudioOperatorEditablePatch({
       draft: draft(),
