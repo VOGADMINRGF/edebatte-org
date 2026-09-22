@@ -131,6 +131,36 @@ describe("Voxy Studio bounded operator edit adapter", () => {
     expect(patch.storyPlan?.chapters[1]?.motion).toBe("showing_contrast");
   });
 
+  it("hides only the evidence card presentation while preserving source and finding truth", () => {
+    const current = draft();
+    const evidenceChapter = current.storyPlan.chapters[1]!;
+    evidenceChapter.sourceIds = ["source-1"];
+    evidenceChapter.findingIds = ["finding-1"];
+    evidenceChapter.evidenceWindow = {
+      kind: "source",
+      sourceIds: ["source-1"],
+      findingIds: ["finding-1"],
+    };
+
+    const patch = buildVoxyStudioOperatorEditablePatch({
+      draft: current,
+      command: {
+        chapterUpdates: [
+          { chapterId: "chapter-b", evidenceWindowVisible: false },
+        ],
+      },
+    });
+
+    const chapter = patch.storyPlan?.chapters[1];
+    expect(patch.storyPlan?.revision).toBe(8);
+    expect(chapter?.evidenceWindow.visible).toBe(false);
+    expect(chapter?.evidenceWindow.kind).toBe("source");
+    expect(chapter?.evidenceWindow.sourceIds).toEqual(["source-1"]);
+    expect(chapter?.evidenceWindow.findingIds).toEqual(["finding-1"]);
+    expect(chapter?.sourceIds).toEqual(["source-1"]);
+    expect(chapter?.findingIds).toEqual(["finding-1"]);
+  });
+
   it("keeps story revision untouched for format, safe-zone and bounded caption edits", () => {
     const patch = buildVoxyStudioOperatorEditablePatch({
       draft: draft(),
