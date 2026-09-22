@@ -6,8 +6,6 @@ import { z } from "zod";
 
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
 import { validateVoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
-import { VOXY_FINAL_CANON } from "@/features/voxyVideo/finalCanon";
-import { buildVoxyLocalCompositionInputFingerprint } from "@/features/voxyVideo/localCompositionRuntime";
 import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import {
   bindVoxyStudioVerifiedRender,
@@ -16,7 +14,7 @@ import {
 } from "@/features/voxyVideo/studioDraftService";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
-import { assertVoxyStudioEditorialRenderCandidate } from "@/features/voxyVideo/studioRenderBindingGuard";
+import { assertVoxyStudioImmutableEditorialBinding } from "@/features/voxyVideo/studioRenderBindingGuard";
 
 const BodySchema = z
   .object({
@@ -120,58 +118,18 @@ export async function POST(
         { status: 404 },
       );
     }
-    if (!requestSnapshot || requestSnapshot.renderProfile !== "editorial_v1") {
-      return NextResponse.json(
-        { ok: false, error: "voxy_studio_render_binding_request_snapshot_missing" },
-        { status: 409 },
-      );
+    assertVoxyStudioImmutableEditorialBinding({
+      draft: currentDraft,
+      evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+      currentDecisionGateId,
+      request: requestSnapshot,
+      job,
+      output,
+    });
+    const editorialBinding = requestSnapshot?.editorialBinding;
+    if (!requestSnapshot || !editorialBinding) {
+      throw new Error("voxy_studio_render_binding_request_snapshot_missing");
     }
-    const requestFingerprint = buildVoxyLocalCompositionInputFingerprint(requestSnapshot);
-    if (requestFingerprint !== job.inputFingerprint || requestFingerprint !== output.inputFingerprint) {
-      return NextResponse.json(
-        { ok: false, error: "voxy_studio_render_binding_request_fingerprint_mismatch" },
-        { status: 409 },
-      );
-    }
-    const editorialBinding = requestSnapshot.editorialBinding;
-    if (
-      !editorialBinding ||
-      editorialBinding.studioDraftId !== currentDraft.draftId ||
-      editorialBinding.studioDraftRevision !== currentDraft.revision ||
-      editorialBinding.storyPlanId !== currentDraft.storyPlan.storyPlanId ||
-      editorialBinding.storyPlanRevision !== currentDraft.storyPlan.revision ||
-      editorialBinding.evidenceSourcePackId !== evidence.sourcePack.sourcePackId ||
-      editorialBinding.evidenceDecisionGateId !== currentDecisionGateId ||
-      editorialBinding.finalCanonId !== VOXY_FINAL_CANON.canonId
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "voxy_studio_render_binding_request_revision_mismatch",
-          currentDecisionGateId,
-          finalCanonId: VOXY_FINAL_CANON.canonId,
-          outputBound: false,
-        },
-        { status: 409 },
-      );
-    }
-    if (
-      job.decisionGateId !== currentDecisionGateId ||
-      output.decisionGateId !== currentDecisionGateId
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "voxy_studio_render_binding_output_evidence_mismatch",
-          currentDecisionGateId,
-          jobDecisionGateId: job.decisionGateId,
-          outputDecisionGateId: output.decisionGateId,
-          outputBound: false,
-        },
-        { status: 409 },
-      );
-    }
-    assertVoxyStudioEditorialRenderCandidate({ job, output });
 
     const deps = createDefaultVoxyStudioServiceDependencies({ evidenceAuthority });
     const draft = await bindVoxyStudioVerifiedRender(
@@ -222,7 +180,7 @@ export async function POST(
         absolutePathExposed: false,
       },
       immutableBinding: {
-        inputFingerprint: requestFingerprint,
+        inputFingerprint: job.inputFingerprint,
         evidenceSourcePackId: editorialBinding.evidenceSourcePackId,
         finalCanonId: editorialBinding.finalCanonId,
       },
@@ -235,7 +193,7 @@ export async function POST(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "voxy_studio_render_binding_failed";
-    const status = message.includes("missing") ? 404 : message.includes("revision") || message.includes("stale") || message.includes("mismatch") ? 409 : 400;
+    const status = message.includes("missing") ? 404 : message.includes("revision") || message.includes("stale") || message.includes("mismatch") || message.includes("invalid") ? 409 : 400;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
