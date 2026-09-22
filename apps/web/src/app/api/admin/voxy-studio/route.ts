@@ -14,13 +14,11 @@ import {
 } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import {
   buildVoxyStudioEditorialReviewItemId,
+  buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createDefaultVoxyStudioServiceDependencies,
   createVoxyStudioDraft,
 } from "@/features/voxyVideo/studioDraftService";
-import {
-  VOXY_STUDIO_SAFE_ZONE_PROFILES,
-  buildVoxyStudioRenderReviewGateId,
-} from "@/features/voxyVideo/studioDraft";
+import { VOXY_STUDIO_SAFE_ZONE_PROFILES } from "@/features/voxyVideo/studioDraft";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { buildVoxyStudioStoryPlanFromDossier } from "@/features/voxyVideo/studioStoryPlanBuilder";
 import { getReviewQueueOperationsRepository } from "@features/reviewQueueOperations";
@@ -73,7 +71,14 @@ export async function GET(req: NextRequest) {
           : Promise.resolve(null),
       ]);
       const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
-      const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft);
+      const reviewItemId = buildVoxyStudioEditorialReviewItemId(
+        draft,
+        evidence.sourcePack.sourcePackId,
+      );
+      const decisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+        draft,
+        evidence.sourcePack.sourcePackId,
+      );
       const [reviewRecord, reviewAuditEvents] = await Promise.all([
         reviewRepository.getRecord(reviewItemId),
         reviewRepository.listAuditEvents(reviewItemId),
@@ -82,8 +87,12 @@ export async function GET(req: NextRequest) {
         draft,
         validation,
         evidenceReview,
+        evidenceSourcePackId: evidence.sourcePack.sourcePackId,
         reviewItemId,
-        decisionGateId: buildVoxyStudioRenderReviewGateId(draft),
+        decisionGateId,
+        approvalEvidenceStale:
+          draft.status === "approved_for_render" &&
+          draft.renderApproval?.decisionGateId !== decisionGateId,
         reviewRecord,
         reviewAuditEvents: reviewAuditEvents.slice(0, 10),
       };
@@ -147,6 +156,14 @@ export async function POST(req: NextRequest) {
       Promise.resolve(validateVoxyEditorialStoryPlan(draft.storyPlan, evidence)),
       loadVoxyStudioDossierEvidenceReviewState(parsed.data.dossierId),
     ]);
+    const reviewItemId = buildVoxyStudioEditorialReviewItemId(
+      draft,
+      evidence.sourcePack.sourcePackId,
+    );
+    const decisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+      draft,
+      evidence.sourcePack.sourcePackId,
+    );
 
     return NextResponse.json(
       {
@@ -154,8 +171,9 @@ export async function POST(req: NextRequest) {
         draft,
         validation,
         evidenceReview,
-        reviewItemId: buildVoxyStudioEditorialReviewItemId(draft),
-        decisionGateId: buildVoxyStudioRenderReviewGateId(draft),
+        evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+        reviewItemId,
+        decisionGateId,
         renderApprovalBlocked: !validation.renderEligible,
         runtime: studioRuntimeState(),
       },
