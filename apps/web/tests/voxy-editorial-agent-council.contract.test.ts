@@ -7,6 +7,7 @@ import {
   listRequiredVoxyEditorialCouncilRoles,
   proposeVoxyEditorialLearningCandidate,
   type VoxyEditorialCouncilInputBinding,
+  type VoxyEditorialCouncilRoleId,
   type VoxyEditorialCouncilRun,
 } from "@/features/voxyVideo/editorialAgentCouncil";
 
@@ -21,55 +22,81 @@ const binding: VoxyEditorialCouncilInputBinding = {
   renderOutputSha256: null,
 };
 
-function passingRuns(overrides?: Partial<VoxyEditorialCouncilRun>): VoxyEditorialCouncilRun[] {
+function runForRole(roleId: VoxyEditorialCouncilRoleId, index: number): VoxyEditorialCouncilRun {
   const fingerprint = buildVoxyEditorialCouncilInputFingerprint(binding);
-  return listRequiredVoxyEditorialCouncilRoles("maximum").map((roleId, index) => {
-    const definition = VOXY_EDITORIAL_COUNCIL_ROLES.find((entry) => entry.id === roleId)!;
-    return {
-      runId: `review-run-${index + 1}`,
-      roleId,
-      alpha2RoleId: definition.alpha2RoleId,
-      inputFingerprint: fingerprint,
-      creatorRunId: "creator-run-1",
-      providerId: "openai",
-      modelFamily: "gpt-5",
-      modelId: "review-model",
-      instructionVersion: "v1",
-      policyRevision: 1,
-      completed: true,
-      publicReasonSummary: `${roleId} completed evidence-backed checks.`,
-      checksPerformed: ["evidence_binding", "certainty_parity"],
-      evidenceRefs: ["source-pack-1"],
-      objections: [],
-      verdict: "pass",
-      ...overrides,
-      roleId,
-      alpha2RoleId: definition.alpha2RoleId,
-      runId: `review-run-${index + 1}`,
-    };
-  });
+  const definition = VOXY_EDITORIAL_COUNCIL_ROLES.find((entry) => entry.id === roleId)!;
+  const provider = index % 2 === 0 ? "openai" : "anthropic";
+  return {
+    runId: `review-run-${index + 1}`,
+    roleId,
+    alpha2RoleId: definition.alpha2RoleId,
+    reviewerActorId: `agent:review:${roleId}:${index + 1}`,
+    inputFingerprint: fingerprint,
+    creatorRunId: "creator-run-1",
+    providerId: provider,
+    modelFamily: provider,
+    modelId: `${provider}-review-model`,
+    instructionVersion: "v1",
+    policyRevision: 1,
+    completed: true,
+    publicReasonSummary: `${roleId} completed evidence-backed checks.`,
+    checksPerformed: ["evidence_binding", "certainty_parity"],
+    evidenceRefs: ["source-pack-1"],
+    objections: [],
+    verdict: "pass",
+  };
+}
+
+function passingRuns(): VoxyEditorialCouncilRun[] {
+  const roles = listRequiredVoxyEditorialCouncilRoles("maximum", "editorial");
+  const runs = roles.map((roleId, index) => runForRole(roleId, index));
+  const repeatable = roles.filter(
+    (roleId) => !["chief_judge", "defense_advocate"].includes(roleId),
+  );
+  let repeatIndex = 0;
+  while (runs.length < VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY.minIndependentReviewRuns) {
+    const roleId = repeatable[repeatIndex % repeatable.length];
+    runs.push(runForRole(roleId, runs.length));
+    repeatIndex += 1;
+  }
+  return runs;
 }
 
 describe("Voxy adversarial editorial council", () => {
+  it("scopes reviewers to the active review stage", () => {
+    const editorial = listRequiredVoxyEditorialCouncilRoles("maximum", "editorial");
+    expect(editorial).toContain("evidence_prosecutor");
+    expect(editorial).toContain("defense_advocate");
+    expect(editorial).toContain("chief_judge");
+    expect(editorial).not.toContain("voice_av_critic");
+    expect(editorial).not.toContain("social_critic");
+
+    const translation = listRequiredVoxyEditorialCouncilRoles("maximum", "translation");
+    expect(translation).toContain("language_critic");
+    expect(translation).not.toContain("voice_av_critic");
+  });
+
   it("allows autonomous approval only after the maximum council completed on the exact input", () => {
     const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
       binding,
       policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
       creatorRunId: "creator-run-1",
+      creatorActorId: "agent:creator",
       runs: passingRuns(),
     });
     expect(decision.outcome).toBe("agent_approved");
     expect(decision.reasonCodes).toEqual([]);
     expect(decision.auditComplete).toBe(true);
-    expect(decision.reviewRunIds).toHaveLength(
-      listRequiredVoxyEditorialCouncilRoles("maximum").length,
-    );
+    expect(decision.reviewRunIds.length).toBeGreaterThanOrEqual(12);
+    expect(decision.modelFamilies).toEqual(expect.arrayContaining(["openai", "anthropic"]));
   });
 
   it("fails closed on a stale input fingerprint", () => {
     const runs = passingRuns();
     runs[0] = { ...runs[0], inputFingerprint: "stale" };
     const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
       binding,
       policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
       creatorRunId: "creator-run-1",
@@ -77,6 +104,20 @@ describe("Voxy adversarial editorial council", () => {
     });
     expect(decision.outcome).toBe("blocked");
     expect(decision.reasonCodes).toContain("stale_or_foreign_input_fingerprint");
+  });
+
+  it("fails closed when reviewer lineage does not match the creator revision", () => {
+    const runs = passingRuns();
+    runs[0] = { ...runs[0], creatorRunId: "another-creator-run" };
+    const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
+      binding,
+      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
+      creatorRunId: "creator-run-1",
+      runs,
+    });
+    expect(decision.outcome).toBe("blocked");
+    expect(decision.reasonCodes).toContain("creator_lineage_mismatch");
   });
 
   it("blocks an unresolved adversarial objection even if the judge otherwise passes", () => {
@@ -101,6 +142,7 @@ describe("Voxy adversarial editorial council", () => {
       ],
     };
     const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
       binding,
       policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
       creatorRunId: "creator-run-1",
@@ -133,6 +175,7 @@ describe("Voxy adversarial editorial council", () => {
       ],
     };
     const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
       binding,
       policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
       creatorRunId: "creator-run-1",
@@ -144,6 +187,7 @@ describe("Voxy adversarial editorial council", () => {
 
   it("forces a human gate only for explicit critical-risk flags", () => {
     const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
       binding,
       policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
       creatorRunId: "creator-run-1",
@@ -156,6 +200,7 @@ describe("Voxy adversarial editorial council", () => {
 
   it("does not allow learning feedback to silently mutate the active policy", () => {
     const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
       binding,
       policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
       creatorRunId: "creator-run-1",
