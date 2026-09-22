@@ -6,7 +6,10 @@ import {
   buildVoxyEditorialTimeline,
   type VoxyEditorialTimeline,
 } from "./editorialStoryPlan";
-import { buildVoxyEditorialRenderableStoryPlan } from "./editorialRenderEvidence";
+import {
+  buildVoxyEditorialRenderableStoryPlan,
+  type VoxyEditorialRenderableStoryPlan,
+} from "./editorialRenderEvidence";
 import {
   buildVoxyLocalCompositionTimelineHash,
   validateVoxyLocalCompositionRequest,
@@ -55,6 +58,14 @@ export type VoxyStudioEditorialCompositionBinding = {
   format: VoxyStudioDraft["selectedFormat"];
   locale: string;
   finalCanonId: string;
+};
+
+export type VoxyStudioEditorialTimelineSnapshot = {
+  audioInput: VoxyLocalCompositionAudioInputRecord;
+  timeline: VoxyEditorialTimeline;
+  captionCues: VoxyLocalCompositionCaptionCue[];
+  renderStoryPlan: VoxyEditorialRenderableStoryPlan;
+  evidenceSourcePackId: string;
 };
 
 export type VoxyStudioEditorialCompositionHandoff = {
@@ -174,30 +185,19 @@ function assertAudioBinding(input: {
   }
 }
 
-export function buildVoxyStudioEditorialCompositionHandoff(input: {
+export function buildVoxyStudioEditorialTimelineSnapshot(input: {
   draft: VoxyStudioDraft;
   audioInput: VoxyLocalCompositionAudioInputRecord;
-  requestedByUserId: string;
   evidenceSourcePackId: string;
   evidenceSources: VoxyStudioEvidenceSnapshot["sources"];
-}): VoxyStudioEditorialCompositionHandoff {
+}): VoxyStudioEditorialTimelineSnapshot {
   const draftErrors = validateVoxyStudioDraft(input.draft);
   if (draftErrors.length) {
-    throw new Error(`voxy_studio_render_handoff_draft_invalid:${draftErrors.join(",")}`);
-  }
-  if (input.draft.status !== "approved_for_render" || !input.draft.renderApproval) {
-    throw new Error(`voxy_studio_render_handoff_not_allowed:${input.draft.status}`);
-  }
-  if (input.draft.renderBinding) {
-    throw new Error("voxy_studio_render_handoff_already_bound");
-  }
-  const requestedByUserId = normalized(input.requestedByUserId);
-  if (!requestedByUserId) {
-    throw new Error("voxy_studio_render_handoff_operator_missing");
+    throw new Error(`voxy_studio_timeline_snapshot_draft_invalid:${draftErrors.join(",")}`);
   }
   const evidenceSourcePackId = normalized(input.evidenceSourcePackId);
   if (!evidenceSourcePackId) {
-    throw new Error("voxy_studio_render_handoff_evidence_binding_missing");
+    throw new Error("voxy_studio_timeline_snapshot_evidence_binding_missing");
   }
 
   assertAudioBinding({ draft: input.draft, audioInput: input.audioInput });
@@ -216,14 +216,48 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     adjustments: input.draft.captionAdjustments,
     durationMs: timeline.durationMs,
   });
-  assertVoxyStudioCaptionLayoutSafety({
-    format: input.draft.selectedFormat,
-    captionCues,
-  });
   const renderStoryPlan = buildVoxyEditorialRenderableStoryPlan({
     plan: input.draft.storyPlan,
     sourcePackId: evidenceSourcePackId,
     sources: input.evidenceSources,
+  });
+
+  return {
+    audioInput: input.audioInput,
+    timeline,
+    captionCues,
+    renderStoryPlan,
+    evidenceSourcePackId,
+  };
+}
+
+export function buildVoxyStudioEditorialCompositionHandoff(input: {
+  draft: VoxyStudioDraft;
+  audioInput: VoxyLocalCompositionAudioInputRecord;
+  requestedByUserId: string;
+  evidenceSourcePackId: string;
+  evidenceSources: VoxyStudioEvidenceSnapshot["sources"];
+}): VoxyStudioEditorialCompositionHandoff {
+  if (input.draft.status !== "approved_for_render" || !input.draft.renderApproval) {
+    throw new Error(`voxy_studio_render_handoff_not_allowed:${input.draft.status}`);
+  }
+  if (input.draft.renderBinding) {
+    throw new Error("voxy_studio_render_handoff_already_bound");
+  }
+  const requestedByUserId = normalized(input.requestedByUserId);
+  if (!requestedByUserId) {
+    throw new Error("voxy_studio_render_handoff_operator_missing");
+  }
+
+  const snapshot = buildVoxyStudioEditorialTimelineSnapshot({
+    draft: input.draft,
+    audioInput: input.audioInput,
+    evidenceSourcePackId: input.evidenceSourcePackId,
+    evidenceSources: input.evidenceSources,
+  });
+  assertVoxyStudioCaptionLayoutSafety({
+    format: input.draft.selectedFormat,
+    captionCues: snapshot.captionCues,
   });
 
   const renderApproval = input.draft.renderApproval;
@@ -232,7 +266,7 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     studioDraftRevision: input.draft.revision,
     storyPlanId: input.draft.storyPlan.storyPlanId,
     storyPlanRevision: input.draft.storyPlan.revision,
-    evidenceSourcePackId,
+    evidenceSourcePackId: snapshot.evidenceSourcePackId,
     evidenceDecisionGateId: renderApproval.decisionGateId,
     approvalSource: renderApproval.approvalSource,
     councilArtifactId: renderApproval.councilArtifactId,
@@ -249,9 +283,9 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     timelineVersion: input.audioInput.timelineVersion,
     audioAssetId: input.audioInput.assetId,
     sceneContent: [],
-    captionCues,
-    editorialStoryPlan: renderStoryPlan,
-    editorialTimeline: timeline,
+    captionCues: snapshot.captionCues,
+    editorialStoryPlan: snapshot.renderStoryPlan,
+    editorialTimeline: snapshot.timeline,
     editorialBinding,
   };
   const requestErrors = validateVoxyLocalCompositionRequest(request);
@@ -276,10 +310,10 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
   return {
     request,
     approval,
-    audioInput: input.audioInput,
-    timeline,
+    audioInput: snapshot.audioInput,
+    timeline: snapshot.timeline,
     timelineHash,
-    captionCues,
+    captionCues: snapshot.captionCues,
     binding: {
       studioDraftId: input.draft.draftId,
       studioDraftRevision: input.draft.revision,
@@ -287,14 +321,14 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
       storyPlanRevision: input.draft.storyPlan.revision,
       timelineVersion: input.audioInput.timelineVersion,
       timelineHash,
-      durationMs: timeline.durationMs,
-      chapterBoundaries: timeline.chapters.map((chapter) => ({
+      durationMs: snapshot.timeline.durationMs,
+      chapterBoundaries: snapshot.timeline.chapters.map((chapter) => ({
         chapterId: chapter.chapterId,
         startMs: chapter.startMs,
         endMs: chapter.endMs,
         motion: chapter.motion,
       })),
-      evidenceSourcePackId,
+      evidenceSourcePackId: snapshot.evidenceSourcePackId,
       evidenceDecisionGateId: renderApproval.decisionGateId,
       approvalSource: renderApproval.approvalSource,
       councilArtifactId: renderApproval.councilArtifactId,
