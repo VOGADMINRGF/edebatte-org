@@ -83,6 +83,7 @@ export async function approveVoxyStudioDraftFromAgentCouncil(input: {
     reviewQueueItemId: reviewItemId,
     decisionGateId,
     creatorRunId: persisted.creatorRunId,
+    creatorActorId: persisted.creatorActorId ?? null,
   });
   if (JSON.stringify(currentBinding) !== JSON.stringify(persisted.binding)) {
     throw new Error("voxy_council_input_binding_stale");
@@ -93,6 +94,7 @@ export async function approveVoxyStudioDraftFromAgentCouncil(input: {
     binding: currentBinding,
     policy: activePolicy.policy,
     creatorRunId: persisted.creatorRunId,
+    creatorActorId: persisted.creatorActorId ?? null,
     runs: persisted.criticRuns,
     criticalRiskFlags: persisted.criticalRiskFlags,
   });
