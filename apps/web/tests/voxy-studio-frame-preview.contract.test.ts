@@ -257,6 +257,36 @@ describe("Voxy Studio same-renderer frame preview", () => {
     },
   );
 
+  it("keeps a layout-blocked revision previewable but blocks the actual #568 handoff", () => {
+    const approvedDraft = draft("approved_for_render");
+    approvedDraft.storyPlan.chapters[0]!.headline = "Sehr lange Headline ".repeat(12).trim();
+    const previewDraft: VoxyStudioDraft = {
+      ...approvedDraft,
+      status: "needs_review",
+      renderApproval: null,
+    };
+
+    const preview = buildVoxyStudioEditorialTimelineSnapshot({
+      draft: previewDraft,
+      audioInput: audio(),
+      evidenceSourcePackId: SOURCE_PACK_ID,
+      evidenceSources: sources(),
+    });
+    expect(preview.renderStoryPlan.chapters[0]?.headline).toBe(
+      approvedDraft.storyPlan.chapters[0]?.headline,
+    );
+
+    expect(() =>
+      buildVoxyStudioEditorialCompositionHandoff({
+        draft: approvedDraft,
+        audioInput: audio(),
+        requestedByUserId: "preview-reviewer",
+        evidenceSourcePackId: SOURCE_PACK_ID,
+        evidenceSources: sources(),
+      }),
+    ).toThrow(/voxy_studio_all_format_layout_blocked/);
+  });
+
   it("fails closed when the selected audio belongs to an older story revision", () => {
     expect(() =>
       buildVoxyStudioEditorialTimelineSnapshot({
