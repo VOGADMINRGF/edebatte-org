@@ -30,6 +30,7 @@ export type VoxyEditorialCouncilAuditArtifact = {
   policyRevision: number;
   qualityLevel: string;
   creatorRunId: string | null;
+  creatorActorId?: string | null;
   criticRuns: VoxyEditorialCouncilRun[];
   defense: VoxyEditorialCouncilDefenseRecord | null;
   criticalRiskFlags: VoxyEditorialCriticalRiskFlag[];
