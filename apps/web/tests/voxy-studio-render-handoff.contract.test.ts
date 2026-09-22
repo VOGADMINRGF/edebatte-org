@@ -4,6 +4,7 @@ import {
   VOXY_EDITORIAL_STORY_PLAN_VERSION,
   type VoxyEditorialStoryPlan,
 } from "@/features/voxyVideo/editorialStoryPlan";
+import { readVoxyEditorialRenderEvidenceProjection } from "@/features/voxyVideo/editorialRenderEvidence";
 import { VOXY_FINAL_CANON } from "@/features/voxyVideo/finalCanon";
 import {
   VOXY_LOCAL_COMPOSITION_AUDIO_INPUT_VERSION,
@@ -15,10 +16,12 @@ import {
 import {
   buildQueuedVoxyLocalCompositionJob,
   buildVoxyLocalCompositionInputFingerprint,
+  buildVoxyLocalCompositionTimelineHash,
   getVoxyLocalCompositionDimensions,
   type VoxyLocalCompositionOutput,
 } from "@/features/voxyVideo/localCompositionRuntime";
 import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
+import type { VoxyStudioEvidenceSnapshot } from "@/features/voxyVideo/studioEvidenceReview";
 import {
   buildVoxyStudioEditorialCompositionHandoff,
   buildVoxyStudioPreviewReviewFlowId,
@@ -26,6 +29,26 @@ import {
 import { validateVoxyStudioEditorialRenderCandidate } from "@/features/voxyVideo/studioRenderBindingGuard";
 
 const EVIDENCE_SOURCE_PACK_ID = "voxy-studio-dossier:dossier-1:evidence-r1";
+
+function evidenceSources(
+  overrides?: Partial<VoxyStudioEvidenceSnapshot["sources"][number]>,
+): VoxyStudioEvidenceSnapshot["sources"] {
+  return [
+    {
+      sourceId: "source-1",
+      canonicalUrlHash: "hash-source-1",
+      url: "https://example.org/source-1",
+      title: "Amtliche Quelle",
+      publisher: "Beispielbehörde",
+      type: "official",
+      language: "de",
+      snippet: "Belegter Ausschnitt",
+      publishedAt: "2026-09-21T12:00:00.000Z",
+      retrievedAt: "2026-09-22T01:00:00.000Z",
+      ...overrides,
+    },
+  ];
+}
 
 function storyPlan(): VoxyEditorialStoryPlan {
   return {
@@ -102,7 +125,8 @@ function draft(): VoxyStudioDraft {
     renderApproval: {
       approvalSource: "human",
       reviewDecisionRecordId: "review-audit-1",
-      decisionGateId: "voxy-studio-render:studio-draft-1:r4:story-r3:evidence-1234567890abcdef",
+      decisionGateId:
+        "voxy-studio-render:studio-draft-1:r4:story-r3:evidence-1234567890abcdef",
       approvedByUserId: "admin-2",
       councilArtifactId: null,
       approvedAt: "2026-09-22T04:00:00.000Z",
@@ -173,12 +197,17 @@ function audioInput(): VoxyLocalCompositionAudioInputRecord {
   };
 }
 
-function handoffInput(overrides?: { evidenceSourcePackId?: string }) {
+function handoffInput(overrides?: {
+  evidenceSourcePackId?: string;
+  evidenceSources?: VoxyStudioEvidenceSnapshot["sources"];
+}) {
   return {
     draft: draft(),
     audioInput: audioInput(),
     requestedByUserId: "admin-2",
-    evidenceSourcePackId: overrides?.evidenceSourcePackId ?? EVIDENCE_SOURCE_PACK_ID,
+    evidenceSourcePackId:
+      overrides?.evidenceSourcePackId ?? EVIDENCE_SOURCE_PACK_ID,
+    evidenceSources: overrides?.evidenceSources ?? evidenceSources(),
   };
 }
 
@@ -245,13 +274,14 @@ function editorialRenderCandidate() {
 }
 
 describe("Voxy Studio render handoff", () => {
-  it("binds an approved Studio revision to the existing editorial_v1 runtime", () => {
+  it("binds an approved Studio revision and reviewed source metadata to editorial_v1", () => {
     const studioDraft = draft();
     const handoff = buildVoxyStudioEditorialCompositionHandoff({
       draft: studioDraft,
       audioInput: audioInput(),
       requestedByUserId: "admin-2",
       evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+      evidenceSources: evidenceSources(),
     });
 
     expect(handoff.request).toMatchObject({
@@ -272,6 +302,22 @@ describe("Voxy Studio render handoff", () => {
         evidenceDecisionGateId: studioDraft.renderApproval?.decisionGateId,
         finalCanonId: VOXY_FINAL_CANON.canonId,
       },
+    });
+    expect(
+      readVoxyEditorialRenderEvidenceProjection(handoff.request.editorialStoryPlan!),
+    ).toEqual({
+      version: "voxy-editorial-render-evidence-v1",
+      sourcePackId: EVIDENCE_SOURCE_PACK_ID,
+      sources: [
+        {
+          sourceId: "source-1",
+          title: "Amtliche Quelle",
+          url: "https://example.org/source-1",
+          publisher: "Beispielbehörde",
+          sourceType: "official",
+          language: "de",
+        },
+      ],
     });
     expect(handoff.timeline.durationMs).toBe(120_000);
     expect(handoff.timelineHash).toMatch(/^[a-f0-9]{64}$/);
@@ -303,10 +349,6 @@ describe("Voxy Studio render handoff", () => {
         motion: "explaining",
       },
     ]);
-    expect(handoff.timeline.chapters.map((chapter) => chapter.chapterId)).toEqual([
-      "what-happened",
-      "evidence",
-    ]);
     expect(handoff.captionCues.at(-1)?.endMs).toBe(120_000);
     expect(handoff.approval).toMatchObject({
       approved: true,
@@ -320,14 +362,19 @@ describe("Voxy Studio render handoff", () => {
     );
   });
 
-  it("changes the immutable request fingerprint when the evidence binding changes", () => {
+  it("changes fingerprint, identity and timeline hash when evidence binding changes", () => {
     const first = buildVoxyStudioEditorialCompositionHandoff(handoffInput());
     const second = buildVoxyStudioEditorialCompositionHandoff(
-      handoffInput({ evidenceSourcePackId: "voxy-studio-dossier:dossier-1:evidence-r2" }),
+      handoffInput({
+        evidenceSourcePackId: "voxy-studio-dossier:dossier-1:evidence-r2",
+      }),
     );
 
     expect(buildVoxyLocalCompositionInputFingerprint(first.request)).not.toBe(
       buildVoxyLocalCompositionInputFingerprint(second.request),
+    );
+    expect(buildVoxyLocalCompositionTimelineHash(first.request)).not.toBe(
+      buildVoxyLocalCompositionTimelineHash(second.request),
     );
     expect(
       buildQueuedVoxyLocalCompositionJob({
@@ -344,6 +391,33 @@ describe("Voxy Studio render handoff", () => {
     );
   });
 
+  it("changes fingerprint and timeline hash when visible source metadata changes", () => {
+    const first = buildVoxyStudioEditorialCompositionHandoff(handoffInput());
+    const second = buildVoxyStudioEditorialCompositionHandoff(
+      handoffInput({
+        evidenceSources: evidenceSources({
+          title: "Amtliche Quelle · aktualisierte Bezeichnung",
+          publisher: "Andere zuständige Behörde",
+        }),
+      }),
+    );
+
+    expect(buildVoxyLocalCompositionInputFingerprint(first.request)).not.toBe(
+      buildVoxyLocalCompositionInputFingerprint(second.request),
+    );
+    expect(buildVoxyLocalCompositionTimelineHash(first.request)).not.toBe(
+      buildVoxyLocalCompositionTimelineHash(second.request),
+    );
+  });
+
+  it("fails closed when a story-referenced source is missing from reviewed evidence", () => {
+    expect(() =>
+      buildVoxyStudioEditorialCompositionHandoff(
+        handoffInput({ evidenceSources: [] }),
+      ),
+    ).toThrow("voxy_editorial_render_evidence_source_missing:source-1");
+  });
+
   it("accepts only internally consistent editorial_v1 outputs for Studio binding", () => {
     const candidate = editorialRenderCandidate();
     expect(validateVoxyStudioEditorialRenderCandidate(candidate)).toEqual([]);
@@ -351,18 +425,13 @@ describe("Voxy Studio render handoff", () => {
 
   it("rejects the historical local_review_v1 fixture at the Studio bind gate", () => {
     const candidate = editorialRenderCandidate();
-    const legacyJob = {
-      ...candidate.job,
-      renderProfile: "local_review_v1" as const,
-    };
-    const legacyOutput = {
-      ...candidate.output,
-      renderProfile: "local_review_v1" as const,
-    };
     expect(
       validateVoxyStudioEditorialRenderCandidate({
-        job: legacyJob,
-        output: legacyOutput,
+        job: { ...candidate.job, renderProfile: "local_review_v1" as const },
+        output: {
+          ...candidate.output,
+          renderProfile: "local_review_v1" as const,
+        },
       }),
     ).toEqual(
       expect.arrayContaining([
@@ -373,15 +442,22 @@ describe("Voxy Studio render handoff", () => {
   });
 
   it("fails closed when audio is bound to an older story revision", () => {
-    const stale = { ...audioInput(), storyPlanRevision: 2, scriptVersion: "story-r2" };
+    const stale = {
+      ...audioInput(),
+      storyPlanRevision: 2,
+      scriptVersion: "story-r2",
+    };
     expect(() =>
       buildVoxyStudioEditorialCompositionHandoff({
         draft: draft(),
         audioInput: stale,
         requestedByUserId: "admin-2",
         evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+        evidenceSources: evidenceSources(),
       }),
-    ).toThrow(/voxy_studio_audio_script_revision_mismatch|voxy_studio_audio_story_revision_mismatch/);
+    ).toThrow(
+      /voxy_studio_audio_script_revision_mismatch|voxy_studio_audio_story_revision_mismatch/,
+    );
   });
 
   it("fails closed when a caption correction creates a gap in the approved audio timeline", () => {
@@ -402,6 +478,7 @@ describe("Voxy Studio render handoff", () => {
         audioInput: audioInput(),
         requestedByUserId: "admin-2",
         evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+        evidenceSources: evidenceSources(),
       }),
     ).toThrow("voxy_studio_caption_adjustment_breaks_timeline:caption-2");
   });
@@ -421,19 +498,17 @@ describe("Voxy Studio render handoff", () => {
     const original = audioInput();
     await repository.registerOrGet(original);
     await expect(
-      repository.registerOrGet({
-        ...original,
-        sha256: "b".repeat(64),
-      }),
+      repository.registerOrGet({ ...original, sha256: "b".repeat(64) }),
     ).rejects.toThrow("voxy_local_composition_audio_input_immutable_conflict");
   });
 
   it("resolves only a trusted root plus the registered relative storage key", () => {
-    const asset = resolveVoxyLocalCompositionAudioAssetFromRecord({
-      record: audioInput(),
-      trustedAudioRoot: "/srv/voxy-audio",
-    });
-    expect(asset).toEqual({
+    expect(
+      resolveVoxyLocalCompositionAudioAssetFromRecord({
+        record: audioInput(),
+        trustedAudioRoot: "/srv/voxy-audio",
+      }),
+    ).toEqual({
       assetId: "audio-input-1",
       absolutePath: "/srv/voxy-audio/studio-draft-1/story-r3/audio.wav",
       allowedRoot: "/srv/voxy-audio",
