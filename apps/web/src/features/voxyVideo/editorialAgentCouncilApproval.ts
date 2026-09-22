@@ -136,6 +136,8 @@ export async function approveVoxyStudioDraftFromAgentCouncil(input: {
         draftId: input.draft.draftId,
         expectedRevision: input.draft.revision,
         approvedByUserId: actor,
+        approvalSource: "agent_council",
+        councilArtifactId: persisted.artifactId,
       },
       input.deps,
     );
