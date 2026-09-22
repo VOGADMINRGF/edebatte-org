@@ -9,6 +9,7 @@ on:
       - "apps/web/scripts/render-voxy-local-composition-smoke.ts"
       - "apps/web/scripts/render-voxy-editorial-composition-smoke.ts"
       - "apps/web/src/app/api/admin/voxy-studio/**"
+      - "apps/web/src/app/api/dossier/[id]/studio/workspace/route.ts"
       - "apps/web/src/app/admin/review/voxy-studio/**"
       - "apps/web/src/features/voxyVideo/editorialAgent*.ts"
       - "apps/web/src/features/voxyVideo/editorialAutonomyStore.ts"
@@ -25,6 +26,7 @@ on:
       - "apps/web/src/features/voxyVideo/studioDraft.ts"
       - "apps/web/src/features/voxyVideo/studioDraftService.ts"
       - "apps/web/src/features/voxyVideo/studioDraftStore.ts"
+      - "apps/web/src/features/voxyVideo/studioDossierAutoIntake.ts"
       - "apps/web/src/features/voxyVideo/studioDossierEvidenceAuthority.ts"
       - "apps/web/src/features/voxyVideo/studioOperatorEdit.ts"
       - "apps/web/src/features/voxyVideo/studioRenderBindingGuard.ts"
@@ -35,6 +37,7 @@ on:
       - "apps/web/tests/voxy-editorial-composition-html.contract.test.ts"
       - "apps/web/tests/voxy-editorial-agent-council.contract.test.ts"
       - "apps/web/tests/voxy-editorial-agent-learning.contract.test.ts"
+      - "apps/web/tests/voxy-studio-dossier-auto-intake.contract.test.ts"
       - "apps/web/tests/voxy-studio-draft-service.contract.test.ts"
       - "apps/web/tests/voxy-studio-immutable-render-binding.contract.test.ts"
       - "apps/web/tests/voxy-studio-operator-edit.contract.test.ts"
@@ -74,7 +77,7 @@ jobs:
       - name: Runtime, editorial-canon and Studio contract tests
         run: |
           pnpm -C apps/web run test:voxy-local-composition-runtime
-          pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
+          pnpm -C apps/web exec vitest run tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
 
       - name: Typecheck and diff guard
         run: |
