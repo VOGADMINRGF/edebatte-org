@@ -4,9 +4,9 @@ import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import {
   callE150Orchestrator,
-  type E150JourneyKey,
   type E150OrchestratorCandidate,
 } from "@features/ai/orchestratorE150";
+import type { E150JourneyKey } from "@features/ai/e150/journeyProfiles";
 import type { VoxyEditorialEvidenceContext } from "./editorialStoryPlan";
 import type { VoxyStudioDraft } from "./studioDraft";
 import {
@@ -84,7 +84,7 @@ const JudgeResponseSchema = z
 
 type OrchestratorCandidate = E150OrchestratorCandidate;
 
-type CouncilRuntimeInput = {
+export type VoxyEditorialCouncilRuntimeInput = {
   stage?: VoxyEditorialCouncilStage;
   draft: VoxyStudioDraft;
   evidence: VoxyEditorialEvidenceContext;
@@ -122,7 +122,9 @@ function journeyForRole(roleId: VoxyEditorialCouncilRoleId): E150JourneyKey {
   return "guided";
 }
 
-function buildBinding(input: CouncilRuntimeInput): VoxyEditorialCouncilInputBinding {
+export function buildVoxyEditorialCouncilBinding(
+  input: VoxyEditorialCouncilRuntimeInput,
+): VoxyEditorialCouncilInputBinding {
   return {
     studioDraftId: input.draft.draftId,
     studioDraftRevision: input.draft.revision,
@@ -140,7 +142,7 @@ function buildBinding(input: CouncilRuntimeInput): VoxyEditorialCouncilInputBind
   };
 }
 
-function canonicalEvidenceRefs(input: CouncilRuntimeInput): Set<string> {
+function canonicalEvidenceRefs(input: VoxyEditorialCouncilRuntimeInput): Set<string> {
   return new Set(
     unique([
       input.draft.draftId,
@@ -154,9 +156,9 @@ function canonicalEvidenceRefs(input: CouncilRuntimeInput): Set<string> {
   );
 }
 
-function buildEvidencePayload(input: CouncilRuntimeInput) {
+function buildEvidencePayload(input: VoxyEditorialCouncilRuntimeInput) {
   return {
-    binding: buildBinding(input),
+    binding: buildVoxyEditorialCouncilBinding(input),
     storyPlan: input.draft.storyPlan,
     evidence: {
       sourcePack: input.evidence.sourcePack,
@@ -175,6 +177,7 @@ function baseSystemPrompt(roleId: VoxyEditorialCouncilRoleId) {
     `Adversarial question: ${role.adversarialQuestion}`,
     "Your first duty is to find concrete reasons why this exact revision should NOT proceed.",
     "Do not optimize political persuasion, voting behavior, partisan advantage, emotional manipulation or demographic targeting.",
+    "Do not rank political actors or choices, endorse or oppose a political option, or infer how anyone should vote.",
     "Do not invent sources, facts, quotes, numbers, review states or evidence IDs.",
     "Distinguish fact, attributed position, interpretation, scenario, uncertainty and open question.",
     "Treat missing evidence as missing; translation is never evidence.",
@@ -184,7 +187,7 @@ function baseSystemPrompt(roleId: VoxyEditorialCouncilRoleId) {
   ].join("\n");
 }
 
-function criticUserPrompt(input: CouncilRuntimeInput, roleId: VoxyEditorialCouncilRoleId) {
+function criticUserPrompt(input: VoxyEditorialCouncilRuntimeInput, roleId: VoxyEditorialCouncilRoleId) {
   return [
     `Review stage: ${input.stage ?? "editorial"}.`,
     "Return exactly this JSON shape:",
@@ -294,7 +297,7 @@ function criticCandidateToRun(input: {
 }
 
 async function runCriticRole(input: {
-  runtime: CouncilRuntimeInput;
+  runtime: VoxyEditorialCouncilRuntimeInput;
   roleId: VoxyEditorialCouncilRoleId;
   pass: number;
   binding: VoxyEditorialCouncilInputBinding;
@@ -308,6 +311,8 @@ async function runCriticRole(input: {
     audienceRole: "staff",
     maxTokens: 3_500,
     validationMode: "json_only",
+    requiredCapability:
+      input.roleId === "counter_evidence_researcher" ? "search" : "core_analysis",
     validateRaw(raw) {
       try {
         return CriticResponseSchema.safeParse(parseJson(raw)).success;
@@ -320,9 +325,8 @@ async function runCriticRole(input: {
       operationId: `${input.roleId}:${input.pass}`,
       operationType: "voxy_editorial_adversarial_review",
       dossierId: input.runtime.draft.dossierId,
-      locale: input.runtime.draft.storyPlan.outputLanguage,
       pipeline: "analyze",
-    } as any,
+    },
   });
   const runs: VoxyEditorialCouncilRun[] = [];
   const criticalRiskFlags: VoxyEditorialCriticalRiskFlag[] = [];
@@ -346,7 +350,7 @@ async function runCriticRole(input: {
   return { runs, criticalRiskFlags };
 }
 
-function defensePrompt(input: CouncilRuntimeInput, objections: VoxyEditorialObjection[]) {
+function defensePrompt(input: VoxyEditorialCouncilRuntimeInput, objections: VoxyEditorialObjection[]) {
   return [
     "You are the independent defense advocate in an adversarial editorial review.",
     "Try to defeat each objection, but only with evidence already bound to this exact revision.",
@@ -376,7 +380,7 @@ function defensePrompt(input: CouncilRuntimeInput, objections: VoxyEditorialObje
 }
 
 async function runDefense(input: {
-  runtime: CouncilRuntimeInput;
+  runtime: VoxyEditorialCouncilRuntimeInput;
   binding: VoxyEditorialCouncilInputBinding;
   objections: VoxyEditorialObjection[];
   allowedEvidenceRefs: Set<string>;
@@ -440,9 +444,13 @@ async function runDefense(input: {
     verdict: parsed.verdict,
   }));
 
-  const byCandidate = parsedCandidates.map(({ parsed }) => new Map(parsed.objectionResolutions.map((entry) => [entry.objectionId, entry])));
+  const byCandidate = parsedCandidates.map(({ parsed }) =>
+    new Map(parsed.objectionResolutions.map((entry) => [entry.objectionId, entry])),
+  );
   const updatedObjections = input.objections.map((objection) => {
-    const resolutions = byCandidate.map((map) => map.get(objection.objectionId)).filter(Boolean) as Array<z.infer<typeof DefenseResolutionSchema>>;
+    const resolutions = byCandidate
+      .map((map) => map.get(objection.objectionId))
+      .filter(Boolean) as Array<z.infer<typeof DefenseResolutionSchema>>;
     if (resolutions.length !== parsedCandidates.length) {
       return {
         ...objection,
@@ -503,7 +511,7 @@ async function runDefense(input: {
   return { runs, defense, updatedObjections };
 }
 
-function judgePrompt(input: CouncilRuntimeInput, objections: VoxyEditorialObjection[]) {
+function judgePrompt(input: VoxyEditorialCouncilRuntimeInput, objections: VoxyEditorialObjection[]) {
   return [
     "You are the independent chief judge. You do not rewrite the content and you do not optimize persuasion.",
     "Judge only whether the exact revision can proceed based on the bound evidence and the complete objection/defense record.",
@@ -525,7 +533,7 @@ function judgePrompt(input: CouncilRuntimeInput, objections: VoxyEditorialObject
 }
 
 async function runJudge(input: {
-  runtime: CouncilRuntimeInput;
+  runtime: VoxyEditorialCouncilRuntimeInput;
   binding: VoxyEditorialCouncilInputBinding;
   objections: VoxyEditorialObjection[];
   allowedEvidenceRefs: Set<string>;
@@ -555,13 +563,13 @@ async function runJudge(input: {
     },
   });
   const inputFingerprint = buildVoxyEditorialCouncilInputFingerprint(input.binding);
-  const runs: VoxyEditorialCouncilRun[] = [];
+  const rawRuns: VoxyEditorialCouncilRun[] = [];
   const criticalRiskFlags: VoxyEditorialCriticalRiskFlag[] = [];
   for (const [index, candidate] of result.candidates.entries()) {
     try {
       const parsed = JudgeResponseSchema.parse(parseJson(candidate.rawText));
       const badRefs = invalidEvidenceRefs(parsed.evidenceRefs, input.allowedEvidenceRefs);
-      runs.push({
+      rawRuns.push({
         runId: candidateIdentity(roleId, candidate, index + 1),
         roleId,
         alpha2RoleId: roleDefinition(roleId).alpha2RoleId,
@@ -585,7 +593,18 @@ async function runJudge(input: {
       // Invalid judge output is ignored; missing/insufficient judge runs fail closed in evaluation.
     }
   }
-  return { runs, criticalRiskFlags };
+  if (rawRuns.length === 0) return { runs: [], criticalRiskFlags };
+  const consensusVerdict: VoxyEditorialCouncilRun["verdict"] = rawRuns.every(
+    (run) => run.verdict === "pass",
+  )
+    ? "pass"
+    : rawRuns.some((run) => run.verdict === "escalate")
+      ? "escalate"
+      : "fail";
+  return {
+    runs: rawRuns.map((run) => ({ ...run, verdict: consensusVerdict })),
+    criticalRiskFlags,
+  };
 }
 
 function applyDefenseToCriticRuns(
@@ -600,11 +619,14 @@ function applyDefenseToCriticRuns(
 }
 
 export async function runVoxyEditorialAgentCouncil(
-  rawInput: CouncilRuntimeInput,
+  rawInput: VoxyEditorialCouncilRuntimeInput,
 ): Promise<VoxyEditorialCouncilAuditArtifact> {
-  const input: CouncilRuntimeInput = { ...rawInput, stage: rawInput.stage ?? "editorial" };
+  const input: VoxyEditorialCouncilRuntimeInput = {
+    ...rawInput,
+    stage: rawInput.stage ?? "editorial",
+  };
   const stage = input.stage ?? "editorial";
-  const binding = buildBinding(input);
+  const binding = buildVoxyEditorialCouncilBinding(input);
   const inputFingerprint = buildVoxyEditorialCouncilInputFingerprint(binding);
   const allowedEvidenceRefs = canonicalEvidenceRefs(input);
   const requiredRoles = listRequiredVoxyEditorialCouncilRoles(input.policy.qualityLevel, stage);
