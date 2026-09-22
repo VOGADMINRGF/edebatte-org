@@ -9,10 +9,21 @@ import { join, sep } from "node:path";
 
 import type { VoxyLocalCompositionAudioAsset } from "./localCompositionRuntime";
 
-const DEFAULT_FPS = 24;
+export const VOXY_EDITORIAL_AUDIO_MOTION_ENVELOPE_VERSION =
+  "voxy-editorial-audio-motion-envelope-v1" as const;
+export const VOXY_EDITORIAL_AUDIO_MOTION_FPS = 24 as const;
+
+export type VoxyEditorialAudioMotionEnvelope = {
+  version: typeof VOXY_EDITORIAL_AUDIO_MOTION_ENVELOPE_VERSION;
+  fps: typeof VOXY_EDITORIAL_AUDIO_MOTION_FPS;
+  sourceSha256: string;
+  levels: number[];
+};
+
 const COMMAND_TIMEOUT_MS = 120_000;
 const MAX_ANALYSIS_WAV_BYTES = 256_000_000;
 const MAX_CACHE_ENTRIES = 8;
+const SHA256 = /^[0-9a-f]{64}$/;
 
 const envelopeCache = new Map<string, readonly number[]>();
 const analysisInFlight = new Map<string, Promise<readonly number[]>>();
@@ -48,7 +59,7 @@ async function trustedAudioPath(asset: VoxyLocalCompositionAudioAsset): Promise<
 
 export function buildVoxyEditorialAudioLevelsFromPcmWav(
   buffer: Buffer,
-  fps = DEFAULT_FPS,
+  fps = VOXY_EDITORIAL_AUDIO_MOTION_FPS,
 ): number[] {
   if (!Number.isInteger(fps) || fps < 1 || fps > 120) {
     throw new Error("editorial_audio_motion_fps_invalid");
@@ -99,6 +110,96 @@ export function buildVoxyEditorialAudioLevelsFromPcmWav(
         : smoothed * 0.62 + gated * 0.38;
     return Math.round(smoothed * 20) / 20;
   });
+}
+
+export function buildVoxyEditorialAudioMotionEnvelope(input: {
+  sourceSha256: string;
+  levels: readonly number[];
+}): VoxyEditorialAudioMotionEnvelope {
+  const sourceSha256 = input.sourceSha256.toLowerCase();
+  if (!SHA256.test(sourceSha256)) {
+    throw new Error("editorial_audio_motion_envelope_sha256_invalid");
+  }
+  if (
+    input.levels.length === 0 ||
+    input.levels.some(
+      (value) =>
+        !Number.isFinite(value) ||
+        value < 0 ||
+        value > 1 ||
+        !Number.isInteger(value * 20),
+    )
+  ) {
+    throw new Error("editorial_audio_motion_envelope_levels_invalid");
+  }
+  return {
+    version: VOXY_EDITORIAL_AUDIO_MOTION_ENVELOPE_VERSION,
+    fps: VOXY_EDITORIAL_AUDIO_MOTION_FPS,
+    sourceSha256,
+    levels: [...input.levels],
+  };
+}
+
+export function validateVoxyEditorialAudioMotionEnvelope(input: {
+  envelope: VoxyEditorialAudioMotionEnvelope;
+  sourceSha256: string;
+  durationMs: number;
+}): string[] {
+  const errors: string[] = [];
+  if (input.envelope.version !== VOXY_EDITORIAL_AUDIO_MOTION_ENVELOPE_VERSION) {
+    errors.push("audio_motion_envelope_version_invalid");
+  }
+  if (input.envelope.fps !== VOXY_EDITORIAL_AUDIO_MOTION_FPS) {
+    errors.push("audio_motion_envelope_fps_invalid");
+  }
+  if (
+    !SHA256.test(input.envelope.sourceSha256) ||
+    input.envelope.sourceSha256 !== input.sourceSha256.toLowerCase()
+  ) {
+    errors.push("audio_motion_envelope_sha256_mismatch");
+  }
+  const minimumFrameCount =
+    Number.isInteger(input.durationMs) && input.durationMs > 0
+      ? Math.floor(((input.durationMs - 1) * VOXY_EDITORIAL_AUDIO_MOTION_FPS) / 1_000) + 1
+      : 0;
+  if (
+    minimumFrameCount <= 0 ||
+    input.envelope.levels.length < minimumFrameCount ||
+    input.envelope.levels.some(
+      (value) =>
+        !Number.isFinite(value) ||
+        value < 0 ||
+        value > 1 ||
+        !Number.isInteger(value * 20),
+    )
+  ) {
+    errors.push("audio_motion_envelope_levels_invalid");
+  }
+  return errors;
+}
+
+export function resolveVoxyEditorialAudioEnvelopeFrameAmplitude(input: {
+  envelope: VoxyEditorialAudioMotionEnvelope;
+  sourceSha256: string;
+  durationMs: number;
+  frameIndex: number;
+}): number {
+  const errors = validateVoxyEditorialAudioMotionEnvelope({
+    envelope: input.envelope,
+    sourceSha256: input.sourceSha256,
+    durationMs: input.durationMs,
+  });
+  if (errors.length) {
+    throw new Error(`editorial_audio_motion_envelope_invalid:${errors.join(",")}`);
+  }
+  if (
+    !Number.isInteger(input.frameIndex) ||
+    input.frameIndex < 0 ||
+    input.frameIndex >= input.envelope.levels.length
+  ) {
+    throw new Error("editorial_audio_motion_frame_index_invalid");
+  }
+  return input.envelope.levels[input.frameIndex] ?? 0;
 }
 
 function rememberEnvelope(key: string, levels: readonly number[]) {
@@ -163,7 +264,7 @@ export async function loadVoxyEditorialAudioMotionAnalysis(input: {
   audioAsset: VoxyLocalCompositionAudioAsset;
   fps?: number;
 }): Promise<{ absolutePath: string; levels: readonly number[] }> {
-  const fps = input.fps ?? DEFAULT_FPS;
+  const fps = input.fps ?? VOXY_EDITORIAL_AUDIO_MOTION_FPS;
   if (!Number.isInteger(fps) || fps < 1 || fps > 120) {
     throw new Error("editorial_audio_motion_fps_invalid");
   }
