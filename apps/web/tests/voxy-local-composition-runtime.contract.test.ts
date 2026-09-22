@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildQueuedVoxyLocalCompositionJob,
+  buildVoxyLocalCompositionInputFingerprint,
   getVoxyLocalCompositionDimensions,
   validateVoxyLocalCompositionOutput,
   validateVoxyLocalCompositionRequest,
@@ -146,6 +147,8 @@ function editorialRequest(
       storyPlanRevision: 3,
       evidenceSourcePackId: "source-pack-1",
       evidenceDecisionGateId: "decision-gate-1",
+      approvalSource: "human",
+      councilArtifactId: null,
       finalCanonId: "VOXY-V3.10.5-HUMAN-FINAL",
     },
     ...overrides,
@@ -161,6 +164,8 @@ function approval(overrides?: Partial<VoxyLocalCompositionApprovalSnapshot>): Vo
     previewReviewFlowId: "preview-review-flow-1",
     decisionGateId: "decision-gate-1",
     dossierRefId: "dossier-1",
+    approvalSource: "human",
+    councilArtifactId: null,
     authority: "trusted_review_authority",
     ...overrides,
   };
@@ -303,6 +308,48 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
       height: 1920,
     });
     expect(validateVoxyLocalCompositionOutput({ job, output: outputFor(job) })).toEqual([]);
+  });
+
+  it("cryptographically changes editorial identity when approval provenance changes", () => {
+    const human = editorialRequest();
+    const agent = editorialRequest({
+      editorialBinding: {
+        ...editorialRequest().editorialBinding!,
+        approvalSource: "agent_council",
+        councilArtifactId: "voxy-council-artifact-1",
+      },
+    });
+    const humanJob = buildQueuedVoxyLocalCompositionJob({
+      request: human,
+      approval: approval(),
+      now: "2026-09-21T16:00:00.000Z",
+    });
+    const agentJob = buildQueuedVoxyLocalCompositionJob({
+      request: agent,
+      approval: approval({
+        approvedBy: "agent:voxy-chief-judge:decision-1",
+        approvalSource: "agent_council",
+        councilArtifactId: "voxy-council-artifact-1",
+      }),
+      now: "2026-09-21T16:00:00.000Z",
+    });
+    expect(buildVoxyLocalCompositionInputFingerprint(human)).not.toBe(
+      buildVoxyLocalCompositionInputFingerprint(agent),
+    );
+    expect(humanJob.identityKey).not.toBe(agentJob.identityKey);
+  });
+
+  it("fails closed when approval snapshot and editorial provenance disagree", () => {
+    expect(() =>
+      buildQueuedVoxyLocalCompositionJob({
+        request: editorialRequest(),
+        approval: approval({
+          approvalSource: "agent_council",
+          councilArtifactId: "voxy-council-artifact-foreign",
+          approvedBy: "agent:voxy-chief-judge:decision-foreign",
+        }),
+      }),
+    ).toThrow("voxy_local_composition_editorial_approval_provenance_mismatch");
   });
 
   it("fails closed when editorial revision/evidence/canon binding is missing", () => {
