@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
 import { validateVoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
+import { VOXY_FINAL_CANON } from "@/features/voxyVideo/finalCanon";
+import { buildVoxyLocalCompositionInputFingerprint } from "@/features/voxyVideo/localCompositionRuntime";
 import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import {
   bindVoxyStudioVerifiedRender,
@@ -107,14 +109,50 @@ export async function POST(
       );
     }
 
-    const [job, output] = await Promise.all([
+    const [job, output, requestSnapshot] = await Promise.all([
       runtimeRepository.getJob(parsed.data.jobId),
       runtimeRepository.getOutput(parsed.data.outputId),
+      runtimeRepository.getRequestSnapshot(parsed.data.jobId),
     ]);
     if (!job || !output) {
       return NextResponse.json(
         { ok: false, error: "voxy_studio_composition_missing" },
         { status: 404 },
+      );
+    }
+    if (!requestSnapshot || requestSnapshot.renderProfile !== "editorial_v1") {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_render_binding_request_snapshot_missing" },
+        { status: 409 },
+      );
+    }
+    const requestFingerprint = buildVoxyLocalCompositionInputFingerprint(requestSnapshot);
+    if (requestFingerprint !== job.inputFingerprint || requestFingerprint !== output.inputFingerprint) {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_render_binding_request_fingerprint_mismatch" },
+        { status: 409 },
+      );
+    }
+    const editorialBinding = requestSnapshot.editorialBinding;
+    if (
+      !editorialBinding ||
+      editorialBinding.studioDraftId !== currentDraft.draftId ||
+      editorialBinding.studioDraftRevision !== currentDraft.revision ||
+      editorialBinding.storyPlanId !== currentDraft.storyPlan.storyPlanId ||
+      editorialBinding.storyPlanRevision !== currentDraft.storyPlan.revision ||
+      editorialBinding.evidenceSourcePackId !== evidence.sourcePack.sourcePackId ||
+      editorialBinding.evidenceDecisionGateId !== currentDecisionGateId ||
+      editorialBinding.finalCanonId !== VOXY_FINAL_CANON.canonId
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_binding_request_revision_mismatch",
+          currentDecisionGateId,
+          finalCanonId: VOXY_FINAL_CANON.canonId,
+          outputBound: false,
+        },
+        { status: 409 },
       );
     }
     if (
@@ -182,6 +220,11 @@ export async function POST(
         published: output.published,
         storageKeyExposed: false,
         absolutePathExposed: false,
+      },
+      immutableBinding: {
+        inputFingerprint: requestFingerprint,
+        evidenceSourcePackId: editorialBinding.evidenceSourcePackId,
+        finalCanonId: editorialBinding.finalCanonId,
       },
       nextStep: "human_preview_review_required",
       previewReviewPassed: false,
