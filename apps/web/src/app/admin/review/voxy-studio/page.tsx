@@ -1,5 +1,6 @@
 import VoxyStudioAgentReviewPanel from "./VoxyStudioAgentReviewPanel";
 import VoxyStudioAutonomyPanel from "./VoxyStudioAutonomyPanel";
+import VoxyStudioBoundTruthPanel from "./VoxyStudioBoundTruthPanel";
 import VoxyStudioEvidenceReviewPanel from "./VoxyStudioEvidenceReviewPanel";
 import VoxyStudioFineTunePanel from "./VoxyStudioFineTunePanel";
 import VoxyStudioFramePreviewPanel from "./VoxyStudioFramePreviewPanel";
@@ -26,6 +27,7 @@ export default function VoxyStudioReviewPage() {
       <VoxyStudioAutonomyPanel />
       <VoxyStudioAgentReviewPanel />
       <VoxyStudioEvidenceReviewPanel />
+      <VoxyStudioBoundTruthPanel />
       <VoxyStudioSourceBindingPanel />
       <VoxyStudioFineTunePanel />
       <VoxyStudioFramePreviewPanel />
