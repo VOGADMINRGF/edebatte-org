@@ -286,6 +286,19 @@ export function mergeVoxyStudioAllFormatLayoutSafetyIntoValidation(input: {
   return validation;
 }
 
+export function assertVoxyStudioAllFormatLayoutSafety(
+  draft: Pick<VoxyStudioDraft, "storyPlan" | "safeZoneProfile">,
+): Record<VoxyVideoFormat, VoxyStudioLayoutSafetyResult> {
+  const matrix = evaluateVoxyStudioAllFormatLayoutSafety(draft);
+  const blockers = TARGET_FORMATS.flatMap((format) =>
+    matrix[format].blockers.map((item) => `${format}:${item.code}`),
+  );
+  if (blockers.length) {
+    throw new Error(`voxy_studio_all_format_layout_blocked:${blockers.join(",")}`);
+  }
+  return matrix;
+}
+
 export function assertVoxyStudioSelectedFormatLayoutSafety(
   draft: Pick<VoxyStudioDraft, "storyPlan" | "safeZoneProfile" | "selectedFormat">,
 ): VoxyStudioLayoutSafetyResult {
