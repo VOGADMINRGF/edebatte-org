@@ -1,0 +1,237 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+import { requireAdminOrResponse } from "@/lib/server/auth/admin";
+import { getVoxyLocalCompositionAudioInputRepository } from "@/features/voxyVideo/localCompositionAudioAssetStore";
+import {
+  queueVoxyLocalComposition,
+  type VoxyLocalCompositionRuntimeDependencies,
+} from "@/features/voxyVideo/localCompositionRuntimeService";
+import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
+import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import { buildVoxyStudioEditorialCompositionHandoff } from "@/features/voxyVideo/studioRenderHandoff";
+
+const BodySchema = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+    audioAssetId: z.string().trim().min(1).max(160),
+  })
+  .strict();
+
+function safeAudioSummary(record: {
+  assetId: string;
+  locale: string;
+  voiceProfileId: string;
+  sha256: string;
+  durationMs: number;
+  timelineVersion: string;
+  storyPlanRevision: number;
+  approvedByUserId: string;
+  approvedAt: string;
+  chapterTimings: unknown[];
+  captionCues: unknown[];
+}) {
+  return {
+    assetId: record.assetId,
+    locale: record.locale,
+    voiceProfileId: record.voiceProfileId,
+    sha256: record.sha256,
+    durationMs: record.durationMs,
+    timelineVersion: record.timelineVersion,
+    storyPlanRevision: record.storyPlanRevision,
+    approvedByUserId: record.approvedByUserId,
+    approvedAt: record.approvedAt,
+    chapterCount: record.chapterTimings.length,
+    captionCueCount: record.captionCues.length,
+    absolutePathExposed: false,
+    storageKeyExposed: false,
+  };
+}
+
+async function loadDraft(rawDraftId: string) {
+  const draftId = decodeURIComponent(String(rawDraftId ?? "").trim());
+  const repository = getVoxyStudioDraftRepository();
+  const draft = await repository.getDraft(draftId);
+  return { draftId, draft };
+}
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ draftId: string }> },
+) {
+  const gate = await requireAdminOrResponse(req);
+  if (gate instanceof Response) return gate;
+  const { draftId: rawDraftId } = await context.params;
+  const { draft } = await loadDraft(rawDraftId);
+  if (!draft) {
+    return NextResponse.json({ ok: false, error: "voxy_studio_draft_missing" }, { status: 404 });
+  }
+
+  const audioRepository = getVoxyLocalCompositionAudioInputRepository();
+  const runtimeRepository = getVoxyLocalCompositionRepository();
+  const scriptVersion = `story-r${draft.storyPlan.revision}`;
+  const audioInputs = await audioRepository.listForBinding({
+    artifactId: draft.draftId,
+    briefingId: draft.briefingId,
+    scriptVersion,
+    locale: draft.storyPlan.outputLanguage,
+    limit: 20,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    draftId: draft.draftId,
+    revision: draft.revision,
+    status: draft.status,
+    scriptVersion,
+    locale: draft.storyPlan.outputLanguage,
+    renderProfile: "editorial_v1",
+    audioInputs: audioInputs.map(safeAudioSummary),
+    audioPersistence: audioRepository.getPersistenceState(),
+    runtimePersistence: runtimeRepository.getPersistenceState(),
+    manualQueueAllowed:
+      draft.status === "approved_for_render" &&
+      audioRepository.getPersistenceState().mode === "persistent_primary" &&
+      runtimeRepository.getPersistenceState().mode === "persistent_primary" &&
+      audioInputs.length > 0,
+    renderExecutedByHttp: false,
+    autoRender: false,
+    uploadAllowed: false,
+    publishAllowed: false,
+  });
+}
+
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ draftId: string }> },
+) {
+  const gate = await requireAdminOrResponse(req);
+  if (gate instanceof Response) return gate;
+  const userId = gate?._id?.toHexString?.() ?? "";
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "admin_user_id_missing" }, { status: 400 });
+  }
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_voxy_studio_render_queue_command" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const { draftId: rawDraftId } = await context.params;
+    const { draft } = await loadDraft(rawDraftId);
+    if (!draft) {
+      return NextResponse.json({ ok: false, error: "voxy_studio_draft_missing" }, { status: 404 });
+    }
+    if (draft.revision !== parsed.data.expectedRevision) {
+      return NextResponse.json({ ok: false, error: "voxy_studio_revision_conflict" }, { status: 409 });
+    }
+    if (draft.status !== "approved_for_render") {
+      return NextResponse.json(
+        { ok: false, error: `voxy_studio_render_queue_not_allowed:${draft.status}` },
+        { status: 409 },
+      );
+    }
+
+    const audioRepository = getVoxyLocalCompositionAudioInputRepository();
+    const runtimeRepository = getVoxyLocalCompositionRepository();
+    const audioPersistence = audioRepository.getPersistenceState();
+    const runtimePersistence = runtimeRepository.getPersistenceState();
+    if (
+      audioPersistence.mode !== "persistent_primary" ||
+      audioPersistence.productionTruth !== true ||
+      runtimePersistence.mode !== "persistent_primary" ||
+      runtimePersistence.productionTruth !== true ||
+      runtimePersistence.restartReconstructable !== true
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_render_queue_persistent_primary_required" },
+        { status: 503 },
+      );
+    }
+
+    const audioInput = await audioRepository.getByAssetId(parsed.data.audioAssetId);
+    if (!audioInput) {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_audio_input_missing" },
+        { status: 404 },
+      );
+    }
+    const handoff = buildVoxyStudioEditorialCompositionHandoff({
+      draft,
+      audioInput,
+      requestedByUserId: userId,
+    });
+
+    const deps: VoxyLocalCompositionRuntimeDependencies = {
+      repository: runtimeRepository,
+      approvalAuthority: {
+        async resolveApproval(binding) {
+          if (
+            binding.requestedByUserId !== handoff.request.requestedByUserId ||
+            binding.artifactId !== handoff.request.artifactId ||
+            binding.briefingId !== handoff.request.briefingId ||
+            binding.scriptVersion !== handoff.request.scriptVersion
+          ) {
+            throw new Error("voxy_studio_render_queue_approval_binding_mismatch");
+          }
+          return handoff.approval;
+        },
+      },
+      audioResolver: {
+        async resolveAudioAsset() {
+          throw new Error("voxy_studio_http_queue_must_not_resolve_audio");
+        },
+      },
+      executor: {
+        async execute() {
+          throw new Error("voxy_studio_http_queue_must_not_execute_render");
+        },
+      },
+    };
+    const queued = await queueVoxyLocalComposition(handoff.request, deps);
+    if (!queued.ok) {
+      return NextResponse.json(
+        { ok: false, error: queued.status, errors: queued.errors },
+        { status: queued.status === "invalid_request" ? 400 : 409 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      queueStatus: queued.status,
+      job: {
+        jobId: queued.job.jobId,
+        outputId: queued.job.outputId,
+        status: queued.job.status,
+        artifactId: queued.job.artifactId,
+        briefingId: queued.job.briefingId,
+        scriptVersion: queued.job.scriptVersion,
+        renderProfile: queued.job.renderProfile,
+        format: queued.job.format,
+        locale: queued.job.locale,
+        durationMs: queued.job.durationMs ?? handoff.timeline.durationMs,
+        audioAssetId: queued.job.audioAssetId,
+        previewReviewFlowId: queued.job.previewReviewFlowId,
+        decisionGateId: queued.job.decisionGateId,
+      },
+      audioInput: safeAudioSummary(audioInput),
+      renderExecutedByHttp: false,
+      workerRequired: true,
+      reviewRequiredAfterRender: true,
+      uploadTriggered: false,
+      publishTriggered: false,
+      autoRender: false,
+      autoPublish: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "voxy_studio_render_queue_failed";
+    const status = message.includes("revision") || message.includes("binding") ? 409 : 400;
+    return NextResponse.json({ ok: false, error: message }, { status });
+  }
+}
