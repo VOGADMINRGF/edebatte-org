@@ -17,6 +17,12 @@ import {
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { evaluateVoxyStudioLayoutSafety } from "@/features/voxyVideo/studioLayoutSafety";
 import {
+  getEffectiveVoxyEditorialAutonomyPolicy,
+  getVoxyEditorialAutonomyRepository,
+} from "@/features/voxyVideo/editorialAutonomyStore";
+import { runVoxyEditorialAgentCouncil } from "@/features/voxyVideo/editorialAgentCouncilRuntime";
+import { approveVoxyStudioDraftFromAgentCouncil } from "@/features/voxyVideo/editorialAgentCouncilApproval";
+import {
   applyReviewQueueOperation,
   getReviewQueueOperationsRepository,
 } from "@features/reviewQueueOperations";
@@ -33,6 +39,10 @@ const BodySchema = z
     note: z.string().trim().min(1).max(3000).nullable().optional(),
   })
   .strict();
+
+function councilActor(decisionId: string) {
+  return `agent:voxy-council:${decisionId.slice(-32)}`;
+}
 
 export async function POST(
   req: NextRequest,
@@ -84,14 +94,100 @@ export async function POST(
         requestedByUserId: userId,
         note: parsed.data.note ?? null,
       });
+
+      let agentReview: unknown = null;
+      let effectiveDraft = submitted.draft;
+      const autonomyRepository = getVoxyEditorialAutonomyRepository();
+      const autonomy = await getEffectiveVoxyEditorialAutonomyPolicy(autonomyRepository);
+      const mode = autonomy.record.policy.modes.editorial;
+      if (
+        autonomy.configured &&
+        autonomyRepository.getPersistenceState().mode === "persistent_primary" &&
+        mode !== "human" &&
+        submitted.validation.renderEligible
+      ) {
+        try {
+          const evidence = await evidenceAuthority.resolveEvidenceContext(submitted.draft);
+          const layoutSafety = evaluateVoxyStudioLayoutSafety({
+            draft: submitted.draft,
+            format: submitted.draft.selectedFormat,
+          });
+          if (!layoutSafety.approvalEligible) {
+            agentReview = {
+              outcome: "blocked",
+              reasonCodes: ["layout_safety_not_approval_eligible"],
+              layoutSafety,
+            };
+          } else {
+            const artifact = await runVoxyEditorialAgentCouncil({
+              stage: "editorial",
+              draft: submitted.draft,
+              evidence,
+              policy: autonomy.record.policy,
+              reviewQueueItemId: submitted.reviewItemId,
+              decisionGateId: submitted.decisionGateId,
+            });
+            agentReview = artifact;
+            if (artifact.decision.outcome === "agent_approved") {
+              const approved = await approveVoxyStudioDraftFromAgentCouncil({
+                draft: submitted.draft,
+                evidence,
+                artifact,
+                deps,
+              });
+              effectiveDraft = approved.draft;
+            } else {
+              await applyReviewQueueOperation({
+                itemId: submitted.reviewItemId,
+                action:
+                  artifact.decision.outcome === "blocked" && mode === "autonomous"
+                    ? "block"
+                    : "mark_in_review",
+                requestedByUserId: councilActor(artifact.decision.decisionId),
+                note: [
+                  artifact.decision.publicDecisionSummary,
+                  `reasonCodes=${artifact.decision.reasonCodes.join(",") || "none"}`,
+                  `critical=${artifact.decision.criticalRiskFlags.join(",") || "none"}`,
+                  `artifact=${artifact.artifactId}`,
+                ].join(" "),
+              });
+            }
+          }
+        } catch (agentError) {
+          const agentMessage =
+            agentError instanceof Error ? agentError.message : "voxy_agent_review_failed";
+          agentReview = {
+            outcome: "execution_failed",
+            error: agentMessage,
+            releaseAuthorized: false,
+          };
+          await applyReviewQueueOperation({
+            itemId: submitted.reviewItemId,
+            action: "add_note",
+            requestedByUserId: "agent:voxy-council:runtime",
+            note: `Agent Council konnte keine belastbare Freigabe erzeugen: ${agentMessage}. Draft bleibt im Review.`,
+          }).catch(() => undefined);
+        }
+      }
+
       return NextResponse.json({
         ok: true,
-        draft: submitted.draft,
+        draft: effectiveDraft,
         validation: submitted.validation,
         reviewItemId: submitted.reviewItemId,
         decisionGateId: submitted.decisionGateId,
         review,
+        agentReview,
+        autonomy: {
+          configured: autonomy.configured,
+          mode,
+          policyRevision: autonomy.record.policy.policyRevision,
+          qualityLevel: autonomy.record.policy.qualityLevel,
+        },
         persistence: reviewRepository.getPersistenceState(),
+        renderTriggered: false,
+        uploadTriggered: false,
+        publishTriggered: false,
       });
     }
 
