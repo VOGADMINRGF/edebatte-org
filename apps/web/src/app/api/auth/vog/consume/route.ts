@@ -10,7 +10,7 @@ export const runtime="nodejs"; export const dynamic="force-dynamic";
 type HandoffReplay={_id?:ObjectId;jtiHash:string;createdAt:Date;expiresAt:Date};
 type VogLinkedUser = Omit<CoreUserAuthSnapshot, "profile"> & {
  passwordHash?: string;
- profile?: CoreUserAuthSnapshot["profile"] & { vogMemberId?: string };
+ profile?: (NonNullable<CoreUserAuthSnapshot["profile"]> & { vogMemberId?: string }) | null;
 };
 function hashJti(jti:string){return crypto.createHash("sha256").update(jti).digest("hex");}
 function edebatteOrigin(){return (process.env.PUBLIC_BASE_URL||"https://www.edebatte.org").replace(/\/$/,"");}
