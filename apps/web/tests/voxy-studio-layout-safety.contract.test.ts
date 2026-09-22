@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { VOXY_EDITORIAL_STORY_PLAN_VERSION } from "@/features/voxyVideo/editorialStoryPlan";
+import {
+  VOXY_EDITORIAL_STORY_PLAN_VERSION,
+  type VoxyEditorialStoryPlanValidation,
+} from "@/features/voxyVideo/editorialStoryPlan";
 import {
   evaluateVoxyStudioAllFormatLayoutSafety,
   evaluateVoxyStudioCaptionLayoutSafety,
   evaluateVoxyStudioLayoutSafety,
+  mergeVoxyStudioAllFormatLayoutSafetyIntoValidation,
 } from "@/features/voxyVideo/studioLayoutSafety";
 import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
 
@@ -54,6 +58,15 @@ function draft(overrides?: {
   };
 }
 
+function editorialValidation(): VoxyEditorialStoryPlanValidation {
+  return {
+    errors: [],
+    approvalBlockers: [],
+    warnings: [],
+    renderEligible: true,
+  };
+}
+
 describe("Voxy Studio canonical layout safety", () => {
   it("keeps semantic regions inside the canonical safe area in all three target formats", () => {
     const matrix = evaluateVoxyStudioAllFormatLayoutSafety(draft());
@@ -77,6 +90,24 @@ describe("Voxy Studio canonical layout safety", () => {
     });
     expect(result.approvalEligible).toBe(false);
     expect(result.blockers.some((item) => item.code === "chapter_headline_overflow_risk")).toBe(true);
+    expect(draft({ headline }).storyPlan.chapters[0]?.headline).toBe(headline);
+  });
+
+  it("merges any target-format overflow into the shared render-approval blockers", () => {
+    const headline = "Sehr lange Headline ".repeat(12).trim();
+    const validation = mergeVoxyStudioAllFormatLayoutSafetyIntoValidation({
+      draft: draft({ headline }),
+      validation: editorialValidation(),
+    });
+
+    expect(validation.renderEligible).toBe(false);
+    expect(validation.approvalBlockers).toEqual(
+      expect.arrayContaining([
+        "layout:16:9:chapter_headline_overflow_risk",
+        "layout:9:16:chapter_headline_overflow_risk",
+        "layout:1:1:chapter_headline_overflow_risk",
+      ]),
+    );
     expect(draft({ headline }).storyPlan.chapters[0]?.headline).toBe(headline);
   });
 
