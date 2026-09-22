@@ -11,7 +11,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { extname, join, relative, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 
 import {
   buildVoxyCharacterMotionFixturePlan,
@@ -19,13 +19,12 @@ import {
   type VoxyCharacterMotionFixturePlan,
 } from "../src/features/voxyVideo/characterMotionFixture";
 import { renderVoxyCharacterMotionFixtureHtml } from "../src/features/voxyVideo/characterMotionFixtureHtml";
+import { loadVoxyEditorialCompositionEmbeddedAssets } from "../src/features/voxyVideo/editorialCompositionAssets.server";
 import { renderVoxyEditorialCompositionFrameHtml } from "../src/features/voxyVideo/editorialCompositionHtml";
 import {
   assertVoxyFinalCanonBinding,
   finalVoxyCanonBinding,
 } from "../src/features/voxyVideo/finalCanon";
-import { VOXY_FIRST_EXPLAINER_STUDIO_LOCKUP_PATH } from "../src/features/voxyVideo/firstExplainerVideo";
-import { VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND } from "../src/features/voxyVideo/headAlphaSilhouette";
 import {
   buildVoxyLocalCompositionIdentityKey,
   buildVoxyLocalCompositionInputFingerprint,
@@ -43,9 +42,6 @@ import {
   type VoxyLocalCompositionOutput,
   type VoxyLocalCompositionRequest,
 } from "../src/features/voxyVideo/localCompositionRuntime";
-import type { VoxyMotionV4EmbeddedAssets } from "../src/features/voxyVideo/motionV4Html";
-import { VOXY_POCKET_MARK_COMPOSITION_SOURCE } from "../src/features/voxyVideo/pocketMarkFinalGate";
-import { VOXY_STATIC_CANON_NATIVE_ASSETS } from "../src/features/voxyVideo/staticCanonRecovery";
 
 assertVoxyFinalCanonBinding(finalVoxyCanonBinding());
 
@@ -121,36 +117,6 @@ async function embeddedSvgDataUrl(path: string): Promise<string> {
   const content = await readFile(path, "utf8");
   if (!content.includes("<svg")) throw new Error("voxy_svg_master_invalid");
   return `data:image/svg+xml;base64,${Buffer.from(content).toString("base64")}`;
-}
-
-function mimeForPath(path: string): string {
-  const extension = extname(path).toLowerCase();
-  if (extension === ".svg") return "image/svg+xml";
-  if (extension === ".png") return "image/png";
-  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
-  throw new Error(`unsupported_voxy_asset_mime:${extension || "none"}`);
-}
-
-async function embeddedDataUrl(path: string): Promise<string> {
-  return `data:${mimeForPath(path)};base64,${(await readFile(path)).toString("base64")}`;
-}
-
-async function buildEditorialAssets(webRoot: string): Promise<VoxyMotionV4EmbeddedAssets> {
-  const repositoryRoot = resolve(webRoot, "../..");
-  const sourcePaths = {
-    canonStage: resolve(repositoryRoot, VOXY_POCKET_MARK_COMPOSITION_SOURCE.repositoryPath),
-    cleanStudio: resolve(repositoryRoot, VOXY_CANONICAL_CLEAN_STUDIO_BACKGROUND.repositoryPath),
-    studioLockup: resolve(repositoryRoot, VOXY_FIRST_EXPLAINER_STUDIO_LOCKUP_PATH),
-    lapelPin: resolve(repositoryRoot, VOXY_STATIC_CANON_NATIVE_ASSETS.lapelPin),
-    pocketMark: resolve(repositoryRoot, VOXY_STATIC_CANON_NATIVE_ASSETS.edebattePocketMark),
-  };
-  return {
-    canonStageDataUrl: await embeddedDataUrl(sourcePaths.canonStage),
-    canonicalCleanStudioBackgroundDataUrl: await embeddedDataUrl(sourcePaths.cleanStudio),
-    studioLockupDataUrl: await embeddedDataUrl(sourcePaths.studioLockup),
-    lapelPinDataUrl: await embeddedDataUrl(sourcePaths.lapelPin),
-    edebattePocketMarkDataUrl: await embeddedDataUrl(sourcePaths.pocketMark),
-  };
 }
 
 function audioLevelsFromWav(buffer: Buffer, fps: number): number[] {
@@ -479,6 +445,7 @@ async function main(): Promise<void> {
   }
 
   const webRoot = resolve(import.meta.dirname, "..");
+  const repositoryRoot = resolve(webRoot, "../..");
   const legacyPlan =
     manifest.request.renderProfile === "local_review_v1"
       ? buildRuntimePlan(manifest.request)
@@ -508,7 +475,7 @@ async function main(): Promise<void> {
     : null;
   const editorialAssets =
     manifest.request.renderProfile === "editorial_v1"
-      ? await buildEditorialAssets(webRoot)
+      ? await loadVoxyEditorialCompositionEmbeddedAssets(repositoryRoot)
       : null;
 
   const finalSegment = sanitizeDirectorySegment(manifest.job.jobId);
