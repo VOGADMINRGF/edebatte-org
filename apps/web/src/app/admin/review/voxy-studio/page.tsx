@@ -1,3 +1,4 @@
+import VoxyStudioAgentReviewPanel from "./VoxyStudioAgentReviewPanel";
 import VoxyStudioAutonomyPanel from "./VoxyStudioAutonomyPanel";
 import VoxyStudioEvidenceReviewPanel from "./VoxyStudioEvidenceReviewPanel";
 import VoxyStudioFineTunePanel from "./VoxyStudioFineTunePanel";
@@ -17,6 +18,7 @@ export default function VoxyStudioReviewPage() {
       <h1 className="sr-only">Admin Video Studio</h1>
       <VoxyStudioOperator />
       <VoxyStudioAutonomyPanel />
+      <VoxyStudioAgentReviewPanel />
       <VoxyStudioEvidenceReviewPanel />
       <VoxyStudioFineTunePanel />
       <VoxyStudioRenderQueuePanel />
