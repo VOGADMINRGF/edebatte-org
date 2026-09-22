@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
+import type { Collection, Document } from "mongodb";
 import { ObjectId, coreCol, piiCol, votesCol } from "@core/db/triMongo";
 import { readSession } from "@/utils/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function collectByUser(
-  collection: Awaited<ReturnType<typeof coreCol>>,
-  userId: ObjectId,
-) {
+async function collectByUser(collection: Collection<Document>, userId: ObjectId) {
   return collection
     .find({
       $or: [
@@ -16,7 +14,7 @@ async function collectByUser(
         { userId },
         { coreUserId: userId },
       ],
-    } as any)
+    })
     .toArray();
 }
 
@@ -30,8 +28,8 @@ export async function GET() {
   const [users, contributions, profiles, votes] = await Promise.all([
     collectByUser(await coreCol("users"), userId),
     collectByUser(await coreCol("contributions"), userId),
-    collectByUser(await piiCol("user_profiles") as any, userId),
-    collectByUser(await votesCol("votes") as any, userId),
+    collectByUser(await piiCol("user_profiles"), userId),
+    collectByUser(await votesCol("votes"), userId),
   ]);
 
   const payload = {
