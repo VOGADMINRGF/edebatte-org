@@ -36,7 +36,7 @@ export function assertVoxyStudioEditorialRenderCandidate(input: {
 }
 
 export function validateVoxyStudioImmutableEditorialBinding(input: {
-  draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan">;
+  draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan" | "renderApproval">;
   evidenceSourcePackId: string;
   currentDecisionGateId: string;
   request: VoxyLocalCompositionRequest | null;
@@ -81,6 +81,16 @@ export function validateVoxyStudioImmutableEditorialBinding(input: {
     if (binding.evidenceDecisionGateId !== input.currentDecisionGateId) {
       errors.push("studio_render_evidence_gate_binding_mismatch");
     }
+    if (!input.draft.renderApproval) {
+      errors.push("studio_render_current_approval_missing");
+    } else {
+      if (binding.approvalSource !== input.draft.renderApproval.approvalSource) {
+        errors.push("studio_render_approval_source_binding_mismatch");
+      }
+      if (binding.councilArtifactId !== input.draft.renderApproval.councilArtifactId) {
+        errors.push("studio_render_council_artifact_binding_mismatch");
+      }
+    }
     if (binding.finalCanonId !== VOXY_FINAL_CANON.canonId) {
       errors.push("studio_render_final_canon_binding_mismatch");
     }
@@ -95,7 +105,7 @@ export function validateVoxyStudioImmutableEditorialBinding(input: {
 }
 
 export function assertVoxyStudioImmutableEditorialBinding(input: {
-  draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan">;
+  draft: Pick<VoxyStudioDraft, "draftId" | "revision" | "storyPlan" | "renderApproval">;
   evidenceSourcePackId: string;
   currentDecisionGateId: string;
   request: VoxyLocalCompositionRequest | null;
