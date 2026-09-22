@@ -365,6 +365,8 @@ export function evaluateVoxyEditorialCouncil(input: {
   const runIds = completedRuns.map((run) => run.runId);
   const roleSet = new Set(completedRuns.map((run) => run.roleId));
   const modelFamilies = unique(completedRuns.map((run) => run.modelFamily));
+  const creatorRunId = input.creatorRunId?.trim() || null;
+  const creatorActorId = input.creatorActorId?.trim() || null;
 
   for (const roleId of requiredRoles) {
     if (!roleSet.has(roleId)) reasonCodes.push(`required_role_missing:${roleId}`);
@@ -382,18 +384,21 @@ export function evaluateVoxyEditorialCouncil(input: {
   ) {
     reasonCodes.push("stale_or_foreign_input_fingerprint");
   }
-  if (input.policy.requireCreatorReviewerSeparation && input.creatorRunId) {
-    if (completedRuns.some((run) => run.runId === input.creatorRunId)) {
+  if (input.policy.requireCreatorReviewerSeparation && !creatorRunId && !creatorActorId) {
+    reasonCodes.push("creator_lineage_missing");
+  }
+  if (input.policy.requireCreatorReviewerSeparation && creatorRunId) {
+    if (completedRuns.some((run) => run.runId === creatorRunId)) {
       reasonCodes.push("creator_reviewer_separation_broken");
     }
-    if (completedRuns.some((run) => run.creatorRunId !== input.creatorRunId)) {
+    if (completedRuns.some((run) => run.creatorRunId !== creatorRunId)) {
       reasonCodes.push("creator_lineage_mismatch");
     }
   }
   if (
     input.policy.requireCreatorReviewerSeparation &&
-    input.creatorActorId &&
-    completedRuns.some((run) => run.reviewerActorId === input.creatorActorId)
+    creatorActorId &&
+    completedRuns.some((run) => run.reviewerActorId === creatorActorId)
   ) {
     reasonCodes.push("creator_reviewer_actor_separation_broken");
   }
@@ -462,7 +467,7 @@ export function evaluateVoxyEditorialCouncil(input: {
           : "The council blocked release because one or more required reviews, evidence bindings or objections remain unresolved.";
 
   return {
-    decisionId: `voxy-council-${stableHash({ stage, inputFingerprint, policyRevision: input.policy.policyRevision, runIds, outcome, reasonCodes }).slice(0, 32)}`,
+    decisionId: `voxy-council-${stableHash({ stage, inputFingerprint, policyRevision: input.policy.policyRevision, creatorRunId, creatorActorId, runIds, outcome, reasonCodes }).slice(0, 32)}`,
     stage,
     inputFingerprint,
     policyRevision: input.policy.policyRevision,
