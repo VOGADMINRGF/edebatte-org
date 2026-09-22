@@ -15,6 +15,7 @@ import {
 } from "@/features/voxyVideo/studioDraftService";
 import { buildVoxyStudioRenderReviewGateId } from "@/features/voxyVideo/studioDraft";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
+import { evaluateVoxyStudioLayoutSafety } from "@/features/voxyVideo/studioLayoutSafety";
 import {
   applyReviewQueueOperation,
   getReviewQueueOperationsRepository,
@@ -168,6 +169,25 @@ export async function POST(
         { status: 409 },
       );
     }
+
+    const layoutSafety = evaluateVoxyStudioLayoutSafety({
+      draft: current,
+      format: current.selectedFormat,
+    });
+    if (!layoutSafety.approvalEligible) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_layout_approval_blocked",
+          validation,
+          layoutSafety,
+          reviewItemId,
+          decisionGateId,
+        },
+        { status: 409 },
+      );
+    }
+
     if (reviewRepository.getPersistenceState().mode !== "persistent_primary") {
       return NextResponse.json(
         { ok: false, error: "voxy_studio_editorial_review_not_persistent" },
@@ -193,6 +213,7 @@ export async function POST(
       ok: true,
       draft,
       validation,
+      layoutSafety,
       reviewItemId,
       decisionGateId,
       review,
