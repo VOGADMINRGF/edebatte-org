@@ -94,7 +94,7 @@ export async function queueVoxyLocalComposition(
       errors: ["trusted_render_approval_or_review_binding_invalid"],
     };
   }
-  const existing = await deps.repository.createOrGetJob(candidate);
+  const existing = await deps.repository.createOrGetJob(candidate, request);
   if (
     existing.inputFingerprint !== candidate.inputFingerprint ||
     existing.reviewBindingHash !== candidate.reviewBindingHash
