@@ -59,7 +59,7 @@ async function trustedAudioPath(asset: VoxyLocalCompositionAudioAsset): Promise<
 
 export function buildVoxyEditorialAudioLevelsFromPcmWav(
   buffer: Buffer,
-  fps = VOXY_EDITORIAL_AUDIO_MOTION_FPS,
+  fps: number = VOXY_EDITORIAL_AUDIO_MOTION_FPS,
 ): number[] {
   if (!Number.isInteger(fps) || fps < 1 || fps > 120) {
     throw new Error("editorial_audio_motion_fps_invalid");
