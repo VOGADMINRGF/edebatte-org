@@ -22,9 +22,11 @@ function draft(): VoxyStudioDraft {
     captionAdjustments: [],
     status: "approved_for_render",
     renderApproval: {
+      approvalSource: "human",
       reviewDecisionRecordId: "review-1",
       decisionGateId: "gate-1",
       approvedByUserId: "admin-1",
+      councilArtifactId: null,
       approvedAt: "2026-09-22T03:00:00.000Z",
       studioDraftRevision: 3,
       storyPlanRevision: 7,
