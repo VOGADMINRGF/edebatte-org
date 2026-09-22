@@ -133,8 +133,8 @@ function assertAudioBinding(input: {
     throw new Error("voxy_studio_audio_voice_not_render_eligible");
   }
 
-  const expectedChapterIds = draft.storyPlan.chapters.map((chapter) => chapter.chapterId);
-  const actualChapterIds = audioInput.chapterTimings.map((entry) => entry.chapterId);
+  const expectedChapterIds = input.draft.storyPlan.chapters.map((chapter) => chapter.chapterId);
+  const actualChapterIds = input.audioInput.chapterTimings.map((entry) => entry.chapterId);
   if (
     expectedChapterIds.length !== actualChapterIds.length ||
     expectedChapterIds.some((chapterId, index) => chapterId !== actualChapterIds[index])
@@ -159,8 +159,8 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     throw new Error("voxy_studio_render_handoff_already_bound");
   }
   const requestedByUserId = normalized(input.requestedByUserId);
-  if (!requestedByUserId || requestedByUserId !== input.draft.renderApproval.approvedByUserId) {
-    throw new Error("voxy_studio_render_handoff_actor_mismatch");
+  if (!requestedByUserId) {
+    throw new Error("voxy_studio_render_handoff_operator_missing");
   }
 
   assertAudioBinding({ draft: input.draft, audioInput: input.audioInput });
