@@ -8,6 +8,8 @@ on:
       - "apps/web/scripts/render-voxy-local-composition.ts"
       - "apps/web/scripts/render-voxy-local-composition-smoke.ts"
       - "apps/web/scripts/render-voxy-editorial-composition-smoke.ts"
+      - "apps/web/src/app/api/admin/voxy-studio/**"
+      - "apps/web/src/app/admin/review/voxy-studio/**"
       - "apps/web/src/features/voxyVideo/editorialCompositionHtml.ts"
       - "apps/web/src/features/voxyVideo/editorialStoryPlan.ts"
       - "apps/web/src/features/voxyVideo/finalCanon.ts"
@@ -18,10 +20,18 @@ on:
       - "apps/web/src/features/voxyVideo/localCompositionRuntimeStore.ts"
       - "apps/web/src/features/voxyVideo/localCompositionProcessExecutor.ts"
       - "apps/web/src/features/voxyVideo/localCompositionReviewBridge.ts"
+      - "apps/web/src/features/voxyVideo/studioDraft.ts"
+      - "apps/web/src/features/voxyVideo/studioDraftService.ts"
+      - "apps/web/src/features/voxyVideo/studioDraftStore.ts"
+      - "apps/web/src/features/voxyVideo/studioDossierEvidenceAuthority.ts"
+      - "apps/web/src/features/voxyVideo/studioOperatorEdit.ts"
+      - "apps/web/src/features/voxyVideo/studioStoryPlanBuilder.ts"
       - "apps/web/src/features/voxyVideo/index.ts"
       - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
       - "apps/web/tests/voxy-editorial-composition-html.contract.test.ts"
+      - "apps/web/tests/voxy-studio-draft-service.contract.test.ts"
+      - "apps/web/tests/voxy-studio-operator-edit.contract.test.ts"
       - "docs/E150/VOXY-LOCAL-COMPOSITION-RUNTIME-01_2026-09-21.md"
   workflow_dispatch:
 
@@ -55,8 +65,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Contract, editorial-canon and existing-review-store tests
-        run: pnpm -C apps/web run test:voxy-local-composition-runtime
+      - name: Runtime, editorial-canon and Studio contract tests
+        run: |
+          pnpm -C apps/web run test:voxy-local-composition-runtime
+          pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts
 
       - name: Typecheck and diff guard
         run: |
