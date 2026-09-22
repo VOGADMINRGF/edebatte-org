@@ -8,6 +8,10 @@ import { mailLocaleFromUser } from "@/utils/mailRenderer";
 import { verifyVogEdebatteHandoff, sanitizeVogHandoffNext } from "@/lib/auth/vogEdebatteHandoff";
 export const runtime="nodejs"; export const dynamic="force-dynamic";
 type HandoffReplay={_id?:ObjectId;jtiHash:string;createdAt:Date;expiresAt:Date};
+type VogLinkedUser = Omit<CoreUserAuthSnapshot, "profile"> & {
+ passwordHash?: string;
+ profile?: CoreUserAuthSnapshot["profile"] & { vogMemberId?: string };
+};
 function hashJti(jti:string){return crypto.createHash("sha256").update(jti).digest("hex");}
 function edebatteOrigin(){return (process.env.PUBLIC_BASE_URL||"https://www.edebatte.org").replace(/\/$/,"");}
 export async function GET(req:NextRequest){
@@ -16,7 +20,7 @@ export async function GET(req:NextRequest){
  try{assertion=verifyVogEdebatteHandoff(token);}catch{return NextResponse.redirect(new URL("/login?error=sso_invalid&next="+encodeURIComponent(next),req.url),303);}
  const replay=await coreCol<HandoffReplay>("auth_vog_handoff_replay"); await replay.createIndex({jtiHash:1},{unique:true}).catch(()=>{}); await replay.createIndex({expiresAt:1},{expireAfterSeconds:0}).catch(()=>{});
  try{await replay.insertOne({jtiHash:hashJti(assertion.jti),createdAt:new Date(),expiresAt:new Date(assertion.exp*1000)});}catch{return NextResponse.redirect(new URL("/login?error=sso_replayed&next="+encodeURIComponent(next),req.url),303);}
- const email=assertion.email.trim().toLowerCase(); const users=await coreCol<CoreUserAuthSnapshot & {passwordHash?:string}>("users"); let user=await users.findOne({"profile.vogMemberId":assertion.sub}); if(!user)user=await users.findOne({email});
+ const email=assertion.email.trim().toLowerCase(); const users=await coreCol<VogLinkedUser>("users"); let user=await users.findOne({"profile.vogMemberId":assertion.sub}); if(!user)user=await users.findOne({email});
  if(!user){const now=new Date(); const passwordHash=await hashPassword(crypto.randomBytes(48).toString("base64url")); const insert=await users.insertOne({email,name:assertion.name,role:"user",roles:["user"],verifiedEmail:true,emailVerified:true,accessTier:"citizenBasic",profile:{displayName:assertion.name,vogMemberId:assertion.sub},verification:{level:"email",methods:["vog_sso"],lastVerifiedAt:now},createdAt:now,updatedAt:now} as any); const credentials=await piiCol<PiiUserCredentials>(CREDENTIAL_COLLECTION); await credentials.updateOne({coreUserId:insert.insertedId},{$setOnInsert:{coreUserId:insert.insertedId,email,passwordHash,twoFactorEnabled:false,createdAt:now,updatedAt:now}},{upsert:true}); user=await users.findOne({_id:insert.insertedId});}
  else if(!user.profile?.vogMemberId){await users.updateOne({_id:user._id},{$set:{"profile.vogMemberId":assertion.sub,updatedAt:new Date()}});user=await users.findOne({_id:user._id});}
  if(!user?._id)return NextResponse.redirect(new URL("/login?error=sso_account_failed&next="+encodeURIComponent(next),req.url),303);
