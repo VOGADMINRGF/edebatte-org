@@ -29,6 +29,9 @@ type StudioItem = {
         narration: string;
         sourceIds: string[];
         openQuestionIds: string[];
+        evidenceWindow: {
+          visible?: boolean;
+        };
       }>;
     };
   };
@@ -171,12 +174,26 @@ export default function VoxyStudioOperator() {
     const chapterUpdates = item.draft.storyPlan.chapters.flatMap((chapter) => {
       const headline = String(formData.get(`headline:${chapter.chapterId}`) ?? "").trim();
       const narration = String(formData.get(`narration:${chapter.chapterId}`) ?? "").trim();
-      const update: { chapterId: string; headline?: string; narration?: string } = {
+      const evidenceWindowVisible =
+        formData.get(`evidence-window-visible:${chapter.chapterId}`) === "on";
+      const update: {
+        chapterId: string;
+        headline?: string;
+        narration?: string;
+        evidenceWindowVisible?: boolean;
+      } = {
         chapterId: chapter.chapterId,
       };
       if (headline !== chapter.headline) update.headline = headline;
       if (narration !== chapter.narration) update.narration = narration;
-      return update.headline !== undefined || update.narration !== undefined ? [update] : [];
+      if (evidenceWindowVisible !== (chapter.evidenceWindow.visible !== false)) {
+        update.evidenceWindowVisible = evidenceWindowVisible;
+      }
+      return update.headline !== undefined ||
+        update.narration !== undefined ||
+        update.evidenceWindowVisible !== undefined
+        ? [update]
+        : [];
     });
     if (chapterUpdates.length) body.chapterUpdates = chapterUpdates;
 
@@ -526,6 +543,15 @@ export default function VoxyStudioOperator() {
                           required
                           className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm leading-5 text-[rgb(var(--fg))]"
                         />
+                        <label className="flex items-center gap-2 text-xs font-medium text-[rgb(var(--muted))]">
+                          <input
+                            name={`evidence-window-visible:${chapter.chapterId}`}
+                            type="checkbox"
+                            defaultChecked={chapter.evidenceWindow.visible !== false}
+                            className="h-4 w-4 rounded border-[rgb(var(--border))]"
+                          />
+                          Evidence-/Quellenkarte im Video anzeigen
+                        </label>
                         <p className="text-xs text-[rgb(var(--muted))]">
                           Quellen {chapter.sourceIds.length} · offene Fragen {chapter.openQuestionIds.length}
                         </p>
@@ -545,7 +571,7 @@ export default function VoxyStudioOperator() {
                         <p className="mt-1 font-semibold text-[rgb(var(--fg))]">{chapter.headline}</p>
                         <p className="mt-1 line-clamp-3 text-sm leading-5 text-[rgb(var(--muted))]">{chapter.narration}</p>
                         <p className="mt-2 text-xs text-[rgb(var(--muted))]">
-                          Quellen {chapter.sourceIds.length} · offene Fragen {chapter.openQuestionIds.length}
+                          Quellen {chapter.sourceIds.length} · offene Fragen {chapter.openQuestionIds.length} · Quellenkarte {chapter.evidenceWindow.visible === false ? "aus" : "an"}
                         </p>
                       </div>
                     ))}
