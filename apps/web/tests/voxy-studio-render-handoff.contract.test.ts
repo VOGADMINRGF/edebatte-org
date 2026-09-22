@@ -4,6 +4,7 @@ import {
   VOXY_EDITORIAL_STORY_PLAN_VERSION,
   type VoxyEditorialStoryPlan,
 } from "@/features/voxyVideo/editorialStoryPlan";
+import { VOXY_FINAL_CANON } from "@/features/voxyVideo/finalCanon";
 import {
   VOXY_LOCAL_COMPOSITION_AUDIO_INPUT_VERSION,
   createInMemoryVoxyLocalCompositionAudioInputRepository,
@@ -13,6 +14,7 @@ import {
 } from "@/features/voxyVideo/localCompositionAudioAssetStore";
 import {
   buildQueuedVoxyLocalCompositionJob,
+  buildVoxyLocalCompositionInputFingerprint,
   getVoxyLocalCompositionDimensions,
   type VoxyLocalCompositionOutput,
 } from "@/features/voxyVideo/localCompositionRuntime";
@@ -22,6 +24,8 @@ import {
   buildVoxyStudioPreviewReviewFlowId,
 } from "@/features/voxyVideo/studioRenderHandoff";
 import { validateVoxyStudioEditorialRenderCandidate } from "@/features/voxyVideo/studioRenderBindingGuard";
+
+const EVIDENCE_SOURCE_PACK_ID = "voxy-studio-dossier:dossier-1:evidence-r1";
 
 function storyPlan(): VoxyEditorialStoryPlan {
   return {
@@ -97,7 +101,7 @@ function draft(): VoxyStudioDraft {
     status: "approved_for_render",
     renderApproval: {
       reviewDecisionRecordId: "review-audit-1",
-      decisionGateId: "voxy-studio-render:studio-draft-1:r4:story-r3",
+      decisionGateId: "voxy-studio-render:studio-draft-1:r4:story-r3:evidence-1234567890abcdef",
       approvedByUserId: "admin-2",
       approvedAt: "2026-09-22T04:00:00.000Z",
       studioDraftRevision: 4,
@@ -167,12 +171,17 @@ function audioInput(): VoxyLocalCompositionAudioInputRecord {
   };
 }
 
-function editorialRenderCandidate() {
-  const handoff = buildVoxyStudioEditorialCompositionHandoff({
+function handoffInput(overrides?: { evidenceSourcePackId?: string }) {
+  return {
     draft: draft(),
     audioInput: audioInput(),
     requestedByUserId: "admin-2",
-  });
+    evidenceSourcePackId: overrides?.evidenceSourcePackId ?? EVIDENCE_SOURCE_PACK_ID,
+  };
+}
+
+function editorialRenderCandidate() {
+  const handoff = buildVoxyStudioEditorialCompositionHandoff(handoffInput());
   const queued = buildQueuedVoxyLocalCompositionJob({
     request: handoff.request,
     approval: handoff.approval,
@@ -240,6 +249,7 @@ describe("Voxy Studio render handoff", () => {
       draft: studioDraft,
       audioInput: audioInput(),
       requestedByUserId: "admin-2",
+      evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
     });
 
     expect(handoff.request).toMatchObject({
@@ -251,8 +261,46 @@ describe("Voxy Studio render handoff", () => {
       locale: "de",
       format: "16:9",
       sceneContent: [],
+      editorialBinding: {
+        studioDraftId: studioDraft.draftId,
+        studioDraftRevision: studioDraft.revision,
+        storyPlanId: studioDraft.storyPlan.storyPlanId,
+        storyPlanRevision: studioDraft.storyPlan.revision,
+        evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+        evidenceDecisionGateId: studioDraft.renderApproval?.decisionGateId,
+        finalCanonId: VOXY_FINAL_CANON.canonId,
+      },
     });
     expect(handoff.timeline.durationMs).toBe(120_000);
+    expect(handoff.timelineHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(handoff.binding).toMatchObject({
+      studioDraftId: studioDraft.draftId,
+      studioDraftRevision: 4,
+      storyPlanId: "story-plan-1",
+      storyPlanRevision: 3,
+      timelineVersion: "audio-timeline-r1",
+      timelineHash: handoff.timelineHash,
+      durationMs: 120_000,
+      evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+      evidenceDecisionGateId: studioDraft.renderApproval?.decisionGateId,
+      format: "16:9",
+      locale: "de",
+      finalCanonId: VOXY_FINAL_CANON.canonId,
+    });
+    expect(handoff.binding.chapterBoundaries).toEqual([
+      {
+        chapterId: "what-happened",
+        startMs: 0,
+        endMs: 60_000,
+        motion: "highlighting_source",
+      },
+      {
+        chapterId: "evidence",
+        startMs: 60_000,
+        endMs: 120_000,
+        motion: "explaining",
+      },
+    ]);
     expect(handoff.timeline.chapters.map((chapter) => chapter.chapterId)).toEqual([
       "what-happened",
       "evidence",
@@ -267,6 +315,30 @@ describe("Voxy Studio render handoff", () => {
     });
     expect(handoff.approval.previewReviewFlowId).toBe(
       buildVoxyStudioPreviewReviewFlowId(studioDraft),
+    );
+  });
+
+  it("changes the immutable request fingerprint when the evidence binding changes", () => {
+    const first = buildVoxyStudioEditorialCompositionHandoff(handoffInput());
+    const second = buildVoxyStudioEditorialCompositionHandoff(
+      handoffInput({ evidenceSourcePackId: "voxy-studio-dossier:dossier-1:evidence-r2" }),
+    );
+
+    expect(buildVoxyLocalCompositionInputFingerprint(first.request)).not.toBe(
+      buildVoxyLocalCompositionInputFingerprint(second.request),
+    );
+    expect(
+      buildQueuedVoxyLocalCompositionJob({
+        request: first.request,
+        approval: first.approval,
+        now: "2026-09-22T04:05:00.000Z",
+      }).identityKey,
+    ).not.toBe(
+      buildQueuedVoxyLocalCompositionJob({
+        request: second.request,
+        approval: second.approval,
+        now: "2026-09-22T04:05:00.000Z",
+      }).identityKey,
     );
   });
 
@@ -305,6 +377,7 @@ describe("Voxy Studio render handoff", () => {
         draft: draft(),
         audioInput: stale,
         requestedByUserId: "admin-2",
+        evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
       }),
     ).toThrow(/voxy_studio_audio_script_revision_mismatch|voxy_studio_audio_story_revision_mismatch/);
   });
@@ -326,6 +399,7 @@ describe("Voxy Studio render handoff", () => {
         draft: studioDraft,
         audioInput: audioInput(),
         requestedByUserId: "admin-2",
+        evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
       }),
     ).toThrow("voxy_studio_caption_adjustment_breaks_timeline:caption-2");
   });
