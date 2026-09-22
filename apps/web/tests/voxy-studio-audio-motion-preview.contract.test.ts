@@ -88,4 +88,19 @@ describe("Voxy Studio persisted audio-motion preview boundary", () => {
     expect(route).not.toContain("resolveVoxyEditorialAudioFrameAmplitude");
     expect(route).not.toContain("amplitude: 0");
   });
+
+  it("exposes only motion readiness to the browser, never the persisted amplitude array", async () => {
+    const route = await readFile(
+      resolve(
+        process.cwd(),
+        "src/app/api/admin/voxy-studio/[draftId]/audio-inputs/route.ts",
+      ),
+      "utf8",
+    );
+
+    expect(route).toContain("motionEnvelopeReady: Boolean(input.motionEnvelope)");
+    expect(route).toContain("exposesMotionEnvelope: false");
+    expect(route).not.toContain("input.motionEnvelope.levels");
+    expect(route).not.toContain("motionEnvelope: input.motionEnvelope");
+  });
 });
