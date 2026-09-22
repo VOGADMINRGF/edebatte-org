@@ -60,6 +60,9 @@ export function buildVoxyEditorialRenderableStoryPlan(input: {
   if (!sourcePackId) {
     throw new Error("voxy_editorial_render_evidence_source_pack_missing");
   }
+  if (!Array.isArray(input.sources)) {
+    throw new Error("voxy_editorial_render_evidence_sources_missing");
+  }
 
   const byId = new Map<string, VoxyStudioEvidenceSnapshot["sources"][number]>();
   for (const source of input.sources) {
