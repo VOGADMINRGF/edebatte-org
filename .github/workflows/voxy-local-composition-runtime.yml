@@ -10,6 +10,8 @@ on:
       - "apps/web/scripts/render-voxy-editorial-composition-smoke.ts"
       - "apps/web/src/app/api/admin/voxy-studio/**"
       - "apps/web/src/app/admin/review/voxy-studio/**"
+      - "apps/web/src/features/voxyVideo/editorialAgent*.ts"
+      - "apps/web/src/features/voxyVideo/editorialAutonomyStore.ts"
       - "apps/web/src/features/voxyVideo/editorialCompositionHtml.ts"
       - "apps/web/src/features/voxyVideo/editorialStoryPlan.ts"
       - "apps/web/src/features/voxyVideo/finalCanon.ts"
@@ -31,6 +33,8 @@ on:
       - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
       - "apps/web/tests/voxy-editorial-composition-html.contract.test.ts"
+      - "apps/web/tests/voxy-editorial-agent-council.contract.test.ts"
+      - "apps/web/tests/voxy-editorial-agent-learning.contract.test.ts"
       - "apps/web/tests/voxy-studio-draft-service.contract.test.ts"
       - "apps/web/tests/voxy-studio-immutable-render-binding.contract.test.ts"
       - "apps/web/tests/voxy-studio-operator-edit.contract.test.ts"
@@ -70,7 +74,7 @@ jobs:
       - name: Runtime, editorial-canon and Studio contract tests
         run: |
           pnpm -C apps/web run test:voxy-local-composition-runtime
-          pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts
+          pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
 
       - name: Typecheck and diff guard
         run: |
