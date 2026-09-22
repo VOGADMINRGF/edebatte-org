@@ -74,7 +74,7 @@ function workspace(): DossierStudioWorkspace {
       reviewRequired: true,
       localStorageIsNotProduction: true,
     },
-  };
+  } as unknown as DossierStudioWorkspace;
 }
 
 describe("Voxy Studio dossier-bound production context", () => {
