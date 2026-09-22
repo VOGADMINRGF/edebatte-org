@@ -38,6 +38,7 @@ const ChapterUpdateSchema = z
     narration: z.string().trim().min(1).max(2_400).optional(),
     motion: z.enum(VOXY_EDITORIAL_ALLOWED_MOTIONS).optional(),
     evidenceWindowVisible: z.boolean().optional(),
+    evidenceWindowSourceId: z.string().trim().min(1).max(160).optional(),
   })
   .strict()
   .refine(
@@ -45,7 +46,8 @@ const ChapterUpdateSchema = z
       value.headline !== undefined ||
       value.narration !== undefined ||
       value.motion !== undefined ||
-      value.evidenceWindowVisible !== undefined,
+      value.evidenceWindowVisible !== undefined ||
+      value.evidenceWindowSourceId !== undefined,
     {
       message: "chapter_update_empty",
     },
