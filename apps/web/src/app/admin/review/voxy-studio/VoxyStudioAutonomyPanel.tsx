@@ -28,6 +28,7 @@ type CouncilRole = {
   adversarialQuestion: string;
   mayApprove: boolean;
   requiredAtQuality: Quality[];
+  stages: string[];
 };
 
 type AutonomyResponse = {
@@ -39,10 +40,7 @@ type AutonomyResponse = {
     updatedByUserId: string;
     updatedAt: string;
   };
-  persistence: {
-    mode: string;
-    productionTruth: boolean;
-  };
+  persistence: { mode: string; productionTruth: boolean };
   councilRoles: CouncilRole[];
   criticalRiskFlags: string[];
   hardInvariants: Record<string, boolean>;
@@ -88,8 +86,9 @@ export default function VoxyStudioAutonomyPanel() {
       const response = await fetch("/api/admin/voxy-studio/autonomy", { cache: "no-store" });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.ok) throw new Error(payload?.error || "voxy_autonomy_not_loaded");
-      setData(payload as AutonomyResponse);
-      setDraft((payload as AutonomyResponse).record.policy);
+      const next = payload as AutonomyResponse;
+      setData(next);
+      setDraft(next.record.policy);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "voxy_autonomy_not_loaded");
     }
@@ -101,13 +100,13 @@ export default function VoxyStudioAutonomyPanel() {
 
   const changed = useMemo(() => {
     if (!data || !draft) return false;
-    return JSON.stringify(data.record.policy) !== JSON.stringify(draft);
+    return !data.configured || JSON.stringify(data.record.policy) !== JSON.stringify(draft);
   }, [data, draft]);
 
   async function save() {
     if (!data || !draft || busy || !changed) return;
     if (reason.trim().length < 3) {
-      setError("Bitte dokumentiere, warum die Agent-Policy geändert wird.");
+      setError("Bitte dokumentiere, warum die Agent-Policy aktiviert oder geändert wird.");
       return;
     }
     setBusy(true);
@@ -146,15 +145,14 @@ export default function VoxyStudioAutonomyPanel() {
           </p>
           <h2 className="mt-2 text-xl font-semibold text-[rgb(var(--fg))]">Autonomie & Qualitätskontrolle</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-[rgb(var(--muted))]">
-            Die Agenten sollen nicht bestätigen, dass ein Beitrag gut ist, sondern systematisch Gründe suchen,
-            warum Claims, Dossier, Redaktion, Übersetzung, Voice oder Distribution gestoppt werden sollten.
-            Freigaben sind nur auf exakt derselben Revision gültig. Interne verborgene Gedankenschritte werden
-            nicht gespeichert; sichtbar bleiben Prüffrage, Befund, Evidenz, Einwand, Gegenprüfung, Entscheidung
-            und Änderungsgrund.
+            Die Agenten suchen systematisch Gründe, warum Claims, Dossier, Redaktion, Übersetzung, Voice oder Distribution
+            gestoppt werden sollten. Freigaben gelten nur auf exakt derselben Revision. Gespeichert werden überprüfbare
+            Entscheidungsgrundlagen – Prüfschritte, Evidenz, Einwand, Defense, Auflösung und Reason Codes – nicht verborgene
+            interne Gedankenschritte.
           </p>
         </div>
-        <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-xs text-[rgb(var(--muted))]">
-          <div>Policy r{data?.record.policy.policyRevision ?? "–"}</div>
+        <div className="space-y-1 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-xs text-[rgb(var(--muted))]">
+          <div>{data?.configured ? `Aktive Policy r${data.record.policy.policyRevision}` : "Noch nicht produktiv aktiviert"}</div>
           <div>{data?.persistence.mode ?? "wird geladen"}</div>
         </div>
       </div>
@@ -165,9 +163,15 @@ export default function VoxyStudioAutonomyPanel() {
         </div>
       ) : null}
 
+      {!data?.configured ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
+          Die angezeigte Maximum-Policy ist ein Built-in-Vorschlag. Sie wird erst nach dokumentierter Aktivierung zur persistenten Produktionswahrheit.
+        </div>
+      ) : null}
+
       {draft ? (
         <>
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="space-y-1 text-sm">
               <span className="font-semibold text-[rgb(var(--fg))]">Quality Budget</span>
               <select
@@ -181,7 +185,7 @@ export default function VoxyStudioAutonomyPanel() {
               </select>
             </label>
             <label className="space-y-1 text-sm">
-              <span className="font-semibold text-[rgb(var(--fg))]">Mindestzahl unabhängiger Reviews</span>
+              <span className="font-semibold text-[rgb(var(--fg))]">Unabhängige Review-Runs</span>
               <input
                 type="number"
                 min={3}
@@ -192,7 +196,18 @@ export default function VoxyStudioAutonomyPanel() {
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="font-semibold text-[rgb(var(--fg))]">Ungelöste Warnungen für Autonomie</span>
+              <span className="font-semibold text-[rgb(var(--fg))]">Provider-/Modellfamilien</span>
+              <input
+                type="number"
+                min={1}
+                max={4}
+                value={draft.requiredDistinctModelFamilies}
+                onChange={(event) => setDraft({ ...draft, requiredDistinctModelFamilies: Number(event.target.value) })}
+                className="w-full rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-[rgb(var(--fg))]"
+              />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="font-semibold text-[rgb(var(--fg))]">Ungelöste Warnungen</span>
               <input
                 type="number"
                 min={0}
@@ -211,10 +226,7 @@ export default function VoxyStudioAutonomyPanel() {
                 <select
                   value={draft.modes[stage]}
                   onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      modes: { ...draft.modes, [stage]: event.target.value as Mode },
-                    })
+                    setDraft({ ...draft, modes: { ...draft.modes, [stage]: event.target.value as Mode } })
                   }
                   className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-2 py-2 text-[rgb(var(--fg))]"
                 >
@@ -243,27 +255,26 @@ export default function VoxyStudioAutonomyPanel() {
             </div>
           </div>
 
-          <div>
-            <h3 className="text-base font-semibold text-[rgb(var(--fg))]">Council-Rollen</h3>
+          <details className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-[rgb(var(--fg))]">Council-Rollen & adversariale Prüffragen</summary>
             <div className="mt-3 grid gap-3 lg:grid-cols-2">
               {(data?.councilRoles ?? []).map((role) => (
-                <article key={role.id} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3 text-sm">
-                  <div className="flex items-center justify-between gap-3">
+                <article key={role.id} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-semibold text-[rgb(var(--fg))]">{compact(role.id)}</p>
                     <span className="text-xs text-[rgb(var(--muted))]">{role.alpha2RoleId}</span>
                   </div>
                   <p className="mt-2 text-[rgb(var(--muted))]">{role.mission}</p>
-                  <p className="mt-2 border-l-2 border-violet-400 pl-3 text-[rgb(var(--fg))]">
-                    {role.adversarialQuestion}
-                  </p>
+                  <p className="mt-2 border-l-2 border-violet-400 pl-3 text-[rgb(var(--fg))]">{role.adversarialQuestion}</p>
+                  <p className="mt-2 text-xs text-[rgb(var(--muted))]">Stufen: {role.stages.join(", ")}</p>
                 </article>
               ))}
             </div>
-          </div>
+          </details>
 
           <div className="space-y-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-4">
             <label className="block text-sm font-semibold text-[rgb(var(--fg))]" htmlFor="voxy-autonomy-reason">
-              Warum wird die Policy geändert?
+              Warum wird die Policy aktiviert oder geändert?
             </label>
             <textarea
               id="voxy-autonomy-reason"
@@ -279,7 +290,7 @@ export default function VoxyStudioAutonomyPanel() {
               onClick={() => void save()}
               className="rounded-xl bg-violet-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy ? "Speichert …" : "Neue Policy-Version aktivieren"}
+              {busy ? "Speichert …" : data?.configured ? "Neue Policy-Version aktivieren" : "Maximum-Policy persistent aktivieren"}
             </button>
           </div>
 
