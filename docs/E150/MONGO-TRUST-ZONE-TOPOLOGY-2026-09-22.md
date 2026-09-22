@@ -39,6 +39,8 @@ Vor Löschung, Umbenennung oder Wiederverwendung eines bestehenden Atlas-Projekt
 - DB-User werden pro Anwendung und Trust-Zone mit Least Privilege angelegt. Ein Core-User bekommt keine PII- oder Votes-Rolle; ein PII-User keine Core-/Votes-Rolle usw.
 - Secrets werden ausschließlich über lokale Secret-Dateien/Secret Stores und Vercel Environment Variables verteilt, nie über Git.
 - VOG und eDebatte teilen nur `VOG_EDB_AUTH_HANDOFF_SECRET`; dieser Secret-Wert ist kein Datenbank-Credential.
+- VOG- und eDebatte-Sessions bleiben unabhängig. Ein Ausfall von VOG darf einen bestehenden eDebatte-Nutzer nicht am lokalen eDebatte-Login hindern.
+- Ein erstmals ausschließlich über VOG-SSO provisionierter eDebatte-Account kann über den eDebatte-eigenen Passwort-Reset ein lokales Passwort setzen. Dieser Flow nutzt eDebatte-Mailzustellung und gehashte, zeitlich begrenzte Reset-Tokens im eDebatte-PII-Store; er benötigt keine laufende VOG-Session.
 
 ## Produktions-Environment
 
@@ -75,6 +77,12 @@ Empfohlene getrennte Database Users:
 
 Keine Anwendung erhält Atlas-Admin-Credentials als Runtime-Credential.
 
+## Datenschutz-/Account-Pfade
+
+- Datenschutzexport liest die betreffenden Accountdaten zonenbewusst aus eDebatte Core, PII und Votes; er darf keinen globalen Shared-Mongo-Handle verwenden.
+- Der historische direkte Hard-Delete-Endpunkt `/api/gdpr/delete` ist fail-closed stillgelegt. Kontolöschung läuft über `/api/account/self-service`, wo eine bestehende Session und Passwort-Reauthentifizierung verlangt und ein nachvollziehbarer Löschauftrag persistiert wird.
+- Ein späterer physischer Lösch-Worker muss dieselben Core/PII/Votes-Grenzen einhalten und darf niemals VOG-Datenbanken als eDebatte-Löschziel behandeln.
+
 ## Cutover-Reihenfolge vor Go-live
 
 1. Datenbestand der drei vorhandenen Atlas-Projekte inventarisieren.
@@ -85,7 +93,7 @@ Keine Anwendung erhält Atlas-Admin-Credentials als Runtime-Credential.
 6. eDebatte Core/PII/Votes Connectivity einzeln testen.
 7. VOG Registrierung → DOI → Passwort → Login/Logout testen.
 8. eDebatte Registrierung → lokaler Login → 2FA-Pfad testen.
-9. VOG→eDebatte-Handoff testen; dabei dürfen keine DB-Credentials oder Sessions systemübergreifend geteilt werden.
+9. VOG→eDebatte-Handoff testen; anschließend für einen neu provisionierten eDebatte-Account den eDebatte-eigenen Passwort-Reset testen und danach lokalen Login ohne VOG durchführen.
 10. Erst nach grünen CI-/Smoke-Tests Produktions-Environment in Vercel aktivieren.
 
 ## Rollback-Prinzip
