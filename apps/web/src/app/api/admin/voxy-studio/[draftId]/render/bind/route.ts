@@ -5,11 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
+import { validateVoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
 import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import {
   bindVoxyStudioVerifiedRender,
+  buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createDefaultVoxyStudioServiceDependencies,
 } from "@/features/voxyVideo/studioDraftService";
+import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
 import { assertVoxyStudioEditorialRenderCandidate } from "@/features/voxyVideo/studioRenderBindingGuard";
 
@@ -43,6 +46,54 @@ export async function POST(
   try {
     const { draftId: rawDraftId } = await context.params;
     const draftId = decodeURIComponent(String(rawDraftId ?? "").trim());
+    const studioRepository = getVoxyStudioDraftRepository();
+    const currentDraft = await studioRepository.getDraft(draftId);
+    if (!currentDraft) {
+      return NextResponse.json({ ok: false, error: "voxy_studio_draft_missing" }, { status: 404 });
+    }
+    if (currentDraft.revision !== parsed.data.expectedRevision) {
+      return NextResponse.json({ ok: false, error: "voxy_studio_revision_conflict" }, { status: 409 });
+    }
+    if (currentDraft.status !== "approved_for_render" || !currentDraft.renderApproval) {
+      return NextResponse.json(
+        { ok: false, error: `voxy_studio_render_binding_not_allowed:${currentDraft.status}` },
+        { status: 409 },
+      );
+    }
+
+    const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
+    const evidence = await evidenceAuthority.resolveEvidenceContext(currentDraft);
+    const validation = validateVoxyEditorialStoryPlan(currentDraft.storyPlan, evidence);
+    if (!validation.renderEligible) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_binding_evidence_not_eligible",
+          validation,
+          sourcePackReviewState: evidence.sourcePack.reviewState,
+        },
+        { status: 409 },
+      );
+    }
+    const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
+      currentDraft,
+      evidence.sourcePack.sourcePackId,
+    );
+    if (currentDraft.renderApproval.decisionGateId !== currentDecisionGateId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_binding_evidence_stale",
+          currentDecisionGateId,
+          approvedDecisionGateId: currentDraft.renderApproval.decisionGateId,
+          outputBound: false,
+          previewReviewPassed: false,
+          publishApproved: false,
+        },
+        { status: 409 },
+      );
+    }
+
     const runtimeRepository = getVoxyLocalCompositionRepository();
     const persistence = runtimeRepository.getPersistenceState();
     if (
@@ -66,9 +117,24 @@ export async function POST(
         { status: 404 },
       );
     }
+    if (
+      job.decisionGateId !== currentDecisionGateId ||
+      output.decisionGateId !== currentDecisionGateId
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_binding_output_evidence_mismatch",
+          currentDecisionGateId,
+          jobDecisionGateId: job.decisionGateId,
+          outputDecisionGateId: output.decisionGateId,
+          outputBound: false,
+        },
+        { status: 409 },
+      );
+    }
     assertVoxyStudioEditorialRenderCandidate({ job, output });
 
-    const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
     const deps = createDefaultVoxyStudioServiceDependencies({ evidenceAuthority });
     const draft = await bindVoxyStudioVerifiedRender(
       {
@@ -126,7 +192,7 @@ export async function POST(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "voxy_studio_render_binding_failed";
-    const status = message.includes("missing") ? 404 : message.includes("revision") ? 409 : 400;
+    const status = message.includes("missing") ? 404 : message.includes("revision") || message.includes("stale") || message.includes("mismatch") ? 409 : 400;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
