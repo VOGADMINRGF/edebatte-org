@@ -12,7 +12,10 @@ import {
   type VoxyLocalCompositionRuntimeDependencies,
 } from "@/features/voxyVideo/localCompositionRuntimeService";
 import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
-import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
+import {
+  createFailClosedDossierStudioEvidenceAuthority,
+  loadVoxyStudioDossierEvidenceReviewState,
+} from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { buildVoxyStudioEvidenceBoundRenderReviewGateId } from "@/features/voxyVideo/studioDraftService";
 import { buildVoxyStudioEditorialCompositionHandoff } from "@/features/voxyVideo/studioRenderHandoff";
@@ -229,17 +232,40 @@ export async function POST(
         { status: 409 },
       );
     }
+    if (!draft.dossierId) {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_render_evidence_dossier_binding_missing" },
+        { status: 409 },
+      );
+    }
 
     const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
-    const evidence = await evidenceAuthority.resolveEvidenceContext(draft);
+    const [evidence, evidenceReview] = await Promise.all([
+      evidenceAuthority.resolveEvidenceContext(draft),
+      loadVoxyStudioDossierEvidenceReviewState(draft.dossierId),
+    ]);
     const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
-    if (!validation.renderEligible) {
+    if (!validation.renderEligible || !evidenceReview.approved) {
       return NextResponse.json(
         {
           ok: false,
           error: "voxy_studio_render_evidence_not_eligible",
           validation,
+          evidenceSnapshotApproved: evidenceReview.approved,
           sourcePackReviewState: evidence.sourcePack.reviewState,
+        },
+        { status: 409 },
+      );
+    }
+    const expectedEvidenceSourcePackId = `voxy-studio-dossier:${draft.dossierId}:${evidenceReview.snapshot.fingerprint.slice(0, 40)}`;
+    if (evidence.sourcePack.sourcePackId !== expectedEvidenceSourcePackId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_evidence_snapshot_binding_mismatch",
+          renderTriggered: false,
+          uploadTriggered: false,
+          publishTriggered: false,
         },
         { status: 409 },
       );
@@ -292,6 +318,7 @@ export async function POST(
       audioInput,
       requestedByUserId: userId,
       evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+      evidenceSources: evidenceReview.snapshot.sources,
     });
 
     const deps: VoxyLocalCompositionRuntimeDependencies = {
