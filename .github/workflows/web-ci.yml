@@ -39,7 +39,10 @@ jobs:
       - run: pnpm -C apps/web run test:decision-dossier-t0
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
       - name: Mongo trust-zone isolation contracts
-        run: pnpm -C apps/web exec vitest run tests/runtime-mongo-env.test.ts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/runtime-mongo-env.test.ts
+          tests/mongo-trust-zone-routes.contract.test.ts
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
 
