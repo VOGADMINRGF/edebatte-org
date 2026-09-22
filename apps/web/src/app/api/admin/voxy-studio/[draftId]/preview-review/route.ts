@@ -10,10 +10,11 @@ import {
 import {
   VOXY_RENDER_PREVIEW_REVIEW_DECISION_CHECKLIST_STATUSES,
   VOXY_RENDER_PREVIEW_REVIEW_DECISION_TYPES,
+  type VoxyRenderPreviewReviewDecisionRecord,
 } from "@/features/create/voxyRenderPreviewReviewDecisionPersistenceContract";
 import {
-  getLatestVoxyRenderPreviewReviewDecisionRecord,
   getVoxyRenderPreviewReviewDecisionPersistenceState,
+  listVoxyRenderPreviewReviewDecisionRecords,
   persistVoxyRenderPreviewReviewDecision,
 } from "@/features/create/voxyRenderPreviewReviewDecisionPersistenceStore";
 import { getVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
@@ -62,7 +63,7 @@ async function loadContext(rawDraftId: string) {
   return { context, renderDecisionId };
 }
 
-function recordSummary(record: Awaited<ReturnType<typeof getLatestVoxyRenderPreviewReviewDecisionRecord>>) {
+function recordSummary(record: VoxyRenderPreviewReviewDecisionRecord | null) {
   if (!record) return null;
   return {
     decisionRecordId: record.decisionRecordId,
@@ -104,11 +105,20 @@ export async function GET(
     const { draftId } = await routeContext.params;
     const { context, renderDecisionId } = await loadContext(draftId);
     const { persistence, ready } = persistenceReady();
-    const latestRecord = await getLatestVoxyRenderPreviewReviewDecisionRecord({
+    const records = await listVoxyRenderPreviewReviewDecisionRecords({
       previewReviewFlowId: context.job.previewReviewFlowId,
       decisionGateId: context.job.decisionGateId,
+      limit: 50,
     });
-    const match = matchVoxyStudioPreviewReviewRecord({ ...context, record: latestRecord });
+    const exactRecord =
+      records.find((record) =>
+        matchVoxyStudioPreviewReviewRecord({ ...context, record }).exact,
+      ) ?? null;
+    const latestRecord = records[0] ?? null;
+    const latestRecordMatch = matchVoxyStudioPreviewReviewRecord({
+      ...context,
+      record: latestRecord,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -132,8 +142,9 @@ export async function GET(
         published: context.output.published,
       },
       previewUrl: `/api/admin/voxy-studio/${encodeURIComponent(context.draft.draftId)}/preview`,
-      decision: match.exact ? recordSummary(latestRecord) : null,
-      latestRecordMatch: match,
+      decision: recordSummary(exactRecord),
+      latestRecordMatch,
+      exactDecisionFound: Boolean(exactRecord),
       persistence,
       reviewWriteAllowed: ready,
       marksPublishApproved: false,
