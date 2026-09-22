@@ -218,13 +218,16 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     captionCues,
   });
 
+  const renderApproval = input.draft.renderApproval;
   const editorialBinding: VoxyLocalCompositionEditorialBinding = {
     studioDraftId: input.draft.draftId,
     studioDraftRevision: input.draft.revision,
     storyPlanId: input.draft.storyPlan.storyPlanId,
     storyPlanRevision: input.draft.storyPlan.revision,
     evidenceSourcePackId,
-    evidenceDecisionGateId: input.draft.renderApproval.decisionGateId,
+    evidenceDecisionGateId: renderApproval.decisionGateId,
+    approvalSource: renderApproval.approvalSource,
+    councilArtifactId: renderApproval.councilArtifactId,
     finalCanonId: VOXY_FINAL_CANON.canonId,
   };
   const request: VoxyLocalCompositionRequest = {
@@ -248,7 +251,6 @@ export function buildVoxyStudioEditorialCompositionHandoff(input: {
     throw new Error(`voxy_studio_render_handoff_request_invalid:${requestErrors.join(",")}`);
   }
   const timelineHash = buildVoxyLocalCompositionTimelineHash(request);
-  const renderApproval = input.draft.renderApproval;
 
   const approval: VoxyLocalCompositionApprovalSnapshot = {
     approved: true,
