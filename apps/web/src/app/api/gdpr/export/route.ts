@@ -42,10 +42,9 @@ export async function GET() {
     },
   };
 
-  return new NextResponse(JSON.stringify(payload), {
+  return NextResponse.json(payload, {
     status: 200,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
       "Content-Disposition": `attachment; filename="edebatte_export_${session.uid}.json"`,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
