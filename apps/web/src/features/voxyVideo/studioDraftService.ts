@@ -28,7 +28,8 @@ import {
   VOXY_STUDIO_DRAFT_VERSION,
   type VoxyStudioDraft,
   type VoxyStudioDraftEditablePatch,
-  type VoxyStudioHumanApproval,
+  type VoxyStudioReviewApproval,
+  type VoxyStudioReviewApprovalSource,
 } from "./studioDraft";
 import {
   buildVoxyStudioDraftAuditEvent,
@@ -483,6 +484,8 @@ export async function approveVoxyStudioDraftForRender(input: {
   draftId: string;
   expectedRevision: number;
   approvedByUserId: string;
+  approvalSource?: VoxyStudioReviewApprovalSource;
+  councilArtifactId?: string | null;
 }, deps: VoxyStudioDraftServiceDependencies): Promise<VoxyStudioDraft> {
   const actor = requireActor(input.approvedByUserId);
   const current = await requireDraft(deps.repository, input.draftId);
@@ -546,10 +549,13 @@ export async function approveVoxyStudioDraftForRender(input: {
   }
 
   const timestamp = now(deps);
-  const approval: VoxyStudioHumanApproval = {
+  const approvalSource = input.approvalSource ?? "human";
+  const approval: VoxyStudioReviewApproval = {
+    approvalSource,
     reviewDecisionRecordId: readyAudit.id,
     decisionGateId,
     approvedByUserId: readyAudit.byUserId,
+    councilArtifactId: input.councilArtifactId ?? null,
     approvedAt: readyAudit.at,
     studioDraftRevision: current.revision,
     storyPlanRevision: current.storyPlan.revision,
@@ -575,7 +581,7 @@ export async function approveVoxyStudioDraftForRender(input: {
       byUserId: actor,
       at: timestamp,
       reviewDecisionRecordId: readyAudit.id,
-      note: `Persistierte redaktionelle Renderfreigabe aus Review Queue ${reviewItemId}, revisionsgebunden an ${decisionGateId}; startet keinen Render automatisch.`,
+      note: `Persistierte redaktionelle Renderfreigabe (${approvalSource}) aus Review Queue ${reviewItemId}, revisionsgebunden an ${decisionGateId}; startet keinen Render automatisch.`,
     }),
   );
   return next;
