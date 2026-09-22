@@ -426,14 +426,60 @@ describe("Voxy Studio Draft Service", () => {
 
     expect(approved.status).toBe("approved_for_render");
     expect(approved.renderApproval).toMatchObject({
+      approvalSource: "human",
       reviewDecisionRecordId: "review-queue-audit-voxy-ready",
       decisionGateId: submitted.decisionGateId,
       approvedByUserId: "admin-2",
+      councilArtifactId: null,
       approvedAt: "2026-09-21T19:09:00.000Z",
       studioDraftRevision: draft.revision,
       storyPlanRevision: draft.storyPlan.revision,
     });
     expect(approved.renderBinding).toBeNull();
+  });
+
+  it("persists exact agent-council approval provenance and artifact binding", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    const actor = "agent:voxy-chief-judge:decision-123";
+    markEditorialReady(runtime, draft, actor);
+    const approved = await approveVoxyStudioDraftForRender(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        approvedByUserId: actor,
+        approvalSource: "agent_council",
+        councilArtifactId: "voxy-council-artifact-123",
+      },
+      runtime,
+    );
+
+    expect(approved.status).toBe("approved_for_render");
+    expect(approved.renderApproval).toMatchObject({
+      approvalSource: "agent_council",
+      approvedByUserId: actor,
+      councilArtifactId: "voxy-council-artifact-123",
+      studioDraftRevision: draft.revision,
+      storyPlanRevision: draft.storyPlan.revision,
+    });
+  });
+
+  it("fails closed when agent-council approval has no persisted council artifact binding", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    const actor = "agent:voxy-chief-judge:decision-456";
+    markEditorialReady(runtime, draft, actor);
+
+    await expect(
+      approveVoxyStudioDraftForRender(
+        {
+          draftId: draft.draftId,
+          expectedRevision: draft.revision,
+          approvedByUserId: actor,
+          approvalSource: "agent_council",
+          councilArtifactId: null,
+        },
+        runtime,
+      ),
+    ).rejects.toThrow("agent_council_approval_artifact_invalid");
   });
 
   it("changes the review identity and render gate when the evidence source pack revision changes", async () => {
