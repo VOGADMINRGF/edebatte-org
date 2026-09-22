@@ -1,4 +1,5 @@
 import VoxyStudioOperator from "./VoxyStudioOperator";
+import VoxyStudioPreviewReviewPanel from "./VoxyStudioPreviewReviewPanel";
 import VoxyStudioRenderQueuePanel from "./VoxyStudioRenderQueuePanel";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default function VoxyStudioReviewPage() {
       <h1 className="sr-only">Admin Video Studio</h1>
       <VoxyStudioOperator />
       <VoxyStudioRenderQueuePanel />
+      <VoxyStudioPreviewReviewPanel />
     </>
   );
 }
