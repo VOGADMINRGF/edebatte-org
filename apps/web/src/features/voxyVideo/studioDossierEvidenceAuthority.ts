@@ -8,7 +8,13 @@ import {
   openQuestionsCol,
 } from "@features/dossier/db";
 import type { DossierSourceDoc } from "@features/dossier/schemas";
+import { getReviewQueueOperationsRepository } from "@features/reviewQueueOperations";
 import type { VoxyEditorialEvidenceContext } from "./editorialStoryPlan";
+import {
+  buildVoxyStudioEvidenceSnapshot,
+  isVoxyStudioEvidenceSnapshotApproved,
+  type VoxyStudioEvidenceSnapshot,
+} from "./studioEvidenceReview";
 import type { VoxyStudioEvidenceAuthority } from "./studioDraftService";
 
 function mapSourceType(
@@ -44,9 +50,71 @@ function unboundEvidenceContext(bindingId: string): VoxyEditorialEvidenceContext
   };
 }
 
+async function loadDossierEvidenceDocs(dossierId: string) {
+  const [sources, claims, findings, openQuestions] = await Promise.all([
+    (await dossierSourcesCol())
+      .find({ dossierId })
+      .sort({ publishedAt: -1, _id: 1 })
+      .toArray(),
+    (await dossierClaimsCol())
+      .find({ dossierId })
+      .sort({ _id: 1 })
+      .toArray(),
+    (await dossierFindingsCol())
+      .find({ dossierId })
+      .sort({ _id: 1 })
+      .toArray(),
+    (await openQuestionsCol())
+      .find({ dossierId })
+      .sort({ _id: 1 })
+      .toArray(),
+  ]);
+  return { sources, claims, findings, openQuestions };
+}
+
+export type VoxyStudioDossierEvidenceReviewState = {
+  snapshot: VoxyStudioEvidenceSnapshot;
+  approved: boolean;
+  reviewRecord: Awaited<
+    ReturnType<ReturnType<typeof getReviewQueueOperationsRepository>["getRecord"]>
+  >;
+  persistence: ReturnType<
+    ReturnType<typeof getReviewQueueOperationsRepository>["getPersistenceState"]
+  >;
+};
+
+export async function loadVoxyStudioDossierEvidenceReviewState(
+  dossierId: string,
+): Promise<VoxyStudioDossierEvidenceReviewState> {
+  const normalizedDossierId = String(dossierId ?? "").trim();
+  if (!normalizedDossierId) {
+    throw new Error("voxy_studio_evidence_dossier_id_missing");
+  }
+  const docs = await loadDossierEvidenceDocs(normalizedDossierId);
+  const snapshot = buildVoxyStudioEvidenceSnapshot({
+    dossierId: normalizedDossierId,
+    ...docs,
+  });
+  const reviewRepository = getReviewQueueOperationsRepository();
+  const persistence = reviewRepository.getPersistenceState();
+  const reviewRecord = await reviewRepository.getRecord(snapshot.reviewItemId);
+  return {
+    snapshot,
+    reviewRecord,
+    persistence,
+    approved: isVoxyStudioEvidenceSnapshotApproved({
+      snapshot,
+      reviewRecord,
+      persistenceMode: persistence.mode,
+    }),
+  };
+}
+
 /**
- * Reads existing Dossier truth without promoting it to approved SourcePack truth.
- * A Dossier source proves existence/provenance, not canonical editorial approval.
+ * Reads existing Dossier truth and promotes it to approved SourcePack truth only
+ * when a human review record exists for the exact current evidence fingerprint.
+ * Any source/claim/finding/question change produces a new fingerprint and therefore
+ * invalidates the old evidence approval without mutating the historical review record.
  */
 export async function loadFailClosedDossierStudioEvidenceContext(
   dossierId: string | null,
@@ -56,29 +124,24 @@ export async function loadFailClosedDossierStudioEvidenceContext(
     return unboundEvidenceContext("voxy-studio-unbound");
   }
 
-  const [sources, claims, findings, openQuestions] = await Promise.all([
-    (await dossierSourcesCol())
-      .find({ dossierId: normalizedDossierId })
-      .sort({ publishedAt: -1, _id: 1 })
-      .toArray(),
-    (await dossierClaimsCol())
-      .find({ dossierId: normalizedDossierId })
-      .sort({ _id: 1 })
-      .toArray(),
-    (await dossierFindingsCol())
-      .find({ dossierId: normalizedDossierId })
-      .sort({ _id: 1 })
-      .toArray(),
-    (await openQuestionsCol())
-      .find({ dossierId: normalizedDossierId })
-      .sort({ _id: 1 })
-      .toArray(),
-  ]);
+  const docs = await loadDossierEvidenceDocs(normalizedDossierId);
+  const snapshot = buildVoxyStudioEvidenceSnapshot({
+    dossierId: normalizedDossierId,
+    ...docs,
+  });
+  const reviewRepository = getReviewQueueOperationsRepository();
+  const persistence = reviewRepository.getPersistenceState();
+  const reviewRecord = await reviewRepository.getRecord(snapshot.reviewItemId);
+  const approved = isVoxyStudioEvidenceSnapshotApproved({
+    snapshot,
+    reviewRecord,
+    persistenceMode: persistence.mode,
+  });
 
   return {
     sourcePack: buildCanonicalSourcePack({
-      sourcePackId: `voxy-studio-dossier-readmodel:${normalizedDossierId}`,
-      sources: sources.map((source) => ({
+      sourcePackId: `voxy-studio-dossier:${normalizedDossierId}:${snapshot.fingerprint.slice(0, 40)}`,
+      sources: docs.sources.map((source) => ({
         sourceId: source.sourceId,
         title: source.title,
         url: source.url,
@@ -89,15 +152,17 @@ export async function loadFailClosedDossierStudioEvidenceContext(
         originalSnippet: source.snippet ?? null,
         translatedSnippet: null,
         translationStatus: "not_needed",
-        evidenceState: "source_needed",
-        reviewState: "review_required",
+        evidenceState: approved ? "supported" : "source_needed",
+        reviewState: approved ? "approved" : "review_required",
       })),
-      openGaps: ["canonical_source_pack_review_state_not_owned_by_dossier_store"],
-      reviewState: "review_required",
+      openGaps: approved
+        ? []
+        : ["exact_dossier_evidence_snapshot_human_review_required"],
+      reviewState: approved ? "approved" : "review_required",
     }),
-    claims,
-    findings,
-    openQuestions,
+    claims: docs.claims,
+    findings: docs.findings,
+    openQuestions: docs.openQuestions,
   };
 }
 
