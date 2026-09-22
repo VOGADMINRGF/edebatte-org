@@ -2,6 +2,7 @@ import VoxyStudioAgentReviewPanel from "./VoxyStudioAgentReviewPanel";
 import VoxyStudioAutonomyPanel from "./VoxyStudioAutonomyPanel";
 import VoxyStudioEvidenceReviewPanel from "./VoxyStudioEvidenceReviewPanel";
 import VoxyStudioFineTunePanel from "./VoxyStudioFineTunePanel";
+import VoxyStudioFramePreviewPanel from "./VoxyStudioFramePreviewPanel";
 import VoxyStudioLocaleReviewMatrixPanel from "./VoxyStudioLocaleReviewMatrixPanel";
 import VoxyStudioOperator from "./VoxyStudioOperator";
 import VoxyStudioPreviewReviewPanel from "./VoxyStudioPreviewReviewPanel";
@@ -27,6 +28,7 @@ export default function VoxyStudioReviewPage() {
       <VoxyStudioEvidenceReviewPanel />
       <VoxyStudioSourceBindingPanel />
       <VoxyStudioFineTunePanel />
+      <VoxyStudioFramePreviewPanel />
       <VoxyStudioRenderQueuePanel />
       <VoxyStudioPreviewReviewPanel />
     </>
