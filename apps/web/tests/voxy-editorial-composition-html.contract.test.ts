@@ -109,4 +109,33 @@ describe("Voxy editorial final-canon composition adapter", () => {
     expect(html).toContain("source-1");
     expect(html).toContain('data-evidence-window-kind="source"');
   });
+
+  it("can hide the evidence card presentation without deleting bound evidence refs", () => {
+    const hiddenPlan = plan();
+    hiddenPlan.chapters[0]!.evidenceWindow.visible = false;
+    const html = renderVoxyEditorialCompositionFrameHtml({
+      plan: hiddenPlan,
+      timeline: timeline(),
+      captions: [
+        {
+          id: "caption-1",
+          startMs: 0,
+          endMs: 120_000,
+          text: "Der Ausgangspunkt bleibt nachvollziehbar.",
+        },
+      ],
+      assets,
+      format: "16:9",
+      frameIndex: 24,
+      amplitude: 0.4,
+    });
+
+    expect(hiddenPlan.chapters[0]?.sourceIds).toEqual(["source-1"]);
+    expect(hiddenPlan.chapters[0]?.findingIds).toEqual(["finding-1"]);
+    expect(hiddenPlan.chapters[0]?.evidenceWindow.sourceIds).toEqual(["source-1"]);
+    expect(hiddenPlan.chapters[0]?.evidenceWindow.findingIds).toEqual(["finding-1"]);
+    expect(html).not.toContain('class="editorial-source-window"');
+    expect(html).not.toContain('data-evidence-window-kind="source"');
+    expect(html).toContain('data-editorial-runtime="editorial_v1"');
+  });
 });
