@@ -7,5 +7,10 @@ export const metadata = {
 };
 
 export default function VoxyStudioReviewPage() {
-  return <VoxyStudioOperator />;
+  return (
+    <>
+      <h1 className="sr-only">Admin Video Studio</h1>
+      <VoxyStudioOperator />
+    </>
+  );
 }
