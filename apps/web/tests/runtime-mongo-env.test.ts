@@ -5,6 +5,7 @@ import {
   resolveMongoUriForZone,
 } from "@/lib/server/env/runtimeMongo";
 import { classifyMongoRuntimeError } from "@/lib/server/env/runtimeMongoErrors";
+import { validateProductionMongoTopology } from "@core/db/triMongo";
 
 describe("runtime mongo env aliases", () => {
   it("prefers core-specific env keys over legacy keys", () => {
@@ -68,6 +69,43 @@ describe("runtime mongo env aliases", () => {
     expect(resolveMongoUriForZone("core", source)).toBe("mongodb://core-uri");
     expect(resolveMongoUriForZone("votes", source)).toBe("mongodb://votes-uri");
     expect(resolveMongoUriForZone("pii", source)).toBe("mongodb://legacy-uri");
+  });
+});
+
+describe("production mongo topology", () => {
+  const isolated = {
+    CORE_MONGODB_URI: "mongodb+srv://core:secret@edb-core.example/core",
+    CORE_DB_NAME: "edebatte_core",
+    VOTES_MONGODB_URI: "mongodb+srv://votes:secret@edb-votes.example/votes",
+    VOTES_DB_NAME: "edebatte_votes",
+    PII_MONGODB_URI: "mongodb+srv://pii:secret@edb-pii.example/pii",
+    PII_DB_NAME: "edebatte_pii",
+  };
+
+  it("accepts three physically separate cluster hosts", () => {
+    expect(validateProductionMongoTopology(isolated)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("rejects two zones sharing one production cluster host", () => {
+    const result = validateProductionMongoTopology({
+      ...isolated,
+      PII_MONGODB_URI: "mongodb+srv://pii:other@edb-core.example/pii",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "pii and core must use different production MongoDB cluster hosts",
+    );
+  });
+
+  it("rejects ambiguous database names across zones", () => {
+    const result = validateProductionMongoTopology({
+      ...isolated,
+      PII_DB_NAME: "edebatte_core",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "PII_DB_NAME must be distinct from the core database name in production",
+    );
   });
 });
 
