@@ -17,7 +17,10 @@ export type VoxyLocalCompositionPersistenceState = {
 };
 
 export type VoxyLocalCompositionRepository = {
-  createOrGetJob(job: VoxyLocalCompositionJob): Promise<VoxyLocalCompositionJob>;
+  createOrGetJob(
+    job: VoxyLocalCompositionJob,
+    request?: VoxyLocalCompositionRequest,
+  ): Promise<VoxyLocalCompositionJob>;
   getJob(jobId: string): Promise<VoxyLocalCompositionJob | null>;
   listJobsByStatus(
     status: VoxyLocalCompositionStatus,
@@ -92,6 +95,22 @@ function assertRequestSnapshot(input: {
   }
 }
 
+function assertExistingSnapshot(input: {
+  requestRecord: unknown;
+  requestInputFingerprint: unknown;
+  expectedFingerprint: string;
+}) {
+  if (
+    input.requestInputFingerprint !== input.expectedFingerprint ||
+    !input.requestRecord ||
+    buildVoxyLocalCompositionInputFingerprint(
+      input.requestRecord as VoxyLocalCompositionRequest,
+    ) !== input.expectedFingerprint
+  ) {
+    throw new Error("voxy_local_composition_request_snapshot_immutable_conflict");
+  }
+}
+
 async function ensureIndexes() {
   if (indexesReady || shouldUseInMemoryMongoFallback()) return;
   const [jobs, outputs] = await Promise.all([
@@ -118,8 +137,15 @@ async function ensureIndexes() {
 
 function createMongoRepository(): VoxyLocalCompositionRepository {
   return {
-    async createOrGetJob(job) {
+    async createOrGetJob(job, request) {
       await ensureIndexes();
+      if (request) {
+        assertRequestSnapshot({
+          job,
+          request,
+          inputFingerprint: job.inputFingerprint,
+        });
+      }
       const col = await coreCol<any>(JOBS_COLLECTION);
       await col.updateOne(
         { _id: job.jobId },
@@ -140,11 +166,36 @@ function createMongoRepository(): VoxyLocalCompositionRepository {
             reviewBindingHash: job.reviewBindingHash,
             updatedAt: job.updatedAt,
             record: clone(job),
+            ...(request
+              ? {
+                  requestInputFingerprint: job.inputFingerprint,
+                  requestRecord: clone(request),
+                }
+              : {}),
           } as any,
         },
         { upsert: true },
       );
-      const doc = await col.findOne({ _id: job.jobId });
+      let doc = await col.findOne({ _id: job.jobId });
+      if (request && !doc?.requestRecord) {
+        await col.updateOne(
+          { _id: job.jobId, requestRecord: { $exists: false } },
+          {
+            $set: {
+              requestInputFingerprint: job.inputFingerprint,
+              requestRecord: clone(request),
+            } as any,
+          },
+        );
+        doc = await col.findOne({ _id: job.jobId });
+      }
+      if (request) {
+        assertExistingSnapshot({
+          requestRecord: doc?.requestRecord,
+          requestInputFingerprint: doc?.requestInputFingerprint,
+          expectedFingerprint: job.inputFingerprint,
+        });
+      }
       return clone((doc?.record ?? job) as VoxyLocalCompositionJob);
     },
     async getJob(jobId) {
@@ -173,14 +224,11 @@ function createMongoRepository(): VoxyLocalCompositionRepository {
       const job = clone(doc.record as VoxyLocalCompositionJob);
       assertRequestSnapshot({ ...input, job });
       if (doc.requestRecord) {
-        if (
-          doc.requestInputFingerprint !== input.inputFingerprint ||
-          buildVoxyLocalCompositionInputFingerprint(
-            doc.requestRecord as VoxyLocalCompositionRequest,
-          ) !== input.inputFingerprint
-        ) {
-          throw new Error("voxy_local_composition_request_snapshot_immutable_conflict");
-        }
+        assertExistingSnapshot({
+          requestRecord: doc.requestRecord,
+          requestInputFingerprint: doc.requestInputFingerprint,
+          expectedFingerprint: input.inputFingerprint,
+        });
         return;
       }
       const update = await col.updateOne(
@@ -194,15 +242,11 @@ function createMongoRepository(): VoxyLocalCompositionRepository {
       );
       if (update.modifiedCount === 1) return;
       const raced = await col.findOne({ _id: input.jobId });
-      if (
-        raced?.requestInputFingerprint !== input.inputFingerprint ||
-        !raced?.requestRecord ||
-        buildVoxyLocalCompositionInputFingerprint(
-          raced.requestRecord as VoxyLocalCompositionRequest,
-        ) !== input.inputFingerprint
-      ) {
-        throw new Error("voxy_local_composition_request_snapshot_immutable_conflict");
-      }
+      assertExistingSnapshot({
+        requestRecord: raced?.requestRecord,
+        requestInputFingerprint: raced?.requestInputFingerprint,
+        expectedFingerprint: input.inputFingerprint,
+      });
     },
     async getRequestSnapshot(jobId) {
       await ensureIndexes();
@@ -276,10 +320,33 @@ export function createInMemoryVoxyLocalCompositionRepository(seed?: {
     requestSnapshots.set(snapshot.jobId, clone(snapshot.request));
   }
   return {
-    async createOrGetJob(job) {
+    async createOrGetJob(job, request) {
+      if (request) {
+        assertRequestSnapshot({
+          job,
+          request,
+          inputFingerprint: job.inputFingerprint,
+        });
+      }
       const existing = jobs.get(job.jobId);
-      if (existing) return clone(existing);
+      if (existing) {
+        if (request) {
+          const existingRequest = requestSnapshots.get(job.jobId);
+          if (existingRequest) {
+            assertExistingSnapshot({
+              requestRecord: existingRequest,
+              requestInputFingerprint:
+                buildVoxyLocalCompositionInputFingerprint(existingRequest),
+              expectedFingerprint: job.inputFingerprint,
+            });
+          } else {
+            requestSnapshots.set(job.jobId, clone(request));
+          }
+        }
+        return clone(existing);
+      }
       jobs.set(job.jobId, clone(job));
+      if (request) requestSnapshots.set(job.jobId, clone(request));
       return clone(job);
     },
     async getJob(jobId) {
@@ -302,11 +369,11 @@ export function createInMemoryVoxyLocalCompositionRepository(seed?: {
       assertRequestSnapshot({ ...input, job });
       const existing = requestSnapshots.get(input.jobId);
       if (existing) {
-        if (
-          buildVoxyLocalCompositionInputFingerprint(existing) !== input.inputFingerprint
-        ) {
-          throw new Error("voxy_local_composition_request_snapshot_immutable_conflict");
-        }
+        assertExistingSnapshot({
+          requestRecord: existing,
+          requestInputFingerprint: buildVoxyLocalCompositionInputFingerprint(existing),
+          expectedFingerprint: input.inputFingerprint,
+        });
         return;
       }
       requestSnapshots.set(input.jobId, clone(input.request));
