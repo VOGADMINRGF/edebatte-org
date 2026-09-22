@@ -94,9 +94,11 @@ function studioDraft(): VoxyStudioDraft {
     captionAdjustments: [],
     status: "approved_for_render",
     renderApproval: {
+      approvalSource: "human",
       reviewDecisionRecordId: "review-audit-1",
       decisionGateId: DECISION_GATE_ID,
       approvedByUserId: "admin-1",
+      councilArtifactId: null,
       approvedAt: "2026-09-22T10:00:00.000Z",
       studioDraftRevision: 4,
       storyPlanRevision: 3,
@@ -270,6 +272,34 @@ describe("Voxy Studio immutable render binding", () => {
         output,
       }),
     ).toContain("studio_render_draft_revision_binding_mismatch");
+  });
+
+  it("rejects a render snapshot whose approval provenance no longer matches the draft", () => {
+    const { draft, handoff, job, output } = candidate();
+    const changedApprovalDraft: VoxyStudioDraft = {
+      ...draft,
+      renderApproval: {
+        ...draft.renderApproval!,
+        approvalSource: "agent_council",
+        approvedByUserId: "agent:voxy-chief-judge:decision-new",
+        councilArtifactId: "voxy-council-artifact-new",
+      },
+    };
+    expect(
+      validateVoxyStudioImmutableEditorialBinding({
+        draft: changedApprovalDraft,
+        evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+        currentDecisionGateId: DECISION_GATE_ID,
+        request: handoff.request,
+        job,
+        output,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "studio_render_approval_source_binding_mismatch",
+        "studio_render_council_artifact_binding_mismatch",
+      ]),
+    );
   });
 
   it("fails closed when the immutable request snapshot is unavailable", () => {
