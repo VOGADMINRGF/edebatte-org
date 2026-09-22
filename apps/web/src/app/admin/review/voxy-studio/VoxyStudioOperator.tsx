@@ -154,6 +154,77 @@ export default function VoxyStudioOperator() {
     }
   }
 
+  async function saveDraft(item: StudioItem, form: HTMLFormElement) {
+    if (busy) return;
+    const formData = new FormData(form);
+    const title = String(formData.get("title") ?? "").trim();
+    const selectedFormat = String(formData.get("selectedFormat") ?? "").trim();
+    const safeZoneProfile = String(formData.get("safeZoneProfile") ?? "").trim();
+    const body: Record<string, unknown> = { expectedRevision: item.draft.revision };
+
+    if (title !== item.draft.title) body.title = title;
+    if (selectedFormat !== item.draft.selectedFormat) body.selectedFormat = selectedFormat;
+    if (safeZoneProfile !== item.draft.safeZoneProfile) body.safeZoneProfile = safeZoneProfile;
+
+    const chapterUpdates = item.draft.storyPlan.chapters.flatMap((chapter) => {
+      const headline = String(formData.get(`headline:${chapter.chapterId}`) ?? "").trim();
+      const narration = String(formData.get(`narration:${chapter.chapterId}`) ?? "").trim();
+      const update: { chapterId: string; headline?: string; narration?: string } = {
+        chapterId: chapter.chapterId,
+      };
+      if (headline !== chapter.headline) update.headline = headline;
+      if (narration !== chapter.narration) update.narration = narration;
+      return update.headline !== undefined || update.narration !== undefined ? [update] : [];
+    });
+    if (chapterUpdates.length) body.chapterUpdates = chapterUpdates;
+
+    const ordering = item.draft.storyPlan.chapters.map((chapter, index) => ({
+      chapterId: chapter.chapterId,
+      order: Number(formData.get(`order:${chapter.chapterId}`) ?? index + 1),
+    }));
+    if (
+      ordering.some((entry) => !Number.isInteger(entry.order) || entry.order < 1) ||
+      new Set(ordering.map((entry) => entry.order)).size !== ordering.length
+    ) {
+      setError("Die Kapitelreihenfolge muss aus eindeutigen positiven Positionsnummern bestehen.");
+      return;
+    }
+    const chapterOrder = [...ordering]
+      .sort((left, right) => left.order - right.order)
+      .map((entry) => entry.chapterId);
+    const currentOrder = item.draft.storyPlan.chapters.map((chapter) => chapter.chapterId);
+    if (chapterOrder.some((chapterId, index) => chapterId !== currentOrder[index])) {
+      body.chapterOrder = chapterOrder;
+    }
+
+    if (Object.keys(body).length === 1) {
+      setError("Keine Änderungen zum Speichern vorhanden.");
+      return;
+    }
+
+    setBusy(`${item.draft.draftId}:save`);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/admin/voxy-studio/${encodeURIComponent(item.draft.draftId)}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || "voxy_studio_edit_failed");
+      }
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "voxy_studio_edit_failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function reviewAction(
     item: StudioItem,
     action: "submit_for_review" | "mark_in_review" | "request_changes" | "mark_ready",
@@ -339,6 +410,107 @@ export default function VoxyStudioOperator() {
                   Review: {item.reviewRecord?.operationalStatus ?? "noch nicht eröffnet"}
                 </div>
               </div>
+
+              <form
+                className="space-y-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveDraft(item, event.currentTarget);
+                }}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-[rgb(var(--fg))]">Begrenzte Korrekturen</p>
+                    <p className="mt-1 text-xs leading-5 text-[rgb(var(--muted))]">
+                      Jede echte Änderung erzeugt eine neue Draft-Revision. Bereits vorhandene Render-/Publish-Freigaben und Renderbindungen werden dabei ungültig.
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={itemBusy}
+                    className="rounded-full border border-sky-400 px-4 py-2 text-sm font-semibold text-sky-900 disabled:opacity-40 dark:text-sky-100"
+                  >
+                    {busy === `${draft.draftId}:save` ? "Speichert …" : "Änderungen speichern"}
+                  </button>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="space-y-1 text-xs text-[rgb(var(--muted))] md:col-span-1">
+                    <span>Arbeitstitel</span>
+                    <input
+                      name="title"
+                      defaultValue={draft.title}
+                      maxLength={240}
+                      required
+                      className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--fg))]"
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs text-[rgb(var(--muted))]">
+                    <span>Zielformat</span>
+                    <select
+                      name="selectedFormat"
+                      defaultValue={draft.selectedFormat}
+                      className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--fg))]"
+                    >
+                      {VOXY_VIDEO_FORMATS.map((format) => (
+                        <option key={format} value={format}>{format}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1 text-xs text-[rgb(var(--muted))]">
+                    <span>Safe-Zone</span>
+                    <select
+                      name="safeZoneProfile"
+                      defaultValue={draft.safeZoneProfile}
+                      className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--fg))]"
+                    >
+                      {VOXY_STUDIO_SAFE_ZONE_PROFILES.map((profile) => (
+                        <option key={profile} value={profile}>{profile}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  {draft.storyPlan.chapters.map((chapter, index) => (
+                    <fieldset key={chapter.chapterId} className="grid gap-2 rounded-lg border border-[rgb(var(--border))] p-3 md:grid-cols-[72px_1fr]">
+                      <label className="space-y-1 text-xs text-[rgb(var(--muted))]">
+                        <span>Position</span>
+                        <input
+                          name={`order:${chapter.chapterId}`}
+                          type="number"
+                          min={1}
+                          max={draft.storyPlan.chapters.length}
+                          step={1}
+                          defaultValue={index + 1}
+                          className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-2 py-2 text-sm text-[rgb(var(--fg))]"
+                        />
+                      </label>
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">{compactReason(chapter.role)}</p>
+                        <input
+                          name={`headline:${chapter.chapterId}`}
+                          defaultValue={chapter.headline}
+                          maxLength={180}
+                          required
+                          className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm font-semibold text-[rgb(var(--fg))]"
+                        />
+                        <textarea
+                          name={`narration:${chapter.chapterId}`}
+                          defaultValue={chapter.narration}
+                          rows={3}
+                          maxLength={2400}
+                          required
+                          className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm leading-5 text-[rgb(var(--fg))]"
+                        />
+                        <p className="text-xs text-[rgb(var(--muted))]">
+                          Quellen {chapter.sourceIds.length} · offene Fragen {chapter.openQuestionIds.length}
+                        </p>
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              </form>
 
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
