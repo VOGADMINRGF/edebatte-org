@@ -45,6 +45,7 @@ on:
       - "apps/web/tests/voxy-studio-dossier-auto-intake.contract.test.ts"
       - "apps/web/tests/voxy-studio-draft-service.contract.test.ts"
       - "apps/web/tests/voxy-studio-immutable-render-binding.contract.test.ts"
+      - "apps/web/tests/voxy-studio-layout-approval.contract.test.ts"
       - "apps/web/tests/voxy-studio-layout-safety.contract.test.ts"
       - "apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts"
       - "apps/web/tests/voxy-studio-operator-edit.contract.test.ts"
@@ -86,7 +87,7 @@ jobs:
       - name: Runtime, editorial-canon and Studio contract tests
         run: |
           pnpm -C apps/web run test:voxy-local-composition-runtime
-          pnpm -C apps/web exec vitest run tests/voxy-editorial-composition-html.contract.test.ts tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-layout-safety.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-studio-production-context.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
+          pnpm -C apps/web exec vitest run tests/voxy-editorial-composition-html.contract.test.ts tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-layout-approval.contract.test.ts tests/voxy-studio-layout-safety.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-studio-production-context.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
 
       - name: Typecheck and diff guard
         run: |
