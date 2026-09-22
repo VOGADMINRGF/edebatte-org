@@ -103,7 +103,7 @@ describe("Voxy editorial final-canon composition adapter", () => {
     expect(html).toContain(`data-final-canon-reference-head="${VOXY_FINAL_CANON.referenceRenderHeadSha}"`);
     expect(html).toContain('data-head-layer="canonical-alpha-head"');
     expect(html).toContain('data-head-alpha-outside-contribution="0"');
-    expect(html).toContain('class="canonical-body-master');
+    expect(html).toContain('data-body-layer="canonical-master-with-static-head-removed"');
     expect(html).not.toContain('class="motion-plate neck-plate"');
     expect(html).not.toContain("voxy-standing-master.svg");
     expect(html).toContain("source-1");
