@@ -10,12 +10,10 @@ import {
 } from "@/features/voxyVideo/editorialStoryPlan";
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
-import {
-  VOXY_STUDIO_SAFE_ZONE_PROFILES,
-  buildVoxyStudioRenderReviewGateId,
-} from "@/features/voxyVideo/studioDraft";
+import { VOXY_STUDIO_SAFE_ZONE_PROFILES } from "@/features/voxyVideo/studioDraft";
 import {
   buildVoxyStudioEditorialReviewItemId,
+  buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createDefaultVoxyStudioServiceDependencies,
   editVoxyStudioDraft,
 } from "@/features/voxyVideo/studioDraftService";
@@ -135,13 +133,21 @@ export async function PATCH(
     );
     const evidence = await evidenceAuthority.resolveEvidenceContext(draft);
     const validation = validateVoxyEditorialStoryPlan(draft.storyPlan, evidence);
+    const evidenceSourcePackId = evidence.sourcePack.sourcePackId;
 
     return NextResponse.json({
       ok: true,
       draft,
       validation,
-      reviewItemId: buildVoxyStudioEditorialReviewItemId(draft),
-      decisionGateId: buildVoxyStudioRenderReviewGateId(draft),
+      evidenceSourcePackId,
+      reviewItemId: buildVoxyStudioEditorialReviewItemId(
+        draft,
+        evidenceSourcePackId,
+      ),
+      decisionGateId: buildVoxyStudioEvidenceBoundRenderReviewGateId(
+        draft,
+        evidenceSourcePackId,
+      ),
       approvalsInvalidated: true,
       renderBindingInvalidated: true,
       uploadTriggered: false,
