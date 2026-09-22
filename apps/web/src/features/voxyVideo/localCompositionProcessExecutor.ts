@@ -19,7 +19,14 @@ export function createVoxyLocalCompositionProcessExecutor(
 ): VoxyLocalCompositionExecutor {
   const webRoot = resolve(options.webRoot);
   const outputRoot = resolve(options.outputRoot);
-  const timeoutMs = Math.max(30_000, Math.min(300_000, options.timeoutMs ?? 180_000));
+  // The historical 8-second fixture fit inside a five-minute parent timeout.
+  // Editorial compositions can be 2–30 minutes and render frame-by-frame, so
+  // the parent process must not kill a valid local render merely because it is
+  // longform. The worker still owns its own ffmpeg/file-size/integrity gates.
+  const timeoutMs = Math.max(
+    30_000,
+    Math.min(14_400_000, options.timeoutMs ?? 3_600_000),
+  );
 
   return {
     async execute(input) {

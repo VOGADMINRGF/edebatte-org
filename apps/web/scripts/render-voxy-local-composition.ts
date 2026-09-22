@@ -19,6 +19,8 @@ import {
   type VoxyCharacterMotionFixturePlan,
 } from "../src/features/voxyVideo/characterMotionFixture";
 import { renderVoxyCharacterMotionFixtureHtml } from "../src/features/voxyVideo/characterMotionFixtureHtml";
+import { loadVoxyEditorialCompositionEmbeddedAssets } from "../src/features/voxyVideo/editorialCompositionAssets.server";
+import { renderVoxyEditorialCompositionFrameHtml } from "../src/features/voxyVideo/editorialCompositionHtml";
 import {
   assertVoxyFinalCanonBinding,
   finalVoxyCanonBinding,
@@ -28,6 +30,8 @@ import {
   buildVoxyLocalCompositionInputFingerprint,
   buildVoxyLocalCompositionReviewBindingHash,
   buildVoxyLocalCompositionTimelineHash,
+  getVoxyLocalCompositionDimensions,
+  resolveVoxyLocalCompositionDurationMs,
   validateVoxyLocalCompositionAudioAsset,
   validateVoxyLocalCompositionOutput,
   validateVoxyLocalCompositionRequest,
@@ -43,6 +47,7 @@ assertVoxyFinalCanonBinding(finalVoxyCanonBinding());
 
 const MAX_OUTPUT_BYTES = 250_000_000;
 const COMMAND_TIMEOUT_MS = 120_000;
+const FPS = 24;
 
 type WorkerManifest = {
   job: VoxyLocalCompositionJob;
@@ -112,6 +117,49 @@ async function embeddedSvgDataUrl(path: string): Promise<string> {
   const content = await readFile(path, "utf8");
   if (!content.includes("<svg")) throw new Error("voxy_svg_master_invalid");
   return `data:image/svg+xml;base64,${Buffer.from(content).toString("base64")}`;
+}
+
+function audioLevelsFromWav(buffer: Buffer, fps: number): number[] {
+  if (
+    buffer.toString("ascii", 0, 4) !== "RIFF" ||
+    buffer.toString("ascii", 8, 12) !== "WAVE"
+  ) {
+    throw new Error("editorial_audio_analysis_wav_invalid");
+  }
+  const fmtMarker = buffer.indexOf(Buffer.from("fmt "));
+  const dataMarker = buffer.indexOf(Buffer.from("data"));
+  if (fmtMarker < 0 || dataMarker < 0) throw new Error("editorial_audio_analysis_chunks_missing");
+  const channels = buffer.readUInt16LE(fmtMarker + 10);
+  const sampleRate = buffer.readUInt32LE(fmtMarker + 12);
+  const bits = buffer.readUInt16LE(fmtMarker + 22);
+  if (channels !== 1 || bits !== 16) throw new Error("editorial_audio_analysis_pcm_invalid");
+  const dataStart = dataMarker + 8;
+  const sampleCount = Math.floor((buffer.length - dataStart) / 2);
+  const frameCount = Math.ceil((sampleCount * fps) / sampleRate);
+  const rms: number[] = [];
+  const halfWindow = Math.round(sampleRate * 0.045);
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const center = Math.round((frame * sampleRate) / fps);
+    const start = Math.max(0, center - halfWindow);
+    const end = Math.min(sampleCount, center + halfWindow);
+    let sum = 0;
+    for (let index = start; index < end; index += 1) {
+      const sample = buffer.readInt16LE(dataStart + index * 2) / 32768;
+      sum += sample * sample;
+    }
+    rms.push(Math.sqrt(sum / Math.max(1, end - start)));
+  }
+  const sorted = [...rms].sort((a, b) => a - b);
+  const reference = sorted[Math.floor(sorted.length * 0.95)] ?? 0.001;
+  let smoothed = 0;
+  return rms.map((value) => {
+    const gated = value < 0.006 ? 0 : Math.min(1, value / Math.max(reference, 0.001));
+    smoothed =
+      gated > smoothed
+        ? smoothed * 0.35 + gated * 0.65
+        : smoothed * 0.62 + gated * 0.38;
+    return Math.round(smoothed * 20) / 20;
+  });
 }
 
 function timestampVtt(ms: number): string {
@@ -186,6 +234,7 @@ async function mediaFile(input: {
   requireVideo?: boolean;
   expectedWidth?: number;
   expectedHeight?: number;
+  expectedDurationMs?: number;
   requireAudio?: boolean;
   requireSubtitle?: boolean;
 }): Promise<VoxyLocalCompositionMediaFile> {
@@ -207,7 +256,11 @@ async function mediaFile(input: {
     if (width !== input.expectedWidth || height !== input.expectedHeight) {
       throw new Error("rendered_file_dimensions_invalid");
     }
-    if (!Number.isFinite(durationMs) || Math.abs(durationMs - 8_000) > 650) {
+    if (
+      !Number.isFinite(durationMs) ||
+      !Number.isFinite(input.expectedDurationMs) ||
+      Math.abs(durationMs - Number(input.expectedDurationMs)) > 650
+    ) {
       throw new Error("rendered_file_duration_invalid");
     }
     if (input.requireAudio && !hasAudio) throw new Error("rendered_file_audio_stream_missing");
@@ -242,6 +295,7 @@ async function recoverExistingOutput(input: {
   job: VoxyLocalCompositionJob;
   width: number;
   height: number;
+  expectedDurationMs: number;
 }): Promise<VoxyLocalCompositionExecutionResult | null> {
   try {
     const directoryStat = await stat(input.finalDirectory);
@@ -290,6 +344,7 @@ async function recoverExistingOutput(input: {
     requireVideo: true,
     expectedWidth: input.width,
     expectedHeight: input.height,
+    expectedDurationMs: input.expectedDurationMs,
     requireAudio: true,
     requireSubtitle: true,
   });
@@ -300,6 +355,7 @@ async function recoverExistingOutput(input: {
     requireVideo: true,
     expectedWidth: input.width,
     expectedHeight: input.height,
+    expectedDurationMs: input.expectedDurationMs,
     requireAudio: true,
     requireSubtitle: true,
   });
@@ -340,8 +396,11 @@ async function main(): Promise<void> {
   const manifestPath = resolve(process.cwd(), manifestArg);
   const outputRoot = resolve(process.cwd(), outputRootArg);
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as WorkerManifest;
+  const expectedDurationMs = resolveVoxyLocalCompositionDurationMs(manifest.request);
   const requestErrors = validateVoxyLocalCompositionRequest(manifest.request);
-  const audioErrors = validateVoxyLocalCompositionAudioAsset(manifest.audioAsset);
+  const audioErrors = validateVoxyLocalCompositionAudioAsset(manifest.audioAsset, {
+    expectedDurationMs,
+  });
   if (requestErrors.length || audioErrors.length) {
     throw new Error(`worker_manifest_invalid:${[...requestErrors, ...audioErrors].join(",")}`);
   }
@@ -356,11 +415,14 @@ async function main(): Promise<void> {
     manifest.job.scriptVersion !== manifest.request.scriptVersion ||
     manifest.job.audioAssetId !== manifest.audioAsset.assetId ||
     manifest.job.format !== manifest.request.format ||
+    manifest.job.renderProfile !== manifest.request.renderProfile ||
     manifest.job.locale !== manifest.request.locale.toLowerCase() ||
     manifest.job.identityKey !== buildVoxyLocalCompositionIdentityKey(manifest.request) ||
     manifest.job.inputFingerprint !== buildVoxyLocalCompositionInputFingerprint(manifest.request) ||
     manifest.job.timelineHash !== buildVoxyLocalCompositionTimelineHash(manifest.request) ||
     manifest.job.reviewBindingHash !== expectedReviewBindingHash ||
+    (manifest.job.durationMs !== undefined && manifest.job.durationMs !== expectedDurationMs) ||
+    (manifest.job.renderProfile === "editorial_v1" && manifest.job.durationMs !== expectedDurationMs) ||
     !manifest.job.previewReviewFlowId ||
     !manifest.job.decisionGateId
   ) {
@@ -374,19 +436,48 @@ async function main(): Promise<void> {
   }
   const audioProbe = probe(audioPath);
   const audioDurationMs = Math.round(Number(audioProbe.format?.duration ?? 0) * 1_000);
-  if (!Number.isFinite(audioDurationMs) || Math.abs(audioDurationMs - manifest.audioAsset.durationMs) > 200) {
+  if (
+    !Number.isFinite(audioDurationMs) ||
+    Math.abs(audioDurationMs - manifest.audioAsset.durationMs) > 200 ||
+    Math.abs(audioDurationMs - expectedDurationMs) > 600
+  ) {
     throw new Error("audio_duration_metadata_mismatch");
   }
 
-  const plan = buildRuntimePlan(manifest.request);
-  const planValidation = validateVoxyCharacterMotionFixturePlan(plan);
-  if (!planValidation.ok) throw new Error(`runtime_plan_invalid:${planValidation.errors.join(",")}`);
-
   const webRoot = resolve(import.meta.dirname, "..");
-  const studioPath = publicAssetPath(webRoot, plan.studioAssetPath);
-  const characterPath = publicAssetPath(webRoot, plan.characterAssetPath);
-  const embeddedStudioAssetUrl = await embeddedSvgDataUrl(studioPath);
-  const embeddedCharacterSvg = await readFile(characterPath, "utf8");
+  const repositoryRoot = resolve(webRoot, "../..");
+  const legacyPlan =
+    manifest.request.renderProfile === "local_review_v1"
+      ? buildRuntimePlan(manifest.request)
+      : null;
+  if (legacyPlan) {
+    const planValidation = validateVoxyCharacterMotionFixturePlan(legacyPlan);
+    if (!planValidation.ok) {
+      throw new Error(`runtime_plan_invalid:${planValidation.errors.join(",")}`);
+    }
+  }
+  if (
+    manifest.request.renderProfile === "editorial_v1" &&
+    (!manifest.request.editorialStoryPlan || !manifest.request.editorialTimeline)
+  ) {
+    throw new Error("editorial_runtime_plan_missing");
+  }
+
+  const dimensions = getVoxyLocalCompositionDimensions(
+    manifest.request.format,
+    manifest.request.renderProfile,
+  );
+  const embeddedStudioAssetUrl = legacyPlan
+    ? await embeddedSvgDataUrl(publicAssetPath(webRoot, legacyPlan.studioAssetPath))
+    : null;
+  const embeddedCharacterSvg = legacyPlan
+    ? await readFile(publicAssetPath(webRoot, legacyPlan.characterAssetPath), "utf8")
+    : null;
+  const editorialAssets =
+    manifest.request.renderProfile === "editorial_v1"
+      ? await loadVoxyEditorialCompositionEmbeddedAssets(repositoryRoot)
+      : null;
+
   const finalSegment = sanitizeDirectorySegment(manifest.job.jobId);
   const finalDirectory = resolve(outputRoot, finalSegment);
   const relativeFinal = relative(outputRoot, finalDirectory);
@@ -398,8 +489,9 @@ async function main(): Promise<void> {
     finalDirectory,
     finalSegment,
     job: manifest.job,
-    width: plan.width,
-    height: plan.height,
+    width: dimensions.width,
+    height: dimensions.height,
+    expectedDurationMs,
   });
   if (recovered) {
     console.log(JSON.stringify(recovered));
@@ -412,6 +504,7 @@ async function main(): Promise<void> {
   const captionsSrtPath = join(stagingDirectory, "captions.srt");
   const masterPath = join(stagingDirectory, "master.mp4");
   const previewPath = join(stagingDirectory, "preview.webm");
+  const analysisWavPath = join(stagingDirectory, "editorial-analysis.wav");
   await mkdir(framesDirectory, { recursive: true });
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
@@ -419,12 +512,27 @@ async function main(): Promise<void> {
     await writeFile(captionsVttPath, buildVtt(manifest.request), "utf8");
     await writeFile(captionsSrtPath, buildSrt(manifest.request), "utf8");
 
+    let editorialLevels: number[] = [];
+    if (manifest.request.renderProfile === "editorial_v1") {
+      run("ffmpeg", [
+        "-y",
+        "-i", audioPath,
+        "-vn",
+        "-ac", "1",
+        "-ar", "48000",
+        "-c:a", "pcm_s16le",
+        analysisWavPath,
+      ]);
+      editorialLevels = audioLevelsFromWav(await readFile(analysisWavPath), FPS);
+      await rm(analysisWavPath, { force: true });
+    }
+
     browser = await chromium.launch({
       headless: true,
       args: typeof process.getuid === "function" && process.getuid() === 0 ? ["--no-sandbox"] : [],
     });
     const context = await browser.newContext({
-      viewport: { width: plan.width, height: plan.height },
+      viewport: { width: dimensions.width, height: dimensions.height },
       reducedMotion: "no-preference",
     });
     const page = await context.newPage();
@@ -432,22 +540,52 @@ async function main(): Promise<void> {
     page.on("request", (request) => {
       if (/^https?:/i.test(request.url())) externalRequests.push(request.url());
     });
-    const frameCount = Math.round((plan.durationMs / 1_000) * plan.fps);
+    const frameCount = Math.round((expectedDurationMs / 1_000) * FPS);
     for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-      const captureTimeMs = Math.round((frameIndex * 1_000) / plan.fps);
-      await page.setContent(
-        renderVoxyCharacterMotionFixtureHtml({
-          plan,
-          embeddedStudioAssetUrl,
-          embeddedCharacterSvg,
-          captureTimeMs,
-        }),
-        { waitUntil: "load" },
-      );
+      const captureTimeMs = Math.round((frameIndex * 1_000) / FPS);
+      const html = legacyPlan
+        ? renderVoxyCharacterMotionFixtureHtml({
+            plan: legacyPlan,
+            embeddedStudioAssetUrl: embeddedStudioAssetUrl!,
+            embeddedCharacterSvg: embeddedCharacterSvg!,
+            captureTimeMs,
+          })
+        : renderVoxyEditorialCompositionFrameHtml({
+            plan: manifest.request.editorialStoryPlan!,
+            timeline: manifest.request.editorialTimeline!,
+            captions: manifest.request.captionCues,
+            assets: editorialAssets!,
+            format: manifest.request.format,
+            frameIndex,
+            amplitude: editorialLevels[frameIndex] ?? 0,
+          });
+      await page.setContent(html, { waitUntil: "load" });
+      if (manifest.request.renderProfile === "editorial_v1" && frameIndex === 0) {
+        const compositorState = await page.evaluate(() => ({
+          canonicalHeadCount: document.querySelectorAll('[data-head-layer="canonical-alpha-head"]').length,
+          canonicalOutsideContribution:
+            document.querySelector('[data-head-layer="canonical-alpha-head"]')?.getAttribute(
+              "data-head-alpha-outside-contribution",
+            ) ?? null,
+          canonicalBodyCount: document.querySelectorAll(".canonical-body-master").length,
+          legacyNeckPlateCount: document.querySelectorAll(".neck-plate").length,
+          editorialRuntime:
+            document.querySelector("main.viewport")?.getAttribute("data-editorial-runtime") ?? null,
+        }));
+        if (
+          compositorState.canonicalHeadCount !== 1 ||
+          compositorState.canonicalOutsideContribution !== "0" ||
+          compositorState.canonicalBodyCount < 1 ||
+          compositorState.legacyNeckPlateCount !== 0 ||
+          compositorState.editorialRuntime !== "editorial_v1"
+        ) {
+          throw new Error("editorial_final_canon_compositor_invariant_failed");
+        }
+      }
       await page.screenshot({
-        path: join(framesDirectory, `frame-${String(frameIndex).padStart(4, "0")}.png`),
+        path: join(framesDirectory, `frame-${String(frameIndex).padStart(6, "0")}.png`),
         type: "png",
-        clip: { x: 0, y: 0, width: plan.width, height: plan.height },
+        clip: { x: 0, y: 0, width: dimensions.width, height: dimensions.height },
       });
     }
     await context.close();
@@ -455,19 +593,19 @@ async function main(): Promise<void> {
     browser = null;
     if (externalRequests.length > 0) throw new Error("external_request_detected");
 
-    const frameInput = join(framesDirectory, "frame-%04d.png");
+    const frameInput = join(framesDirectory, "frame-%06d.png");
     run("ffmpeg", [
-      "-y", "-framerate", String(plan.fps), "-i", frameInput, "-i", audioPath, "-i", captionsVttPath,
+      "-y", "-framerate", String(FPS), "-i", frameInput, "-i", audioPath, "-i", captionsVttPath,
       "-map", "0:v:0", "-map", "1:a:0", "-map", "2:s:0",
-      "-frames:v", String(frameCount), "-r", String(plan.fps),
+      "-frames:v", String(frameCount), "-r", String(FPS),
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-b:a", "160k", "-c:s", "mov_text", "-movflags", "+faststart", "-shortest",
       masterPath,
     ]);
     run("ffmpeg", [
-      "-y", "-framerate", String(plan.fps), "-i", frameInput, "-i", audioPath, "-i", captionsVttPath,
+      "-y", "-framerate", String(FPS), "-i", frameInput, "-i", audioPath, "-i", captionsVttPath,
       "-map", "0:v:0", "-map", "1:a:0", "-map", "2:s:0",
-      "-frames:v", String(frameCount), "-r", String(plan.fps),
+      "-frames:v", String(frameCount), "-r", String(FPS),
       "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-deadline", "realtime", "-cpu-used", "7",
       "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "128k", "-c:s", "webvtt", "-shortest",
       previewPath,
@@ -493,8 +631,9 @@ async function main(): Promise<void> {
         storageKey: `${storagePrefix}/master.mp4`,
         mimeType: "video/mp4",
         requireVideo: true,
-        expectedWidth: plan.width,
-        expectedHeight: plan.height,
+        expectedWidth: dimensions.width,
+        expectedHeight: dimensions.height,
+        expectedDurationMs,
         requireAudio: true,
         requireSubtitle: true,
       }),
@@ -503,8 +642,9 @@ async function main(): Promise<void> {
         storageKey: `${storagePrefix}/preview.webm`,
         mimeType: "video/webm",
         requireVideo: true,
-        expectedWidth: plan.width,
-        expectedHeight: plan.height,
+        expectedWidth: dimensions.width,
+        expectedHeight: dimensions.height,
+        expectedDurationMs,
         requireAudio: true,
         requireSubtitle: true,
       }),

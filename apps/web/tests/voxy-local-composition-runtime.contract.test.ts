@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildQueuedVoxyLocalCompositionJob,
+  buildVoxyLocalCompositionInputFingerprint,
+  getVoxyLocalCompositionDimensions,
   validateVoxyLocalCompositionOutput,
   validateVoxyLocalCompositionRequest,
   type VoxyLocalCompositionApprovalSnapshot,
@@ -16,6 +18,11 @@ import {
   type VoxyLocalCompositionRuntimeDependencies,
 } from "@/features/voxyVideo/localCompositionRuntimeService";
 import { createInMemoryVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
+import {
+  VOXY_EDITORIAL_STORY_PLAN_VERSION,
+  type VoxyEditorialStoryPlan,
+  type VoxyEditorialTimeline,
+} from "@/features/voxyVideo/editorialStoryPlan";
 
 function request(overrides?: Partial<VoxyLocalCompositionRequest>): VoxyLocalCompositionRequest {
   return {
@@ -44,6 +51,110 @@ function request(overrides?: Partial<VoxyLocalCompositionRequest>): VoxyLocalCom
   };
 }
 
+function editorialPlan(): VoxyEditorialStoryPlan {
+  return {
+    version: VOXY_EDITORIAL_STORY_PLAN_VERSION,
+    storyPlanId: "story-plan-1",
+    revision: 3,
+    briefingId: "briefing-1",
+    dossierId: "dossier-1",
+    title: "Editorial Longform",
+    locale: "de",
+    originalLanguage: "de",
+    outputLanguage: "de",
+    archetype: "explainer",
+    durationClass: "explainer",
+    derivedFromStoryPlanId: null,
+    derivedFromRevision: null,
+    reviewRequired: true,
+    autoRender: false,
+    autoPublish: false,
+    chapters: [
+      {
+        chapterId: "chapter-1",
+        role: "what_happened",
+        headline: "Was ist passiert?",
+        narration: "Der belegte Ausgangspunkt wird erklärt.",
+        claimBindings: [],
+        sourceIds: ["source-1"],
+        findingIds: [],
+        openQuestionIds: [],
+        evidenceWindow: { kind: "source", sourceIds: ["source-1"], findingIds: [] },
+        consequences: [],
+        motion: "highlighting_source",
+      },
+      {
+        chapterId: "chapter-2",
+        role: "source_evidence",
+        headline: "Was ist belegt?",
+        narration: "Die Evidenz bleibt sichtbar und nachvollziehbar.",
+        claimBindings: [],
+        sourceIds: ["source-1"],
+        findingIds: [],
+        openQuestionIds: [],
+        evidenceWindow: { kind: "source", sourceIds: ["source-1"], findingIds: [] },
+        consequences: [],
+        motion: "explaining",
+      },
+    ],
+  };
+}
+
+function editorialTimeline(): VoxyEditorialTimeline {
+  return {
+    storyPlanId: "story-plan-1",
+    storyPlanRevision: 3,
+    durationClass: "explainer",
+    durationMs: 120_000,
+    chapters: [
+      {
+        chapterId: "chapter-1",
+        role: "what_happened",
+        startMs: 0,
+        endMs: 60_000,
+        motion: "highlighting_source",
+      },
+      {
+        chapterId: "chapter-2",
+        role: "source_evidence",
+        startMs: 60_000,
+        endMs: 120_000,
+        motion: "explaining",
+      },
+    ],
+  };
+}
+
+function editorialRequest(
+  overrides?: Partial<VoxyLocalCompositionRequest>,
+): VoxyLocalCompositionRequest {
+  return request({
+    scriptVersion: "story-r3",
+    locale: "de",
+    renderProfile: "editorial_v1",
+    timelineVersion: "editorial-v1-story-r3",
+    sceneContent: [],
+    captionCues: [
+      { id: "chapter-1", startMs: 0, endMs: 60_000, text: "Der belegte Ausgangspunkt wird erklärt." },
+      { id: "chapter-2", startMs: 60_000, endMs: 120_000, text: "Die Evidenz bleibt sichtbar und nachvollziehbar." },
+    ],
+    editorialStoryPlan: editorialPlan(),
+    editorialTimeline: editorialTimeline(),
+    editorialBinding: {
+      studioDraftId: "artifact-1",
+      studioDraftRevision: 1,
+      storyPlanId: "story-plan-1",
+      storyPlanRevision: 3,
+      evidenceSourcePackId: "source-pack-1",
+      evidenceDecisionGateId: "decision-gate-1",
+      approvalSource: "human",
+      councilArtifactId: null,
+      finalCanonId: "VOXY-V3.10.5-HUMAN-FINAL",
+    },
+    ...overrides,
+  });
+}
+
 function approval(overrides?: Partial<VoxyLocalCompositionApprovalSnapshot>): VoxyLocalCompositionApprovalSnapshot {
   return {
     approved: true,
@@ -53,23 +164,21 @@ function approval(overrides?: Partial<VoxyLocalCompositionApprovalSnapshot>): Vo
     previewReviewFlowId: "preview-review-flow-1",
     decisionGateId: "decision-gate-1",
     dossierRefId: "dossier-1",
+    approvalSource: "human",
+    councilArtifactId: null,
     authority: "trusted_review_authority",
     ...overrides,
   };
 }
 
 function outputFor(job: ReturnType<typeof buildQueuedVoxyLocalCompositionJob>): VoxyLocalCompositionOutput {
-  const dimensions =
-    job.format === "16:9"
-      ? { width: 1280, height: 720 }
-      : job.format === "9:16"
-        ? { width: 720, height: 1280 }
-        : { width: 1080, height: 1080 };
+  const dimensions = getVoxyLocalCompositionDimensions(job.format, job.renderProfile);
+  const durationMs = job.durationMs ?? 8_000;
   const video = (name: string, mimeType: string) => ({
     storageKey: `${job.jobId.replace(":", "-")}/${name}`,
     sha256: "a".repeat(64),
     sizeBytes: 10_000,
-    durationMs: 8_000,
+    durationMs,
     width: dimensions.width,
     height: dimensions.height,
     mimeType,
@@ -114,6 +223,7 @@ function outputFor(job: ReturnType<typeof buildQueuedVoxyLocalCompositionJob>): 
 function deps(options?: {
   approval?: VoxyLocalCompositionApprovalSnapshot;
   executorFails?: boolean;
+  audioDurationMs?: number;
 }) {
   const repository = createInMemoryVoxyLocalCompositionRepository();
   const runtime: VoxyLocalCompositionRuntimeDependencies = {
@@ -130,7 +240,7 @@ function deps(options?: {
           absolutePath: "/tmp/voxy/audio.wav",
           allowedRoot: "/tmp/voxy",
           sha256: "c".repeat(64),
-          durationMs: 8_000,
+          durationMs: options?.audioDurationMs ?? 8_000,
         };
       },
     },
@@ -165,8 +275,109 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
     expect(left.job.jobId).toBe(right.job.jobId);
     expect(left.job.identityKey).toBe(right.job.identityKey);
     expect(left.job.attempt).toBe(1);
+    expect(left.job.durationMs).toBe(8_000);
     expect(left.job.previewReviewFlowId).toBe("preview-review-flow-1");
     expect(left.job.decisionGateId).toBe("decision-gate-1");
+  });
+
+  it("keeps local_review_v1 pinned to the historical four-scene 8-second fixture", () => {
+    expect(validateVoxyLocalCompositionRequest(request())).toEqual([]);
+    expect(
+      validateVoxyLocalCompositionRequest(
+        request({ captionCues: [{ id: "cue-1", startMs: 0, endMs: 9_000, text: "zu lang" }] }),
+      ),
+    ).toContain("caption_timeline_must_match_fixture_duration");
+  });
+
+  it("accepts an editorial_v1 story plan and variable timeline without weakening legacy fixture rules", () => {
+    const input = editorialRequest();
+    expect(validateVoxyLocalCompositionRequest(input)).toEqual([]);
+    const job = buildQueuedVoxyLocalCompositionJob({
+      request: input,
+      approval: approval(),
+      now: "2026-09-21T16:00:00.000Z",
+    });
+    expect(job.durationMs).toBe(120_000);
+    expect(job.renderProfile).toBe("editorial_v1");
+    expect(getVoxyLocalCompositionDimensions("16:9", "editorial_v1")).toEqual({
+      width: 1920,
+      height: 1080,
+    });
+    expect(getVoxyLocalCompositionDimensions("9:16", "editorial_v1")).toEqual({
+      width: 1080,
+      height: 1920,
+    });
+    expect(validateVoxyLocalCompositionOutput({ job, output: outputFor(job) })).toEqual([]);
+  });
+
+  it("cryptographically changes editorial identity when approval provenance changes", () => {
+    const human = editorialRequest();
+    const agent = editorialRequest({
+      editorialBinding: {
+        ...editorialRequest().editorialBinding!,
+        approvalSource: "agent_council",
+        councilArtifactId: "voxy-council-artifact-1",
+      },
+    });
+    const humanJob = buildQueuedVoxyLocalCompositionJob({
+      request: human,
+      approval: approval(),
+      now: "2026-09-21T16:00:00.000Z",
+    });
+    const agentJob = buildQueuedVoxyLocalCompositionJob({
+      request: agent,
+      approval: approval({
+        approvedBy: "agent:voxy-chief-judge:decision-1",
+        approvalSource: "agent_council",
+        councilArtifactId: "voxy-council-artifact-1",
+      }),
+      now: "2026-09-21T16:00:00.000Z",
+    });
+    expect(buildVoxyLocalCompositionInputFingerprint(human)).not.toBe(
+      buildVoxyLocalCompositionInputFingerprint(agent),
+    );
+    expect(humanJob.identityKey).not.toBe(agentJob.identityKey);
+  });
+
+  it("fails closed when approval snapshot and editorial provenance disagree", () => {
+    expect(() =>
+      buildQueuedVoxyLocalCompositionJob({
+        request: editorialRequest(),
+        approval: approval({
+          approvalSource: "agent_council",
+          councilArtifactId: "voxy-council-artifact-foreign",
+          approvedBy: "agent:voxy-chief-judge:decision-foreign",
+        }),
+      }),
+    ).toThrow("voxy_local_composition_editorial_approval_provenance_mismatch");
+  });
+
+  it("fails closed when editorial revision/evidence/canon binding is missing", () => {
+    const errors = validateVoxyLocalCompositionRequest(
+      editorialRequest({ editorialBinding: null }),
+    );
+    expect(errors).toContain("editorial_binding_missing");
+  });
+
+  it("fails closed when editorial captions do not end on the bound story timeline", () => {
+    const errors = validateVoxyLocalCompositionRequest(
+      editorialRequest({
+        captionCues: [
+          { id: "chapter-1", startMs: 0, endMs: 60_000, text: "Kapitel eins" },
+          { id: "chapter-2", startMs: 60_000, endMs: 119_000, text: "Kapitel zwei" },
+        ],
+      }),
+    );
+    expect(errors).toContain("caption_timeline_must_match_editorial_duration");
+  });
+
+  it("fails closed when editorial timeline and story-plan revisions diverge", () => {
+    const errors = validateVoxyLocalCompositionRequest(
+      editorialRequest({
+        editorialTimeline: { ...editorialTimeline(), storyPlanRevision: 2 },
+      }),
+    );
+    expect(errors).toContain("editorial_timeline_story_binding_mismatch");
   });
 
   it("creates a distinct identity when the script version changes", async () => {
@@ -197,6 +408,32 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
     });
     const result = await queueVoxyLocalComposition(request(), runtime);
     expect(result).toMatchObject({ ok: false, status: "blocked_by_missing_approval", job: null });
+  });
+
+  it("renders editorial_v1 to review_ready only when audio duration matches the bound timeline", async () => {
+    const runtime = deps({ audioDurationMs: 120_000 });
+    const input = editorialRequest();
+    const queued = await queueVoxyLocalComposition(input, runtime);
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    const result = await executeVoxyLocalComposition({ jobId: queued.job.jobId, request: input, deps: runtime });
+    expect(result.status).toBe("review_ready");
+    expect(result.durationMs).toBe(120_000);
+    const output = await runtime.repository.getOutput(result.outputId);
+    expect(output?.masterMp4.durationMs).toBe(120_000);
+    expect(output?.masterMp4.width).toBe(1920);
+    expect(output?.masterMp4.height).toBe(1080);
+  });
+
+  it("keeps editorial_v1 failed when audio duration does not match the story timeline", async () => {
+    const runtime = deps({ audioDurationMs: 8_000 });
+    const input = editorialRequest();
+    const queued = await queueVoxyLocalComposition(input, runtime);
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    const result = await executeVoxyLocalComposition({ jobId: queued.job.jobId, request: input, deps: runtime });
+    expect(result.status).toBe("failed");
+    expect(await runtime.repository.getOutput(result.outputId)).toBeNull();
   });
 
   it("renders to review_ready and persists one verified output without publishing", async () => {

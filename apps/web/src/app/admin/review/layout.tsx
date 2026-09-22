@@ -15,6 +15,12 @@ export default function AdminReviewLayout({ children }: { children: ReactNode })
           Review Queue
         </Link>
         <Link
+          href="/admin/review/voxy-studio"
+          className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-4 py-2 text-sm font-semibold text-[rgb(var(--fg))] hover:border-sky-400"
+        >
+          Voxy Video Studio
+        </Link>
+        <Link
           href="/admin/review/voxy-visual-qa"
           className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-4 py-2 text-sm font-semibold text-[rgb(var(--fg))] hover:border-sky-400"
         >

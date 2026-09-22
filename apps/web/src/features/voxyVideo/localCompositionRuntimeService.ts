@@ -9,6 +9,7 @@ import type {
 import {
   buildQueuedVoxyLocalCompositionJob,
   buildVoxyLocalCompositionInputFingerprint,
+  resolveVoxyLocalCompositionDurationMs,
   safeVoxyLocalCompositionFailure,
   validateVoxyLocalCompositionAudioAsset,
   validateVoxyLocalCompositionOutput,
@@ -47,6 +48,14 @@ export type VoxyLocalCompositionRuntimeDependencies = {
 
 function now(deps: VoxyLocalCompositionRuntimeDependencies) {
   return deps.now?.() ?? new Date().toISOString();
+}
+
+function isExpectedCompositionIdentityConflict(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return [
+    "voxy_local_composition_request_snapshot_immutable_conflict",
+    "voxy_local_composition_request_snapshot_binding_mismatch",
+  ].includes(error.message);
 }
 
 export async function queueVoxyLocalComposition(
@@ -93,7 +102,22 @@ export async function queueVoxyLocalComposition(
       errors: ["trusted_render_approval_or_review_binding_invalid"],
     };
   }
-  const existing = await deps.repository.createOrGetJob(candidate);
+
+  let existing: VoxyLocalCompositionJob;
+  try {
+    existing = await deps.repository.createOrGetJob(candidate, request);
+  } catch (error) {
+    if (isExpectedCompositionIdentityConflict(error)) {
+      return {
+        ok: false,
+        status: "idempotency_conflict",
+        job: null,
+        errors: ["composition_identity_reused_with_changed_input_or_review_binding"],
+      };
+    }
+    throw error;
+  }
+
   if (
     existing.inputFingerprint !== candidate.inputFingerprint ||
     existing.reviewBindingHash !== candidate.reviewBindingHash
@@ -123,6 +147,10 @@ export async function executeVoxyLocalComposition(input: {
   if (current.inputFingerprint !== buildVoxyLocalCompositionInputFingerprint(request)) {
     throw new Error("voxy_local_composition_request_revision_mismatch");
   }
+  const expectedDurationMs = resolveVoxyLocalCompositionDurationMs(request);
+  if (current.durationMs !== undefined && current.durationMs !== expectedDurationMs) {
+    throw new Error("voxy_local_composition_duration_revision_mismatch");
+  }
   if (current.status === "review_ready" || current.status === "rendered") return current;
   if (current.status !== "queued") {
     throw new Error(`voxy_local_composition_job_not_queued:${current.status}`);
@@ -130,6 +158,7 @@ export async function executeVoxyLocalComposition(input: {
 
   const rendering: VoxyLocalCompositionJob = {
     ...current,
+    durationMs: current.durationMs ?? expectedDurationMs,
     status: "rendering",
     startedAt: now(deps),
     updatedAt: now(deps),
@@ -147,7 +176,9 @@ export async function executeVoxyLocalComposition(input: {
 
   try {
     const audioAsset = await deps.audioResolver.resolveAudioAsset(current.audioAssetId);
-    const audioErrors = validateVoxyLocalCompositionAudioAsset(audioAsset);
+    const audioErrors = validateVoxyLocalCompositionAudioAsset(audioAsset, {
+      expectedDurationMs,
+    });
     if (audioAsset.assetId !== current.audioAssetId) audioErrors.push("audio_asset_identity_mismatch");
     if (audioErrors.length) {
       throw new Error(`voxy_local_composition_audio_invalid:${audioErrors.join(",")}`);

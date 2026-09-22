@@ -33,6 +33,7 @@ import {
   type RegionAccessContext,
 } from "@features/region";
 import { isExplicitDemoDossierId } from "@/features/runtimeDataGuardrails";
+import { createOrGetVoxyStudioDraftFromApprovedDossierWorkspace } from "@/features/voxyVideo/studioDossierAutoIntake";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -548,9 +549,50 @@ export async function PATCH(req: NextRequest, params: RouteParams) {
           { status: 400 },
         );
       }
-      return NextResponse.json(workspaceResponseBody(workspace, access), {
-        status: 200,
-      });
+
+      let voxyStudioIntake:
+        | {
+            status: "draft_created_or_existing";
+            draftId: string;
+            draftRevision: number;
+            storyPlanRevision: number;
+            briefingId: string;
+            locale: string;
+            autoRender: false;
+            autoPublish: false;
+          }
+        | { status: "blocked"; error: string; autoRender: false; autoPublish: false }
+        | null = null;
+      if (officialAction.data.action === "approve_publication") {
+        try {
+          const intake = await createOrGetVoxyStudioDraftFromApprovedDossierWorkspace(workspace);
+          voxyStudioIntake = {
+            status: "draft_created_or_existing",
+            draftId: intake.draft.draftId,
+            draftRevision: intake.draft.revision,
+            storyPlanRevision: intake.draft.storyPlan.revision,
+            briefingId: intake.seed.briefingId,
+            locale: intake.seed.locale,
+            autoRender: false,
+            autoPublish: false,
+          };
+        } catch (error) {
+          voxyStudioIntake = {
+            status: "blocked",
+            error:
+              error instanceof Error
+                ? error.message.split(":", 1)[0] || "voxy_studio_dossier_auto_intake_failed"
+                : "voxy_studio_dossier_auto_intake_failed",
+            autoRender: false,
+            autoPublish: false,
+          };
+        }
+      }
+
+      return NextResponse.json(
+        { ...workspaceResponseBody(workspace, access), voxyStudioIntake },
+        { status: 200 },
+      );
     }
 
     const socialCreate = SocialDistributionCreateSchema.safeParse(rawBody);
