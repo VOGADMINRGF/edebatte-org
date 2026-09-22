@@ -35,6 +35,7 @@ type AudioInput = {
   durationMs: number;
   timelineVersion: string;
   storyPlanRevision: number;
+  motionEnvelopeReady: boolean;
   chapterTimings: Array<{ chapterId: string; durationMs: number }>;
   captionCues: Array<{ id: string; startMs: number; endMs: number; text: string }>;
 };
@@ -175,6 +176,7 @@ export default function VoxyStudioFramePreviewPanel() {
   const previewReady = Boolean(
     selectedDraft &&
       selectedAudio &&
+      selectedAudio.motionEnvelopeReady &&
       evidenceApproved &&
       audioState?.usableForProduction,
   );
@@ -194,7 +196,7 @@ export default function VoxyStudioFramePreviewPanel() {
             Kanonischen Timeline-Frame prüfen
           </h2>
           <p className="mt-1 max-w-4xl text-sm leading-6 text-[rgb(var(--muted))]">
-            Diese Vorschau erzeugt keinen Render-Job und keine Freigabe. Sie liest dieselbe revisionsgebundene Audio-Timeline, dieselben Caption-Korrekturen und denselben approved Evidence-Snapshot wie der spätere `editorial_v1`-Handoff und rendert denselben Final-Canon-Compositor in 16:9, 9:16 oder 1:1.
+            Diese Vorschau erzeugt keinen Render-Job und keine Freigabe. Sie liest dieselbe revisionsgebundene Audio-Timeline, dieselben Caption-Korrekturen, die SHA-gebundene Audio-Motion und denselben approved Evidence-Snapshot wie der spätere `editorial_v1`-Handoff und rendert denselben Final-Canon-Compositor in 16:9, 9:16 oder 1:1.
           </p>
         </div>
         <button
@@ -249,6 +251,7 @@ export default function VoxyStudioFramePreviewPanel() {
                   audioState.inputs.map((input) => (
                     <option key={input.assetId} value={input.assetId}>
                       {input.assetId} · {input.voiceProfileId} · {durationLabel(input.durationMs)}
+                      {input.motionEnvelopeReady ? " · Motion bereit" : " · Motion neu registrieren"}
                     </option>
                   ))
                 ) : (
@@ -302,6 +305,13 @@ export default function VoxyStudioFramePreviewPanel() {
               <p>
                 Audio: {audioState?.usableForProduction ? "persistent_primary" : "nicht produktionsfest · Preview blockiert"}
               </p>
+              <p>
+                Motion: {selectedAudio?.motionEnvelopeReady
+                  ? "SHA-gebundene 24-fps-Envelope vorhanden"
+                  : selectedAudio
+                    ? "ältere Audio-Registrierung · für audio-reaktive Preview neu registrieren"
+                    : "kein Audio ausgewählt"}
+              </p>
               {selectedDraft ? (
                 <p>
                   Draft r{selectedDraft.draft.revision} · Story r{selectedDraft.draft.storyPlan.revision} · {selectedDraft.draft.storyPlan.outputLanguage}
@@ -341,12 +351,14 @@ export default function VoxyStudioFramePreviewPanel() {
                   />
                 </div>
                 <p className="mt-2 text-center text-xs text-[rgb(var(--muted))]">
-                  {format} · {dimensions.width}×{dimensions.height} · statischer 24-fps-Timeline-Frame · keine Freigabe-/Publish-Nebenwirkung
+                  {format} · {dimensions.width}×{dimensions.height} · audio-reaktiver 24-fps-Timeline-Frame · keine Freigabe-/Publish-Nebenwirkung
                 </p>
               </div>
             ) : (
               <div className="flex min-h-64 items-center justify-center rounded-lg border border-dashed border-[rgb(var(--border))] p-6 text-center text-sm leading-6 text-[rgb(var(--muted))]">
-                Die echte Frame-Vorschau wird erst geladen, wenn approved Evidence und ein persistentes, exakt an diese Story-Revision gebundenes Audio vorliegen. Text- und Kartenbearbeitung bleibt davon unabhängig möglich.
+                {selectedAudio && !selectedAudio.motionEnvelopeReady
+                  ? "Dieses ältere Audio bleibt für den bestehenden Render-Worker gültig, besitzt aber noch keine SHA-gebundene Motion-Envelope. Für die audio-reaktive Same-Renderer-Vorschau muss es über den aktuellen Registrierungsweg neu registriert werden. Text- und Kartenbearbeitung bleibt davon unabhängig möglich."
+                  : "Die echte Frame-Vorschau wird erst geladen, wenn approved Evidence und ein persistentes, exakt an diese Story-Revision gebundenes Audio mit SHA-gebundener Motion-Envelope vorliegen. Text- und Kartenbearbeitung bleibt davon unabhängig möglich."}
               </div>
             )}
           </div>
