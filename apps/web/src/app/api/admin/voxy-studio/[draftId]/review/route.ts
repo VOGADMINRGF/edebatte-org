@@ -12,6 +12,7 @@ import {
   buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createDefaultVoxyStudioServiceDependencies,
   requestVoxyStudioDraftChanges,
+  resolveVoxyStudioDraftRevisionAuthorActor,
   submitVoxyStudioDraftForReview,
 } from "@/features/voxyVideo/studioDraftService";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
@@ -107,6 +108,13 @@ export async function POST(
         submitted.validation.renderEligible
       ) {
         try {
+          if (repository.getPersistenceState().mode !== "persistent_primary") {
+            throw new Error("voxy_studio_revision_author_not_persistent");
+          }
+          const creatorActorId = await resolveVoxyStudioDraftRevisionAuthorActor(
+            submitted.draft,
+            repository,
+          );
           const evidence = await evidenceAuthority.resolveEvidenceContext(submitted.draft);
           const layoutSafety = evaluateVoxyStudioLayoutSafety({
             draft: submitted.draft,
@@ -126,6 +134,8 @@ export async function POST(
               policy: autonomy.record.policy,
               reviewQueueItemId: submitted.reviewItemId,
               decisionGateId: submitted.decisionGateId,
+              creatorRunId: null,
+              creatorActorId,
             });
             agentReview = artifact;
             if (artifact.decision.outcome === "agent_approved") {
