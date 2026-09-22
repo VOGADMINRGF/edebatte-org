@@ -4,7 +4,10 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
-import { validateVoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
+import {
+  VOXY_EDITORIAL_ALLOWED_MOTIONS,
+  validateVoxyEditorialStoryPlan,
+} from "@/features/voxyVideo/editorialStoryPlan";
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 import { createFailClosedDossierStudioEvidenceAuthority } from "@/features/voxyVideo/studioDossierEvidenceAuthority";
 import {
@@ -33,11 +36,18 @@ const ChapterUpdateSchema = z
     chapterId: z.string().trim().min(1).max(160),
     headline: z.string().trim().min(1).max(180).optional(),
     narration: z.string().trim().min(1).max(2_400).optional(),
+    motion: z.enum(VOXY_EDITORIAL_ALLOWED_MOTIONS).optional(),
   })
   .strict()
-  .refine((value) => value.headline !== undefined || value.narration !== undefined, {
-    message: "chapter_update_empty",
-  });
+  .refine(
+    (value) =>
+      value.headline !== undefined ||
+      value.narration !== undefined ||
+      value.motion !== undefined,
+    {
+      message: "chapter_update_empty",
+    },
+  );
 
 const BodySchema = z
   .object({
