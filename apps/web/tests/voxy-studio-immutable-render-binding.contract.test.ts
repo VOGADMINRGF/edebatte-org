@@ -14,6 +14,7 @@ import {
   type VoxyLocalCompositionOutput,
 } from "@/features/voxyVideo/localCompositionRuntime";
 import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
+import type { VoxyStudioEvidenceSnapshot } from "@/features/voxyVideo/studioEvidenceReview";
 import {
   validateVoxyStudioImmutableEditorialBinding,
 } from "@/features/voxyVideo/studioRenderBindingGuard";
@@ -21,6 +22,23 @@ import { buildVoxyStudioEditorialCompositionHandoff } from "@/features/voxyVideo
 
 const EVIDENCE_SOURCE_PACK_ID = "voxy-studio-dossier:dossier-1:evidence-r1";
 const DECISION_GATE_ID = "voxy-studio-render:studio-draft-1:r4:story-r3:evidence-a1b2c3";
+
+function evidenceSources(): VoxyStudioEvidenceSnapshot["sources"] {
+  return [
+    {
+      sourceId: "source-1",
+      canonicalUrlHash: "hash-source-1",
+      url: "https://example.org/source-1",
+      title: "Amtliche Quelle",
+      publisher: "Beispielbehörde",
+      type: "official",
+      language: "de",
+      snippet: "Belegter Ausschnitt",
+      publishedAt: "2026-09-21T12:00:00.000Z",
+      retrievedAt: "2026-09-22T01:00:00.000Z",
+    },
+  ];
+}
 
 function storyPlan(): VoxyEditorialStoryPlan {
   return {
@@ -164,6 +182,7 @@ function candidate() {
     audioInput: audioInput(),
     requestedByUserId: "admin-1",
     evidenceSourcePackId: EVIDENCE_SOURCE_PACK_ID,
+    evidenceSources: evidenceSources(),
   });
   const queued = buildQueuedVoxyLocalCompositionJob({
     request: handoff.request,
