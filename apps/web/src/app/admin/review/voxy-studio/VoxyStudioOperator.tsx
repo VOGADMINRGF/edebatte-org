@@ -295,9 +295,19 @@ export default function VoxyStudioOperator() {
               {data?.persistence?.editorialReview?.mode ?? "wird geladen"}
             </p>
           </div>
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100">
+          <div
+            className={`rounded-xl border p-3 ${
+              data?.runtime?.editorialLongformRenderEnabled
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-500/40 dark:bg-emerald-950/25 dark:text-emerald-100"
+                : "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/25 dark:text-amber-100"
+            }`}
+          >
             <p className="font-semibold">Longform-Render</p>
-            <p className="mt-1">V3.10.5-Final-Canon-Worker bereit; Studio-Handoff bleibt fail-closed, bis ein revisionsgebundener Produktions-Audio-Asset-Resolver verfügbar ist.</p>
+            <p className="mt-1">
+              {data?.runtime?.editorialLongformRenderEnabled
+                ? "V3.10.5-Final-Canon-Worker und manuelle persistente editorial_v1-Queue sind verfügbar. Der Render startet nur mit revisionsgebundenem, registriertem Audio."
+                : `Renderpfad blockiert: ${compactReason(data?.runtime?.reason ?? "Status wird geladen")}`}
+            </p>
           </div>
         </div>
       </section>
@@ -592,7 +602,7 @@ export default function VoxyStudioOperator() {
                   </div>
 
                   <p className="text-xs leading-5 text-[rgb(var(--muted))]">
-                    Auch eine redaktionelle Freigabe startet keinen Render. Der #568-Worker kann `editorial_v1` bereits über die V3.10.5-Final-Canon-Framechain rendern; der Studio-Handoff bleibt deaktiviert, bis Audio-Asset, Hash, Dauer und lokaler Allowed-Root revisionsgebunden aus einer persistenten Produktionswahrheit aufgelöst werden können.
+                    Auch eine redaktionelle Freigabe startet keinen Render. Der #568-Worker rendert `editorial_v1` über die V3.10.5-Final-Canon-Framechain. Ein Job wird ausschließlich manuell in der Render Queue angelegt und benötigt ein exakt revisionsgebundenes, registriertes Audio-Asset sowie persistente Runtime-Wahrheit.
                   </p>
                 </div>
               </div>
