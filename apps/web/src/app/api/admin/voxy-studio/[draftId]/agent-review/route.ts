@@ -10,6 +10,7 @@ import {
   buildVoxyStudioEditorialReviewItemId,
   buildVoxyStudioEvidenceBoundRenderReviewGateId,
   createDefaultVoxyStudioServiceDependencies,
+  resolveVoxyStudioDraftRevisionAuthorActor,
 } from "@/features/voxyVideo/studioDraftService";
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import {
@@ -27,8 +28,6 @@ import {
 const BodySchema = z
   .object({
     expectedRevision: z.number().int().positive(),
-    creatorRunId: z.string().trim().min(1).max(160).nullable().optional(),
-    creatorActorId: z.string().trim().min(1).max(160).nullable().optional(),
   })
   .strict();
 
@@ -66,6 +65,7 @@ export async function GET(
       "providerId",
       "modelId",
       "inputFingerprint",
+      "creatorActorId",
     ],
   });
 }
@@ -85,6 +85,12 @@ export async function POST(
     const { draftId: rawDraftId } = await context.params;
     const draftId = decodeURIComponent(String(rawDraftId ?? "").trim());
     const draftRepository = getVoxyStudioDraftRepository();
+    if (draftRepository.getPersistenceState().mode !== "persistent_primary") {
+      return NextResponse.json(
+        { ok: false, error: "voxy_studio_revision_author_not_persistent" },
+        { status: 409 },
+      );
+    }
     const draft = await draftRepository.getDraft(draftId);
     if (!draft) {
       return NextResponse.json({ ok: false, error: "voxy_studio_draft_missing" }, { status: 404 });
@@ -99,6 +105,10 @@ export async function POST(
       );
     }
 
+    const creatorActorId = await resolveVoxyStudioDraftRevisionAuthorActor(
+      draft,
+      draftRepository,
+    );
     const autonomyRepository = getVoxyEditorialAutonomyRepository();
     if (autonomyRepository.getPersistenceState().mode !== "persistent_primary") {
       return NextResponse.json({ ok: false, error: "voxy_autonomy_policy_not_persistent" }, { status: 409 });
@@ -146,8 +156,8 @@ export async function POST(
       policy: policyRecord.policy,
       reviewQueueItemId: reviewItemId,
       decisionGateId,
-      creatorRunId: parsed.data.creatorRunId ?? null,
-      creatorActorId: parsed.data.creatorActorId ?? null,
+      creatorRunId: null,
+      creatorActorId,
     });
 
     const reviewRepository = getReviewQueueOperationsRepository();
