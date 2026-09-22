@@ -81,16 +81,16 @@ export async function GET(
   const audioRepository = getVoxyLocalCompositionAudioInputRepository();
   const runtimeRepository = getVoxyLocalCompositionRepository();
   const scriptVersion = `story-r${draft.storyPlan.revision}`;
-  const [audioInputs, ...jobGroups] = await Promise.all([
-    audioRepository.listForBinding({
-      artifactId: draft.draftId,
-      briefingId: draft.briefingId,
-      scriptVersion,
-      locale: draft.storyPlan.outputLanguage,
-      limit: 20,
-    }),
-    ...RUNTIME_STATUSES.map((status) => runtimeRepository.listJobsByStatus(status, 50)),
-  ]);
+  const audioInputs = await audioRepository.listForBinding({
+    artifactId: draft.draftId,
+    briefingId: draft.briefingId,
+    scriptVersion,
+    locale: draft.storyPlan.outputLanguage,
+    limit: 20,
+  });
+  const jobGroups = await Promise.all(
+    RUNTIME_STATUSES.map((status) => runtimeRepository.listJobsByStatus(status, 50)),
+  );
   const jobs = Array.from(
     new Map(
       jobGroups
