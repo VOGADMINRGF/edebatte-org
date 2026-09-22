@@ -706,6 +706,7 @@ export async function runVoxyEditorialAgentCouncil(
     policyRevision: input.policy.policyRevision,
     qualityLevel: input.policy.qualityLevel,
     creatorRunId: input.creatorRunId ?? null,
+    creatorActorId: input.creatorActorId ?? null,
     criticRuns: allRuns,
     defense: defenseResult.defense,
     criticalRiskFlags: decision.criticalRiskFlags,
