@@ -78,6 +78,10 @@ export type VoxyLocalCompositionRequest = {
   editorialBinding?: VoxyLocalCompositionEditorialBinding | null;
 };
 
+export const VOXY_LOCAL_COMPOSITION_APPROVAL_SOURCES = ["human", "agent_council"] as const;
+export type VoxyLocalCompositionApprovalSource =
+  (typeof VOXY_LOCAL_COMPOSITION_APPROVAL_SOURCES)[number];
+
 export type VoxyLocalCompositionApprovalSnapshot = {
   approved: boolean;
   approvalRef: string | null;
@@ -86,6 +90,10 @@ export type VoxyLocalCompositionApprovalSnapshot = {
   previewReviewFlowId: string | null;
   decisionGateId: string | null;
   dossierRefId: string | null;
+  /** Missing only for the historical local_review_v1 compatibility profile. */
+  approvalSource?: VoxyLocalCompositionApprovalSource | null;
+  /** Required for agent_council editorial approvals; null for human/legacy approvals. */
+  councilArtifactId?: string | null;
   authority: "trusted_review_authority";
 };
 
@@ -117,6 +125,9 @@ export type VoxyLocalCompositionJob = {
   previewReviewFlowId: string;
   decisionGateId: string;
   dossierRefId: string | null;
+  /** Persisted when known; absent/null is tolerated only for historical local_review_v1 jobs. */
+  approvalSource?: VoxyLocalCompositionApprovalSource | null;
+  councilArtifactId?: string | null;
   status: VoxyLocalCompositionStatus;
   attempt: number;
   approvalRef: string;
@@ -156,6 +167,9 @@ export type VoxyLocalCompositionOutput = {
   previewReviewFlowId: string;
   decisionGateId: string;
   dossierRefId: string | null;
+  /** Mirrored from the render job for immutable audit lineage. */
+  approvalSource?: VoxyLocalCompositionApprovalSource | null;
+  councilArtifactId?: string | null;
   masterMp4: VoxyLocalCompositionMediaFile;
   previewWebm: VoxyLocalCompositionMediaFile;
   captionsVtt: VoxyLocalCompositionMediaFile;
@@ -445,7 +459,7 @@ export function buildVoxyLocalCompositionIdentityKey(
       payload.editorialBinding.finalCanonId,
     );
   }
-  return `voxy-local-composition:${stableHash(identityParts.join(":" )).slice(0, 32)}`;
+  return `voxy-local-composition:${stableHash(identityParts.join(":")).slice(0, 32)}`;
 }
 
 export function buildVoxyLocalCompositionInputFingerprint(
@@ -472,15 +486,27 @@ export function buildVoxyLocalCompositionTimelineHash(
 export function buildVoxyLocalCompositionReviewBindingHash(
   input: Pick<
     VoxyLocalCompositionApprovalSnapshot,
-    "approvalRef" | "previewReviewFlowId" | "decisionGateId" | "dossierRefId"
+    | "approvalRef"
+    | "previewReviewFlowId"
+    | "decisionGateId"
+    | "dossierRefId"
+    | "approvalSource"
+    | "councilArtifactId"
   >,
 ): string {
+  const legacyParts = [
+    normalized(input.approvalRef),
+    normalized(input.previewReviewFlowId),
+    normalized(input.decisionGateId),
+    normalized(input.dossierRefId),
+  ];
+  const approvalSource = normalized(input.approvalSource);
+  if (!approvalSource) return stableHash(legacyParts.join(":"));
   return stableHash(
     [
-      normalized(input.approvalRef),
-      normalized(input.previewReviewFlowId),
-      normalized(input.decisionGateId),
-      normalized(input.dossierRefId),
+      ...legacyParts,
+      approvalSource,
+      normalized(input.councilArtifactId),
     ].join(":"),
   );
 }
@@ -494,6 +520,10 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
   const previewReviewFlowId = normalized(input.approval.previewReviewFlowId);
   const decisionGateId = normalized(input.approval.decisionGateId);
   const dossierRefId = normalized(input.approval.dossierRefId) || null;
+  const approvalSource = normalized(input.approval.approvalSource) as
+    | VoxyLocalCompositionApprovalSource
+    | "";
+  const councilArtifactId = normalized(input.approval.councilArtifactId) || null;
   if (
     !input.approval.approved ||
     !validId(approvalRef) ||
@@ -502,6 +532,21 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
     (dossierRefId !== null && !validId(dossierRefId))
   ) {
     throw new Error("voxy_local_composition_approval_required");
+  }
+  if (input.request.renderProfile === "editorial_v1") {
+    if (!VOXY_LOCAL_COMPOSITION_APPROVAL_SOURCES.includes(approvalSource as VoxyLocalCompositionApprovalSource)) {
+      throw new Error("voxy_local_composition_editorial_approval_source_required");
+    }
+    if (approvalSource === "agent_council") {
+      if (!councilArtifactId || !validId(councilArtifactId)) {
+        throw new Error("voxy_local_composition_council_artifact_required");
+      }
+      if (!normalized(input.approval.approvedBy).startsWith("agent:voxy-chief-judge:")) {
+        throw new Error("voxy_local_composition_council_approval_actor_invalid");
+      }
+    } else if (councilArtifactId !== null) {
+      throw new Error("voxy_local_composition_human_approval_council_artifact_forbidden");
+    }
   }
   if (
     input.request.renderProfile === "editorial_v1" &&
@@ -537,6 +582,8 @@ export function buildQueuedVoxyLocalCompositionJob(input: {
     previewReviewFlowId,
     decisionGateId,
     dossierRefId,
+    approvalSource: approvalSource || null,
+    councilArtifactId,
     status: "queued",
     attempt: 1,
     approvalRef,
@@ -595,7 +642,9 @@ export function validateVoxyLocalCompositionOutput(input: {
     input.output.timelineHash !== input.job.timelineHash ||
     input.output.previewReviewFlowId !== input.job.previewReviewFlowId ||
     input.output.decisionGateId !== input.job.decisionGateId ||
-    input.output.dossierRefId !== input.job.dossierRefId
+    input.output.dossierRefId !== input.job.dossierRefId ||
+    (input.output.approvalSource ?? null) !== (input.job.approvalSource ?? null) ||
+    (input.output.councilArtifactId ?? null) !== (input.job.councilArtifactId ?? null)
   ) {
     errors.push("output_revision_binding_mismatch");
   }
@@ -604,6 +653,20 @@ export function validateVoxyLocalCompositionOutput(input: {
   }
   if (input.job.renderProfile === "editorial_v1" && !Number.isInteger(expectedDurationMs)) {
     errors.push("output_editorial_duration_missing");
+  }
+  if (input.job.renderProfile === "editorial_v1") {
+    if (!VOXY_LOCAL_COMPOSITION_APPROVAL_SOURCES.includes(input.job.approvalSource as VoxyLocalCompositionApprovalSource)) {
+      errors.push("output_editorial_approval_source_missing");
+    }
+    if (
+      input.job.approvalSource === "agent_council" &&
+      (!input.job.councilArtifactId || !validId(input.job.councilArtifactId))
+    ) {
+      errors.push("output_editorial_council_artifact_missing");
+    }
+    if (input.job.approvalSource === "human" && input.job.councilArtifactId) {
+      errors.push("output_human_council_artifact_forbidden");
+    }
   }
   for (const file of [
     input.output.masterMp4,
