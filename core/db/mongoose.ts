@@ -43,4 +43,4 @@ export async function mongo() {
 }
 
 // nützlich für Tests: mongoose.connection.close()
-export { mongoose } from "mongoose";
+export { mongoose };
