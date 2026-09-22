@@ -5,16 +5,13 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireAdminOrResponse } from "@/lib/server/auth/admin";
-import { resolveVoxyEditorialAudioFrameAmplitude } from "@/features/voxyVideo/editorialAudioMotion.server";
+import { resolveVoxyEditorialAudioEnvelopeFrameAmplitude } from "@/features/voxyVideo/editorialAudioMotion.server";
 import {
   loadVoxyEditorialCompositionEmbeddedAssets,
   resolveVoxyEditorialCompositionRepositoryRoot,
 } from "@/features/voxyVideo/editorialCompositionAssets.server";
 import { renderVoxyEditorialCompositionFrameHtml } from "@/features/voxyVideo/editorialCompositionHtml";
-import {
-  getVoxyLocalCompositionAudioInputRepository,
-  resolveVoxyLocalCompositionAudioAssetFromRecord,
-} from "@/features/voxyVideo/localCompositionAudioAssetStore";
+import { getVoxyLocalCompositionAudioInputRepository } from "@/features/voxyVideo/localCompositionAudioAssetStore";
 import { VOXY_VIDEO_FORMATS } from "@/features/voxyVideo/modernCharacterContracts";
 import {
   createFailClosedDossierStudioEvidenceAuthority,
@@ -125,20 +122,16 @@ export async function GET(
     if (query.data.atMs >= snapshot.timeline.durationMs) {
       return new Response("Preview time outside timeline", { status: 416 });
     }
-
-    const trustedAudioRoot = process.env.VOXY_LOCAL_COMPOSITION_AUDIO_ROOT?.trim() ?? "";
-    if (!trustedAudioRoot) {
-      return new Response("Audio preview root unavailable", { status: 503 });
+    if (!audioInput.motionEnvelope) {
+      return new Response("Audio motion envelope missing", { status: 409 });
     }
-    const audioAsset = resolveVoxyLocalCompositionAudioAssetFromRecord({
-      record: audioInput,
-      trustedAudioRoot,
-    });
+
     const frameIndex = Math.floor((query.data.atMs * FPS) / 1_000);
-    const amplitude = await resolveVoxyEditorialAudioFrameAmplitude({
-      audioAsset,
+    const amplitude = resolveVoxyEditorialAudioEnvelopeFrameAmplitude({
+      envelope: audioInput.motionEnvelope,
+      sourceSha256: audioInput.sha256,
+      durationMs: audioInput.durationMs,
       frameIndex,
-      fps: FPS,
     });
 
     const repositoryRoot = await resolveVoxyEditorialCompositionRepositoryRoot();
@@ -167,13 +160,9 @@ export async function GET(
     if (
       message.includes("missing") ||
       message.includes("mismatch") ||
-      message.includes("invalid") ||
-      message.includes("outside_trusted_root")
+      message.includes("invalid")
     ) {
       return new Response("Preview binding unavailable", { status: 409 });
-    }
-    if (message.includes("ffmpeg_failed")) {
-      return new Response("Audio motion preview unavailable", { status: 503 });
     }
     return new Response("Preview unavailable", { status: 500 });
   }
