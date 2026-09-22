@@ -92,6 +92,42 @@ describe("Voxy adversarial editorial council", () => {
     expect(decision.modelFamilies).toEqual(expect.arrayContaining(["openai", "anthropic"]));
   });
 
+  it("fails closed when authoritative creator lineage is absent", () => {
+    const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
+      binding,
+      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
+      creatorRunId: null,
+      creatorActorId: null,
+      runs: passingRuns(),
+    });
+    expect(decision.outcome).toBe("blocked");
+    expect(decision.auditComplete).toBe(false);
+    expect(decision.reasonCodes).toContain("creator_lineage_missing");
+  });
+
+  it("binds the decision identity to the authoritative creator actor", () => {
+    const first = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
+      binding,
+      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
+      creatorRunId: null,
+      creatorActorId: "admin-author-a",
+      runs: passingRuns().map((run) => ({ ...run, creatorRunId: null })),
+    });
+    const second = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
+      binding,
+      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
+      creatorRunId: null,
+      creatorActorId: "admin-author-b",
+      runs: passingRuns().map((run) => ({ ...run, creatorRunId: null })),
+    });
+    expect(first.outcome).toBe("agent_approved");
+    expect(second.outcome).toBe("agent_approved");
+    expect(first.decisionId).not.toBe(second.decisionId);
+  });
+
   it("fails closed on a stale input fingerprint", () => {
     const runs = passingRuns();
     runs[0] = { ...runs[0], inputFingerprint: "stale" };
