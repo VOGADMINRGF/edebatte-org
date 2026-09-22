@@ -86,6 +86,28 @@ describe("production mongo topology", () => {
     expect(validateProductionMongoTopology(isolated)).toEqual({ ok: true, errors: [] });
   });
 
+  it("rejects incomplete production zones", () => {
+    const result = validateProductionMongoTopology({
+      ...isolated,
+      PII_MONGODB_URI: "",
+      VOTES_DB_NAME: "",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Missing production value: PII_MONGODB_URI");
+    expect(result.errors).toContain("Missing production value: VOTES_DB_NAME");
+  });
+
+  it("rejects non-Mongo connection schemes", () => {
+    const result = validateProductionMongoTopology({
+      ...isolated,
+      CORE_MONGODB_URI: "https://edb-core.example/core",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain(
+      "CORE_MONGODB_URI must be a valid mongodb:// or mongodb+srv:// URI with a hostname",
+    );
+  });
+
   it("rejects two zones sharing one production cluster host", () => {
     const result = validateProductionMongoTopology({
       ...isolated,
