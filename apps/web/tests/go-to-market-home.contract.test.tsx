@@ -14,6 +14,10 @@ vi.mock("@/context/LocaleContext", () => ({
   useLocale: () => ({ locale: "de" }),
 }));
 
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => <img alt="" {...props} />,
+}));
+
 describe("GO-TO-MARKET-01 homepage contract", () => {
   it("renders a citizen-first public entry before professional use", () => {
     const html = renderToStaticMarkup(<LandingStart />);
@@ -55,7 +59,7 @@ describe("GO-TO-MARKET-01 homepage contract", () => {
 
   it("keeps professional ballot setup secondary while public CTAs use create and swipes", () => {
     const landingSource = readFileSync(
-      resolve(process.cwd(), "src/features/home/HomeGoToMarketLanding.tsx"),
+      resolve(process.cwd(), "src/features/home/HomeSplitVoxyLanding.tsx"),
       "utf8",
     );
     const swipesSource = readFileSync(
