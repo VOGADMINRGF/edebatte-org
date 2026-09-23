@@ -1,0 +1,134 @@
+name: One-shot #644 post-merge SSOT sync
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-youtube-serverless-postmerge-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Guard exact main and source blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "f7b50407f338ffdaf4dccdb72df24024d4b2e080"
+          test "$(git rev-parse HEAD^)" = "f7b50407f338ffdaf4dccdb72df24024d4b2e080"
+          test "$(git rev-parse docs/E150/OpenTasks.md)" = "dc4db45602b9cad9a72d5ce503fea5d641ce69fb"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "dc4db45602b9cad9a72d5ce503fea5d641ce69fb"
+
+      - name: Serialize consumed Slice 1 to manual gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path('docs/E150/OpenTasks.md')
+          before = path.read_text(encoding='utf-8')
+
+          operative_marker = '## Kanonischer Operativteil'
+          history_marker = '## Historischer Katalog und Evidenz'
+          task_id = 'YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01'
+          expected_tail_sha = '305e888efeb5d12c3450bd4399107f4be78d3c0f3a4c7279af1a0828216531c7'
+
+          old = '| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | codex_ready | preflight_only | #644 | P0 Media-/YouTube-Acquisition-Owner; erster Produkt-Slice nur `MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures; `sourceLoaded=true` nur mit realer Segment-/Timestamp-Evidence; keine Provider-/Secret-Aktivierung, kein zweiter Media-/Create-Store, keine #629-Komposition, kein Auto-Publish/Production-Write. |'
+          new = '| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | manual_gate | environment_human_gate_only | #644 | Slice 1 (`MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures) via #982 / Merge `f7b50407f338ffdaf4dccdb72df24024d4b2e080` abgeschlossen; nächster realer Media-/Provider-Adapter nur nach separater Environment/Human-Gate-Freigabe mit Capability, Kosten, Consent, Rechte/Copyright, Datenschutz/Retention, Region-Verfügbarkeit, Abuse-Limits und Exact-Preview-Smokes; keine Provider-/Secret-Aktivierung ohne separate Freigabe, keine #629-Komposition, kein Auto-Publish/Production-Write. |'
+
+          assert before.count(operative_marker) == 1, 'operative marker must be unique'
+          assert before.count(history_marker) == 1, 'history marker must be unique'
+          op_pos = before.index(operative_marker)
+          hist_pos = before.index(history_marker)
+          assert op_pos < hist_pos, 'history marker must follow operative marker'
+
+          operative = before[op_pos:hist_pos]
+          tail = before[hist_pos:]
+          assert hashlib.sha256(tail.encode()).hexdigest() == expected_tail_sha, 'historical tail hash drifted'
+
+          assert operative.count(task_id) == 1, 'target task must occur exactly once in operative region'
+          assert operative.count(old) == 1, 'exact pre-merge target row not found exactly once'
+          assert 'manual_gate | environment_human_gate_only | #644' not in operative, 'target already transitioned'
+
+          for preserve in (
+              'CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01',
+              'GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01',
+              'PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01',
+              'VOXY-EU24-MULTILINGUAL-EDITORIAL-01',
+              'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01',
+          ):
+              assert preserve in operative, f'missing preserve task: {preserve}'
+
+          visual_line = next(line for line in operative.splitlines() if 'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01' in line)
+          assert 'done' in visual_line, 'Voxy visual QA truth must remain done'
+
+          before_lines = before.splitlines(keepends=True)
+          target_indexes = [i for i, line in enumerate(before_lines) if old in line]
+          assert len(target_indexes) == 1
+          idx = target_indexes[0]
+          newline = '\n' if before_lines[idx].endswith('\n') else ''
+          after_lines = list(before_lines)
+          after_lines[idx] = new + newline
+          after = ''.join(after_lines)
+
+          assert len(after_lines) == len(before_lines), 'line count changed unexpectedly'
+          for i, (left, right) in enumerate(zip(before_lines, after_lines)):
+              if i == idx:
+                  assert left.rstrip('\n') == old
+                  assert right.rstrip('\n') == new
+              else:
+                  assert left == right, f'unexpected mutation at line {i+1}'
+
+          after_op = after[after.index(operative_marker):after.index(history_marker)]
+          after_tail = after[after.index(history_marker):]
+          assert after_op.count(task_id) == 1
+          assert after_op.count(new) == 1
+          assert old not in after_op
+          assert hashlib.sha256(after_tail.encode()).hexdigest() == expected_tail_sha, 'historical tail changed'
+
+          path.write_text(after, encoding='utf-8')
+          PY
+
+      - name: Verify fail-closed post-merge state and exact diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/codex-task-preflight.mjs YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 > /tmp/preflight.json || true
+          cat /tmp/preflight.json
+          grep -F '"status": "manual_gate"' /tmp/preflight.json
+          grep -F '"executable": false' /tmp/preflight.json
+          grep -F '"branchCreationAllowed": false' /tmp/preflight.json
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+
+      - name: Commit SSOT transition and self-remove writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/opentasks-youtube-serverless-postmerge-sync.yml
+          git add docs/E150/OpenTasks.md
+          staged="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/opentasks-youtube-serverless-postmerge-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
+          test "$staged" = "$expected"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(governance): gate #644 after Slice 1'
+          git push origin HEAD:docs/governance-ssot-sync-05
