@@ -1,0 +1,46 @@
+name: One-shot #629 repair preflight current main
+
+on:
+  push:
+    branches:
+      - chore/ai-specialist-composition-repair-preflight-current-20260923
+    paths:
+      - .github/workflows/preflight-ai-specialist-composition-repair-current.yml
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/ai-specialist-composition-repair-preflight-current-20260923
+          fetch-depth: 0
+
+      - name: Run #629 repair preflight on exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "aa32d4956fa9f836ed1931e542489855385064b8"
+          git checkout -B main origin/main
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01 | tee /tmp/preflight.json
+          grep -F '"status": "codex_ready"' /tmp/preflight.json
+          grep -F '"executable": true' /tmp/preflight.json
+          grep -F '"branchCreationAllowed": true' /tmp/preflight.json
+
+      - name: Remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout chore/ai-specialist-composition-repair-preflight-current-20260923
+          git rm .github/workflows/preflight-ai-specialist-composition-repair-current.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(governance): remove current-main #629 repair preflight'
+          git push origin HEAD:chore/ai-specialist-composition-repair-preflight-current-20260923
