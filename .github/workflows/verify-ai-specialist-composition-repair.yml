@@ -1,0 +1,46 @@
+name: Verify #629 Slice-1 repair
+
+on:
+  push:
+    branches:
+      - fix/ai-specialist-composition-slice1-binding-repair-current-01
+    paths:
+      - .github/workflows/verify-ai-specialist-composition-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ai-specialist-composition-slice1-binding-repair-current-01
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Focused #629 composition contract
+        run: pnpm -C apps/web exec vitest run tests/ai-specialist-composition-contract.test.ts
+      - name: Typecheck
+        run: pnpm -C apps/web run typecheck
+      - name: Repository integrity
+        run: node scripts/ci/check-repository-integrity-guards.mjs --base aa32d4956fa9f836ed1931e542489855385064b8
+      - name: Diff check
+        run: git diff --check origin/main...HEAD
+      - name: Remove temporary verification workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/verify-ai-specialist-composition-repair.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(ci): remove one-shot #629 repair verification'
+          git push origin HEAD:fix/ai-specialist-composition-slice1-binding-repair-current-01
