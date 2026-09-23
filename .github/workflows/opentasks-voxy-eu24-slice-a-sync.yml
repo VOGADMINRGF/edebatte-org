@@ -1,0 +1,116 @@
+name: One-shot Voxy EU24 Slice A SSOT sync
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-eu24-slice-a-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Verify fresh canonical writer branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git branch --show-current)" = "docs/governance-ssot-sync-05"
+          git merge-base --is-ancestor origin/main HEAD
+          changed="$(git diff --name-only origin/main...HEAD)"
+          test "$changed" = ".github/workflows/opentasks-voxy-eu24-slice-a-sync.yml"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$(git rev-parse origin/main:docs/E150/OpenTasks.md)"
+
+      - name: Serialize only Voxy EU24 Slice A
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '\n## Historischer Katalog und Evidenz\n'
+          task_id = 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01'
+          parent_row = '| ECOSYSTEM-I18N-CONTRACT-01 | codex_ready |'
+
+          if text.count(marker) != 1:
+              raise SystemExit('historical_marker_not_unique')
+          if text.count(task_id) != 0:
+              raise SystemExit('voxy_eu24_task_already_present')
+
+          head, historical = text.split(marker, 1)
+          if head.count(parent_row) != 1:
+              raise SystemExit('ecosystem_i18n_parent_not_unique_codex_ready')
+
+          historical_blob = marker + historical
+          historical_hash_before = sha256(historical_blob.encode('utf-8')).hexdigest()
+
+          block = '''
+
+### Voxy EU-24 Multilingual Editorial · Slice A
+
+| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope | Akzeptanz / Guardrails |
+| --- | --- | --- | --- | --- | --- |
+| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 abgeschlossen via #967; Intake #969 | **Slice A only:** kanonische Locale-SSOT und Voxy-Output-Locale-Projektion additiv von aktuell 20 auf 31 Locales erweitern: `bg`, `da`, `et`, `ga`, `hr`, `hu`, `lv`, `lt`, `mt`, `sk`, `sl`; alle bestehenden zusätzlichen Locales beibehalten; keine Language-Variant-Runtime, keine Translation-/TTS-Provideraktivierung in diesem Slice | `SUPPORTED_LOCALES`, Locale-Config und `VOXY_VIDEO_OUTPUT_LOCALES` bleiben driftfrei; alle 24 EU-Amtssprachen sind als Voxy-Output-Locale-IDs repräsentiert; vorhandene zusätzlichen Locales bleiben erhalten; neue Locale-ID macht ohne explizit freigegebenes `voiceProfileId` keinen Render zulässig; kein Locale-/Voice-Fallback; neue elf EU-Locales bleiben LTR, bestehendes `ar`-RTL unverändert; harte 20-Locale-Annahmen inventarisieren; fokussierte Locale-/Drift-/Voice-Contracts plus Typecheck/Lint/Build/`git diff --check`; kein neuer i18n-/Translation-/Evidence-/Voice-/Render-Store, kein Upload/Scheduling/Social/Auto-Publish; Slices B–E bleiben separate Follow-ups und werden durch diese Zeile nicht autorisiert |
+'''
+
+          updated = head + block + historical_blob
+
+          if updated.count(task_id) != 1:
+              raise SystemExit('voxy_eu24_task_not_unique_after_insert')
+          if updated.count('| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 |') != 1:
+              raise SystemExit('voxy_eu24_codex_ready_row_missing')
+          if updated.count(parent_row) != 1:
+              raise SystemExit('ecosystem_i18n_parent_changed')
+
+          _, historical_after = updated.split(marker, 1)
+          historical_hash_after = sha256((marker + historical_after).encode('utf-8')).hexdigest()
+          if historical_hash_before != historical_hash_after:
+              raise SystemExit('historical_tail_changed')
+
+          path.write_text(updated, encoding='utf-8')
+          print('historical_sha256', historical_hash_after)
+          PY
+
+      - name: Diff and self-removal guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git rm .github/workflows/opentasks-voxy-eu24-slice-a-sync.yml
+          git add docs/E150/OpenTasks.md
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/opentasks-voxy-eu24-slice-a-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
+          test "$changed" = "$expected"
+          test "$(git diff --cached --numstat -- docs/E150/OpenTasks.md | awk '{print $1 ":" $2}')" = "5:0"
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F '### Voxy EU-24 Multilingual Editorial · Slice A'
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 |'
+          if git diff --cached -- docs/E150/OpenTasks.md | grep -F -- '-## Historischer Katalog und Evidenz'; then
+            echo 'historical_heading_removed'
+            exit 1
+          fi
+
+      - name: Commit safe SSOT patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(governance): serialize Voxy EU24 Slice A'
+          git push origin HEAD:docs/governance-ssot-sync-05
