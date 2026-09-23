@@ -1,0 +1,181 @@
+name: One-shot YouTube serverless source runtime SSOT sync
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-youtube-serverless-source-runtime-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Verify fresh canonical writer branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git branch --show-current)" = "docs/governance-ssot-sync-05"
+          test "$(git rev-parse origin/main)" = "3792263d3976d36bda191fa1af3f0a8a42461734"
+          git merge-base --is-ancestor origin/main HEAD
+          changed="$(git diff --name-only origin/main...HEAD)"
+          test "$changed" = ".github/workflows/opentasks-youtube-serverless-source-runtime-sync.yml"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "ed6eb0e09daa97b52a57e93dc0262cff36b02888"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "ed6eb0e09daa97b52a57e93dc0262cff36b02888"
+
+      - name: Serialize YouTube media source runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+          import re
+          import subprocess
+
+          path = Path('docs/E150/OpenTasks.md')
+          expected_blob = 'ed6eb0e09daa97b52a57e93dc0262cff36b02888'
+          operative = '## Kanonischer Operativteil'
+          history = '## Historischer Katalog und Evidenz'
+          task_id = 'YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01'
+
+          def parse_statuses(region):
+              statuses = {}
+              active_header = None
+              for raw_line in region.splitlines():
+                  line = raw_line.strip()
+                  if not line.startswith('|'):
+                      continue
+                  cells = [cell.strip() for cell in line.split('|')[1:-1]]
+                  if not cells:
+                      continue
+                  if all(re.fullmatch(r':?-{3,}:?', cell or '') for cell in cells):
+                      continue
+                  if 'ID' in cells and 'Status' in cells:
+                      active_header = cells
+                      continue
+                  if not active_header or len(cells) < len(active_header):
+                      continue
+                  row = dict(zip(active_header, cells))
+                  row_id = row.get('ID', '')
+                  status = row.get('Status', '')
+                  if not row_id or not status:
+                      continue
+                  if row_id in statuses:
+                      raise SystemExit(f'STOP: duplicate operative task ID: {row_id}')
+                  statuses[row_id] = status
+              return statuses
+
+          block_lines = [
+              '### #644 — YouTube / Media Source Runtime',
+              '',
+              '| ID | Status | Authorization | Issue | Rolle / harte Grenze |',
+              '| --- | --- | --- | --- | --- |',
+              '| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | codex_ready | preflight_only | #644 | P0 Media-/YouTube-Acquisition-Owner; erster Produkt-Slice nur `MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures; `sourceLoaded=true` nur mit realer Segment-/Timestamp-Evidence; keine Provider-/Secret-Aktivierung, kein zweiter Media-/Create-Store, keine #629-Komposition, kein Auto-Publish/Production-Write. |',
+              '',
+          ]
+          block = '\n'.join(block_lines) + '\n'
+
+          actual_blob = subprocess.check_output(['git', 'hash-object', str(path)], text=True).strip()
+          if actual_blob != expected_blob:
+              raise SystemExit(f'STOP: blob mismatch {actual_blob} != {expected_blob}')
+
+          text = path.read_text(encoding='utf-8')
+          if text.count(operative) != 1:
+              raise SystemExit('STOP: operative marker is not unique')
+          if text.count(history) != 1:
+              raise SystemExit('STOP: history marker is not unique')
+
+          op_index = text.index(operative)
+          history_index = text.index(history)
+          if history_index <= op_index:
+              raise SystemExit('STOP: history marker is not after operative marker')
+
+          head = text[:history_index]
+          operative_region = text[op_index:history_index]
+          historical_tail = text[history_index:]
+          historical_hash_before = sha256(historical_tail.encode('utf-8')).hexdigest()
+          statuses_before = parse_statuses(operative_region)
+
+          if task_id in statuses_before or task_id in operative_region:
+              raise SystemExit('STOP: task already present in operative region')
+
+          for required in (
+              'CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01',
+              'GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01',
+              'PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01',
+              'VOXY-EU24-MULTILINGUAL-EDITORIAL-01',
+          ):
+              if required not in statuses_before:
+                  raise SystemExit(f'STOP: expected operative task missing from parsed tables: {required}')
+
+          reserved_id = 'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01'
+          if statuses_before.get(reserved_id) != 'done':
+              raise SystemExit(f"STOP: reserved Voxy status is {statuses_before.get(reserved_id)!r}, expected 'done'")
+
+          updated = head + block + historical_tail
+          updated_op_index = updated.index(operative)
+          updated_history_index = updated.index(history)
+          updated_operative = updated[updated_op_index:updated_history_index]
+          updated_history = updated[updated_history_index:]
+          statuses_after = parse_statuses(updated_operative)
+
+          if statuses_after.get(task_id) != 'codex_ready':
+              raise SystemExit('STOP: #644 task is not parsed as codex_ready after insert')
+          if statuses_after.get(reserved_id) != 'done':
+              raise SystemExit('STOP: reserved Voxy status changed')
+
+          for row_id, status in statuses_before.items():
+              if statuses_after.get(row_id) != status:
+                  raise SystemExit(f'STOP: existing operative task status changed: {row_id}')
+          if set(statuses_after) != set(statuses_before) | {task_id}:
+              raise SystemExit('STOP: parsed operative task set changed beyond #644 addition')
+          if sha256(updated_history.encode('utf-8')).hexdigest() != historical_hash_before:
+              raise SystemExit('STOP: historical tail changed')
+
+          path.write_text(updated, encoding='utf-8')
+          print('historical_sha256', historical_hash_before)
+          print('reserved_status', statuses_after[reserved_id])
+          print('new_task_status', statuses_after[task_id])
+          PY
+
+      - name: Diff and self-removal guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git rm .github/workflows/opentasks-youtube-serverless-source-runtime-sync.yml
+          git add docs/E150/OpenTasks.md
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/opentasks-youtube-serverless-source-runtime-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
+          test "$changed" = "$expected"
+          test "$(git diff --cached --numstat -- docs/E150/OpenTasks.md | awk '{print $2}')" = "0"
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F '### #644 — YouTube / Media Source Runtime'
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F '| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | codex_ready | preflight_only | #644 |'
+          if git diff --cached -- docs/E150/OpenTasks.md | grep -F -- '-## Historischer Katalog und Evidenz'; then
+            echo 'historical_heading_removed'
+            exit 1
+          fi
+
+      - name: Commit safe SSOT patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(governance): serialize #644 media source runtime'
+          git push origin HEAD:docs/governance-ssot-sync-05
