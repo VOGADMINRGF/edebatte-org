@@ -599,6 +599,12 @@ Diese Queue ist die einzige operative Alpha2-Task-Wahrheit. `docs/E150/ALPHA_FOX
 | GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01 | blocked | none | #951 | T9 fachliches Verification-Profil auf #629/E150; kein T9Runner/T9Composer/T9ProviderRouter; Factchecks selbst verifizieren; Translation erzeugt keine Evidenz; Jurisdiction/Freshness/Generalizability fail-closed beachten. |
 | PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01 | blocked | none | #952 | G6 ausschließlich derived/read-only; vorhandene Analyze-/`core/evidence`-Owner konvergieren; kein dritter Evidence-/Graph-Store; niemals Graph→Domain-Truth-Writeback. |
 
+### Voxy EU-24 Multilingual Editorial · Slice A
+
+| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope | Akzeptanz / Guardrails |
+| --- | --- | --- | --- | --- | --- |
+| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 abgeschlossen via #967; Intake #969 | **Slice A only:** kanonische Locale-SSOT und Voxy-Output-Locale-Projektion additiv von aktuell 20 auf 31 Locales erweitern: `bg`, `da`, `et`, `ga`, `hr`, `hu`, `lv`, `lt`, `mt`, `sk`, `sl`; alle bestehenden zusätzlichen Locales beibehalten; keine Language-Variant-Runtime, keine Translation-/TTS-Provideraktivierung in diesem Slice | `SUPPORTED_LOCALES`, Locale-Config und `VOXY_VIDEO_OUTPUT_LOCALES` bleiben driftfrei; alle 24 EU-Amtssprachen sind als Voxy-Output-Locale-IDs repräsentiert; vorhandene zusätzlichen Locales bleiben erhalten; neue Locale-ID macht ohne explizit freigegebenes `voiceProfileId` keinen Render zulässig; kein Locale-/Voice-Fallback; neue elf EU-Locales bleiben LTR, bestehendes `ar`-RTL unverändert; harte 20-Locale-Annahmen inventarisieren; fokussierte Locale-/Drift-/Voice-Contracts plus Typecheck/Lint/Build/`git diff --check`; kein neuer i18n-/Translation-/Evidence-/Voice-/Render-Store, kein Upload/Scheduling/Social/Auto-Publish; Slices B–E bleiben separate Follow-ups und werden durch diese Zeile nicht autorisiert |
+
 ## Historischer Katalog und Evidenz
 
 Die nachfolgenden Abschnitte bleiben vollständig als historische Evidenz erhalten. Sie dienen der Nachvollziehbarkeit, aber nicht als aktuelle operative Tagesqueue.
