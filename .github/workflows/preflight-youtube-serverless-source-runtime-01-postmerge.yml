@@ -1,0 +1,50 @@
+name: One-shot #644 post-merge preflight
+
+on:
+  push:
+    branches:
+      - chore/youtube-serverless-source-runtime-01-postmerge-preflight-20260923
+    paths:
+      - .github/workflows/preflight-youtube-serverless-source-runtime-01-postmerge.yml
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/youtube-serverless-source-runtime-01-postmerge-preflight-20260923
+          fetch-depth: 0
+
+      - name: Verify canonical fail-closed task state on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "aa32d4956fa9f836ed1931e542489855385064b8"
+          git checkout -B main origin/main
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 > /tmp/preflight.json 2>&1 || true
+          cat /tmp/preflight.json
+          grep -F '"taskId": "YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01"' /tmp/preflight.json
+          grep -F '"status": "manual_gate"' /tmp/preflight.json
+          grep -F '"executable": false' /tmp/preflight.json
+          grep -F '"reason": "task_status_not_executable:manual_gate"' /tmp/preflight.json
+          ! grep -F '"branchCreationAllowed"' /tmp/preflight.json
+
+      - name: Remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout chore/youtube-serverless-source-runtime-01-postmerge-preflight-20260923
+          git rm .github/workflows/preflight-youtube-serverless-source-runtime-01-postmerge.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(governance): remove one-shot #644 post-merge preflight'
+          git push origin HEAD:chore/youtube-serverless-source-runtime-01-postmerge-preflight-20260923
