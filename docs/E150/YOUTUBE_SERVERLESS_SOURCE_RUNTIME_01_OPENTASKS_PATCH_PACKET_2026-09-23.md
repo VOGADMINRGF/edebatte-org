@@ -16,7 +16,7 @@ Zieldatei:
 docs/E150/OpenTasks.md
 ```
 
-Verifizierter Blob auf `main@d303a7296f6cf35c94023191e24c2c4678283cad` vor Apply:
+Verifizierter Blob auf `main@0769a36cde3b46ceb2877061cc081e6abb3ad079` vor Apply:
 
 ```text
 ed6eb0e09daa97b52a57e93dc0262cff36b02888
@@ -59,11 +59,15 @@ Vor jedem Write müssen mechanisch alle Bedingungen wahr sein:
 4. der kanonische `## Historischer Katalog und Evidenz`-Anker kommt im tatsächlichen Dateiinhalt exakt einmal vor und liegt nach dem Operativ-Marker;
 5. `YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01` kommt im operativen Bereich noch nicht vor;
 6. die bestehende C13/T9/G6-Matrix und alle danach serialisierten operativen Einträge bleiben vollständig erhalten;
-7. `VOXY-200PCT-VISUAL-QA-CHECKPOINT-01` bleibt semantisch auf `review`; kein Reserved-#588-Delta wird zurückgedreht;
+7. `VOXY-200PCT-VISUAL-QA-CHECKPOINT-01` bleibt semantisch auf dem im aktuellen operativen Kopf belegten Status `done`; kein bereits abgeschlossener #588/#580-Visual-QA-Status wird zurückgedreht;
 8. `VOXY-EU24-MULTILINGUAL-EDITORIAL-01` wird durch diesen #644-Write nicht verändert; dessen Post-Merge-Reconciliation ist ein eigener belegter Single-Writer-Schritt;
 9. kein paralleler OpenTasks-Writer darf aktiv dieselbe Datei verändern;
 10. kein bestehender Task-Status, keine bestehende Tabellenzeile und keine historische Evidenz wird geändert oder gelöscht;
 11. kann eine Bedingung nicht mechanisch bewiesen werden: **STOP / kein Write**.
+
+### Korrekturhinweis zum früheren Paketstand
+
+Ein vorheriger Paketstand verlangte für `VOXY-200PCT-VISUAL-QA-CHECKPOINT-01` fälschlich `review`. Der vollständige operative Kopf des oben gepinnten Blobs wird vom selben `ID`/`Status`-Tabellenvertrag wie `scripts/codex-task-preflight.mjs` als `done` geparst. Der #644-Write darf diese aktuelle operative Wahrheit weder auf `review` zurücksetzen noch anderweitig verändern.
 
 ## Deterministischer lokaler Apply
 
@@ -72,6 +76,8 @@ Nur auf einem sauberen, exakt auf dem erwarteten Ziel-Commit basierenden Single-
 ```bash
 python3 - <<'PY'
 from pathlib import Path
+from hashlib import sha256
+import re
 import subprocess
 
 path = Path("docs/E150/OpenTasks.md")
@@ -79,6 +85,7 @@ expected_blob = "ed6eb0e09daa97b52a57e93dc0262cff36b02888"
 operative = "## Kanonischer Operativteil"
 history = "## Historischer Katalog und Evidenz"
 task_id = "YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01"
+
 block = """### #644 — YouTube / Media Source Runtime
 
 | ID | Status | Authorization | Issue | Rolle / harte Grenze |
@@ -87,12 +94,38 @@ block = """### #644 — YouTube / Media Source Runtime
 
 """
 
+def parse_statuses(region: str) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    active_header: list[str] | None = None
+    for raw_line in region.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.split("|")[1:-1]]
+        if not cells:
+            continue
+        if all(re.fullmatch(r":?-{3,}:?", cell or "") for cell in cells):
+            continue
+        if "ID" in cells and "Status" in cells:
+            active_header = cells
+            continue
+        if not active_header or len(cells) < len(active_header):
+            continue
+        row = dict(zip(active_header, cells))
+        row_id = row.get("ID", "")
+        status = row.get("Status", "")
+        if not row_id or not status:
+            continue
+        if row_id in statuses:
+            raise SystemExit(f"STOP: duplicate operative task ID: {row_id}")
+        statuses[row_id] = status
+    return statuses
+
 actual_blob = subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
 if actual_blob != expected_blob:
     raise SystemExit(f"STOP: blob mismatch {actual_blob} != {expected_blob}")
 
-raw = path.read_bytes()
-text = raw.decode("utf-8")
+text = path.read_text(encoding="utf-8")
 if text.count(operative) != 1:
     raise SystemExit("STOP: operative marker is not unique in actual file content")
 if text.count(history) != 1:
@@ -103,19 +136,51 @@ history_index = text.index(history)
 if history_index <= op_index:
     raise SystemExit("STOP: history marker is not after operative marker")
 
+head = text[:history_index]
 operative_region = text[op_index:history_index]
-if task_id in operative_region:
+historical_tail = text[history_index:]
+historical_hash_before = sha256(historical_tail.encode("utf-8")).hexdigest()
+statuses_before = parse_statuses(operative_region)
+
+if task_id in statuses_before or task_id in operative_region:
     raise SystemExit("STOP: task already present in operative region")
+
 for required in (
     "CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01",
+    "GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01",
+    "PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01",
     "VOXY-EU24-MULTILINGUAL-EDITORIAL-01",
 ):
-    if required not in operative_region:
-        raise SystemExit(f"STOP: expected operative truth missing: {required}")
-if "VOXY-200PCT-VISUAL-QA-CHECKPOINT-01" not in text:
-    raise SystemExit("STOP: reserved Voxy review truth cannot be located")
+    if required not in statuses_before:
+        raise SystemExit(f"STOP: expected operative task missing: {required}")
 
-new_text = text[:history_index] + block + text[history_index:]
+reserved_id = "VOXY-200PCT-VISUAL-QA-CHECKPOINT-01"
+if statuses_before.get(reserved_id) != "done":
+    raise SystemExit(
+        f"STOP: reserved Voxy status is {statuses_before.get(reserved_id)!r}, expected 'done'"
+    )
+
+new_text = head + block + historical_tail
+new_op_index = new_text.index(operative)
+new_history_index = new_text.index(history)
+new_operative = new_text[new_op_index:new_history_index]
+new_history = new_text[new_history_index:]
+statuses_after = parse_statuses(new_operative)
+
+if statuses_after.get(task_id) != "codex_ready":
+    raise SystemExit("STOP: #644 task is not codex_ready after insertion")
+if statuses_after.get(reserved_id) != "done":
+    raise SystemExit("STOP: reserved Voxy status changed")
+
+for row_id, status in statuses_before.items():
+    if statuses_after.get(row_id) != status:
+        raise SystemExit(f"STOP: existing operative task status changed: {row_id}")
+
+if set(statuses_after) != set(statuses_before) | {task_id}:
+    raise SystemExit("STOP: operative task set changed beyond #644 addition")
+if sha256(new_history.encode("utf-8")).hexdigest() != historical_hash_before:
+    raise SystemExit("STOP: historical tail changed")
+
 path.write_text(new_text, encoding="utf-8")
 PY
 
