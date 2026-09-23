@@ -19,6 +19,17 @@ export const EXTENDED_LOCALES = [
   "ro",
   "el",
   "uk",
+  "bg",
+  "da",
+  "et",
+  "ga",
+  "hr",
+  "hu",
+  "lv",
+  "lt",
+  "mt",
+  "sk",
+  "sl",
 ] as const;
 export const SUPPORTED_LOCALES = [...CORE_LOCALES, ...EXTENDED_LOCALES] as const;
 
