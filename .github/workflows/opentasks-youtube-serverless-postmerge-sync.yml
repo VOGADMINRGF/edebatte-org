@@ -30,8 +30,8 @@ jobs:
           set -euo pipefail
           git fetch origin main --no-tags
           test "$(git rev-parse origin/main)" = "f7b50407f338ffdaf4dccdb72df24024d4b2e080"
-          test "$(git rev-parse HEAD^)" = "f7b50407f338ffdaf4dccdb72df24024d4b2e080"
-          test "$(git rev-parse docs/E150/OpenTasks.md)" = "dc4db45602b9cad9a72d5ce503fea5d641ce69fb"
+          test "$(git rev-parse HEAD^^)" = "f7b50407f338ffdaf4dccdb72df24024d4b2e080"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "dc4db45602b9cad9a72d5ce503fea5d641ce69fb"
           test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "dc4db45602b9cad9a72d5ce503fea5d641ce69fb"
 
       - name: Serialize consumed Slice 1 to manual gate
