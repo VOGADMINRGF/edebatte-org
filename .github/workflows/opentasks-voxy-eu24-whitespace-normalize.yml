@@ -72,8 +72,8 @@ jobs:
           changed="$(git diff --cached --name-only | sort)"
           expected="$(printf '%s\n' '.github/workflows/opentasks-voxy-eu24-whitespace-normalize.yml' 'docs/E150/OpenTasks.md' | sort)"
           test "$changed" = "$expected"
-          git diff --cached -- docs/E150/OpenTasks.md | grep -F '### Voxy EU-24 Multilingual Editorial · Slice A'
-          git diff --cached -- docs/E150/OpenTasks.md | grep -F '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 |'
+          test "$(grep -Fc '### Voxy EU-24 Multilingual Editorial · Slice A' docs/E150/OpenTasks.md)" = "1"
+          test "$(grep -Fc 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01' docs/E150/OpenTasks.md)" = "1"
 
       - name: Commit exact normalization
         shell: bash
