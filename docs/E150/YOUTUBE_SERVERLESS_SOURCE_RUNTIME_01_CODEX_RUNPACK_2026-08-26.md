@@ -1,6 +1,6 @@
 # YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 — Codex Run-Pack
 
-Stand: 2026-08-26
+Stand: 2026-09-23
 Task: `YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01`
 Issue: #644
 Priorität: P0
@@ -27,7 +27,7 @@ Die anonyme Web-/InnerTube-Kette ist damit kein belastbarer Serverless-Produktio
 - `docs/E150/OpenTasks.md` bleibt operative SSOT.
 - Vor Produktbranch: `node scripts/codex-task-preflight.mjs YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01` auf sauberem aktuellen `main`.
 - Nur bei exakt `status=codex_ready`, `executable=true`, `branchCreationAllowed=true` darf der Produktbranch entstehen.
-- PR #588 bleibt reserviert/read-only. Die bereits kanonische Wahrheit `VOXY-200PCT-VISUAL-QA-CHECKPOINT-01 = review` darf nicht zurückgedreht werden.
+- PR #588 ist seit 2026-09-21 gemergt und bleibt read-only. Die aktuelle operative Wahrheit `VOXY-200PCT-VISUAL-QA-CHECKPOINT-01 = done` muss durch den #644-Writer unverändert erhalten bleiben; der frühere `review`-Guard war veraltet.
 - PR #627 bleibt Draft/unmerged, solange der Exact-Preview-YouTube-Pfad `sourceLoaded=false/fetch_failed` liefert.
 - Issue #629 konsumiert später den hier entstehenden Media Source Artifact Contract; #629 darf die Acquisition-Grenze nicht duplizieren.
 - Keine Gemini-/Google-/YouTube-Credentials aktivieren oder verändern.
