@@ -609,7 +609,7 @@ Diese Queue ist die einzige operative Alpha2-Task-Wahrheit. `docs/E150/ALPHA_FOX
 
 | ID | Status | Authorization | Issue | Rolle / harte Grenze |
 | --- | --- | --- | --- | --- |
-| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | codex_ready | preflight_only | #644 | P0 Media-/YouTube-Acquisition-Owner; erster Produkt-Slice nur `MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures; `sourceLoaded=true` nur mit realer Segment-/Timestamp-Evidence; keine Provider-/Secret-Aktivierung, kein zweiter Media-/Create-Store, keine #629-Komposition, kein Auto-Publish/Production-Write. |
+| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | manual_gate | environment_human_gate_only | #644 | Slice 1 (`MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures) via #982 / Merge `f7b50407f338ffdaf4dccdb72df24024d4b2e080` abgeschlossen; nächster realer Media-/Provider-Adapter nur nach separater Environment/Human-Gate-Freigabe mit Capability, Kosten, Consent, Rechte/Copyright, Datenschutz/Retention, Region-Verfügbarkeit, Abuse-Limits und Exact-Preview-Smokes; keine Provider-/Secret-Aktivierung ohne separate Freigabe, keine #629-Komposition, kein Auto-Publish/Production-Write. |
 
 ## Historischer Katalog und Evidenz
 
