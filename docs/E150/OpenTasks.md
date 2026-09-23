@@ -605,6 +605,12 @@ Diese Queue ist die einzige operative Alpha2-Task-Wahrheit. `docs/E150/ALPHA_FOX
 | --- | --- | --- | --- | --- | --- |
 | VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 abgeschlossen via #967; Intake #969 | **Slice A only:** kanonische Locale-SSOT und Voxy-Output-Locale-Projektion additiv von aktuell 20 auf 31 Locales erweitern: `bg`, `da`, `et`, `ga`, `hr`, `hu`, `lv`, `lt`, `mt`, `sk`, `sl`; alle bestehenden zusätzlichen Locales beibehalten; keine Language-Variant-Runtime, keine Translation-/TTS-Provideraktivierung in diesem Slice | `SUPPORTED_LOCALES`, Locale-Config und `VOXY_VIDEO_OUTPUT_LOCALES` bleiben driftfrei; alle 24 EU-Amtssprachen sind als Voxy-Output-Locale-IDs repräsentiert; vorhandene zusätzlichen Locales bleiben erhalten; neue Locale-ID macht ohne explizit freigegebenes `voiceProfileId` keinen Render zulässig; kein Locale-/Voice-Fallback; neue elf EU-Locales bleiben LTR, bestehendes `ar`-RTL unverändert; harte 20-Locale-Annahmen inventarisieren; fokussierte Locale-/Drift-/Voice-Contracts plus Typecheck/Lint/Build/`git diff --check`; kein neuer i18n-/Translation-/Evidence-/Voice-/Render-Store, kein Upload/Scheduling/Social/Auto-Publish; Slices B–E bleiben separate Follow-ups und werden durch diese Zeile nicht autorisiert |
 
+### #644 — YouTube / Media Source Runtime
+
+| ID | Status | Authorization | Issue | Rolle / harte Grenze |
+| --- | --- | --- | --- | --- |
+| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | codex_ready | preflight_only | #644 | P0 Media-/YouTube-Acquisition-Owner; erster Produkt-Slice nur `MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures; `sourceLoaded=true` nur mit realer Segment-/Timestamp-Evidence; keine Provider-/Secret-Aktivierung, kein zweiter Media-/Create-Store, keine #629-Komposition, kein Auto-Publish/Production-Write. |
+
 ## Historischer Katalog und Evidenz
 
 Die nachfolgenden Abschnitte bleiben vollständig als historische Evidenz erhalten. Sie dienen der Nachvollziehbarkeit, aber nicht als aktuelle operative Tagesqueue.
