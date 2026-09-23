@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { VoteModel } from "@/models/votes/Vote";
+import { VoteModel, type VoteAttribution } from "@/models/votes/Vote";
 import { incrementRateLimit } from "@/lib/security/rate-limit";
 import {
   DIGITAL_POLITICS_BALLOT_ID,
@@ -15,6 +15,7 @@ const GUEST_COOKIE = "edb_social_ballot_guest";
 const COOKIE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 const RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 const RATE_LIMIT_MAX = 80;
+const ATTRIBUTION_VALUE_RE = /^[A-Za-z0-9._-]{1,80}$/;
 
 const VoteSchema = z.object({
   questionId: z.string().min(1).max(80),
@@ -55,6 +56,34 @@ function requestIsSameSite(req: NextRequest) {
   }
 
   return true;
+}
+
+function sanitizeAttributionValue(value: string | null) {
+  const trimmed = value?.trim() ?? "";
+  return ATTRIBUTION_VALUE_RE.test(trimmed) ? trimmed.toLowerCase() : undefined;
+}
+
+function readAttribution(req: NextRequest): VoteAttribution | undefined {
+  const referer = req.headers.get("referer");
+  if (!referer) return undefined;
+
+  let url: URL;
+  try {
+    url = new URL(referer);
+  } catch {
+    return undefined;
+  }
+
+  if (url.origin !== req.nextUrl.origin) return undefined;
+
+  const attribution: VoteAttribution = {
+    source: sanitizeAttributionValue(url.searchParams.get("utm_source")),
+    medium: sanitizeAttributionValue(url.searchParams.get("utm_medium")),
+    campaign: sanitizeAttributionValue(url.searchParams.get("utm_campaign")),
+    content: sanitizeAttributionValue(url.searchParams.get("utm_content")),
+  };
+
+  return Object.values(attribution).some(Boolean) ? attribution : undefined;
 }
 
 function classifyVotesStoreFailure(error: unknown): VotesStoreFailureReason {
@@ -133,6 +162,7 @@ export async function POST(req: NextRequest) {
 
   const guest = readOrCreateGuestToken(req);
   const sessionId = hash(`${DIGITAL_POLITICS_BALLOT_ID}:${guest.token}`).slice(0, 40);
+  const attribution = readAttribution(req);
   const now = new Date();
 
   try {
@@ -152,6 +182,7 @@ export async function POST(req: NextRequest) {
           choice: parsed.data.choice,
           sessionId,
           locale: parsed.data.locale?.trim() || "de",
+          ...(attribution ? { attribution } : {}),
           updatedAt: now,
         },
         $setOnInsert: {
