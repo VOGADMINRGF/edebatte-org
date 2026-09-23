@@ -108,11 +108,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/codex-task-preflight.mjs YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 > /tmp/preflight.json || true
+          node scripts/codex-task-preflight.mjs YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 > /tmp/preflight.json 2>&1 || true
           cat /tmp/preflight.json
           grep -F '"status": "manual_gate"' /tmp/preflight.json
           grep -F '"executable": false' /tmp/preflight.json
-          grep -F '"branchCreationAllowed": false' /tmp/preflight.json
+          grep -F '"reason": "task_status_not_executable:manual_gate"' /tmp/preflight.json
+          ! grep -F '"branchCreationAllowed"' /tmp/preflight.json
           git diff --check
           test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
           test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
