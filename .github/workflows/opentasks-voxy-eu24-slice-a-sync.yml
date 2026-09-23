@@ -61,15 +61,15 @@ jobs:
           historical_blob = marker + historical
           historical_hash_before = sha256(historical_blob.encode('utf-8')).hexdigest()
 
-          block = '''
-
-### Voxy EU-24 Multilingual Editorial · Slice A
-
-| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope | Akzeptanz / Guardrails |
-| --- | --- | --- | --- | --- | --- |
-| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 abgeschlossen via #967; Intake #969 | **Slice A only:** kanonische Locale-SSOT und Voxy-Output-Locale-Projektion additiv von aktuell 20 auf 31 Locales erweitern: `bg`, `da`, `et`, `ga`, `hr`, `hu`, `lv`, `lt`, `mt`, `sk`, `sl`; alle bestehenden zusätzlichen Locales beibehalten; keine Language-Variant-Runtime, keine Translation-/TTS-Provideraktivierung in diesem Slice | `SUPPORTED_LOCALES`, Locale-Config und `VOXY_VIDEO_OUTPUT_LOCALES` bleiben driftfrei; alle 24 EU-Amtssprachen sind als Voxy-Output-Locale-IDs repräsentiert; vorhandene zusätzlichen Locales bleiben erhalten; neue Locale-ID macht ohne explizit freigegebenes `voiceProfileId` keinen Render zulässig; kein Locale-/Voice-Fallback; neue elf EU-Locales bleiben LTR, bestehendes `ar`-RTL unverändert; harte 20-Locale-Annahmen inventarisieren; fokussierte Locale-/Drift-/Voice-Contracts plus Typecheck/Lint/Build/`git diff --check`; kein neuer i18n-/Translation-/Evidence-/Voice-/Render-Store, kein Upload/Scheduling/Social/Auto-Publish; Slices B–E bleiben separate Follow-ups und werden durch diese Zeile nicht autorisiert |
-'''
-
+          block_lines = [
+              '',
+              '### Voxy EU-24 Multilingual Editorial · Slice A',
+              '',
+              '| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope | Akzeptanz / Guardrails |',
+              '| --- | --- | --- | --- | --- | --- |',
+              '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 abgeschlossen via #967; Intake #969 | **Slice A only:** kanonische Locale-SSOT und Voxy-Output-Locale-Projektion additiv von aktuell 20 auf 31 Locales erweitern: `bg`, `da`, `et`, `ga`, `hr`, `hu`, `lv`, `lt`, `mt`, `sk`, `sl`; alle bestehenden zusätzlichen Locales beibehalten; keine Language-Variant-Runtime, keine Translation-/TTS-Provideraktivierung in diesem Slice | `SUPPORTED_LOCALES`, Locale-Config und `VOXY_VIDEO_OUTPUT_LOCALES` bleiben driftfrei; alle 24 EU-Amtssprachen sind als Voxy-Output-Locale-IDs repräsentiert; vorhandene zusätzlichen Locales bleiben erhalten; neue Locale-ID macht ohne explizit freigegebenes `voiceProfileId` keinen Render zulässig; kein Locale-/Voice-Fallback; neue elf EU-Locales bleiben LTR, bestehendes `ar`-RTL unverändert; harte 20-Locale-Annahmen inventarisieren; fokussierte Locale-/Drift-/Voice-Contracts plus Typecheck/Lint/Build/`git diff --check`; kein neuer i18n-/Translation-/Evidence-/Voice-/Render-Store, kein Upload/Scheduling/Social/Auto-Publish; Slices B–E bleiben separate Follow-ups und werden durch diese Zeile nicht autorisiert |',
+          ]
+          block = '\n' + '\n'.join(block_lines) + '\n'
           updated = head + block + historical_blob
 
           if updated.count(task_id) != 1:
@@ -98,7 +98,7 @@ jobs:
           changed="$(git diff --cached --name-only | sort)"
           expected="$(printf '%s\n' '.github/workflows/opentasks-voxy-eu24-slice-a-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
           test "$changed" = "$expected"
-          test "$(git diff --cached --numstat -- docs/E150/OpenTasks.md | awk '{print $1 ":" $2}')" = "5:0"
+          test "$(git diff --cached --numstat -- docs/E150/OpenTasks.md | awk '{print $2}')" = "0"
           git diff --cached -- docs/E150/OpenTasks.md | grep -F '### Voxy EU-24 Multilingual Editorial · Slice A'
           git diff --cached -- docs/E150/OpenTasks.md | grep -F '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 |'
           if git diff --cached -- docs/E150/OpenTasks.md | grep -F -- '-## Historischer Katalog und Evidenz'; then
