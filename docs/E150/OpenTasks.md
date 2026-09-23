@@ -599,7 +599,6 @@ Diese Queue ist die einzige operative Alpha2-Task-Wahrheit. `docs/E150/ALPHA_FOX
 | GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01 | blocked | none | #951 | T9 fachliches Verification-Profil auf #629/E150; kein T9Runner/T9Composer/T9ProviderRouter; Factchecks selbst verifizieren; Translation erzeugt keine Evidenz; Jurisdiction/Freshness/Generalizability fail-closed beachten. |
 | PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01 | blocked | none | #952 | G6 ausschließlich derived/read-only; vorhandene Analyze-/`core/evidence`-Owner konvergieren; kein dritter Evidence-/Graph-Store; niemals Graph→Domain-Truth-Writeback. |
 
-
 ### Voxy EU-24 Multilingual Editorial · Slice A
 
 | ID | Status | Priorität | Abhängigkeiten / Evidence | Scope | Akzeptanz / Guardrails |
