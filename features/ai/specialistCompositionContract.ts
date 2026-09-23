@@ -44,12 +44,31 @@ export const SpecialistExecutionSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    const providerExpected = value.executionState === "planned" || value.executionState === "executed";
-    if (providerExpected && (!value.provider || !value.model)) {
-      ctx.addIssue({ code: "custom", message: "specialist_provider_model_required_for_planned_or_executed" });
+    const attempted = ["executed", "failed", "degraded"].includes(value.executionState);
+    const providerExpected = value.executionState === "planned" || attempted;
+    const providerPresent = Boolean(value.provider);
+    const modelPresent = Boolean(value.model);
+
+    if (providerExpected && (!providerPresent || !modelPresent)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "specialist_provider_model_required_for_planned_or_attempted_state",
+      });
     }
-    if (!providerExpected && (value.provider || value.model)) {
-      ctx.addIssue({ code: "custom", message: "specialist_provider_model_forbidden_without_planned_or_executed_state" });
+    if (value.executionState === "skipped" && (providerPresent || modelPresent)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "specialist_provider_model_forbidden_for_skipped_state",
+      });
+    }
+    if (value.executionState === "skipped" && value.attemptCount !== 0) {
+      ctx.addIssue({ code: "custom", message: "specialist_skipped_requires_zero_attempts" });
+    }
+    if (attempted && value.attemptCount < 1) {
+      ctx.addIssue({ code: "custom", message: "specialist_attempted_state_requires_attempt" });
+    }
+    if (value.executionState === "planned" && value.attemptCount !== 0) {
+      ctx.addIssue({ code: "custom", message: "specialist_planned_requires_zero_attempts" });
     }
     if (!value.fallbackUsed && value.fallbackReason !== null) {
       ctx.addIssue({ code: "custom", message: "specialist_fallback_reason_requires_fallback" });
@@ -112,7 +131,38 @@ export const GroundingCoverageResultSchema = z
     unsupportedCandidateIds: z.array(NonBlankString),
     execution: SpecialistExecutionSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const sourceRefs = new Set(value.sourceArtifactRefs);
+    const segmentRefs = new Set([...value.coveredSegments, ...value.uncoveredSegments]);
+    const evidenceRefs = new Set<string>();
+
+    value.evidenceMappings.forEach((mapping, index) => {
+      if (evidenceRefs.has(mapping.evidenceRef)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["evidenceMappings", index, "evidenceRef"],
+          message: "grounding_evidence_ref_duplicate",
+        });
+      }
+      evidenceRefs.add(mapping.evidenceRef);
+
+      if (!sourceRefs.has(mapping.sourceArtifactRef)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["evidenceMappings", index, "sourceArtifactRef"],
+          message: "grounding_evidence_source_unbound",
+        });
+      }
+      if (mapping.segmentId !== null && !segmentRefs.has(mapping.segmentId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["evidenceMappings", index, "segmentId"],
+          message: "grounding_evidence_segment_unbound",
+        });
+      }
+    });
+  });
 
 export type GroundingCoverageResult = z.infer<typeof GroundingCoverageResultSchema>;
 
@@ -171,7 +221,12 @@ export const ComposedAnalysisResultSchema = z
     composedThemes: z.array(NonBlankString),
     retainedClaims: z.array(CanonicalClaimSchema.extend({ evidenceRefs: z.array(NonBlankString).min(1) })),
     rejectedClaimCandidates: z.array(
-      z.object({ claimId: NonBlankString, reason: z.enum(["missing_evidence", "critic_unsupported"]) }).strict(),
+      z
+        .object({
+          claimId: NonBlankString,
+          reason: z.enum(["missing_evidence", "ungrounded_evidence", "critic_unsupported"]),
+        })
+        .strict(),
     ),
     visibleContradictions: z.array(NonBlankString),
     uncertainties: z.array(NonBlankString),
@@ -194,7 +249,7 @@ export const ComposedAnalysisResultSchema = z
         role: NonBlankString,
         provider: NonBlankString,
         model: NonBlankString,
-        attemptCount: z.number().int().min(0),
+        attemptCount: z.number().int().min(1),
         durationMs: z.number().int().min(0),
         fallbackUsed: z.boolean(),
         fallbackReason: NonBlankString.nullable(),
@@ -217,13 +272,24 @@ function uniqueSorted(values: readonly string[]): string[] {
 }
 
 function executionDegradedReason(execution: SpecialistExecution): string | null {
-  if (execution.requirement !== "required") return null;
   if (execution.executionState === "executed" && execution.validationState === "valid") return null;
-  return `required_role_not_valid:${execution.role}:${execution.executionState}:${execution.validationState}`;
+  if (execution.requirement === "optional" && execution.executionState === "skipped") return null;
+  if (execution.requirement === "required") {
+    return `required_role_not_valid:${execution.role}:${execution.executionState}:${execution.validationState}`;
+  }
+  if (
+    execution.attemptCount > 0 ||
+    execution.executionState === "failed" ||
+    execution.executionState === "degraded" ||
+    execution.validationState !== "valid"
+  ) {
+    return `optional_role_not_valid:${execution.role}:${execution.executionState}:${execution.validationState}`;
+  }
+  return null;
 }
 
 function providerAttempt(execution: SpecialistExecution) {
-  if (!execution.provider || !execution.model) return null;
+  if (!execution.provider || !execution.model || execution.attemptCount < 1) return null;
   return {
     role: execution.role,
     provider: execution.provider,
@@ -233,6 +299,62 @@ function providerAttempt(execution: SpecialistExecution) {
     fallbackUsed: execution.fallbackUsed,
     fallbackReason: execution.fallbackReason,
   };
+}
+
+type ProvenanceEdge = ComposedAnalysisResult["provenanceGraph"][number];
+
+function buildProvenanceGraph(input: {
+  structure: StructureResult | null;
+  grounding: GroundingCoverageResult | null;
+  canonical: CanonicalAnalysisResult;
+  critic: CriticResult | null;
+}): ProvenanceEdge[] {
+  const knownSourceRefs = new Set(
+    uniqueSorted([
+      ...input.canonical.sourceArtifactRefs,
+      ...(input.structure?.sourceArtifactRefs ?? []),
+      ...(input.grounding?.sourceArtifactRefs ?? []),
+    ]),
+  );
+  const edges: ProvenanceEdge[] = [];
+
+  const addStageEdges = (
+    sourceRefs: readonly string[],
+    execution: SpecialistExecution,
+  ) => {
+    if (!["executed", "degraded"].includes(execution.executionState)) return;
+    for (const sourceArtifactRef of uniqueSorted(sourceRefs)) {
+      edges.push({
+        sourceArtifactRef,
+        specialistOutputRole: execution.role,
+        targetField: "composedAnalysis",
+      });
+    }
+  };
+
+  if (input.structure) addStageEdges(input.structure.sourceArtifactRefs, input.structure.execution);
+  if (input.grounding) addStageEdges(input.grounding.sourceArtifactRefs, input.grounding.execution);
+  addStageEdges(input.canonical.sourceArtifactRefs, input.canonical.execution);
+  if (input.critic) {
+    addStageEdges(
+      input.critic.execution.sourceRefs.filter((sourceRef) => knownSourceRefs.has(sourceRef)),
+      input.critic.execution,
+    );
+  }
+
+  return Array.from(
+    new Map(
+      edges.map((edge) => [
+        `${edge.sourceArtifactRef}\u0000${edge.specialistOutputRole}\u0000${edge.targetField}`,
+        edge,
+      ]),
+    ).values(),
+  ).sort(
+    (left, right) =>
+      left.sourceArtifactRef.localeCompare(right.sourceArtifactRef) ||
+      left.specialistOutputRole.localeCompare(right.specialistOutputRole) ||
+      left.targetField.localeCompare(right.targetField),
+  );
 }
 
 export type ComposeSpecialistAnalysisInput = {
@@ -248,13 +370,27 @@ export function composeSpecialistAnalysis(input: ComposeSpecialistAnalysisInput)
   const grounding = input.grounding ? GroundingCoverageResultSchema.parse(input.grounding) : null;
   const critic = input.critic ? CriticResultSchema.parse(input.critic) : null;
 
-  const unsupported = new Set(critic?.unsupportedClaims ?? []);
+  const criticBound = Boolean(
+    critic && canonical.execution.outputHash && critic.targetAnalysisHash === canonical.execution.outputHash,
+  );
+  const acceptedCritic = criticBound ? critic : null;
+  const unsupported = new Set(acceptedCritic?.unsupportedClaims ?? []);
+  const groundingEvidenceRefs = grounding
+    ? new Set(grounding.evidenceMappings.map((mapping) => mapping.evidenceRef))
+    : null;
   const retainedClaims: Array<z.infer<typeof CanonicalClaimSchema>> = [];
   const rejectedClaimCandidates: ComposedAnalysisResult["rejectedClaimCandidates"] = [];
 
   for (const claim of canonical.atomicClaims) {
     if (claim.evidenceRefs.length === 0) {
       rejectedClaimCandidates.push({ claimId: claim.claimId, reason: "missing_evidence" });
+      continue;
+    }
+    if (
+      groundingEvidenceRefs &&
+      claim.evidenceRefs.some((evidenceRef) => !groundingEvidenceRefs.has(evidenceRef))
+    ) {
+      rejectedClaimCandidates.push({ claimId: claim.claimId, reason: "ungrounded_evidence" });
       continue;
     }
     if (unsupported.has(claim.claimId)) {
@@ -275,29 +411,22 @@ export function composeSpecialistAnalysis(input: ComposeSpecialistAnalysisInput)
     ...roleExecutions.map(executionDegradedReason).filter((value): value is string => Boolean(value)),
     ...rejectedClaimCandidates.map((claim) => `claim_rejected:${claim.claimId}:${claim.reason}`),
     ...(grounding?.extractionLimitations.map((value) => `coverage_limitation:${value}`) ?? []),
+    ...(critic && !criticBound ? ["critic_target_hash_mismatch"] : []),
   ]);
 
-  const sourceArtifactRefs = uniqueSorted([
-    ...canonical.sourceArtifactRefs,
-    ...(structure?.sourceArtifactRefs ?? []),
-    ...(grounding?.sourceArtifactRefs ?? []),
-  ]);
-
-  const specialistRoles = uniqueSorted(roleExecutions.map((execution) => execution.role));
-  const provenanceGraph = sourceArtifactRefs.flatMap((sourceArtifactRef) =>
-    specialistRoles.map((specialistOutputRole) => ({
-      sourceArtifactRef,
-      specialistOutputRole,
-      targetField: "composedAnalysis",
-    })),
-  );
+  const provenanceGraph = buildProvenanceGraph({
+    structure,
+    grounding,
+    canonical,
+    critic: acceptedCritic,
+  });
 
   const providerAttempts = roleExecutions
     .map(providerAttempt)
     .filter((value): value is NonNullable<ReturnType<typeof providerAttempt>> => value !== null);
 
   const degraded = degradedReasons.length > 0;
-  const requiresHumanReview = degraded || (critic ? critic.severity !== "none" : false);
+  const requiresHumanReview = degraded || (acceptedCritic ? acceptedCritic.severity !== "none" : false);
 
   return ComposedAnalysisResultSchema.parse({
     composedThemes: uniqueSorted(canonical.normalizedThemes),
@@ -305,18 +434,18 @@ export function composeSpecialistAnalysis(input: ComposeSpecialistAnalysisInput)
     rejectedClaimCandidates,
     visibleContradictions: uniqueSorted([
       ...canonical.contradictions,
-      ...(critic?.contradictions ?? []),
+      ...(acceptedCritic?.contradictions ?? []),
     ]),
     uncertainties: uniqueSorted([
       ...canonical.atomicClaims.map((claim) => claim.uncertainty).filter((value): value is string => Boolean(value)),
-      ...(critic?.overinterpretations ?? []),
-      ...(critic?.omissions ?? []),
-      ...(critic?.missingPerspectives ?? []),
+      ...(acceptedCritic?.overinterpretations ?? []),
+      ...(acceptedCritic?.omissions ?? []),
+      ...(acceptedCritic?.missingPerspectives ?? []),
     ]),
     composedSummary: canonical.summaryDraft,
     openQuestions: uniqueSorted([
       ...canonical.openQuestions,
-      ...(critic?.reviewRecommendations ?? []),
+      ...(acceptedCritic?.reviewRecommendations ?? []),
     ]),
     provenanceGraph,
     roleExecutions,
