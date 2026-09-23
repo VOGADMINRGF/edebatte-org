@@ -1,0 +1,85 @@
+name: One-shot Voxy EU24 exact-block normalization
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-eu24-whitespace-normalize.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Normalize exactly one operative blank line
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          git merge-base --is-ancestor origin/main HEAD
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '\n## Historischer Katalog und Evidenz\n'
+          task_id = 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01'
+          if text.count(marker) != 1:
+              raise SystemExit('historical_marker_not_unique')
+          head, historical = text.split(marker, 1)
+          historical_blob = marker + historical
+          historical_hash_before = sha256(historical_blob.encode('utf-8')).hexdigest()
+          if head.count(task_id) != 1:
+              raise SystemExit('task_not_unique')
+
+          old = '\n\n\n### Voxy EU-24 Multilingual Editorial · Slice A\n'
+          new = '\n\n### Voxy EU-24 Multilingual Editorial · Slice A\n'
+          if head.count(old) != 1:
+              raise SystemExit('expected_extra_blank_not_unique')
+          head = head.replace(old, new, 1)
+          updated = head + historical_blob
+
+          _, historical_after = updated.split(marker, 1)
+          historical_hash_after = sha256((marker + historical_after).encode('utf-8')).hexdigest()
+          if historical_hash_before != historical_hash_after:
+              raise SystemExit('historical_tail_changed')
+          if updated.count(task_id) != 1:
+              raise SystemExit('task_changed')
+          path.write_text(updated, encoding='utf-8')
+          PY
+
+      - name: Diff and self-removal guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git rm .github/workflows/opentasks-voxy-eu24-whitespace-normalize.yml
+          git add docs/E150/OpenTasks.md
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/opentasks-voxy-eu24-whitespace-normalize.yml' 'docs/E150/OpenTasks.md' | sort)"
+          test "$changed" = "$expected"
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F '### Voxy EU-24 Multilingual Editorial · Slice A'
+          git diff --cached -- docs/E150/OpenTasks.md | grep -F '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 |'
+
+      - name: Commit exact normalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(governance): normalize Voxy EU24 SSOT block'
+          git push origin HEAD:docs/governance-ssot-sync-05
