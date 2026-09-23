@@ -49,7 +49,7 @@ const DE: DemoCopy = {
   start: "Eigene Frage starten →",
 };
 
-const TRANSLATIONS: Record<SupportedLocale, DemoCopy> = {
+const TRANSLATIONS: Partial<Record<SupportedLocale, DemoCopy>> = {
   de: DE,
   en: { ...DE, eyebrow: "1 question · try it now", question: "How much do you trust that political decisions in your country are made fairly and transparently?", intro: "Choose an answer. Then tell us what you would change first.", answers: ["A lot", "Somewhat", "Little", "Not at all"], choose: "Choose an answer", difference: "This is where the difference begins", position: "Your position", followup: "What would you change first?", placeholder: "Your idea …", contribute: "Contribute idea", skip: "Skip", explanation: "An answer shows a position. Reasons, experiences, sources and your own proposals show why people think this way – and what could concretely improve.", ownAnswer: "own proposal", why: "Why?", source: "Source / experience", next: "shared picture", noLogin: "No sign-up to try", start: "Start your own question →" },
   fr: { ...DE, eyebrow: "1 question · essayer maintenant", question: "Dans quelle mesure avez-vous confiance dans le fait que les décisions politiques de votre pays sont prises de manière équitable et transparente ?", intro: "Choisissez une réponse. Vous pourrez ensuite dire ce que vous changeriez en premier.", answers: ["Beaucoup", "Plutôt", "Peu", "Pas du tout"], choose: "Choisir une réponse", difference: "C’est ici que la différence commence", position: "Votre position", followup: "Que changeriez-vous en premier ?", placeholder: "Votre idée …", contribute: "Proposer une idée", skip: "Passer", explanation: "Une réponse montre une position. Les raisons, expériences, sources et propositions montrent pourquoi les gens pensent ainsi et ce qui pourrait être amélioré.", ownAnswer: "proposition", why: "Pourquoi ?", source: "Source / expérience", next: "vue d’ensemble", noLogin: "Aucune inscription pour essayer", start: "Lancer votre question →" },
@@ -76,7 +76,7 @@ const CHOICE_IDS = ["high", "some", "low", "none"] as const;
 
 export function HomeBallotExperience() {
   const { locale } = useLocale();
-  const copy = TRANSLATIONS[locale];
+  const copy = TRANSLATIONS[locale] ?? DE;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [idea, setIdea] = useState("");
   const resultRef = useRef<globalThis.HTMLDivElement>(null);

@@ -7,13 +7,31 @@ import { LocalizedContentDisplay } from "@/components/i18n/LocalizedContentDispl
 
 const ARABIC_ORIGINAL = "هذا نص عربي لاختبار عرض المصدر الأصلي.";
 const GERMAN_TRANSLATION = "Dies ist ein arabischer Text zum Test der Originalquelle.";
+const ADDED_EU_LOCALES = [
+  "bg",
+  "da",
+  "et",
+  "ga",
+  "hr",
+  "hu",
+  "lv",
+  "lt",
+  "mt",
+  "sk",
+  "sl",
+] as const;
 
 describe("locale direction and Arabic language bridge contract", () => {
-  it("treats Arabic as a supported RTL locale", () => {
+  it("keeps Arabic RTL while all newly added EU locales remain LTR", () => {
     expect(isSupportedLocale("ar")).toBe(true);
     expect(getDir("ar")).toBe("rtl");
     expect(getDir("de")).toBe("ltr");
     expect(getDir("en")).toBe("ltr");
+
+    for (const locale of ADDED_EU_LOCALES) {
+      expect(isSupportedLocale(locale)).toBe(true);
+      expect(getDir(locale)).toBe("ltr");
+    }
   });
 
   it("promotes a supported URL locale before the root layout chooses the SSR direction", () => {

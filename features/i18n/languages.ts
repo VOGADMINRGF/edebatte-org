@@ -19,6 +19,17 @@ export const LANGUAGE_CODES = [
   "ro",
   "el",
   "uk",
+  "bg",
+  "da",
+  "et",
+  "ga",
+  "hr",
+  "hu",
+  "lv",
+  "lt",
+  "mt",
+  "sk",
+  "sl",
 ] as const;
 export type LanguageCode = (typeof LANGUAGE_CODES)[number];
 
@@ -46,4 +57,15 @@ export const UI_LANGS: Array<{ code: LanguageCode; label: string }> = [
   { code: "ro", label: "Romana" },
   { code: "el", label: "Ελληνικα" },
   { code: "uk", label: "Українська" },
+  { code: "bg", label: "Български" },
+  { code: "da", label: "Dansk" },
+  { code: "et", label: "Eesti" },
+  { code: "ga", label: "Gaeilge" },
+  { code: "hr", label: "Hrvatski" },
+  { code: "hu", label: "Magyar" },
+  { code: "lv", label: "Latviešu" },
+  { code: "lt", label: "Lietuvių" },
+  { code: "mt", label: "Malti" },
+  { code: "sk", label: "Slovenčina" },
+  { code: "sl", label: "Slovenščina" },
 ];

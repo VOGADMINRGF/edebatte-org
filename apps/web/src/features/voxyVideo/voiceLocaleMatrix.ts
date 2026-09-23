@@ -24,6 +24,17 @@ export const VOXY_VIDEO_OUTPUT_LOCALES = [
   "ro",
   "el",
   "uk",
+  "bg",
+  "da",
+  "et",
+  "ga",
+  "hr",
+  "hu",
+  "lv",
+  "lt",
+  "mt",
+  "sk",
+  "sl",
 ] as const satisfies readonly SupportedLocale[];
 
 export type VoxyVideoOutputLocale =
