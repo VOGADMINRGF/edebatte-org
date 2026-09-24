@@ -98,7 +98,7 @@ jobs:
           for task in VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 VOXY-RENDER-APPROVAL-FRESHNESS-01; do
             file="/tmp/post-${task}.json"
             set +e
-            node scripts/codex-task-preflight.mjs "$task" > "$file"
+            node scripts/codex-task-preflight.mjs "$task" > "$file" 2>&1
             rc=$?
             set -e
             test "$rc" -ne 0
