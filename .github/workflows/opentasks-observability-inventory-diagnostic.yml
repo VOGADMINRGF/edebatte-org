@@ -50,7 +50,7 @@ jobs:
           if len(matches) != 1:
               raise SystemExit('expected exactly one operative task row')
           PY
-          git checkout --detach origin/main
+          git checkout -B main origin/main
           node scripts/codex-task-preflight.mjs OBSERVABILITY-INVENTORY-01
           git checkout docs/governance-ssot-sync-05
       - name: Self-delete diagnostic
