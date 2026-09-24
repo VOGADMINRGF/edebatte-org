@@ -15,6 +15,7 @@ import {
 } from "../src/features/voxyVideo/localCompositionRuntimeService";
 import { getVoxyLocalCompositionRepository } from "../src/features/voxyVideo/localCompositionRuntimeStore";
 import { createVoxyRegisteredCompositionAudioResolver } from "../src/features/voxyVideo/studioRenderHandoff";
+import { createVoxyStudioLocalCompositionFreshnessAuthority } from "../src/features/voxyVideo/studioLocalCompositionFreshness";
 
 function argument(name: string): string | null {
   const prefix = `--${name}=`;
@@ -81,6 +82,7 @@ async function main() {
         throw new Error("voxy_local_composition_worker_must_not_reapprove_queued_job");
       },
     },
+    freshnessAuthority: createVoxyStudioLocalCompositionFreshnessAuthority(),
     audioResolver: createVoxyRegisteredCompositionAudioResolver({
       repository: audioRepository,
       trustedAudioRoot: audioRoot,

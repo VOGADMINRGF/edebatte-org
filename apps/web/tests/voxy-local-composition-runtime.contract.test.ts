@@ -223,6 +223,8 @@ function outputFor(job: ReturnType<typeof buildQueuedVoxyLocalCompositionJob>): 
 function deps(options?: {
   approval?: VoxyLocalCompositionApprovalSnapshot;
   executorFails?: boolean;
+  freshnessFails?: boolean;
+  onExecute?: () => void;
   audioDurationMs?: number;
 }) {
   const repository = createInMemoryVoxyLocalCompositionRepository();
@@ -231,6 +233,13 @@ function deps(options?: {
     approvalAuthority: {
       async resolveApproval() {
         return options?.approval ?? approval();
+      },
+    },
+    freshnessAuthority: {
+      async assertCurrent() {
+        if (options?.freshnessFails) {
+          throw new Error("voxy_local_composition_freshness_stale:synthetic_authority_change");
+        }
       },
     },
     audioResolver: {
@@ -246,6 +255,7 @@ function deps(options?: {
     },
     executor: {
       async execute({ job }): Promise<VoxyLocalCompositionExecutionResult> {
+        options?.onExecute?.();
         if (options?.executorFails) throw new Error("ffmpeg_failed:synthetic test failure");
         return {
           output: outputFor(job),
@@ -541,4 +551,68 @@ describe("VOXY-LOCAL-COMPOSITION-RUNTIME-01", () => {
     const second = await queueVoxyLocalComposition(request(), secondRuntime);
     expect(second).toMatchObject({ ok: false, status: "idempotency_conflict" });
   });
+
+  it("fails before executor when current editorial authority is stale", async () => {
+    let executorCalls = 0;
+    const runtime = deps({
+      audioDurationMs: 120_000,
+      freshnessFails: true,
+      onExecute: () => { executorCalls += 1; },
+    });
+    const input = editorialRequest();
+    const queued = await queueVoxyLocalComposition(input, runtime);
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    const result = await executeVoxyLocalComposition({ jobId: queued.job.jobId, request: input, deps: runtime });
+    expect(result.status).toBe("failed");
+    expect(result.safeErrorCode).toBe("voxy_local_composition_freshness_stale");
+    expect(executorCalls).toBe(0);
+    expect(await runtime.repository.getOutput(result.outputId)).toBeNull();
+  });
+
+  it("executes editorial render exactly once when current authority is unchanged", async () => {
+    let executorCalls = 0;
+    const runtime = deps({
+      audioDurationMs: 120_000,
+      onExecute: () => { executorCalls += 1; },
+    });
+    const input = editorialRequest();
+    const queued = await queueVoxyLocalComposition(input, runtime);
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    const result = await executeVoxyLocalComposition({ jobId: queued.job.jobId, request: input, deps: runtime });
+    expect(result.status).toBe("review_ready");
+    expect(executorCalls).toBe(1);
+  });
+
+  it("fails closed when editorial execution has no freshness authority", async () => {
+    let executorCalls = 0;
+    const runtime = deps({
+      audioDurationMs: 120_000,
+      onExecute: () => { executorCalls += 1; },
+    });
+    delete runtime.freshnessAuthority;
+    const input = editorialRequest();
+    const queued = await queueVoxyLocalComposition(input, runtime);
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    const result = await executeVoxyLocalComposition({ jobId: queued.job.jobId, request: input, deps: runtime });
+    expect(result.status).toBe("failed");
+    expect(result.safeErrorCode).toBe("voxy_local_composition_freshness_authority_missing");
+    expect(executorCalls).toBe(0);
+  });
+
+  it("keeps local_review_v1 executable without the editorial freshness authority", async () => {
+    let executorCalls = 0;
+    const runtime = deps({ onExecute: () => { executorCalls += 1; } });
+    delete runtime.freshnessAuthority;
+    const input = request();
+    const queued = await queueVoxyLocalComposition(input, runtime);
+    expect(queued.ok).toBe(true);
+    if (!queued.ok) return;
+    const result = await executeVoxyLocalComposition({ jobId: queued.job.jobId, request: input, deps: runtime });
+    expect(result.status).toBe("review_ready");
+    expect(executorCalls).toBe(1);
+  });
+
 });
