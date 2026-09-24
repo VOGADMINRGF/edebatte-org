@@ -32,11 +32,16 @@ jobs:
           test "$(git diff --name-only origin/main..HEAD)" = ".github/workflows/opentasks-debug-env-production-hardening-close.yml"
           test "$(git rev-parse 'HEAD:docs/E150/OpenTasks.md')" = "42031e2418a4e3255e9a9d0f72646f886c49c0fd"
           test -z "$(git status --porcelain)"
+          writer_head="$(git rev-parse HEAD)"
 
+          git checkout -B main origin/main
           node scripts/codex-task-preflight.mjs DEBUG-ENV-PRODUCTION-HARDENING-01 | tee /tmp/preflight-before.txt
           grep -F '"status": "codex_ready"' /tmp/preflight-before.txt
           grep -F '"executable": true' /tmp/preflight-before.txt
           grep -F '"branchCreationAllowed": true' /tmp/preflight-before.txt
+          git checkout docs/governance-ssot-sync-05
+          test "$(git rev-parse HEAD)" = "$writer_head"
+          test -z "$(git status --porcelain)"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -85,6 +90,7 @@ jobs:
           test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
           test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
 
+          git checkout -B main origin/main
           set +e
           node scripts/codex-task-preflight.mjs DEBUG-ENV-PRODUCTION-HARDENING-01 > /tmp/preflight-after.txt 2>&1
           rc=$?
@@ -98,6 +104,9 @@ jobs:
             echo 'branchCreationAllowed unexpectedly present' >&2
             exit 1
           fi
+          git checkout docs/governance-ssot-sync-05
+          test "$(git rev-parse HEAD)" = "$writer_head"
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
 
       - name: Commit SSOT change and self-delete writer
         shell: bash
