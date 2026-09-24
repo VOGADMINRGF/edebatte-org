@@ -1,0 +1,59 @@
+name: diag-create-ssr-preflight-01
+
+on:
+  push:
+    branches:
+      - diag/create-ssr-preflight-01-20260924
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "eec9f6e56b52936d3548268864d847411eb605a9"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run canonical task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/codex-task-preflight.mjs CREATE-SSR-PERFORMANCE-01 | tee /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const text = fs.readFileSync('/tmp/preflight.json', 'utf8');
+          const first = text.indexOf('{');
+          const json = JSON.parse(text.slice(first));
+          console.log('PREFLIGHT_RESULT=' + JSON.stringify(json));
+          if (json.status !== 'codex_ready') throw new Error('expected codex_ready');
+          if (json.executable !== true) throw new Error('expected executable=true');
+          if (json.branchCreationAllowed !== true) throw new Error('expected branchCreationAllowed=true');
+          NODE
+
+      - name: Self-delete diagnostic workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin diag/create-ssr-preflight-01-20260924
+          git checkout -B diag/create-ssr-preflight-01-20260924 origin/diag/create-ssr-preflight-01-20260924
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/diag-create-ssr-preflight-01.yml
+          git commit -m 'chore: remove create SSR preflight diagnostic'
+          git push origin HEAD:diag/create-ssr-preflight-01-20260924
