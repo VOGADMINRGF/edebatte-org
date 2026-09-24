@@ -1,0 +1,73 @@
+name: One-shot Voxy P0 authorization-pattern diagnose
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-p0-auth-pattern-diagnose.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout carrier branch
+        uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          path: carrier
+          fetch-depth: 4
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: mainrepo
+          fetch-depth: 1
+      - name: Print existing codex-ready authorization patterns read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="66475776dfae4b5109308269c156ff8ef488bb95"
+          actual="$(git -C mainrepo rev-parse HEAD)"
+          test "$actual" = "$expected"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('mainrepo/docs/E150/OpenTasks.md')
+          text = p.read_text(encoding='utf-8')
+          a = text.index('## Kanonischer Operativteil')
+          b = text.index('## Historischer Katalog und Evidenz')
+          operative = text[a:b]
+          rows=[]
+          for line in operative.splitlines():
+              if not line.startswith('|') or 'codex_ready' not in line:
+                  continue
+              cells=[c.strip() for c in line.strip().strip('|').split('|')]
+              if len(cells) >= 5:
+                  rows.append(cells[:5])
+          print('CODEX_READY_ROWS=' + str(len(rows)))
+          for cells in rows:
+              ident,status,auth,issue,scope=cells
+              if ('P0' in scope or 'Repair' in scope or 'Voxy' in scope or 'Safety' in scope or 'Runtime' in scope):
+                  print('ROW|' + '|'.join(cells))
+          from collections import Counter
+          print('AUTH_COUNTS=' + repr(Counter(r[2] for r in rows)))
+          PY
+      - name: Remove one-shot diagnostic workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd carrier
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/opentasks-voxy-p0-auth-pattern-diagnose.yml
+          git commit -m "ci(governance): remove voxy p0 authorization diagnostic"
+          git push origin HEAD:docs/governance-ssot-sync-05
