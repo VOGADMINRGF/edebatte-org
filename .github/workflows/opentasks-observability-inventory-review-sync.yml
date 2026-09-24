@@ -93,16 +93,15 @@ jobs:
           PREFLIGHT="$(node scripts/codex-task-preflight.mjs OBSERVABILITY-INVENTORY-01)"
           echo "${PREFLIGHT}"
           export PREFLIGHT
-          python - <<'PY'
-          import json, os
-          data=json.loads(os.environ['PREFLIGHT'])
-          assert data.get('taskId') == 'OBSERVABILITY-INVENTORY-01', data
-          assert data.get('status') == 'review', data
-          assert data.get('executable') is False, data
-          assert data.get('reason') == 'task_status_not_executable:review', data
-          assert 'branchCreationAllowed' not in data, data
-          print('POST_PREFLIGHT_ASSERTIONS=OK')
-          PY
+          node - <<'NODE'
+          const data = JSON.parse(process.env.PREFLIGHT);
+          if (data.taskId !== 'OBSERVABILITY-INVENTORY-01') throw new Error(`wrong task id: ${JSON.stringify(data)}`);
+          if (data.status !== 'review') throw new Error(`expected review: ${JSON.stringify(data)}`);
+          if (data.executable !== false) throw new Error(`expected executable=false: ${JSON.stringify(data)}`);
+          if (data.reason !== 'task_status_not_executable:review') throw new Error(`unexpected reason: ${JSON.stringify(data)}`);
+          if (Object.prototype.hasOwnProperty.call(data, 'branchCreationAllowed')) throw new Error(`branchCreationAllowed must be absent: ${JSON.stringify(data)}`);
+          console.log('POST_PREFLIGHT_ASSERTIONS=OK');
+          NODE
 
           set -x
           git status --short
