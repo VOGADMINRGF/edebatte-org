@@ -1,0 +1,70 @@
+name: OpenTasks Voxy Freshness Diagnostic
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-freshness-diagnostic.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: docs/governance-ssot-sync-05
+      - name: Diagnose current SSOT without writing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "ddc9fbbc3df22606c0dddface154028354ace3c0"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "eed4aa5f8fd9b4fa7ee5585611d2946d4e8002bf"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          op = '## Kanonischer Operativteil'
+          hist = '## Historischer Katalog und Evidenz'
+          assert text.count(op) == 1
+          assert text.count(hist) == 1
+          assert text.index(op) < text.index(hist)
+          operative = text[text.index(op):text.index(hist)]
+          tail = text[text.index(hist):]
+          print('HISTORICAL_TAIL_SHA256=' + hashlib.sha256(tail.encode()).hexdigest())
+          target='VOXY-RENDER-APPROVAL-FRESHNESS-01'
+          print('TARGET_COUNT=' + str(operative.count(target)))
+          for needle in [
+            'CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01',
+            'GLOBAL-TOPIC-INTELLIGENCE-VERIFICATION-ORCHESTRATION-01',
+            'PROVENANCE-EVIDENCE-LINEAGE-CROSS-LINGUAL-TOPIC-GRAPH-01',
+            'VOXY-EU24-MULTILINGUAL-EDITORIAL-01',
+            'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01',
+            'YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01',
+            'DEBUG-ENV-PRODUCTION-HARDENING-01',
+          ]:
+            lines=[line for line in operative.splitlines() if needle in line]
+            print('PRESERVE ' + needle + ' COUNT=' + str(len(lines)))
+            for line in lines:
+              print(line)
+          PY
+      - name: Self-delete diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/opentasks-voxy-freshness-diagnostic.yml
+          git commit -m 'ci(governance): remove voxy freshness diagnostic'
+          git push origin HEAD:docs/governance-ssot-sync-05
