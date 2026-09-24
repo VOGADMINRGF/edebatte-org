@@ -37,7 +37,13 @@ jobs:
           start = text.index('## Kanonischer Operativteil')
           end = text.index('## Historischer Katalog und Evidenz', start)
           operative = text[start:end]
-          matches = [line for line in operative.splitlines() if 'OBSERVABILITY-INVENTORY-01' in line]
+          matches = []
+          for line in operative.splitlines():
+              if not line.startswith('|'):
+                  continue
+              cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
+              if cells and cells[0] == 'OBSERVABILITY-INVENTORY-01':
+                  matches.append(line)
           print('MATCH_COUNT=', len(matches))
           for line in matches:
               print('TASK_ROW=', line)
