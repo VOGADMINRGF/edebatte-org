@@ -39,7 +39,7 @@ jobs:
           test "${NET_FILES[0]}" = ".github/workflows/opentasks-observability-inventory-review-sync.yml"
           python - <<'PY'
           from pathlib import Path
-          import hashlib, json
+          import hashlib
 
           path = Path('docs/E150/OpenTasks.md')
           text = path.read_text()
@@ -132,7 +132,6 @@ jobs:
           if data.get('reason') != 'task_status_not_executable:review': raise SystemExit('unexpected reason')
           if 'branchCreationAllowed' in data: raise SystemExit('branchCreationAllowed must be absent')
           PY
-          git checkout docs/governance-ssot-sync-05
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
