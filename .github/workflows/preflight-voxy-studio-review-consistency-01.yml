@@ -1,0 +1,53 @@
+name: One-shot #977 Slice A preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-voxy-studio-review-consistency-01
+    paths:
+      - .github/workflows/preflight-voxy-studio-review-consistency-01.yml
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/preflight-voxy-studio-review-consistency-01
+          fetch-depth: 0
+
+      - name: Verify exact main and run canonical preflight on main branch worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "1f573a6f2c2580ce3ac139a9685300c1cdcfd2fa"
+          git branch -f main origin/main
+          git worktree add /tmp/edebatte-main main
+          cd /tmp/edebatte-main
+          test "$(git branch --show-current)" = "main"
+          test "$(git rev-parse HEAD)" = "1f573a6f2c2580ce3ac139a9685300c1cdcfd2fa"
+          node scripts/codex-task-preflight.mjs VOXY-STUDIO-REVIEW-CONSISTENCY-01 | tee /tmp/preflight.json
+          python - <<'PY'
+          import json
+          data = json.load(open('/tmp/preflight.json', encoding='utf-8'))
+          assert data.get('taskId') == 'VOXY-STUDIO-REVIEW-CONSISTENCY-01', data
+          assert data.get('status') == 'codex_ready', data
+          assert data.get('executable') is True, data
+          assert data.get('branchCreationAllowed') is True, data
+          print('preflight_ok', data)
+          PY
+
+      - name: Self-delete diagnostic workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/preflight-voxy-studio-review-consistency-01.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: remove #977 Slice A preflight workflow'
+          git push origin HEAD:chore/preflight-voxy-studio-review-consistency-01
