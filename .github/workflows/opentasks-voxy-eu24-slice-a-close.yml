@@ -1,0 +1,110 @@
+name: OpenTasks Voxy EU24 Slice A close
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Serialize consumed Slice A authorization fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "8f19ad8baac19ad3ebb95e6026c8fd5dffcfc628"
+          test "$(git rev-parse HEAD)" = "8f19ad8baac19ad3ebb95e6026c8fd5dffcfc628"
+          test "$(git rev-parse 'HEAD:docs/E150/OpenTasks.md')" = "4bb0b0f8fda4849f254c797294b3b27c814e51f6"
+          test -z "$(git status --porcelain)"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text(encoding='utf-8')
+          start_marker = '## Kanonischer Operativteil'
+          end_marker = '## Historischer Katalog und Evidenz'
+          target = 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01'
+          expected_tail_hash = '27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399'
+
+          assert text.count(start_marker) == 1, f'operative_marker_count={text.count(start_marker)}'
+          assert text.count(end_marker) == 1, f'historical_marker_count={text.count(end_marker)}'
+          start = text.index(start_marker)
+          end = text.index(end_marker)
+          assert start < end
+
+          operative = text[start:end]
+          history = text[end:]
+          tail_hash = hashlib.sha256(history.encode('utf-8')).hexdigest()
+          print('historical_tail_sha256=' + tail_hash)
+          assert tail_hash == expected_tail_hash, 'historical_tail_hash_drift'
+
+          lines = operative.splitlines(keepends=True)
+          target_indexes = [i for i, line in enumerate(lines) if target in line]
+          assert len(target_indexes) == 1, f'operative_target_count={len(target_indexes)}'
+          idx = target_indexes[0]
+          old_line = lines[idx]
+          assert '| codex_ready |' in old_line, 'target_not_codex_ready'
+          assert 'Slice A only:' in old_line, 'slice_a_scope_missing'
+          assert 'Slices B' in old_line and 'nicht autorisiert' in old_line, 'followup_gate_missing'
+
+          new_line = old_line.replace('| codex_ready |', '| review |', 1)
+          assert new_line != old_line
+          assert new_line.replace('| review |', '| codex_ready |', 1) == old_line, 'non_status_mutation_detected'
+          lines[idx] = new_line
+          new_operative = ''.join(lines)
+          new_text = text[:start] + new_operative + text[end:]
+
+          assert new_text.count(target) == text.count(target), 'target_count_changed'
+          assert hashlib.sha256(new_text[end + (len(new_operative) - len(operative)):].encode('utf-8')).hexdigest() == expected_tail_hash, 'historical_tail_mutated'
+          path.write_text(new_text, encoding='utf-8')
+          print('OLD_ROW=' + old_line.rstrip('\n'))
+          print('NEW_ROW=' + new_line.rstrip('\n'))
+          PY
+
+          git diff --check
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+          set +e
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/preflight.txt
+          test "$rc" -eq 1
+          grep -F '"status": "review"' /tmp/preflight.txt
+          grep -F '"executable": false' /tmp/preflight.txt
+          grep -F '"reason": "task_status_not_executable:review"' /tmp/preflight.txt
+          if grep -F 'branchCreationAllowed' /tmp/preflight.txt; then
+            echo 'branchCreationAllowed unexpectedly present' >&2
+            exit 1
+          fi
+
+      - name: Commit SSOT change and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/opentasks-voxy-eu24-slice-a-close.yml
+          git add docs/E150/OpenTasks.md
+          test "$(git diff --cached --name-only | sort)" = $'.github/workflows/opentasks-voxy-eu24-slice-a-close.yml\ndocs/E150/OpenTasks.md'
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(governance): close Voxy EU24 Slice A authorization'
+          git push origin HEAD:docs/governance-ssot-sync-05
