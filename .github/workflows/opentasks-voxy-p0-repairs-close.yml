@@ -42,9 +42,9 @@ jobs:
           for task in VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 VOXY-RENDER-APPROVAL-FRESHNESS-01; do
             out="$(node scripts/codex-task-preflight.mjs "$task")"
             echo "$out"
-            echo "$out" | grep -q '"status": "codex_ready"'
-            echo "$out" | grep -q '"executable": true'
-            echo "$out" | grep -q '"branchCreationAllowed": true'
+            [[ "$out" == *'"status": "codex_ready"'* ]]
+            [[ "$out" == *'"executable": true'* ]]
+            [[ "$out" == *'"branchCreationAllowed": true'* ]]
           done
 
       - name: Produce exact status-only mutation and verify fail-closed preflight
@@ -69,7 +69,6 @@ jobs:
               'VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01',
               'VOXY-RENDER-APPROVAL-FRESHNESS-01',
           ]
-          before_lines = {}
           lines = text.splitlines(keepends=True)
           for task in targets:
               hits = [i for i, line in enumerate(lines) if f'| {task} |' in line]
@@ -77,7 +76,6 @@ jobs:
               i = hits[0]
               line = lines[i]
               assert f'| {task} | codex_ready | P0 |' in line, line
-              before_lines[task] = line
               lines[i] = line.replace(f'| {task} | codex_ready |', f'| {task} | review |', 1)
 
           updated = ''.join(lines)
@@ -94,13 +92,10 @@ jobs:
           for task in VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 VOXY-RENDER-APPROVAL-FRESHNESS-01; do
             out="$(node scripts/codex-task-preflight.mjs "$task")"
             echo "$out"
-            echo "$out" | grep -q '"status": "review"'
-            echo "$out" | grep -q '"executable": false'
-            echo "$out" | grep -q 'task_status_not_executable:review'
-            if echo "$out" | grep -q 'branchCreationAllowed'; then
-              echo "unexpected branchCreationAllowed in fail-closed state" >&2
-              exit 1
-            fi
+            [[ "$out" == *'"status": "review"'* ]]
+            [[ "$out" == *'"executable": false'* ]]
+            [[ "$out" == *'task_status_not_executable:review'* ]]
+            [[ "$out" != *'branchCreationAllowed'* ]]
           done
           cp docs/E150/OpenTasks.md /tmp/OpenTasks.md
           git restore docs/E150/OpenTasks.md
