@@ -28,7 +28,8 @@ jobs:
           set -euo pipefail
           git fetch origin main --no-tags
           test "$(git rev-parse origin/main)" = "8f19ad8baac19ad3ebb95e6026c8fd5dffcfc628"
-          test "$(git rev-parse HEAD)" = "8f19ad8baac19ad3ebb95e6026c8fd5dffcfc628"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+          test "$(git diff --name-only origin/main..HEAD)" = ".github/workflows/opentasks-voxy-eu24-slice-a-close.yml"
           test "$(git rev-parse 'HEAD:docs/E150/OpenTasks.md')" = "4bb0b0f8fda4849f254c797294b3b27c814e51f6"
           test -z "$(git status --porcelain)"
 
@@ -70,9 +71,10 @@ jobs:
           lines[idx] = new_line
           new_operative = ''.join(lines)
           new_text = text[:start] + new_operative + text[end:]
+          new_end = start + len(new_operative)
 
           assert new_text.count(target) == text.count(target), 'target_count_changed'
-          assert hashlib.sha256(new_text[end + (len(new_operative) - len(operative)):].encode('utf-8')).hexdigest() == expected_tail_hash, 'historical_tail_mutated'
+          assert hashlib.sha256(new_text[new_end:].encode('utf-8')).hexdigest() == expected_tail_hash, 'historical_tail_mutated'
           path.write_text(new_text, encoding='utf-8')
           print('OLD_ROW=' + old_line.rstrip('\n'))
           print('NEW_ROW=' + new_line.rstrip('\n'))
