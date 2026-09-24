@@ -1,0 +1,287 @@
+name: One-shot #977 Slice A apply and verify
+
+on:
+  push:
+    branches:
+      - fix/voxy-studio-review-consistency-01-a
+    paths:
+      - .github/workflows/voxy-studio-review-consistency-a-verify.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/voxy-studio-review-consistency-01-a
+          fetch-depth: 0
+
+      - name: Verify exact authorized base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "1f573a6f2c2580ce3ac139a9685300c1cdcfd2fa"
+          git merge-base --is-ancestor origin/main HEAD
+          changed="$(git diff --name-only origin/main...HEAD)"
+          test "$changed" = ".github/workflows/voxy-studio-review-consistency-a-verify.yml"
+
+      - name: Apply bounded CAS repair and regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          store = Path('apps/web/src/features/voxyVideo/studioDraftStore.ts')
+          service = Path('apps/web/src/features/voxyVideo/studioDraftService.ts')
+          tests = Path('apps/web/tests/voxy-studio-draft-service.contract.test.ts')
+
+          def replace_once(path: Path, old: str, new: str, label: str):
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              store,
+              '''  replaceDraftIfRevision(input: {\n    draftId: string;\n    expectedRevision: number;\n    next: VoxyStudioDraft;\n  }): Promise<boolean>;''',
+              '''  replaceDraftIfRevision(input: {\n    draftId: string;\n    expectedRevision: number;\n    expectedStatus: VoxyStudioDraft["status"];\n    next: VoxyStudioDraft;\n  }): Promise<boolean>;''',
+              'repository_contract',
+          )
+          replace_once(
+              store,
+              '''        { _id: input.draftId, revision: input.expectedRevision },''',
+              '''        {\n          _id: input.draftId,\n          revision: input.expectedRevision,\n          status: input.expectedStatus,\n        },''',
+              'mongo_cas_predicate',
+          )
+          replace_once(
+              store,
+              '''      if (!current || current.revision !== input.expectedRevision) return false;''',
+              '''      if (\n        !current ||\n        current.revision !== input.expectedRevision ||\n        current.status !== input.expectedStatus\n      ) {\n        return false;\n      }''',
+              'memory_cas_predicate',
+          )
+          replace_once(
+              service,
+              '''    draftId: input.current.draftId,\n    expectedRevision: input.current.revision,\n    next: input.next,''',
+              '''    draftId: input.current.draftId,\n    expectedRevision: input.current.revision,\n    expectedStatus: input.current.status,\n    next: input.next,''',
+              'service_expected_status',
+          )
+
+          helper = r'''
+
+type DraftReplacementInput = Parameters<
+  VoxyStudioDraftRepository["replaceDraftIfRevision"]
+>[0];
+
+function controlDraftReplacements(base: VoxyStudioDraftRepository) {
+  const pending: Array<{
+    input: DraftReplacementInput;
+    resolve: (value: boolean) => void;
+    reject: (reason?: unknown) => void;
+  }> = [];
+  let waiter: (() => void) | null = null;
+
+  const repository: VoxyStudioDraftRepository = {
+    ...base,
+    async replaceDraftIfRevision(input) {
+      return new Promise<boolean>((resolve, reject) => {
+        pending.push({ input, resolve, reject });
+        const releaseWaiter = waiter;
+        waiter = null;
+        releaseWaiter?.();
+      });
+    },
+  };
+
+  async function waitForPending(count: number) {
+    while (pending.length < count) {
+      await new Promise<void>((resolve) => {
+        waiter = resolve;
+      });
+    }
+  }
+
+  async function commitStatus(status: VoxyStudioDraft["status"]) {
+    const index = pending.findIndex((entry) => entry.input.next.status === status);
+    if (index < 0) throw new Error(`missing_pending_replacement:${status}`);
+    const [entry] = pending.splice(index, 1);
+    try {
+      const result = await base.replaceDraftIfRevision(entry.input);
+      entry.resolve(result);
+      return result;
+    } catch (error) {
+      entry.reject(error);
+      throw error;
+    }
+  }
+
+  return { repository, waitForPending, commitStatus };
+}
+'''
+          replace_once(
+              tests,
+              '\n\ndescribe("Voxy Studio Draft Service", () => {',
+              helper + '\n\ndescribe("Voxy Studio Draft Service", () => {',
+              'controlled_replace_helper',
+          )
+
+          race_tests = r'''
+  it("fails closed when concurrent changes win before render approval on the same revision", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    const controlled = controlDraftReplacements(runtime.repository);
+    runtime.repository = controlled.repository;
+    markEditorialReady(runtime, draft);
+
+    const changesPromise = requestVoxyStudioDraftChanges(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        requestedByUserId: "admin-3",
+        note: "Concurrent change request wins.",
+      },
+      runtime,
+    );
+    const approvalPromise = approveVoxyStudioDraftForRender(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        approvedByUserId: "admin-2",
+      },
+      runtime,
+    );
+    const outcomesPromise = Promise.allSettled([changesPromise, approvalPromise]);
+
+    await controlled.waitForPending(2);
+    expect(await controlled.commitStatus("needs_changes")).toBe(true);
+    expect(await controlled.commitStatus("approved_for_render")).toBe(false);
+
+    const [changesOutcome, approvalOutcome] = await outcomesPromise;
+    expect(changesOutcome.status).toBe("fulfilled");
+    expect(approvalOutcome.status).toBe("rejected");
+    if (approvalOutcome.status === "rejected") {
+      expect(approvalOutcome.reason).toMatchObject({
+        message: "voxy_studio_revision_conflict",
+      });
+    }
+    expect((await runtime.repository.getDraft(draft.draftId))?.status).toBe(
+      "needs_changes",
+    );
+    const auditActions = (await runtime.repository.listAuditEvents(draft.draftId)).map(
+      (event) => event.action,
+    );
+    expect(auditActions).toContain("review_changes_requested");
+    expect(auditActions).not.toContain("approved_for_render");
+  });
+
+  it("fails closed when concurrent render approval wins before changes on the same revision", async () => {
+    const { runtime, draft } = await createAndSubmit();
+    const controlled = controlDraftReplacements(runtime.repository);
+    runtime.repository = controlled.repository;
+    markEditorialReady(runtime, draft);
+
+    const changesPromise = requestVoxyStudioDraftChanges(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        requestedByUserId: "admin-3",
+        note: "Concurrent change request loses.",
+      },
+      runtime,
+    );
+    const approvalPromise = approveVoxyStudioDraftForRender(
+      {
+        draftId: draft.draftId,
+        expectedRevision: draft.revision,
+        approvedByUserId: "admin-2",
+      },
+      runtime,
+    );
+    const outcomesPromise = Promise.allSettled([changesPromise, approvalPromise]);
+
+    await controlled.waitForPending(2);
+    expect(await controlled.commitStatus("approved_for_render")).toBe(true);
+    expect(await controlled.commitStatus("needs_changes")).toBe(false);
+
+    const [changesOutcome, approvalOutcome] = await outcomesPromise;
+    expect(changesOutcome.status).toBe("rejected");
+    if (changesOutcome.status === "rejected") {
+      expect(changesOutcome.reason).toMatchObject({
+        message: "voxy_studio_revision_conflict",
+      });
+    }
+    expect(approvalOutcome.status).toBe("fulfilled");
+    expect((await runtime.repository.getDraft(draft.draftId))?.status).toBe(
+      "approved_for_render",
+    );
+    const auditActions = (await runtime.repository.listAuditEvents(draft.draftId)).map(
+      (event) => event.action,
+    );
+    expect(auditActions).toContain("approved_for_render");
+    expect(auditActions).not.toContain("review_changes_requested");
+  });
+
+'''
+          replace_once(
+              tests,
+              '  it("requests changes explicitly and requires a new submission afterwards", async () => {',
+              race_tests + '  it("requests changes explicitly and requires a new submission afterwards", async () => {',
+              'race_regressions',
+          )
+          PY
+          git diff --check
+
+      - name: Set up Node and pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run focused regression contract
+        run: pnpm -C apps/web exec vitest run tests/voxy-studio-draft-service.contract.test.ts
+
+      - name: Typecheck
+        run: pnpm -C apps/web run typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Scope and self-removal guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git rm .github/workflows/voxy-studio-review-consistency-a-verify.yml
+          git add apps/web/src/features/voxyVideo/studioDraftStore.ts \
+                  apps/web/src/features/voxyVideo/studioDraftService.ts \
+                  apps/web/tests/voxy-studio-draft-service.contract.test.ts
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/voxy-studio-review-consistency-a-verify.yml' \
+            'apps/web/src/features/voxyVideo/studioDraftService.ts' \
+            'apps/web/src/features/voxyVideo/studioDraftStore.ts' \
+            'apps/web/tests/voxy-studio-draft-service.contract.test.ts' | sort)"
+          test "$changed" = "$expected"
+          git diff --cached -- apps/web/src/features/voxyVideo/studioDraftStore.ts | grep -F 'expectedStatus'
+          git diff --cached -- apps/web/src/features/voxyVideo/studioDraftStore.ts | grep -F 'status: input.expectedStatus'
+          git diff --cached -- apps/web/tests/voxy-studio-draft-service.contract.test.ts | grep -F 'concurrent changes win before render approval'
+          git diff --cached -- apps/web/tests/voxy-studio-draft-service.contract.test.ts | grep -F 'concurrent render approval wins before changes'
+
+      - name: Commit verified Slice A
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(voxy): make draft review transitions state-aware'
+          git push origin HEAD:fix/voxy-studio-review-consistency-01-a
