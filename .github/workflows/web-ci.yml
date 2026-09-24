@@ -47,6 +47,22 @@ jobs:
           tests/ai-public-discovery.contract.test.ts
           tests/ai-specialist-composition-contract.test.ts
 
+
+      - name: Focused Newsletter N1-N9 contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/newsletter-subscription-contract.test.ts
+          tests/newsletter-subscription-reconciliation.test.ts
+          tests/newsletter-unsubscribe-token.test.ts
+          tests/newsletter-profile-signal-adapter.test.ts
+          tests/newsletter-profile-relevance.test.ts
+          tests/newsletter-preference-center.test.ts
+          tests/newsletter-briefing-policy.test.ts
+          tests/newsletter-delivery-policy.test.ts
+          tests/newsletter-delivery-lifecycle.test.ts
+          tests/newsletter-delivery-lease.test.ts
+          tests/newsletter-n8-n9-acceptance.test.ts
+
       - name: Focused organization registry contracts
         run: >-
           pnpm -C apps/web exec vitest run
