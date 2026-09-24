@@ -97,7 +97,11 @@ jobs:
           test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'2\t2\tdocs/E150/OpenTasks.md'
           for task in VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 VOXY-RENDER-APPROVAL-FRESHNESS-01; do
             file="/tmp/post-${task}.json"
+            set +e
             node scripts/codex-task-preflight.mjs "$task" > "$file"
+            rc=$?
+            set -e
+            test "$rc" -ne 0
             cat "$file"
             python - "$file" "$task" <<'PY'
           import json, sys
