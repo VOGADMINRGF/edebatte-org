@@ -92,6 +92,38 @@ describe("Voxy adversarial editorial council", () => {
     expect(decision.modelFamilies).toEqual(expect.arrayContaining(["openai", "anthropic"]));
   });
 
+  it("blocks when a required specialist fails even if the chief judge passes", () => {
+    const runs = passingRuns();
+    const index = runs.findIndex((run) => run.roleId === "evidence_prosecutor");
+    runs[index] = { ...runs[index], verdict: "fail", objections: [] };
+    const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
+      binding,
+      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
+      creatorRunId: "creator-run-1",
+      runs,
+    });
+    expect(decision.outcome).toBe("blocked");
+    expect(decision.auditComplete).toBe(false);
+    expect(decision.reasonCodes).toContain("required_specialist_failed:evidence_prosecutor");
+  });
+
+  it("requires a human when a required specialist escalates even if the chief judge passes", () => {
+    const runs = passingRuns();
+    const index = runs.findIndex((run) => run.roleId === "evidence_prosecutor");
+    runs[index] = { ...runs[index], verdict: "escalate", objections: [] };
+    const decision = evaluateVoxyEditorialCouncil({
+      stage: "editorial",
+      binding,
+      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
+      creatorRunId: "creator-run-1",
+      runs,
+    });
+    expect(decision.outcome).toBe("human_required");
+    expect(decision.auditComplete).toBe(false);
+    expect(decision.reasonCodes).toContain("required_specialist_escalated:evidence_prosecutor");
+  });
+
   it("fails closed when authoritative creator lineage is absent", () => {
     const decision = evaluateVoxyEditorialCouncil({
       stage: "editorial",
