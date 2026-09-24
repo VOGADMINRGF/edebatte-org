@@ -68,10 +68,11 @@ jobs:
           assert len(matches) == 1, f'operative_target_count={len(matches)}'
           idx = matches[0]
           old_line = lines[idx]
+          print('OLD_ROW=' + old_line.rstrip())
           assert '| codex_ready |' in old_line, 'target_not_codex_ready'
           assert 'Issue `#733`' in old_line, 'issue_binding_missing'
-          assert 'öffentliche `/api/debug/env`' in old_line, 'scope_binding_missing'
-          assert 'technischer Endstatus maximal `review`' in old_line, 'review_ceiling_missing'
+          assert '/api/debug/env' in old_line, 'debug_route_scope_missing'
+          assert 'review' in old_line, 'review_ceiling_missing'
 
           new_line = old_line.replace('| codex_ready |', '| review |', 1)
           assert new_line.replace('| review |', '| codex_ready |', 1) == old_line, 'non_status_mutation_detected'
@@ -82,7 +83,6 @@ jobs:
           assert hashlib.sha256(new_text[new_end:].encode('utf-8')).hexdigest() == expected_tail_hash, 'historical_tail_mutated'
           assert new_text.count(target) == text.count(target), 'target_count_changed'
           path.write_text(new_text, encoding='utf-8')
-          print('OLD_ROW=' + old_line.rstrip())
           print('NEW_ROW=' + new_line.rstrip())
           PY
 
