@@ -1,0 +1,108 @@
+name: OpenTasks Voxy Studio Review Consistency Slice A Close
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-studio-review-consistency-slice-a-close.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  close-slice-a:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Serialize consumed Slice A fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          EXPECTED_MAIN='fa5dcdcdc04d94740433f572f48946bc9946727f'
+          EXPECTED_BLOB='225167406da04ecafe73c6b71f6a2579270aa727'
+          WORKFLOW='.github/workflows/opentasks-voxy-studio-review-consistency-slice-a-close.yml'
+          FILE='docs/E150/OpenTasks.md'
+          TARGET='VOXY-STUDIO-REVIEW-CONSISTENCY-01'
+
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git merge-base HEAD origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse "origin/main:$FILE")" = "$EXPECTED_BLOB"
+
+          mapfile -t pre_files < <(git diff --name-only origin/main...HEAD)
+          test "${#pre_files[@]}" -eq 1
+          test "${pre_files[0]}" = "$WORKFLOW"
+
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          path = Path('docs/E150/OpenTasks.md')
+          baseline = subprocess.check_output(
+              ['git', 'show', 'origin/main:docs/E150/OpenTasks.md'], text=True
+          )
+          current = path.read_text()
+          assert current == baseline, 'working OpenTasks differs from pinned main before write'
+
+          marker = '## Historischer Katalog und Evidenz'
+          assert baseline.count(marker) == 1, 'historical marker not unique'
+          operative, history = baseline.split(marker, 1)
+
+          target = 'VOXY-STUDIO-REVIEW-CONSISTENCY-01'
+          rows = [line for line in operative.splitlines() if line.startswith(f'| {target} |')]
+          assert len(rows) == 1, f'target row count={len(rows)}'
+          row = rows[0]
+          assert '| codex_ready | P1 |' in row, row
+          assert '**Slice A only:**' in row, row
+          assert '**Slices B/C bleiben nicht autorisiert**' in row, row
+
+          replacement = row.replace('| codex_ready | P1 |', '| review | P1 |', 1)
+          assert replacement != row
+          expected = baseline.replace(row, replacement, 1)
+          assert expected.count(target) == baseline.count(target)
+          assert expected.split(marker, 1)[1] == history, 'historical tail changed'
+
+          path.write_text(expected)
+          reread = path.read_text()
+          assert reread == expected
+          PY
+
+          test "$(git diff --numstat -- "$FILE")" = $'1\t1\tdocs/E150/OpenTasks.md'
+          grep -F '| VOXY-STUDIO-REVIEW-CONSISTENCY-01 | review | P1 |' "$FILE"
+          grep -F '**Slices B/C bleiben nicht autorisiert**' "$FILE"
+
+          set +e
+          PREFLIGHT_OUTPUT=$(node scripts/codex-task-preflight.mjs VOXY-STUDIO-REVIEW-CONSISTENCY-01 2>&1)
+          PREFLIGHT_RC=$?
+          set -e
+          printf '%s\n' "$PREFLIGHT_OUTPUT"
+          test "$PREFLIGHT_RC" -ne 0
+          printf '%s' "$PREFLIGHT_OUTPUT" | grep -F '"status": "review"'
+          printf '%s' "$PREFLIGHT_OUTPUT" | grep -F '"executable": false'
+          printf '%s' "$PREFLIGHT_OUTPUT" | grep -F 'task_status_not_executable:review'
+          if printf '%s' "$PREFLIGHT_OUTPUT" | grep -F '"branchCreationAllowed": true'; then
+            echo 'unexpected branchCreationAllowed=true after review close' >&2
+            exit 1
+          fi
+
+          git diff --check
+          git add "$FILE"
+          git rm "$WORKFLOW"
+          mapfile -t staged < <(git diff --cached --name-only)
+          test "${#staged[@]}" -eq 2
+          printf '%s\n' "${staged[@]}" | grep -Fx "$FILE"
+          printf '%s\n' "${staged[@]}" | grep -Fx "$WORKFLOW"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(e150): close #977 Slice A authorization'
+          git push origin HEAD:docs/governance-ssot-sync-05
