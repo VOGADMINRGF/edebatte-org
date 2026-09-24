@@ -1,0 +1,60 @@
+name: Alpha2 Operative Matrix Read-only
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/alpha2-operative-matrix-readonly.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Print operative Alpha2 rows from pinned main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          EXPECTED_MAIN='1868ccb4cb2c69672bd06e043704b7a871855816'
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git switch -C main origin/main
+          test "$(git status --porcelain)" = ''
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('docs/E150/OpenTasks.md').read_text()
+          marker = '## Historischer Katalog und Evidenz'
+          assert text.count(marker) == 1
+          operative = text.split(marker, 1)[0]
+          rows = [line for line in operative.splitlines() if line.startswith('| ALPHA2-')]
+          print(f'alpha2_operational_rows={len(rows)}')
+          executable = []
+          for row in rows:
+              print(row)
+              cells = [c.strip() for c in row.strip('|').split('|')]
+              if len(cells) >= 2 and cells[1] == 'codex_ready':
+                  executable.append(cells[0])
+          print('alpha2_codex_ready=' + (','.join(executable) if executable else 'NONE'))
+          PY
+      - name: Self-delete diagnostic workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch docs/governance-ssot-sync-05
+          git rm .github/workflows/alpha2-operative-matrix-readonly.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(governance): remove Alpha2 matrix diagnostic'
+          git push origin HEAD:docs/governance-ssot-sync-05
