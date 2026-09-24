@@ -41,9 +41,10 @@ jobs:
           assert len(lines)==1, lines
           print('TARGET_ROW=' + lines[0])
           PY
-          git checkout --detach origin/main
+          git switch -C main origin/main
           node scripts/codex-task-preflight.mjs VOXY-RENDER-APPROVAL-FRESHNESS-01
       - name: Self-delete diagnostic
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
