@@ -1,0 +1,124 @@
+name: Close #629 Slice-1 authorization
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-ai-specialist-slice1-close.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  close-authorization:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Verify exact base and single-writer scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "83b7eb9f5617f8d8c8c677a0584abb19471f5b15"
+          test "$(git merge-base HEAD origin/main)" = "83b7eb9f5617f8d8c8c677a0584abb19471f5b15"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "839b77662ea5867f0f60fcc3a517e3eb601ab36f"
+          test "$(git diff --name-only origin/main...HEAD)" = ".github/workflows/opentasks-ai-specialist-slice1-close.yml"
+
+      - name: Verify pre-write task preflight on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -C main origin/main
+          file=/tmp/pre-ai-specialist.json
+          node scripts/codex-task-preflight.mjs AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01 > "$file"
+          cat "$file"
+          python - "$file" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          assert data["taskId"] == "AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01", data
+          assert data["status"] == "codex_ready", data
+          assert data["executable"] is True, data
+          assert data["branchCreationAllowed"] is True, data
+          PY
+
+      - name: Produce exact status-only mutation and verify fail-closed preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text()
+          operative = '## Kanonischer Operativteil'
+          history = '## Historischer Katalog und Evidenz'
+          task = 'AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01'
+          assert text.count(operative) == 1
+          assert text.count(history) == 1
+          assert text.index(operative) < text.index(history)
+          assert hashlib.sha256(text[text.index(history):].encode()).hexdigest() == '27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399'
+
+          lines = text.splitlines(keepends=True)
+          hits = [i for i, line in enumerate(lines) if f'| {task} |' in line]
+          assert len(hits) == 1, hits
+          i = hits[0]
+          line = lines[i]
+          assert f'| {task} | codex_ready |' in line, line
+          lines[i] = line.replace(f'| {task} | codex_ready |', f'| {task} | review |', 1)
+
+          updated = ''.join(lines)
+          assert updated.count(f'| {task} | review |') == 1
+          assert f'| {task} | codex_ready |' not in updated
+          assert hashlib.sha256(updated[updated.index(history):].encode()).hexdigest() == '27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399'
+          path.write_text(updated)
+          PY
+
+          git diff --check -- docs/E150/OpenTasks.md
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+
+          file=/tmp/post-ai-specialist.json
+          set +e
+          node scripts/codex-task-preflight.mjs AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01 > "$file" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          cat "$file"
+          python - "$file" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          assert data["taskId"] == "AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01", data
+          assert data["status"] == "review", data
+          assert data["executable"] is False, data
+          assert data["reason"] == "task_status_not_executable:review", data
+          assert "branchCreationAllowed" not in data, data
+          PY
+
+          cp docs/E150/OpenTasks.md /tmp/OpenTasks.md
+          git restore docs/E150/OpenTasks.md
+
+      - name: Commit status-only SSOT convergence and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch docs/governance-ssot-sync-05
+          cp /tmp/OpenTasks.md docs/E150/OpenTasks.md
+          git rm .github/workflows/opentasks-ai-specialist-slice1-close.yml
+          git diff --check
+          test "$(git diff --numstat origin/main -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+          test "$(git diff --name-only origin/main)" = "docs/E150/OpenTasks.md"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md
+          git commit -m 'docs(e150): close #629 Slice-1 authorization'
+          git push origin HEAD:docs/governance-ssot-sync-05
