@@ -30,73 +30,72 @@ jobs:
 
           source = Path('apps/web/src/features/voxyVideo/editorialAgentCouncil.ts')
           text = source.read_text(encoding='utf-8')
-          judge = '''  const judgeRuns = completedRuns.filter((run) => run.roleId === "chief_judge");
-'''
-          repair = '''  const requiredRoleSet = new Set(requiredRoles);
-          const requiredSpecialistRuns = completedRuns.filter(
-            (run) => run.roleId !== "chief_judge" && requiredRoleSet.has(run.roleId),
-          );
-          let requiredSpecialistHumanRequired = false;
-          for (const run of requiredSpecialistRuns) {
-            if (run.verdict === "fail") {
-              reasonCodes.push(`required_specialist_failed:${run.roleId}`);
-            } else if (run.verdict === "escalate") {
-              reasonCodes.push(`required_specialist_escalated:${run.roleId}`);
-              requiredSpecialistHumanRequired = true;
-            }
-          }
-
-          const judgeRuns = completedRuns.filter((run) => run.roleId === "chief_judge");
-'''
+          judge = '  const judgeRuns = completedRuns.filter((run) => run.roleId === "chief_judge");\n'
+          repair = '\n'.join([
+              '  const requiredRoleSet = new Set(requiredRoles);',
+              '  const requiredSpecialistRuns = completedRuns.filter(',
+              '    (run) => run.roleId !== "chief_judge" && requiredRoleSet.has(run.roleId),',
+              '  );',
+              '  let requiredSpecialistHumanRequired = false;',
+              '  for (const run of requiredSpecialistRuns) {',
+              '    if (run.verdict === "fail") {',
+              '      reasonCodes.push(`required_specialist_failed:${run.roleId}`);',
+              '    } else if (run.verdict === "escalate") {',
+              '      reasonCodes.push(`required_specialist_escalated:${run.roleId}`);',
+              '      requiredSpecialistHumanRequired = true;',
+              '    }',
+              '  }',
+              '',
+              '  const judgeRuns = completedRuns.filter((run) => run.roleId === "chief_judge");',
+              '',
+          ])
           assert text.count(judge) == 1
           text = text.replace(judge, repair, 1)
-          outcome = '''  if (criticalHumanRequired || mode === "human") {
-            outcome = "human_required";
-'''
-          outcome_repair = '''  if (criticalHumanRequired || requiredSpecialistHumanRequired || mode === "human") {
-            outcome = "human_required";
-'''
+          outcome = '  if (criticalHumanRequired || mode === "human") {\n    outcome = "human_required";\n'
+          outcome_repair = '  if (criticalHumanRequired || requiredSpecialistHumanRequired || mode === "human") {\n    outcome = "human_required";\n'
           assert text.count(outcome) == 1
           text = text.replace(outcome, outcome_repair, 1)
           source.write_text(text, encoding='utf-8')
 
           test = Path('apps/web/tests/voxy-editorial-agent-council.contract.test.ts')
           tests = test.read_text(encoding='utf-8')
-          anchor = '''  it("fails closed when authoritative creator lineage is absent", () => {
-'''
-          addition = '''  it("blocks when a required specialist fails even if the chief judge passes", () => {
-            const runs = passingRuns();
-            const index = runs.findIndex((run) => run.roleId === "evidence_prosecutor");
-            runs[index] = { ...runs[index], verdict: "fail", objections: [] };
-            const decision = evaluateVoxyEditorialCouncil({
-              stage: "editorial",
-              binding,
-              policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
-              creatorRunId: "creator-run-1",
-              runs,
-            });
-            expect(decision.outcome).toBe("blocked");
-            expect(decision.auditComplete).toBe(false);
-            expect(decision.reasonCodes).toContain("required_specialist_failed:evidence_prosecutor");
-          });
-
-          it("requires a human when a required specialist escalates even if the chief judge passes", () => {
-            const runs = passingRuns();
-            const index = runs.findIndex((run) => run.roleId === "evidence_prosecutor");
-            runs[index] = { ...runs[index], verdict: "escalate", objections: [] };
-            const decision = evaluateVoxyEditorialCouncil({
-              stage: "editorial",
-              binding,
-              policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,
-              creatorRunId: "creator-run-1",
-              runs,
-            });
-            expect(decision.outcome).toBe("human_required");
-            expect(decision.auditComplete).toBe(false);
-            expect(decision.reasonCodes).toContain("required_specialist_escalated:evidence_prosecutor");
-          });
-
-          ''' + anchor
+          anchor = '  it("fails closed when authoritative creator lineage is absent", () => {\n'
+          addition = '\n'.join([
+              '  it("blocks when a required specialist fails even if the chief judge passes", () => {',
+              '    const runs = passingRuns();',
+              '    const index = runs.findIndex((run) => run.roleId === "evidence_prosecutor");',
+              '    runs[index] = { ...runs[index], verdict: "fail", objections: [] };',
+              '    const decision = evaluateVoxyEditorialCouncil({',
+              '      stage: "editorial",',
+              '      binding,',
+              '      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,',
+              '      creatorRunId: "creator-run-1",',
+              '      runs,',
+              '    });',
+              '    expect(decision.outcome).toBe("blocked");',
+              '    expect(decision.auditComplete).toBe(false);',
+              '    expect(decision.reasonCodes).toContain("required_specialist_failed:evidence_prosecutor");',
+              '  });',
+              '',
+              '  it("requires a human when a required specialist escalates even if the chief judge passes", () => {',
+              '    const runs = passingRuns();',
+              '    const index = runs.findIndex((run) => run.roleId === "evidence_prosecutor");',
+              '    runs[index] = { ...runs[index], verdict: "escalate", objections: [] };',
+              '    const decision = evaluateVoxyEditorialCouncil({',
+              '      stage: "editorial",',
+              '      binding,',
+              '      policy: VOXY_EDITORIAL_MAXIMUM_AUTONOMY_POLICY,',
+              '      creatorRunId: "creator-run-1",',
+              '      runs,',
+              '    });',
+              '    expect(decision.outcome).toBe("human_required");',
+              '    expect(decision.auditComplete).toBe(false);',
+              '    expect(decision.reasonCodes).toContain("required_specialist_escalated:evidence_prosecutor");',
+              '  });',
+              '',
+              anchor.rstrip('\n'),
+              '',
+          ])
           assert tests.count(anchor) == 1
           tests = tests.replace(anchor, addition, 1)
           test.write_text(tests, encoding='utf-8')
