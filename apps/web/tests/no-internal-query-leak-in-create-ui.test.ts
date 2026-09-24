@@ -10,7 +10,14 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/entitlements/createEntitlements", () => ({
-  getCreateEntitlementsForRequest: (...args: unknown[]) => mocks.getCreateEntitlementsForRequest(...args),
+  getCreatePageBootstrapForRequest: async (...args: unknown[]) => {
+    const entitlements = await mocks.getCreateEntitlementsForRequest(...args);
+    const accountContext =
+      entitlements?.isAuthenticated && entitlements?.userId
+        ? await mocks.getAccountOverview(entitlements.userId)
+        : null;
+    return { entitlements, accountContext };
+  },
 }));
 
 vi.mock("@features/account/service", () => ({

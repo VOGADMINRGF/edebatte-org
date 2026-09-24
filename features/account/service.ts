@@ -10,6 +10,7 @@ import type {
   AccountFeatureInterestKey,
   AccountOverview,
   AccountEdebateInfo,
+  CreateAccountContext,
   AccountProfile,
   AccountProfileUpdate,
   AccountSettingsUpdate,
@@ -147,6 +148,62 @@ type UserDoc = {
     commitmentEndsAt?: Date | string | null;
   };
 };
+
+export async function getCreateAccountContext(
+  userId: string,
+): Promise<CreateAccountContext | null> {
+  const oid = parseObjectId(userId);
+  if (!oid) return null;
+
+  const Users = await getCol<UserDoc>("users");
+  const doc = await Users.findOne(
+    { _id: oid },
+    {
+      projection: {
+        email: 1,
+        name: 1,
+        role: 1,
+        roles: 1,
+        accessTier: 1,
+        tier: 1,
+        b2cPlanId: 1,
+        "membership.planCode": 1,
+        "membership.edebatte": 1,
+        "profile.displayName": 1,
+        "profile.publicLocation": 1,
+        "usage.swipeCountTotal": 1,
+        "usage.contributionCredits": 1,
+        "stats.swipeCountTotal": 1,
+        "stats.contributionCredits": 1,
+        "edebatte.package": 1,
+      },
+    },
+  );
+
+  if (!doc) return null;
+
+  const stats = deriveStats(doc);
+  const membershipEdebate = (doc.membership as any)?.edebatte ?? null;
+  const publicLocation = normalizePublicLocation(doc.profile?.publicLocation ?? null) ?? undefined;
+
+  return {
+    userId: String(doc._id),
+    displayName: deriveDisplayName(doc),
+    profile: publicLocation ? { publicLocation } : undefined,
+    accessTier: deriveTier(doc),
+    roles: deriveRoles(doc),
+    edebatte: {
+      package: normalizeEdebatePackage(
+        doc.edebatte?.package ??
+          (membershipEdebate?.enabled ? membershipEdebate.planKey : null),
+      ),
+    },
+    stats: {
+      contributionCredits: stats.contributionCredits,
+      nextCreditIn: stats.nextCreditIn,
+    },
+  };
+}
 
 export async function getAccountOverview(userId: string): Promise<AccountOverview | null> {
   const oid = parseObjectId(userId);

@@ -209,6 +209,16 @@ export type AccountOverview = {
 } & AccountCreateDraftSlice &
   AccountReviewSupplementSlices;
 
+export type CreateAccountContext = {
+  userId: string;
+  displayName: string | null;
+  profile?: Pick<AccountProfile, "publicLocation">;
+  accessTier: AccessTier;
+  roles: string[];
+  edebatte: Pick<AccountEdebateInfo, "package">;
+  stats: Pick<AccountStats, "contributionCredits" | "nextCreditIn">;
+};
+
 export type AccountSettingsUpdate = {
   displayName?: string | null;
   uiLocale?: SupportedLocale;
