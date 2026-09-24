@@ -39,7 +39,6 @@ jobs:
           set -euo pipefail
           expected_main="66475776dfae4b5109308269c156ff8ef488bb95"
           expected_blob="756ad1084d81cce239c08582a43691b3a61fd6ca"
-          expected_history="27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399"
           actual_main="$(git -C mainrepo rev-parse HEAD)"
           test "$actual_main" = "$expected_main"
           test "$(git -C mainrepo branch --show-current)" = "main"
@@ -50,6 +49,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import hashlib
+          import re
 
           TARGETS = (
               'VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01',
@@ -59,16 +59,18 @@ jobs:
           HIST='## Historischer Katalog und Evidenz'
           ANCHOR='### #644 — YouTube / Media Source Runtime'
           EXPECTED_HISTORY='27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399'
-          BLOCK='''### Voxy P0 Runtime Safety Repairs — 2026-09-24
-
-Dieser additive Block serialisiert ausschließlich zwei auditbestätigte fail-closed Repairs der bestehenden Voxy-Review-/Local-Composition-Architektur. Er autorisiert weder die multilingualen #969-Slices B–E noch Provider-, Publish-, Upload-, Deployment- oder zweite Review-/Queue-/Store-Strukturen.
-
-| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |
-| --- | --- | --- | --- | --- | --- |
-| VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 | codex_ready | P0 | Issue `#975`; bestehender Voxy Editorial Council; `VOXY-ADMIN-VIDEO-STUDIO-01`; #967 | Bestehenden Council-/Judge-/Objection-Vertrag fail-closed härten: required completed non-judge `fail` blockiert autonome Freigabe; required `escalate` erzwingt `human_required`; Chief-Judge-`pass` darf beides nicht überschreiben | Regressionen für `fail` und `escalate` jeweils mit `objections=[]` + Judge `pass`; sauberer positiver Council-Lauf bleibt `agent_approved`; bestehende Objection-/Defense-/Judge-, Diversity- und Fingerprint-Verträge bleiben erhalten; keine zweite Council-/Review-SSOT, kein Render-/Publish-/Provider-Side-Effect |
-| VOXY-RENDER-APPROVAL-FRESHNESS-01 | codex_ready | P0 | Issue `#976`; `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568; #967; bestehende Studio-/Dossier-Evidence-Authority | Vor Worker-Render eine read-only Freshness-Revalidation der aktuellen Approval-/Evidence-/Revision-/Decision-Gate-Autorität gegen die beim Queueing persistierten Bindings ergänzen; keine Reapproval | widerrufene/stale/geänderte Approval-, SourcePack-, Revision-, Review- oder Gate-Bindung stoppt vor `executor.execute()` mit Invocation Count `0`; unveränderte Authority bleibt ausführbar; Retry/Recovery/Idempotenz bleiben erhalten; keine neue Queue, Approval-/Evidence-SSOT oder Auto-Publish |
-
-'''
+          BLOCK='\n'.join([
+              '### Voxy P0 Runtime Safety Repairs — 2026-09-24',
+              '',
+              'Dieser additive Block serialisiert ausschließlich zwei auditbestätigte fail-closed Repairs der bestehenden Voxy-Review-/Local-Composition-Architektur. Er autorisiert weder die multilingualen #969-Slices B–E noch Provider-, Publish-, Upload-, Deployment- oder zweite Review-/Queue-/Store-Strukturen.',
+              '',
+              '| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |',
+              '| --- | --- | --- | --- | --- | --- |',
+              '| VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 | codex_ready | P0 | Issue `#975`; bestehender Voxy Editorial Council; `VOXY-ADMIN-VIDEO-STUDIO-01`; #967 | Bestehenden Council-/Judge-/Objection-Vertrag fail-closed härten: required completed non-judge `fail` blockiert autonome Freigabe; required `escalate` erzwingt `human_required`; Chief-Judge-`pass` darf beides nicht überschreiben | Regressionen für `fail` und `escalate` jeweils mit `objections=[]` + Judge `pass`; sauberer positiver Council-Lauf bleibt `agent_approved`; bestehende Objection-/Defense-/Judge-, Diversity- und Fingerprint-Verträge bleiben erhalten; keine zweite Council-/Review-SSOT, kein Render-/Publish-/Provider-Side-Effect |',
+              '| VOXY-RENDER-APPROVAL-FRESHNESS-01 | codex_ready | P0 | Issue `#976`; `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568; #967; bestehende Studio-/Dossier-Evidence-Authority | Vor Worker-Render eine read-only Freshness-Revalidation der aktuellen Approval-/Evidence-/Revision-/Decision-Gate-Autorität gegen die beim Queueing persistierten Bindings ergänzen; keine Reapproval | widerrufene/stale/geänderte Approval-, SourcePack-, Revision-, Review- oder Gate-Bindung stoppt vor `executor.execute()` mit Invocation Count `0`; unveränderte Authority bleibt ausführbar; Retry/Recovery/Idempotenz bleiben erhalten; keine neue Queue, Approval-/Evidence-SSOT oder Auto-Publish |',
+              '',
+              '',
+          ])
 
           def rows(operative):
               out={}
@@ -80,7 +82,7 @@ Dieser additive Block serialisiert ausschließlich zwei auditbestätigte fail-cl
                   cells=[c.strip() for c in t.split('|')[1:-1]]
                   if not cells:
                       continue
-                  if all(__import__('re').fullmatch(r':?-{3,}:?', c) for c in cells):
+                  if all(re.fullmatch(r':?-{3,}:?', c) for c in cells):
                       continue
                   if 'ID' in cells and 'Status' in cells:
                       active_header=cells
@@ -110,13 +112,9 @@ Dieser additive Block serialisiert ausschließlich zwei auditbestätigte fail-cl
               for target in TARGETS:
                   assert target not in before_rows
                   assert operative.count(target)==0
-              assert 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01' in before_rows
               assert '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | review | P0 |' in before_rows['VOXY-EU24-MULTILINGUAL-EDITORIAL-01']
-              assert 'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01' in before_rows
               assert '| VOXY-200PCT-VISUAL-QA-CHECKPOINT-01 | done | P0 |' in before_rows['VOXY-200PCT-VISUAL-QA-CHECKPOINT-01']
-              assert 'YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01' in before_rows
               assert '| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | manual_gate | environment_human_gate_only | #644 |' in before_rows['YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01']
-
               text2=text.replace(ANCHOR, BLOCK+ANCHOR, 1)
               a2=text2.index(OP); b2=text2.index(HIST)
               operative2=text2[a2:b2]
