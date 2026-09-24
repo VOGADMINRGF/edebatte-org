@@ -161,6 +161,7 @@ async function replaceDraftOrThrow(input: {
   const replaced = await input.repository.replaceDraftIfRevision({
     draftId: input.current.draftId,
     expectedRevision: input.current.revision,
+    expectedStatus: input.current.status,
     next: input.next,
   });
   if (!replaced) throw new Error("voxy_studio_revision_conflict");
