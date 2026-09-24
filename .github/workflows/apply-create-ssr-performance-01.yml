@@ -72,6 +72,15 @@ jobs:
       - name: Typecheck
         run: pnpm -C apps/web run typecheck
 
+      - name: Restore generated Prisma artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git restore --source=origin/main --worktree -- \
+            packages/db-web/src/generated/edge.js \
+            packages/db-web/src/generated/index.js \
+            packages/db-web/src/generated/wasm.js
+
       - name: Repository integrity
         run: node scripts/ci/check-repository-integrity-guards.mjs --base origin/main
 
@@ -82,10 +91,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --name-only origin/main -- \
-            ':!.github/scripts/apply-create-ssr-performance-01.py' \
-            ':!.github/workflows/apply-create-ssr-performance-01.yml' \
-            | sort > /tmp/actual
+          {
+            git diff --name-only origin/main
+            git ls-files --others --exclude-standard
+          } \
+            | grep -v -E '^\.github/(scripts/apply-create-ssr-performance-01\.py|workflows/apply-create-ssr-performance-01\.yml)$' \
+            | sort -u > /tmp/actual
           printf '%s\n' \
             'apps/web/src/app/create/CreateClient.tsx' \
             'apps/web/src/app/create/page.tsx' \
