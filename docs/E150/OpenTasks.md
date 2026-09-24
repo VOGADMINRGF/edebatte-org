@@ -620,6 +620,13 @@ Dieser additive Block serialisiert ausschließlich zwei auditbestätigte fail-cl
 | --- | --- | --- | --- | --- |
 | YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | manual_gate | environment_human_gate_only | #644 | Slice 1 (`MediaSourceArtifact` + sichere Failure Taxonomy + credential-freie Fixtures) via #982 / Merge `f7b50407f338ffdaf4dccdb72df24024d4b2e080` abgeschlossen; nächster realer Media-/Provider-Adapter nur nach separater Environment/Human-Gate-Freigabe mit Capability, Kosten, Consent, Rechte/Copyright, Datenschutz/Retention, Region-Verfügbarkeit, Abuse-Limits und Exact-Preview-Smokes; keine Provider-/Secret-Aktivierung ohne separate Freigabe, keine #629-Komposition, kein Auto-Publish/Production-Write. |
 
+
+### #977 — Voxy Studio Review Consistency · Slice A
+
+| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |
+| --- | --- | --- | --- | --- | --- |
+| VOXY-STUDIO-REVIEW-CONSISTENCY-01 | codex_ready | P1 | Issue `#977`; bestehende #570 Studio-/Draft-/Review-Architektur; #975/#976 abgeschlossen; Audit-Evidence auf aktuellem Main | **Slice A only:** bestehende Draft-CAS-Semantik gegen konkurrierende Review-Entscheidungen härten, indem `replaceDraftIfRevision()` zusätzlich den aktuell gelesenen Draft-Status als erwartete State-Predicate bindet; Mongo und In-Memory müssen dieselbe `{revision,status}`-CAS-Semantik haben; keine neue State-Version, Review-SSOT oder Draft-Persistenz | Zwei konkurrierende Operationen auf derselben `needs_review`-Revision: genau ein Commit gewinnt; Approval-vs-Changes in beiden Reihenfolgen, loser Commit fail-closed/stale-safe; normale Einzeloperation unverändert; Audit-/Revision-Bindings erhalten; fokussierte Contract-Tests + Typecheck/Lint/Build/`git diff --check`; **Slices B/C bleiben nicht autorisiert**; keine Provider-, Render-, Publish- oder Deployment-Side-Effects |
+
 ## Historischer Katalog und Evidenz
 
 Die nachfolgenden Abschnitte bleiben vollständig als historische Evidenz erhalten. Sie dienen der Nachvollziehbarkeit, aber nicht als aktuelle operative Tagesqueue.
