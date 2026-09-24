@@ -90,8 +90,12 @@ jobs:
 
           git branch -f main HEAD
           git checkout main
-          PREFLIGHT="$(node scripts/codex-task-preflight.mjs OBSERVABILITY-INVENTORY-01)"
+          set +e
+          PREFLIGHT="$(node scripts/codex-task-preflight.mjs OBSERVABILITY-INVENTORY-01 2>&1)"
+          PREFLIGHT_RC=$?
+          set -e
           echo "${PREFLIGHT}"
+          test "${PREFLIGHT_RC}" -eq 1
           grep -Fq '"taskId": "OBSERVABILITY-INVENTORY-01"' <<<"${PREFLIGHT}"
           grep -Fq '"status": "review"' <<<"${PREFLIGHT}"
           grep -Fq '"executable": false' <<<"${PREFLIGHT}"
