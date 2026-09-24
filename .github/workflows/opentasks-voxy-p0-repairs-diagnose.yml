@@ -1,0 +1,95 @@
+name: One-shot Voxy P0 repair serialization diagnose
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-p0-repairs-diagnose.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout carrier branch
+        uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          path: carrier
+          fetch-depth: 4
+
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: mainrepo
+          fetch-depth: 1
+
+      - name: Diagnose current operative SSOT read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_main="66475776dfae4b5109308269c156ff8ef488bb95"
+          actual_main="$(git -C mainrepo rev-parse HEAD)"
+          echo "MAIN=$actual_main"
+          test "$actual_main" = "$expected_main"
+          test -z "$(git -C mainrepo status --porcelain)"
+          blob="$(git -C mainrepo rev-parse HEAD:docs/E150/OpenTasks.md)"
+          echo "OPENTASKS_BLOB=$blob"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          p = Path('mainrepo/docs/E150/OpenTasks.md')
+          text = p.read_text(encoding='utf-8')
+          operative_marker = '## Kanonischer Operativteil'
+          history_marker = '## Historischer Katalog und Evidenz'
+          assert text.count(operative_marker) == 1
+          assert text.count(history_marker) == 1
+          a = text.index(operative_marker)
+          b = text.index(history_marker)
+          assert a < b
+          operative = text[a:b]
+          history = text[b:]
+          print('HISTORY_SHA256=' + hashlib.sha256(history.encode()).hexdigest())
+          ids = [
+              'VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01',
+              'VOXY-RENDER-APPROVAL-FRESHNESS-01',
+              'VOXY-EU24-MULTILINGUAL-EDITORIAL-01',
+              'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01',
+          ]
+          for task_id in ids:
+              print(f'COUNT {task_id}=' + str(operative.count(task_id)))
+          assert operative.count('VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01') == 0
+          assert operative.count('VOXY-RENDER-APPROVAL-FRESHNESS-01') == 0
+
+          lines = operative.splitlines()
+          anchors = [i for i, line in enumerate(lines) if 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01' in line or 'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01' in line]
+          assert anchors
+          lo = max(0, min(anchors) - 12)
+          hi = min(len(lines), max(anchors) + 13)
+          print('---VOXY_OPERATIVE_CONTEXT_BEGIN---')
+          for i in range(lo, hi):
+              print(f'{i+1:05d}: {lines[i]}')
+          print('---VOXY_OPERATIVE_CONTEXT_END---')
+          PY
+
+      - name: Remove one-shot diagnostic workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd carrier
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/opentasks-voxy-p0-repairs-diagnose.yml
+          git commit -m "ci(governance): remove voxy p0 repair diagnostic"
+          git push origin HEAD:docs/governance-ssot-sync-05
