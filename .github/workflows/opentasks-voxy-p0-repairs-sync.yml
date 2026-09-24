@@ -1,0 +1,184 @@
+name: One-shot Voxy P0 repair serialization
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-p0-repairs-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  serialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout carrier branch
+        uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          path: carrier
+          fetch-depth: 8
+
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: mainrepo
+          fetch-depth: 1
+
+      - name: Apply guarded additive serialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_main="66475776dfae4b5109308269c156ff8ef488bb95"
+          expected_blob="756ad1084d81cce239c08582a43691b3a61fd6ca"
+          expected_history="27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399"
+          actual_main="$(git -C mainrepo rev-parse HEAD)"
+          test "$actual_main" = "$expected_main"
+          test "$(git -C mainrepo branch --show-current)" = "main"
+          test -z "$(git -C mainrepo status --porcelain)"
+          test "$(git -C mainrepo rev-parse HEAD:docs/E150/OpenTasks.md)" = "$expected_blob"
+          test "$(git -C carrier rev-parse HEAD:docs/E150/OpenTasks.md)" = "$expected_blob"
+
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          TARGETS = (
+              'VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01',
+              'VOXY-RENDER-APPROVAL-FRESHNESS-01',
+          )
+          OP='## Kanonischer Operativteil'
+          HIST='## Historischer Katalog und Evidenz'
+          ANCHOR='### #644 — YouTube / Media Source Runtime'
+          EXPECTED_HISTORY='27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399'
+          BLOCK='''### Voxy P0 Runtime Safety Repairs — 2026-09-24
+
+Dieser additive Block serialisiert ausschließlich zwei auditbestätigte fail-closed Repairs der bestehenden Voxy-Review-/Local-Composition-Architektur. Er autorisiert weder die multilingualen #969-Slices B–E noch Provider-, Publish-, Upload-, Deployment- oder zweite Review-/Queue-/Store-Strukturen.
+
+| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |
+| --- | --- | --- | --- | --- | --- |
+| VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 | codex_ready | P0 | Issue `#975`; bestehender Voxy Editorial Council; `VOXY-ADMIN-VIDEO-STUDIO-01`; #967 | Bestehenden Council-/Judge-/Objection-Vertrag fail-closed härten: required completed non-judge `fail` blockiert autonome Freigabe; required `escalate` erzwingt `human_required`; Chief-Judge-`pass` darf beides nicht überschreiben | Regressionen für `fail` und `escalate` jeweils mit `objections=[]` + Judge `pass`; sauberer positiver Council-Lauf bleibt `agent_approved`; bestehende Objection-/Defense-/Judge-, Diversity- und Fingerprint-Verträge bleiben erhalten; keine zweite Council-/Review-SSOT, kein Render-/Publish-/Provider-Side-Effect |
+| VOXY-RENDER-APPROVAL-FRESHNESS-01 | codex_ready | P0 | Issue `#976`; `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568; #967; bestehende Studio-/Dossier-Evidence-Authority | Vor Worker-Render eine read-only Freshness-Revalidation der aktuellen Approval-/Evidence-/Revision-/Decision-Gate-Autorität gegen die beim Queueing persistierten Bindings ergänzen; keine Reapproval | widerrufene/stale/geänderte Approval-, SourcePack-, Revision-, Review- oder Gate-Bindung stoppt vor `executor.execute()` mit Invocation Count `0`; unveränderte Authority bleibt ausführbar; Retry/Recovery/Idempotenz bleiben erhalten; keine neue Queue, Approval-/Evidence-SSOT oder Auto-Publish |
+
+'''
+
+          def rows(operative):
+              out={}
+              active_header=None
+              for line in operative.splitlines():
+                  t=line.strip()
+                  if not t.startswith('|'):
+                      continue
+                  cells=[c.strip() for c in t.split('|')[1:-1]]
+                  if not cells:
+                      continue
+                  if all(__import__('re').fullmatch(r':?-{3,}:?', c) for c in cells):
+                      continue
+                  if 'ID' in cells and 'Status' in cells:
+                      active_header=cells
+                      continue
+                  if not active_header or len(cells) < len(active_header):
+                      continue
+                  row=dict(zip(active_header,cells))
+                  task=row.get('ID')
+                  if task:
+                      if task in out:
+                          raise AssertionError(f'duplicate existing task {task}')
+                      out[task]=line
+              return out
+
+          for repo in ('carrier','mainrepo'):
+              p=Path(repo)/'docs/E150/OpenTasks.md'
+              text=p.read_text(encoding='utf-8')
+              assert text.count(OP)==1
+              assert text.count(HIST)==1
+              assert text.count(ANCHOR)==1
+              a=text.index(OP); b=text.index(HIST)
+              assert a < b
+              operative=text[a:b]
+              history=text[b:]
+              assert hashlib.sha256(history.encode()).hexdigest()==EXPECTED_HISTORY
+              before_rows=rows(operative)
+              for target in TARGETS:
+                  assert target not in before_rows
+                  assert operative.count(target)==0
+              assert 'VOXY-EU24-MULTILINGUAL-EDITORIAL-01' in before_rows
+              assert '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | review | P0 |' in before_rows['VOXY-EU24-MULTILINGUAL-EDITORIAL-01']
+              assert 'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01' in before_rows
+              assert '| VOXY-200PCT-VISUAL-QA-CHECKPOINT-01 | done | P0 |' in before_rows['VOXY-200PCT-VISUAL-QA-CHECKPOINT-01']
+              assert 'YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01' in before_rows
+              assert '| YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01 | manual_gate | environment_human_gate_only | #644 |' in before_rows['YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01']
+
+              text2=text.replace(ANCHOR, BLOCK+ANCHOR, 1)
+              a2=text2.index(OP); b2=text2.index(HIST)
+              operative2=text2[a2:b2]
+              history2=text2[b2:]
+              after_rows=rows(operative2)
+              assert hashlib.sha256(history2.encode()).hexdigest()==EXPECTED_HISTORY
+              assert set(after_rows)==set(before_rows)|set(TARGETS)
+              for task,line in before_rows.items():
+                  assert after_rows[task]==line, f'existing row changed: {task}'
+              for target in TARGETS:
+                  assert operative2.count(target)==1
+                  assert f'| {target} | codex_ready | P0 |' in after_rows[target]
+              p.write_text(text2,encoding='utf-8')
+          PY
+
+          cmp carrier/docs/E150/OpenTasks.md mainrepo/docs/E150/OpenTasks.md
+          git -C mainrepo config user.name "preflight-local"
+          git -C mainrepo config user.email "preflight-local@example.invalid"
+          git -C mainrepo add docs/E150/OpenTasks.md
+          git -C mainrepo commit -m "local preflight candidate" >/dev/null
+          test -z "$(git -C mainrepo status --porcelain)"
+          (
+            cd mainrepo
+            node scripts/codex-task-preflight.mjs VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 | tee /tmp/preflight-975.json
+            node scripts/codex-task-preflight.mjs VOXY-RENDER-APPROVAL-FRESHNESS-01 | tee /tmp/preflight-976.json
+          )
+          node - <<'NODE'
+          const fs=require('fs');
+          for (const [path,id] of [['/tmp/preflight-975.json','VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01'],['/tmp/preflight-976.json','VOXY-RENDER-APPROVAL-FRESHNESS-01']]) {
+            const p=JSON.parse(fs.readFileSync(path,'utf8'));
+            if (p.taskId!==id || p.status!=='codex_ready' || p.executable!==true || p.branchCreationAllowed!==true) throw new Error(`preflight failed for ${id}`);
+          }
+          NODE
+          git -C carrier diff --check -- docs/E150/OpenTasks.md
+          echo '--- guarded OpenTasks diff ---'
+          git -C carrier diff -- docs/E150/OpenTasks.md
+
+      - name: Commit SSOT mutation and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd carrier
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git rm .github/workflows/opentasks-voxy-p0-repairs-sync.yml
+          staged="$(git diff --cached --name-only)"
+          test "$(printf '%s\n' "$staged" | sort)" = "$(printf '%s\n' '.github/workflows/opentasks-voxy-p0-repairs-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
+          git commit -m "docs(governance): serialize voxy p0 safety repairs"
+          git push origin HEAD:docs/governance-ssot-sync-05
+
+      - name: Fail-safe remove writer after failure
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd carrier
+          git reset --hard HEAD
+          if test -f .github/workflows/opentasks-voxy-p0-repairs-sync.yml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git rm .github/workflows/opentasks-voxy-p0-repairs-sync.yml
+            git commit -m "ci(governance): remove failed voxy p0 writer"
+            git push origin HEAD:docs/governance-ssot-sync-05
+          fi
