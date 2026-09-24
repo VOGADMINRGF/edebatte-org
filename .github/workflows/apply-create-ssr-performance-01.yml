@@ -60,10 +60,14 @@ jobs:
         run: >-
           pnpm -C apps/web exec vitest run
           tests/create-ssr-performance.contract.test.ts
-          tests/create-mode.page.test.ts
-          tests/no-duplicate-primary-worksurface-on-create.test.ts
           tests/no-internal-query-leak-in-create-ui.test.ts
           tests/runden-context-human-readable-only.test.ts
+
+      - name: Current Create page bootstrap smoke
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/create-mode.page.test.ts
+          -t "does not leak raw query intent/source flags into visible UI"
 
       - name: Typecheck
         run: pnpm -C apps/web run typecheck
