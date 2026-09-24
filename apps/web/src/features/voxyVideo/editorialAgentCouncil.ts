@@ -429,6 +429,20 @@ export function evaluateVoxyEditorialCouncil(input: {
     reasonCodes.push("objection_resolution_missing_defense_evidence");
   }
 
+  const requiredRoleSet = new Set(requiredRoles);
+  const requiredSpecialistRuns = completedRuns.filter(
+    (run) => run.roleId !== "chief_judge" && requiredRoleSet.has(run.roleId),
+  );
+  let requiredSpecialistHumanRequired = false;
+  for (const run of requiredSpecialistRuns) {
+    if (run.verdict === "fail") {
+      reasonCodes.push(`required_specialist_failed:${run.roleId}`);
+    } else if (run.verdict === "escalate") {
+      reasonCodes.push(`required_specialist_escalated:${run.roleId}`);
+      requiredSpecialistHumanRequired = true;
+    }
+  }
+
   const judgeRuns = completedRuns.filter((run) => run.roleId === "chief_judge");
   const judge = judgeRuns.at(-1) ?? null;
   if (!judge) reasonCodes.push("chief_judge_missing");
@@ -447,7 +461,7 @@ export function evaluateVoxyEditorialCouncil(input: {
   const mode = input.policy.modes[stage];
 
   let outcome: VoxyEditorialCouncilDecision["outcome"];
-  if (criticalHumanRequired || mode === "human") {
+  if (criticalHumanRequired || requiredSpecialistHumanRequired || mode === "human") {
     outcome = "human_required";
   } else if (hardFailureCodes.length > 0 || !judge || judge.verdict !== "pass") {
     outcome = "blocked";
