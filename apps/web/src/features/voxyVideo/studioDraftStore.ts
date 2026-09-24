@@ -55,6 +55,7 @@ export type VoxyStudioDraftRepository = {
   replaceDraftIfRevision(input: {
     draftId: string;
     expectedRevision: number;
+    expectedStatus: VoxyStudioDraft["status"];
     next: VoxyStudioDraft;
   }): Promise<boolean>;
   appendAuditEvent(event: VoxyStudioDraftAuditEvent): Promise<void>;
@@ -171,7 +172,11 @@ function createMongoRepository(): VoxyStudioDraftRepository {
       await ensureIndexes();
       const col = await coreCol<DraftDoc>(DRAFTS_COLLECTION);
       const result = await col.updateOne(
-        { _id: input.draftId, revision: input.expectedRevision },
+        {
+          _id: input.draftId,
+          revision: input.expectedRevision,
+          status: input.expectedStatus,
+        },
         {
           $set: {
             dossierId: input.next.dossierId,
@@ -257,7 +262,13 @@ export function createInMemoryVoxyStudioDraftRepository(seed?: {
     },
     async replaceDraftIfRevision(input) {
       const current = drafts.get(input.draftId);
-      if (!current || current.revision !== input.expectedRevision) return false;
+      if (
+        !current ||
+        current.revision !== input.expectedRevision ||
+        current.status !== input.expectedStatus
+      ) {
+        return false;
+      }
       drafts.set(input.draftId, clone(input.next));
       return true;
     },
