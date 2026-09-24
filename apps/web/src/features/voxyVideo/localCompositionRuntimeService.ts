@@ -38,9 +38,17 @@ export type VoxyLocalCompositionExecutor = {
   }): Promise<VoxyLocalCompositionExecutionResult>;
 };
 
+export type VoxyLocalCompositionFreshnessAuthority = {
+  assertCurrent(input: {
+    job: VoxyLocalCompositionJob;
+    request: VoxyLocalCompositionRequest;
+  }): Promise<void>;
+};
+
 export type VoxyLocalCompositionRuntimeDependencies = {
   repository: VoxyLocalCompositionRepository;
   approvalAuthority: VoxyLocalCompositionApprovalAuthority;
+  freshnessAuthority?: VoxyLocalCompositionFreshnessAuthority;
   audioResolver: VoxyLocalCompositionAudioResolver;
   executor: VoxyLocalCompositionExecutor;
   now?: () => string;
@@ -175,6 +183,16 @@ export async function executeVoxyLocalComposition(input: {
   }
 
   try {
+    if (request.renderProfile === "editorial_v1") {
+      if (!deps.freshnessAuthority) {
+        throw new Error("voxy_local_composition_freshness_authority_missing");
+      }
+      await deps.freshnessAuthority.assertCurrent({
+        job: rendering,
+        request,
+      });
+    }
+
     const audioAsset = await deps.audioResolver.resolveAudioAsset(current.audioAssetId);
     const audioErrors = validateVoxyLocalCompositionAudioAsset(audioAsset, {
       expectedDurationMs,
