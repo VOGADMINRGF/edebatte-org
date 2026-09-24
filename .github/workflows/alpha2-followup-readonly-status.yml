@@ -1,0 +1,66 @@
+name: Alpha2 Follow-up Read-only Status
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/alpha2-followup-readonly-status.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Inspect current main task status only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          EXPECTED_MAIN='1868ccb4cb2c69672bd06e043704b7a871855816'
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git switch -C main origin/main
+          test "$(git status --porcelain)" = ''
+          for TASK in ALPHA2-CONTINUOUS-DISPATCH-01 ALPHA2-REPAIR-CONTINUATION-01; do
+            echo "=== $TASK ==="
+            set +e
+            node scripts/codex-task-preflight.mjs "$TASK"
+            RC=$?
+            set -e
+            echo "preflight_rc=$RC"
+          done
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('docs/E150/OpenTasks.md').read_text()
+          marker = '## Historischer Katalog und Evidenz'
+          assert text.count(marker) == 1
+          operative = text.split(marker, 1)[0]
+          for task in ('ALPHA2-CONTINUOUS-DISPATCH-01','ALPHA2-REPAIR-CONTINUATION-01'):
+              rows = [line for line in operative.splitlines() if line.startswith(f'| {task} |')]
+              print(f'operative_rows[{task}]={len(rows)}')
+              for row in rows:
+                  print(row)
+          PY
+
+      - name: Self-delete diagnostic workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch docs/governance-ssot-sync-05
+          git rm .github/workflows/alpha2-followup-readonly-status.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(governance): remove Alpha2 status diagnostic'
+          git push origin HEAD:docs/governance-ssot-sync-05
