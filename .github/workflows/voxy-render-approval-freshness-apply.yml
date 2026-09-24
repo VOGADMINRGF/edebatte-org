@@ -33,14 +33,14 @@ jobs:
           node-version: "20.19.0"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - name: Assert current authorized base and clean staged scope
+      - name: Assert current authorized base and clean product scope
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main
           test "$(git rev-parse origin/main)" = "616ebdc21cd9187a8b1f45410f38a7cd8acdf59f"
           test "$(git merge-base HEAD origin/main)" = "616ebdc21cd9187a8b1f45410f38a7cd8acdf59f"
-          git diff --quiet origin/main -- apps/web/src apps/web/scripts apps/web/tests .github/workflows/voxy-local-composition-runtime.yml
+          git diff --quiet origin/main -- apps/web/src apps/web/scripts apps/web/tests
       - name: Apply bounded repair
         run: python3 .github/voxy-freshness-apply.py
       - name: Install dependencies
@@ -54,18 +54,13 @@ jobs:
         run: |
           pnpm -C apps/web run typecheck
           git diff --check
-      - name: Commit verified repair and remove temporary applicators
+      - name: Commit only verified product and test files
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm \
-            .github/workflows/voxy-render-approval-freshness-implement.yml \
-            .github/workflows/voxy-render-approval-freshness-apply.yml \
-            .github/voxy-freshness-apply.py
           git add \
-            .github/workflows/voxy-local-composition-runtime.yml \
             apps/web/scripts/run-voxy-local-composition-worker.ts \
             apps/web/src/features/voxyVideo/localCompositionRuntimeService.ts \
             apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts \
