@@ -40,11 +40,17 @@ jobs:
           set -euo pipefail
           git switch -C main origin/main
           for task in VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 VOXY-RENDER-APPROVAL-FRESHNESS-01; do
-            out="$(node scripts/codex-task-preflight.mjs "$task")"
-            echo "$out"
-            [[ "$out" == *'"status": "codex_ready"'* ]]
-            [[ "$out" == *'"executable": true'* ]]
-            [[ "$out" == *'"branchCreationAllowed": true'* ]]
+            file="/tmp/pre-${task}.json"
+            node scripts/codex-task-preflight.mjs "$task" > "$file"
+            cat "$file"
+            python - "$file" "$task" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          assert data["taskId"] == sys.argv[2], data
+          assert data["status"] == "codex_ready", data
+          assert data["executable"] is True, data
+          assert data["branchCreationAllowed"] is True, data
+          PY
           done
 
       - name: Produce exact status-only mutation and verify fail-closed preflight
@@ -90,12 +96,18 @@ jobs:
           git diff --check -- docs/E150/OpenTasks.md
           test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'2\t2\tdocs/E150/OpenTasks.md'
           for task in VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01 VOXY-RENDER-APPROVAL-FRESHNESS-01; do
-            out="$(node scripts/codex-task-preflight.mjs "$task")"
-            echo "$out"
-            [[ "$out" == *'"status": "review"'* ]]
-            [[ "$out" == *'"executable": false'* ]]
-            [[ "$out" == *'task_status_not_executable:review'* ]]
-            [[ "$out" != *'branchCreationAllowed'* ]]
+            file="/tmp/post-${task}.json"
+            node scripts/codex-task-preflight.mjs "$task" > "$file"
+            cat "$file"
+            python - "$file" "$task" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          assert data["taskId"] == sys.argv[2], data
+          assert data["status"] == "review", data
+          assert data["executable"] is False, data
+          assert data["reason"] == "task_status_not_executable:review", data
+          assert "branchCreationAllowed" not in data, data
+          PY
           done
           cp docs/E150/OpenTasks.md /tmp/OpenTasks.md
           git restore docs/E150/OpenTasks.md
