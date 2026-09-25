@@ -1,0 +1,151 @@
+name: Newsletter closeout handoff safety 02
+
+on:
+  push:
+    branches:
+      - fix/newsletter-closeout-handoff-safety-02
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/newsletter-closeout-handoff-safety-02
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Preflight, repair, validate and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_MAIN='14f2350dd53317088014ccd45ee3687cb117b111'
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          node scripts/codex-task-preflight.mjs NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 > /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('/tmp/preflight.json', 'utf8'));
+          if (p.status !== 'codex_ready' || p.executable !== true || p.branchCreationAllowed !== true) {
+            console.error(p); process.exit(1);
+          }
+          NODE
+          python <<'PY'
+          from pathlib import Path
+
+          account = Path('features/account/service.ts')
+          text = account.read_text()
+          old = 'import { ObjectId, getCol } from "@core/db/triMongo";'
+          new = 'import { ObjectId, coreCol, getCol } from "@core/db/triMongo";'
+          if text.count(old) != 1: raise SystemExit('account import anchor mismatch')
+          text = text.replace(old, new, 1)
+          anchor = 'const RESEARCH_XP_AWARD = 25;\n'
+          insert = '''const RESEARCH_XP_AWARD = 25;\nconst NEWSLETTER_SUBSCRIBERS_COLLECTION = "public_updates_subscribers";\nconst REQUIRED_NEWSLETTER_CONSENT_VERSION = process.env.UPDATES_CONSENT_VERSION || "updates_v1";\n\ntype AccountNewsletterSubscriberDoc = {\n  email: string;\n  userId?: string | null;\n  status?: "pending" | "active" | "unsubscribed" | "suppressed";\n  consentVersion?: string | null;\n  unsubscribedAt?: Date | null;\n  updatedAt?: Date | null;\n};\n\nasync function loadCanonicalNewsletterOptIn(userId: string, email?: string | null) {\n  const normalizedEmail = String(email ?? "").trim().toLowerCase();\n  if (!normalizedEmail) return false;\n  const subscribers = await coreCol<AccountNewsletterSubscriberDoc>(NEWSLETTER_SUBSCRIBERS_COLLECTION);\n  const subscriber = await subscribers.findOne(\n    { $or: [{ userId }, { email: normalizedEmail }] } as never,\n  );\n  return Boolean(\n    subscriber?.status === "active" &&\n      subscriber?.consentVersion === REQUIRED_NEWSLETTER_CONSENT_VERSION,\n  );\n}\n\nasync function applyCanonicalNewsletterAccountPreference(\n  userId: string,\n  email: string,\n  newsletterOptIn: boolean,\n) {\n  if (newsletterOptIn) return;\n  const normalizedEmail = email.trim().toLowerCase();\n  if (!normalizedEmail) return;\n  const subscribers = await coreCol<AccountNewsletterSubscriberDoc>(NEWSLETTER_SUBSCRIBERS_COLLECTION);\n  const now = new Date();\n  await subscribers.updateOne(\n    {\n      $or: [{ userId }, { email: normalizedEmail }],\n      status: { $ne: "suppressed" },\n    } as never,\n    {\n      $set: {\n        status: "unsubscribed",\n        unsubscribedAt: now,\n        updatedAt: now,\n      },\n    },\n  );\n}\n'''
+          if text.count(anchor) != 1: raise SystemExit('account constant anchor mismatch')
+          text = text.replace(anchor, insert, 1)
+          anchor = '  const accountUserId = String(doc._id);\n  const roles = deriveRoles(doc);\n'
+          replacement = '''  const accountUserId = String(doc._id);\n  let newsletterOptIn = false;\n  try {\n    newsletterOptIn = await loadCanonicalNewsletterOptIn(accountUserId, doc.email);\n  } catch {\n    newsletterOptIn = false;\n  }\n  const roles = deriveRoles(doc);\n'''
+          if text.count(anchor) != 1: raise SystemExit('account overview anchor mismatch')
+          text = text.replace(anchor, replacement, 1)
+          old = '    newsletterOptIn: doc.settings?.newsletterOptIn ?? false,'
+          if text.count(old) != 1: raise SystemExit('account read anchor mismatch')
+          text = text.replace(old, '    newsletterOptIn,', 1)
+          anchor = '  const oid = parseObjectId(userId);\n  if (!oid) return null;\n\n  const setOps: Record<string, any> = {};\n'
+          replacement = '''  const oid = parseObjectId(userId);\n  if (!oid) return null;\n\n  if (typeof patch.newsletterOptIn === "boolean") {\n    const Users = await getCol<UserDoc>("users");\n    const user = await Users.findOne({ _id: oid }, { projection: { email: 1 } });\n    if (!user?.email) return null;\n    await applyCanonicalNewsletterAccountPreference(\n      userId,\n      user.email,\n      patch.newsletterOptIn,\n    );\n  }\n\n  const setOps: Record<string, any> = {};\n'''
+          if text.count(anchor) < 1: raise SystemExit('account update anchor mismatch')
+          text = text.replace(anchor, replacement, 1)
+          old = '''  if (typeof patch.newsletterOptIn === "boolean") {\n    setOps["settings.newsletterOptIn"] = patch.newsletterOptIn;\n  }\n'''
+          if text.count(old) != 1: raise SystemExit('legacy newsletter write anchor mismatch')
+          text = text.replace(old, '', 1)
+          account.write_text(text)
+
+          runtime = Path('apps/web/src/features/newsletter/newsletterRuntime.ts')
+          text = runtime.read_text()
+          old = '''  dossierId?: string | null;\n  sourceCreatedByUserId?: string | null;\n};'''
+          new = '''  dossierId?: string | null;\n  sourceCreatedByUserId?: string | null;\n  sourceRecordId?: string | null;\n  sourceRevision?: string | null;\n};'''
+          if text.count(old) != 1: raise SystemExit('candidate type anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''  lastCandidateIds?: string[] | null;\n  updatedAt?: Date | null;\n};'''
+          new = '''  lastCandidateIds?: string[] | null;\n  updatedAt?: Date | null;\n  lastDeliveryHandoffAt?: Date | null;\n  lastDeliveryHandoffId?: string | null;\n};'''
+          if text.count(old) != 1: raise SystemExit('subscriber type anchor mismatch')
+          text = text.replace(old, new, 1)
+          anchor = '''async function loadAnlassraumByDossierIds(dossierIds: string[]) {'''
+          helpers = '''function newsletterSourceRevision(doc: SocialDistributionPostDoc) {\n  const post = doc.post ?? null;\n  const newsletterAsset = post?.assets?.find(\n    (entry) => entry.kind === "newsletter_draft" || entry.channel === "newsletter_draft",\n  ) ?? null;\n  return digest(JSON.stringify({\n    recordId: normalize(doc._id),\n    id: normalize(post?.id),\n    status: normalize(post?.status),\n    sourceState: normalize(post?.sourceState),\n    channels: [...(post?.channels ?? [])].map(String).sort(),\n    newsletterText: normalize(post?.channelTexts?.newsletter_draft),\n    newsletterNote: normalize(post?.channelNotes?.newsletter_draft),\n    newsletterAsset: newsletterAsset ? {\n      kind: normalize(newsletterAsset.kind),\n      channel: normalize(newsletterAsset.channel),\n      href: normalize(newsletterAsset.href),\n      text: normalize(newsletterAsset.text),\n      verificationLabel: normalize(newsletterAsset.verificationLabel),\n    } : null,\n    approval: {\n      reviewRequired: post?.approval?.reviewRequired ?? null,\n      approvedAt: normalize(post?.approval?.approvedAt),\n    },\n    noAutoPublish: post?.noAutoPublish === true,\n    noAutoPublicationApproved: post?.noAutoPublicationApproved === true,\n    updatedAt: safeDate(post?.updatedAt)?.toISOString() ?? safeDate(doc.updatedAt)?.toISOString() ?? null,\n  })).slice(0, 32);\n}\n\nfunction newsletterCandidateDocEligible(doc: SocialDistributionPostDoc, cutoff: number) {\n  const post = doc.post;\n  if (!post) return false;\n  if (!APPROVED_SOCIAL_STATUSES.has(String(post.status ?? ""))) return false;\n  if (post.publicBrand && post.publicBrand !== "edebatte") return false;\n  if (post.sourceState !== "approved_context") return false;\n  if (post.noAutoPublish !== true || post.noAutoPublicationApproved !== true) return false;\n  if (post.approval?.reviewRequired !== false && !post.approval?.approvedAt) return false;\n  const updatedAt = safeDate(post.updatedAt) ?? safeDate(doc.updatedAt);\n  return !updatedAt || updatedAt.getTime() >= cutoff;\n}\n\nasync function revalidateNewsletterCandidatesForHandoff(\n  candidates: NewsletterDigestCandidate[],\n  now: Date,\n) {\n  if (!candidates.length || candidates.some((candidate) => !candidate.sourceRevision)) return false;\n  const postIds = unique(candidates.map((candidate) => candidate.id));\n  const recordIds = unique(candidates.map((candidate) => candidate.sourceRecordId ?? null));\n  const clauses: Record<string, unknown>[] = [];\n  if (postIds.length) clauses.push({ "post.id": { $in: postIds } });\n  if (recordIds.length) clauses.push({ _id: { $in: recordIds } });\n  const col = await coreCol<SocialDistributionPostDoc>(SOCIAL_POSTS_COLLECTION);\n  const docs = await col.find((clauses.length === 1 ? clauses[0] : { $or: clauses }) as never).toArray();\n  const byPostId = new Map(docs.map((doc) => [normalize(doc.post?.id), doc] as const));\n  const byRecordId = new Map(docs.map((doc) => [normalize(doc._id), doc] as const));\n  const maxAgeDays = Math.max(1, Math.min(90, Number(process.env.NEWSLETTER_CANDIDATE_MAX_AGE_DAYS || 21)));\n  const cutoff = now.getTime() - maxAgeDays * 24 * 60 * 60 * 1000;\n  return candidates.every((candidate) => {\n    const doc =\n      (candidate.sourceRecordId ? byRecordId.get(candidate.sourceRecordId) : null) ??\n      byPostId.get(candidate.id) ??\n      null;\n    return Boolean(\n      doc &&\n        newsletterCandidateDocEligible(doc, cutoff) &&\n        newsletterSourceRevision(doc) === candidate.sourceRevision,\n    );\n  });\n}\n\nasync function reserveCanonicalSubscriberExternalHandoff(\n  subscriber: SubscriberDoc,\n  input: { now: Date; handoffId: string },\n) {\n  const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);\n  const filter: Record<string, unknown> = {\n    email: subscriber.email.trim().toLowerCase(),\n    status: "active",\n    consentVersion: REQUIRED_CONSENT_VERSION,\n  };\n  if (subscriber.userId) filter.userId = subscriber.userId;\n  const expectedUpdatedAt = safeDate(subscriber.updatedAt);\n  if (expectedUpdatedAt) {\n    filter.updatedAt = expectedUpdatedAt;\n  } else {\n    filter.$or = [{ updatedAt: { $exists: false } }, { updatedAt: null }];\n  }\n  return subscribers.findOneAndUpdate(\n    filter as never,\n    {\n      $set: {\n        lastDeliveryHandoffAt: input.now,\n        lastDeliveryHandoffId: input.handoffId,\n      },\n    },\n    { returnDocument: "after" },\n  );\n}\n\n'''
+          if text.count(anchor) != 1: raise SystemExit('runtime helper anchor mismatch')
+          text = text.replace(anchor, helpers + anchor, 1)
+          old = '''  const eligibleDocs = docs.filter((doc) => {\n    const post = doc.post;\n    if (!post) return false;\n    if (!APPROVED_SOCIAL_STATUSES.has(String(post.status ?? ""))) return false;\n    if (post.publicBrand && post.publicBrand !== "edebatte") return false;\n    if (post.sourceState !== "approved_context") return false;\n    if (post.noAutoPublish !== true || post.noAutoPublicationApproved !== true) return false;\n    if (post.approval?.reviewRequired !== false && !post.approval?.approvedAt) return false;\n    const updatedAt = safeDate(post.updatedAt) ?? safeDate(doc.updatedAt);\n    return !updatedAt || updatedAt.getTime() >= cutoff;\n  });'''
+          new = '''  const eligibleDocs = docs.filter((doc) => newsletterCandidateDocEligible(doc, cutoff));'''
+          if text.count(old) != 1: raise SystemExit('eligible docs anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''      dossierId,\n      sourceCreatedByUserId: normalize(post.createdByUserId),\n    } satisfies NewsletterDigestCandidate];'''
+          new = '''      dossierId,\n      sourceCreatedByUserId: normalize(post.createdByUserId),\n      sourceRecordId: normalize(doc._id),\n      sourceRevision: newsletterSourceRevision(doc),\n    } satisfies NewsletterDigestCandidate];'''
+          if text.count(old) != 1: raise SystemExit('candidate binding anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''  const now = options.now ?? new Date();\n  let currentSubscriber: SubscriberDoc | null;'''
+          new = '''  const now = options.now ?? new Date();\n  const candidatePool = options.candidates ?? await loadNewsletterCandidates(now);\n  let currentSubscriber: SubscriberDoc | null;'''
+          if text.count(old) != 1: raise SystemExit('send candidate pool anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''  const preview = await buildNewsletterDigestPreviewForSubscriber(currentSubscriber, {\n    now,\n    candidates: options.candidates,\n  });'''
+          new = '''  const preview = await buildNewsletterDigestPreviewForSubscriber(currentSubscriber, {\n    now,\n    candidates: candidatePool,\n  });'''
+          if text.count(old) != 1: raise SystemExit('preview candidate anchor mismatch')
+          text = text.replace(old, new, 1)
+          anchor = '''  if (existing?.status === "failed" && existing.retryable === false) {\n    return { ok: true as const, status: "skipped" as const, reason: "non_retryable_previous_failure", preview };\n  }\n\n  await ledger.updateOne('''
+          replacement = '''  if (existing?.status === "failed" && existing.retryable === false) {\n    return { ok: true as const, status: "skipped" as const, reason: "non_retryable_previous_failure", preview };\n  }\n\n  const selectedCandidates = preview.candidateIds\n    .map((candidateId) => candidatePool.find((candidate) => candidate.id === candidateId) ?? null)\n    .filter((candidate): candidate is NewsletterDigestCandidate => Boolean(candidate));\n  if (selectedCandidates.length !== preview.candidateIds.length) {\n    return { ok: true as const, status: "skipped" as const, reason: "candidate_state_changed", preview };\n  }\n  try {\n    if (!(await revalidateNewsletterCandidatesForHandoff(selectedCandidates, now))) {\n      return { ok: true as const, status: "skipped" as const, reason: "candidate_state_changed", preview };\n    }\n  } catch {\n    return { ok: false as const, status: "blocked" as const, reason: "candidate_state_unavailable", preview };\n  }\n\n  const externalAttemptId = crypto.randomUUID();\n  try {\n    const reservedSubscriber = await reserveCanonicalSubscriberExternalHandoff(currentSubscriber, {\n      now,\n      handoffId: externalAttemptId,\n    });\n    if (!reservedSubscriber) {\n      return { ok: true as const, status: "skipped" as const, reason: "subscriber_state_changed", preview };\n    }\n    currentSubscriber = reservedSubscriber;\n  } catch {\n    return { ok: false as const, status: "blocked" as const, reason: "subscriber_state_unavailable", preview };\n  }\n\n  await ledger.updateOne('''
+          if text.count(anchor) != 1: raise SystemExit('handoff insertion anchor mismatch')
+          text = text.replace(anchor, replacement, 1)
+          old = '        externalAttemptId: crypto.randomUUID(),'
+          if text.count(old) != 1: raise SystemExit('external attempt id anchor mismatch')
+          text = text.replace(old, '        externalAttemptId,', 1)
+          runtime.write_text(text)
+          PY
+          cat > apps/web/tests/newsletter-closeout-handoff-safety.contract.test.ts <<'EOF'
+          import fs from "node:fs";
+          import path from "node:path";
+          import { describe, expect, it } from "vitest";
+
+          const root = path.resolve(__dirname, "../../..");
+          const account = fs.readFileSync(path.join(root, "features/account/service.ts"), "utf8");
+          const runtime = fs.readFileSync(path.join(root, "apps/web/src/features/newsletter/newsletterRuntime.ts"), "utf8");
+
+          describe("newsletter closeout handoff safety", () => {
+            it("routes account opt-out to canonical subscriber truth without legacy re-opt-in", () => {
+              expect(account).toContain('NEWSLETTER_SUBSCRIBERS_COLLECTION = "public_updates_subscribers"');
+              expect(account).toContain("applyCanonicalNewsletterAccountPreference");
+              expect(account).toContain('status: "unsubscribed"');
+              expect(account).not.toContain('setOps["settings.newsletterOptIn"]');
+              expect(account).toContain("if (newsletterOptIn) return");
+              expect(account).toContain("newsletterOptIn = await loadCanonicalNewsletterOptIn");
+            });
+
+            it("binds consent and content freshness immediately before external handoff", () => {
+              expect(runtime).toContain("reserveCanonicalSubscriberExternalHandoff");
+              expect(runtime).toContain('status: "active"');
+              expect(runtime).toContain("consentVersion: REQUIRED_CONSENT_VERSION");
+              expect(runtime).toContain("filter.updatedAt = expectedUpdatedAt");
+              expect(runtime).toContain("revalidateNewsletterCandidatesForHandoff");
+              expect(runtime).toContain("sourceRevision: newsletterSourceRevision(doc)");
+              expect(runtime).toContain('reason: "candidate_state_changed"');
+              expect(runtime).toContain('reason: "subscriber_state_changed"');
+              expect(runtime).toContain("externalAttemptId,");
+              expect(runtime.indexOf("revalidateNewsletterCandidatesForHandoff(selectedCandidates, now)")).toBeLessThan(runtime.indexOf("const result = await sendMail"));
+              expect(runtime.indexOf("reserveCanonicalSubscriberExternalHandoff(currentSubscriber")).toBeLessThan(runtime.indexOf("const result = await sendMail"));
+            });
+          });
+          EOF
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec vitest run tests/newsletter-closeout-handoff-safety.contract.test.ts tests/newsletter-n8-n9-acceptance.test.ts tests/newsletter-subscription-reconciliation.test.ts tests/newsletter-delivery-lifecycle.test.ts tests/newsletter-delivery-lease.test.ts
+          pnpm -C apps/web run typecheck
+          pnpm lint
+          git diff --check
+          git rm .github/workflows/newsletter-closeout-handoff-safety-02.yml
+          git config user.name 'VOGADMINRGF'
+          git config user.email 'rgf@voiceopengov.de'
+          git add features/account/service.ts apps/web/src/features/newsletter/newsletterRuntime.ts apps/web/tests/newsletter-closeout-handoff-safety.contract.test.ts .github/workflows/newsletter-closeout-handoff-safety-02.yml
+          git commit -m 'fix(newsletter): close final consent and content handoff races'
+          git push origin HEAD:fix/newsletter-closeout-handoff-safety-02
