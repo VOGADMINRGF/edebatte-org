@@ -1,0 +1,145 @@
+name: Voxy EU24 Slice B branch writer
+
+on:
+  push:
+    branches:
+      - feat/voxy-eu24-language-variant-01
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/voxy-eu24-language-variant-01
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+      - name: Verify authorized branch base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "56b9ef51b84b65048deb5665235b932a865c48ce"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+          test -z "$(git status --porcelain)"
+      - name: Converge canonical script bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def read(path): return Path(path).read_text(encoding='utf-8')
+          def write(path, text): Path(path).write_text(text, encoding='utf-8')
+          def add_import(path, line):
+              text = read(path)
+              if line in text: return
+              idx = text.find('import ')
+              assert idx >= 0, f'import_anchor_missing:{path}'
+              write(path, text[:idx] + line + '\n' + text[idx:])
+          def replace_count(path, old, new, expected=1):
+              text = read(path)
+              count = text.count(old)
+              assert count == expected, f'replace_count:{path}:{count}!={expected}:{old}'
+              write(path, text.replace(old, new))
+
+          helper_import = 'import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";'
+
+          paths_single = [
+              'apps/web/src/app/api/admin/voxy-studio/route.ts',
+              'apps/web/src/app/api/admin/voxy-studio/[draftId]/audio-inputs/route.ts',
+              'apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts',
+              'apps/web/src/features/voxyVideo/studioDraftService.ts',
+              'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts',
+          ]
+          for path in paths_single:
+              add_import(path, helper_import)
+              replace_count(
+                  path,
+                  '`story-r${draft.storyPlan.revision}`',
+                  'buildVoxyEditorialScriptVersion(draft.storyPlan)',
+                  1,
+              )
+
+          path = 'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts'
+          add_import(path, helper_import)
+          replace_count(
+              path,
+              '`story-r${draft.storyPlan.revision}`',
+              'buildVoxyEditorialScriptVersion(draft.storyPlan)',
+              2,
+          )
+
+          path = 'apps/web/src/features/voxyVideo/studioRenderHandoff.ts'
+          add_import(path, helper_import)
+          replace_count(
+              path,
+              'return `story-r${draft.storyPlan.revision}`;',
+              'return buildVoxyEditorialScriptVersion(draft.storyPlan);',
+              1,
+          )
+
+          path = 'apps/web/src/features/voxyVideo/localCompositionRuntime.ts'
+          add_import(
+              path,
+              'import { buildVoxyEditorialScriptVersion, getVoxyEditorialLanguageVariantBinding, validateVoxyEditorialLanguageVariantBinding } from "@/features/voxyVideo/editorialLanguageVariant";',
+          )
+          replace_count(
+              path,
+              'normalized(input.scriptVersion) !== `story-r${plan.revision}`',
+              'normalized(input.scriptVersion) !== buildVoxyEditorialScriptVersion(plan)',
+              1,
+          )
+          text = read(path)
+          anchor = '''  if (normalized(input.scriptVersion) !== buildVoxyEditorialScriptVersion(plan)) {\n    errors.push("editorial_script_revision_binding_mismatch");\n  }\n'''
+          assert text.count(anchor) == 1, 'runtime_script_anchor_missing'
+          insertion = anchor + '''  const languageVariant = getVoxyEditorialLanguageVariantBinding(plan);\n  for (const error of validateVoxyEditorialLanguageVariantBinding(plan)) {\n    errors.push(`editorial_${error}`);\n  }\n  if (languageVariant && languageVariant.translationStatus !== "approved") {\n    errors.push("editorial_translation_review_required");\n  }\n'''
+          text = text.replace(anchor, insertion, 1)
+          evidence_anchor = '''    if (!normalized(binding.evidenceSourcePackId) || normalized(binding.evidenceSourcePackId).length > 320) {\n      errors.push("editorial_evidence_source_pack_binding_invalid");\n    }\n'''
+          assert text.count(evidence_anchor) == 1, 'runtime_evidence_anchor_missing'
+          evidence_insertion = evidence_anchor + '''    if (\n      languageVariant &&\n      normalized(binding.evidenceSourcePackId) !== languageVariant.evidenceSourcePackId\n    ) {\n      errors.push("editorial_language_variant_evidence_binding_mismatch");\n    }\n'''
+          text = text.replace(evidence_anchor, evidence_insertion, 1)
+          write(path, text)
+
+          production_paths = [
+              'apps/web/src/app/api/admin/voxy-studio/route.ts',
+              'apps/web/src/app/api/admin/voxy-studio/[draftId]/audio-inputs/route.ts',
+              'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts',
+              'apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts',
+              'apps/web/src/features/voxyVideo/studioRenderHandoff.ts',
+              'apps/web/src/features/voxyVideo/studioDraftService.ts',
+              'apps/web/src/features/voxyVideo/localCompositionRuntime.ts',
+              'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts',
+          ]
+          for path in production_paths:
+              assert '`story-r${' not in read(path), f'legacy_script_binding_remaining:{path}'
+          PY
+          git diff --check
+      - name: Install and validate focused Slice B contracts
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec vitest run tests/voxy-editorial-language-variant.contract.test.ts tests/voxy-local-composition-runtime.contract.test.ts tests/voxy-local-composition-freshness.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+      - name: Commit product convergence and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src apps/web/tests
+          git commit -m 'feat(voxy): bind language variants through render runtime'
+          git rm .github/workflows/voxy-eu24-slice-b-branch-writer.yml
+          git commit -m 'chore(voxy): remove Slice B branch writer'
+          git diff origin/main..HEAD --check
+          git push origin HEAD:feat/voxy-eu24-language-variant-01
