@@ -290,7 +290,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/RF/Arbeitsmappe/edebatte-org/packages/db-web/src/generated",
+      "value": "/home/runner/work/edebatte-org/edebatte-org/packages/db-web/src/generated",
       "fromEnvVar": null
     },
     "config": {
@@ -299,12 +299,12 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "debian-openssl-3.0.x",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/RF/Arbeitsmappe/edebatte-org/prisma/web/schema.prisma",
+    "sourceFilePath": "/home/runner/work/edebatte-org/edebatte-org/prisma/web/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
@@ -318,6 +318,7 @@ const config = {
   ],
   "activeProvider": "postgresql",
   "postinstall": false,
+  "ciName": "GitHub Actions",
   "inlineDatasources": {
     "db": {
       "url": {
