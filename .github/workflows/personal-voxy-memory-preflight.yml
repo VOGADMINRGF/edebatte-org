@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - chore/personal-voxy-memory-preflight-01
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
