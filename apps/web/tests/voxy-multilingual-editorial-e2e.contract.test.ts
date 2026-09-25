@@ -156,7 +156,7 @@ function masterPlan(input: {
       ...otherSourceIds.map((sourceId, index) => ({
         chapterId: `evidence-${index + 2}`,
         role: "source_evidence" as const,
-        headline: `Weitere Quelle ${index + 2}`,
+        headline: "Weitere geprüfte Quelle",
         narration: "Auch diese Quelle bleibt dieselbe kanonische Evidence-Referenz.",
         claimBindings: [{ claimId: input.claimId, presentation: "confirmed_fact" as const }],
         sourceIds: [sourceId],
@@ -206,9 +206,9 @@ function translatedPlan(input: {
     derivedFromStoryPlanId: input.master.storyPlanId,
     derivedFromRevision: input.master.revision,
     languageVariant: null,
-    chapters: input.master.chapters.map((chapter, index) => ({
+    chapters: input.master.chapters.map((chapter) => ({
       ...chapter,
-      headline: `${input.headlinePrefix} ${index + 1}`,
+      headline: `${input.headlinePrefix}: ${chapter.role.replaceAll("_", " ")}`,
       narration: input.narration,
     })),
   };
