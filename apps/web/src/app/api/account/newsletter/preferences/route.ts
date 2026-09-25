@@ -5,6 +5,7 @@ import {
   getNewsletterPreferenceStateForUser,
   updateNewsletterPreferenceStateForUser,
 } from "@/features/newsletter/newsletterRuntime";
+import { acquireNewsletterSubscriberCoordination } from "@/features/newsletter/newsletterSubscriberCoordination";
 import { mergeNewsletterPreferenceCenter } from "@features/notifications/newsletterPreferenceCenterContract";
 import { readSession } from "@/utils/session";
 
@@ -102,10 +103,26 @@ export async function PATCH(req: NextRequest) {
       parsed.data.showRelevanceExplanation ?? current.center.showRelevanceExplanation,
   });
 
-  const result = await updateNewsletterPreferenceStateForUser(uid, normalized);
-  if (!result.ok) {
-    const status = result.error === "subscription_required" ? 409 : 400;
-    return NextResponse.json(result, { status });
+  const coordination = await acquireNewsletterSubscriberCoordination({
+    email: current.email,
+    userId: uid,
+    purpose: "mutation",
+  });
+  if (!coordination.acquired) {
+    return NextResponse.json(
+      { ok: false, error: "newsletter_delivery_in_progress" },
+      { status: 409 },
+    );
   }
-  return NextResponse.json(result);
+
+  try {
+    const result = await updateNewsletterPreferenceStateForUser(uid, normalized);
+    if (!result.ok) {
+      const status = result.error === "subscription_required" ? 409 : 400;
+      return NextResponse.json(result, { status });
+    }
+    return NextResponse.json(result);
+  } finally {
+    await coordination.release();
+  }
 }
