@@ -1,0 +1,130 @@
+name: OpenTasks Voxy Local Composition Recovery Sync
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/opentasks-voxy-local-composition-recovery-sync.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  serialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Verify pinned main and writer baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "1868ccb4cb2c69672bd06e043704b7a871855816"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "a2d6c1a9b60bb3f4467de5405350b827098ac011"
+          git show origin/main:docs/E150/OpenTasks.md > /tmp/main-OpenTasks.md
+          cmp /tmp/main-OpenTasks.md docs/E150/OpenTasks.md
+          changed="$(git diff --name-only origin/main HEAD)"
+          test "$changed" = ".github/workflows/opentasks-voxy-local-composition-recovery-sync.yml"
+
+      - name: Serialize recovery task fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text()
+          op_marker = '## Kanonischer Operativteil'
+          hist_marker = '## Historischer Katalog und Evidenz'
+          insert_marker = '### #644 — YouTube / Media Source Runtime'
+          target = 'VOXY-LOCAL-COMPOSITION-RECOVERY-01'
+
+          assert text.count(op_marker) == 1
+          assert text.count(hist_marker) == 1
+          assert text.count(insert_marker) == 1
+          oi = text.index(op_marker)
+          hi = text.index(hist_marker)
+          assert oi < hi
+          operative = text[oi:hi]
+          history = text[hi:]
+          assert target not in operative
+
+          # Preserve all existing operative table rows byte-for-byte.
+          existing_rows = [
+              line for line in operative.splitlines()
+              if line.startswith('| ') and not line.startswith('| ---') and ' ID |' not in line
+          ]
+
+          def unique_row(task_id: str) -> str:
+              rows = [line for line in operative.splitlines() if task_id in line]
+              assert len(rows) == 1, (task_id, len(rows))
+              return rows[0]
+
+          preserve = {
+              'VOXY-EDITORIAL-COUNCIL-FAIL-CLOSED-01': 'review',
+              'VOXY-RENDER-APPROVAL-FRESHNESS-01': 'review',
+              'VOXY-STUDIO-REVIEW-CONSISTENCY-01': 'review',
+              'VOXY-EU24-MULTILINGUAL-EDITORIAL-01': 'review',
+              'YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01': 'manual_gate',
+              'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01': 'done',
+          }
+          for task_id, status in preserve.items():
+              row = unique_row(task_id)
+              assert f'| {status} |' in row, row
+
+          block = '''### Voxy Local Composition Recovery — 2026-09-25
+
+Dieser additive Block autorisiert ausschließlich den auditbestätigten Recovery-Repair des bestehenden persistenten #568-Job-/Output-Modells. Voraussetzung ist die bereits implementierte #976-Freshness-Invariante; er autorisiert weder eine zweite Queue/einen zweiten Renderer noch #969 B–E, Provider-, Upload-, Scheduling-, Social- oder Auto-Publish-Side-Effects.
+
+| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |
+| --- | --- | --- | --- | --- | --- |
+| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | codex_ready | P2 | Issue `#978`; `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568 + PR #965; `VOXY-RENDER-APPROVAL-FRESHNESS-01` / #976 umgesetzt via PR #995 und operativ `review` | Bestehendes persistentes Local-Composition-Job-/Output-Modell um begrenzte Crash-Recovery härten: ausschließlich verwaiste `rendering`-Jobs kontrolliert claimen; bereits persistiertes `rendered`-Output vollständig gegen Job/Input-/Review-Bindings und Media-Hashes validieren und idempotent zu `review_ready` finalisieren; nur falls echte erneute Renderarbeit nötig ist, #976-Freshness unmittelbar vor Executor erneut anwenden | aktive Ownership verhindert zweite Ausführung; verwaiste Recovery höchstens einmal; valides vorhandenes Output => kein Doppelrender; stale Approval/Evidence/Gate => Executor Invocation Count `0`; bestehende Job-/Output-Identity, Attempt-/Audit- und Review-Bindings bleiben erhalten; keine neue Queue/Store/Renderer-SSOT, keine Reapproval, kein Auto-Publish |
+
+'''
+          text2 = text.replace(insert_marker, block + insert_marker, 1)
+          path.write_text(text2)
+
+          oi2 = text2.index(op_marker)
+          hi2 = text2.index(hist_marker)
+          operative2 = text2[oi2:hi2]
+          history2 = text2[hi2:]
+          assert history2 == history
+          assert hashlib.sha256(history2.encode()).hexdigest() == hashlib.sha256(history.encode()).hexdigest()
+          assert operative2.count(target) == 1
+          expected_row = [line for line in operative2.splitlines() if target in line]
+          assert len(expected_row) == 1 and '| codex_ready | P2 |' in expected_row[0]
+
+          for row in existing_rows:
+              assert operative2.splitlines().count(row) == operative.splitlines().count(row), row
+          for task_id, status in preserve.items():
+              rows = [line for line in operative2.splitlines() if task_id in line]
+              assert len(rows) == 1 and f'| {status} |' in rows[0], rows
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+      - name: Commit SSOT change and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md
+          git rm .github/workflows/opentasks-voxy-local-composition-recovery-sync.yml
+          files="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n%s\n' '.github/workflows/opentasks-voxy-local-composition-recovery-sync.yml' 'docs/E150/OpenTasks.md' | sort)"
+          test "$files" = "$expected"
+          git commit -m 'docs(e150): serialize #978 local composition recovery'
+          git push origin HEAD:docs/governance-ssot-sync-05
