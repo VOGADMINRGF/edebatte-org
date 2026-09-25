@@ -1,0 +1,8 @@
+main=14f2350dd53317088014ccd45ee3687cb117b111
+status_before=1
+{
+  "taskId": "NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01",
+  "status": "codex_ready",
+  "executable": false,
+  "reason": "dirty_worktree"
+}
