@@ -1,4 +1,4 @@
-name: Personal Voxy memory task preflight
+name: Personal Voxy memory audit
 
 on:
   pull_request:
@@ -6,17 +6,17 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  preflight-and-harden:
+  focused-memory-contract:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check current canonical main
+      - name: Check current canonical main authorization
         shell: bash
         run: |
           set -euo pipefail
@@ -25,75 +25,24 @@ jobs:
           echo "main_sha=$(git rev-parse HEAD)"
           test -z "$(git status --porcelain)"
           node scripts/codex-task-preflight.mjs PERSONAL-VOXY-CONSENTED-MEMORY-RUNTIME-01
-      - name: Harden authorized implementation branch
+      - name: Checkout exact implementation head
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin feat/personal-voxy-consented-memory-runtime-01
-          git checkout -B feat/personal-voxy-consented-memory-runtime-01 origin/feat/personal-voxy-consented-memory-runtime-01
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          contract_path = Path("apps/web/src/features/agenticRuntime/personalVoxyConsentedMemoryContract.ts")
-          source = contract_path.read_text()
-
-          pattern = re.compile(
-              r'  if \(key === "topic_interests"\) \{.*?\n  \}\n\n  if \(key === "relevance_depth"\)',
-              re.S,
-          )
-          replacement = '''  if (key === "topic_interests") {
-            if (
-              !Array.isArray(value) ||
-              value.length === 0 ||
-              !value.every(
-                (entry) => typeof entry === "string" && TOPIC_KEYS.has(entry as TopicKey),
-              )
-            ) {
-              return null;
-            }
-            const topics = Array.from(new Set(value as TopicKey[]));
-            if (topics.length > TOPIC_KEYS.size) return null;
-            return topics;
-          }
-
-          if (key === "relevance_depth")'''
-          source, count = pattern.subn(replacement, source, count=1)
-          assert count == 1, "topic_interests block not found"
-
-          old = '  const confirmedAt = request.confirmedAt ? nowIso(request.confirmedAt) : null;'
-          new = '''  const confirmedAt =
-            typeof request.confirmedAt === "string" &&
-            !Number.isNaN(new Date(request.confirmedAt).getTime())
-              ? new Date(request.confirmedAt).toISOString()
-              : null;'''
-          assert source.count(old) == 1, "confirmedAt line drifted"
-          source = source.replace(old, new)
-          source = source.replace(
-              ': `Personal-Voxy-Speicheraktion \'${input.action}\' blieb fail-closed.` ,',
-              ': `Personal-Voxy-Speicheraktion \'${input.action}\' blieb fail-closed.`,',
-          )
-          contract_path.write_text(source)
-
-          persistence_path = Path("apps/web/src/features/agenticRuntime/personalVoxyConsentedMemoryPersistence.ts")
-          source = persistence_path.read_text()
-          old = 'import { assertStoreConfigured, getCol, ObjectId } from "@core/db/triMongo";'
-          new = 'import type { Collection } from "mongodb";\nimport { assertStoreConfigured, getCol, ObjectId } from "@core/db/triMongo";'
-          assert source.count(old) == 1, "triMongo import drifted"
-          source = source.replace(old, new)
-          old = '  users: Awaited<ReturnType<typeof getCol<PersonalVoxyMemoryUserDoc>>>;'
-          new = '  users: Collection<PersonalVoxyMemoryUserDoc>;'
-          assert source.count(old) == 1, "collection type line drifted"
-          source = source.replace(old, new)
-          persistence_path.write_text(source)
-          PY
-          git diff --check
-          if git diff --quiet; then
-            echo "No hardening delta required"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/web/src/features/agenticRuntime/personalVoxyConsentedMemoryContract.ts apps/web/src/features/agenticRuntime/personalVoxyConsentedMemoryPersistence.ts
-          git commit -m "fix(voxy): harden consented memory validation"
-          git push origin HEAD:feat/personal-voxy-consented-memory-runtime-01
+          git checkout --detach 45a1248c42fb44fd2df1b9a202c2f313d5697a85
+          test "$(git rev-parse HEAD)" = "45a1248c42fb44fd2df1b9a202c2f313d5697a85"
+          git diff --check 14f2350dd53317088014ccd45ee3687cb117b111...HEAD
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run focused Personal Voxy memory contract
+        run: pnpm -C apps/web exec vitest run tests/personal-voxy-consented-memory.contract.test.ts
