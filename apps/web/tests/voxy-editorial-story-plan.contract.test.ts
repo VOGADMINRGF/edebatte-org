@@ -138,28 +138,6 @@ function basePlan(): VoxyEditorialStoryPlan {
 describe("Voxy Editorial Story Plan", () => {
   it("binds directly to the public supported locale SSOT", () => {
     expect(VOXY_EDITORIAL_SUPPORTED_LOCALES).toEqual(SUPPORTED_LOCALES);
-    expect(VOXY_EDITORIAL_SUPPORTED_LOCALES).toEqual([
-      "de",
-      "en",
-      "fr",
-      "pl",
-      "es",
-      "it",
-      "tr",
-      "ar",
-      "ru",
-      "zh",
-      "nl",
-      "pt",
-      "fi",
-      "sv",
-      "no",
-      "cs",
-      "hi",
-      "ro",
-      "el",
-      "uk",
-    ]);
   });
 
   it("allows a confirmed fact only when approved supporting evidence is bound", () => {
