@@ -42,19 +42,21 @@ jobs:
 
           tool_id = 'VOXY-TOOL-CAPABILITY-ADAPTERS-01'
           civic_id = 'VOXY-CIVIC-ACTIVITY-RELEVANCE-01'
-          if head.count(tool_id) != 1:
-              raise SystemExit(f'tool_task_count:{head.count(tool_id)}')
-          if civic_id in head:
-              raise SystemExit('civic_task_already_present')
-
           lines = head.splitlines(keepends=True)
-          tool_index = next((i for i, line in enumerate(lines) if line.startswith(f'| {tool_id} |')), None)
-          if tool_index is None:
-              raise SystemExit('tool_row_missing')
+          tool_rows = [i for i, line in enumerate(lines) if line.startswith(f'| {tool_id} |')]
+          civic_rows = [i for i, line in enumerate(lines) if line.startswith(f'| {civic_id} |')]
+          if len(tool_rows) != 1:
+              raise SystemExit(f'tool_row_count:{len(tool_rows)}')
+          if civic_rows:
+              raise SystemExit(f'civic_row_count:{len(civic_rows)}')
+
+          tool_index = tool_rows[0]
           tool_line = lines[tool_index]
           if '| codex_ready | P0 |' not in tool_line:
               raise SystemExit('tool_status_not_codex_ready')
           tool_line = tool_line.replace('| codex_ready | P0 |', '| review | P0 |', 1)
+          if 'Issue `#1027`;' not in tool_line:
+              raise SystemExit('tool_issue_ref_missing')
           tool_line = tool_line.replace(
               'Issue `#1027`;',
               'Issue `#1027`; PR `#1051`; merge `5807fb080bfca92ee6d2c9239acf30ffd2c434b3`; Web CI `#3517` + Voxy canon lock `#359` green;',
@@ -66,8 +68,11 @@ jobs:
           lines.insert(tool_index + 1, civic_row)
           new_head = ''.join(lines)
           new_text = new_head + history_marker + history
-          if new_head.count(tool_id) != 1 or new_head.count(civic_id) != 1:
-              raise SystemExit('post_mutation_task_count_invalid')
+          post_lines = new_head.splitlines()
+          if sum(line.startswith(f'| {tool_id} |') for line in post_lines) != 1:
+              raise SystemExit('post_tool_row_count_invalid')
+          if sum(line.startswith(f'| {civic_id} |') for line in post_lines) != 1:
+              raise SystemExit('post_civic_row_count_invalid')
           history_hash_after = hashlib.sha256(history.encode()).hexdigest()
           if history_hash_before != history_hash_after:
               raise SystemExit('historical_tail_changed')
