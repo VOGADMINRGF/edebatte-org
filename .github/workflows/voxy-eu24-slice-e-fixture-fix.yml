@@ -1,0 +1,43 @@
+name: Voxy EU24 Slice E fixture-only fix
+
+on:
+  push:
+    branches:
+      - feat/voxy-eu24-multilingual-e2e-05
+    paths:
+      - .github/workflows/voxy-eu24-slice-e-fixture-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply exact semantic-neutral fixture fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("apps/web/tests/voxy-multilingual-editorial-e2e.contract.test.ts")
+          text = p.read_text()
+          old = 'narration: "Die Sprachfassung ändert keine kanonische Referenz.",'
+          new = 'narration: "Die Sprachfassung bewahrt die kanonische Referenz.",'
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one fixture anchor, got {text.count(old)}")
+          p.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit only E2E contract fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/tests/voxy-multilingual-editorial-e2e.contract.test.ts
+          test "$(git diff --cached --name-only)" = "apps/web/tests/voxy-multilingual-editorial-e2e.contract.test.ts"
+          git commit -m "test(voxy): align Slice E semantic fixture"
+          git push origin HEAD:feat/voxy-eu24-multilingual-e2e-05
