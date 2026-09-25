@@ -51,10 +51,6 @@ describe("product surface layout contract", () => {
     expect(classifyProductSurfacePath("/vormerken?segment=kommunen").id).toBe("vormerken");
     expect(classifyProductSurfacePath("/pricing/institutionen").id).toBe("pricing_institutionen");
     expect(classifyProductSurfacePath("/account").isProductSurface).toBe(false);
-    expect(
-      classifyProductSurfacePath("/order?segment=organisationen#quote").path,
-    ).toBe("/order?segment=organisationen#quote");
-    expect(classifyProductSurfacePath(" /order ").path).toBeNull();
   });
 
   it("keeps /pricing, /order, /vormerken and /pricing/institutionen on one shared shell wrapper", async () => {

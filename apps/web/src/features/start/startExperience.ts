@@ -32,13 +32,13 @@ function buildAnonymousExperience(): StartExperienceModel {
   });
   return {
     familiarity: "unknown_visitor",
-    eyebrow: "Aktuelle Themen · Quellen · Beteiligung",
-    title: "Verstehen, was sich verändert. Mitreden, wo es zählt.",
+    eyebrow: "Mitmachen oder etwas starten",
+    title: "Was möchtest du tun?",
     description:
-      "eDebatte bündelt aktuelle Entwicklungen, Quellen, Positionen und Beteiligungsmöglichkeiten zu nachvollziehbaren Themenständen – von deiner Region bis zur Welt.",
-    helperText: "Entwicklungen entdecken, mitwirken oder einen eigenen Beitrag prüfen lassen.",
+      "Kommst du über einen Link oder QR-Code, landest du direkt bei der passenden Frage. Ohne konkreten Kontext kannst du mitmachen oder selbst eine Frage für andere starten.",
+    helperText: "Abstimmen, etwas ergänzen, eine Quelle beitragen oder eine eigene Frage öffnen.",
     trustText:
-      "Nichts wird automatisch veröffentlicht. Quellen, Prüfstatus und Beteiligung bleiben nachvollziehbar.",
+      "Nichts wird automatisch veröffentlicht. Du entscheidest selbst, ob du nur abstimmen, tiefer einsteigen oder etwas beitragen möchtest.",
     showExtendedOrientation: false,
     workspaceHref: null,
     workspaceLabel: null,
@@ -67,7 +67,7 @@ export async function buildStartExperienceModel(input: {
       eyebrow: "Betreiberübersicht",
       title: "Beteiligung steuern und Wirkung sichtbar machen.",
       description:
-        "Prüfe neue Signale, Quellen, Entwürfe und Freigaben. Öffentliche Schritte bleiben bewusst von interner Bearbeitung getrennt.",
+        "Prüfe neue Beiträge, Quellen und Freigaben. Öffentliche Schritte bleiben bewusst von interner Bearbeitung getrennt.",
       helperText:
         "Öffne die Betreiberübersicht, priorisiere neue Entwicklungen und führe freigegebene Themen nachvollziehbar weiter.",
       trustText:
@@ -131,11 +131,11 @@ export async function buildStartExperienceModel(input: {
       eyebrow: "Organisation",
       title: "Themen, Beteiligung und Ergebnisse im Blick.",
       description:
-        "Verbinde neue Signale, Quellen, Veranstaltungen und Rückmeldungen mit bestehenden Dossiers und Beteiligungsräumen.",
+        "Führe laufende Fragen weiter, ordne neue Beiträge und Quellen ein und öffne Beteiligung dort, wo sie gebraucht wird.",
       helperText:
-        "Öffne deinen Arbeitsbereich, prüfe neue Entwicklungen und führe laufende Beteiligungen oder Ergebnisse weiter.",
+        "Öffne deinen Arbeitsbereich oder wechsle direkt zu einer laufenden Beteiligung.",
       trustText:
-        "Nichts wird automatisch veröffentlicht. Prüfung und Sichtbarkeit bleiben getrennte Schritte.",
+        "Nichts wird automatisch veröffentlicht. Sichtbarkeit bleibt eine bewusste Entscheidung.",
       showExtendedOrientation: false,
       workspaceHref,
       workspaceLabel: "Organisationsbereich öffnen",
@@ -147,13 +147,13 @@ export async function buildStartExperienceModel(input: {
     return {
       familiarity,
       eyebrow: "Organisation",
-      title: "Zugang und nächsten sicheren Schritt prüfen.",
+      title: "Dein Organisationszugang ist gerade eingeschränkt.",
       description:
-        "Dein Organisationszugang ist derzeit eingeschränkt. Persönliche Beiträge und öffentliche Themen bleiben davon getrennt nutzbar.",
+        "Persönlich kannst du weiter mitmachen, Fragen ansehen und eigene Beiträge vorbereiten. Für Organisationsfunktionen prüfst du zuerst den aktuellen Status.",
       helperText:
-        "Prüfe den Status deiner Organisation oder arbeite an persönlichen Entwürfen und öffentlichen Themen weiter.",
+        "Status prüfen oder unabhängig davon öffentlich mitmachen.",
       trustText:
-        "Nichts wird automatisch veröffentlicht. Gesperrte Zugänge werden nicht als aktiv dargestellt.",
+        "Eingeschränkte Organisationsrechte werden nicht als aktiv dargestellt.",
       showExtendedOrientation: false,
       workspaceHref,
       workspaceLabel: "Status prüfen",
@@ -165,13 +165,13 @@ export async function buildStartExperienceModel(input: {
     return {
       familiarity,
       eyebrow: "Organisation",
-      title: "Antrag läuft – Themen können weiter vorbereitet werden.",
+      title: "Dein Organisationszugang wird noch geprüft.",
       description:
-        "Während dein Organisationszugang geprüft wird, kannst du Quellen, Beiträge und Beteiligungsideen vorbereiten, ohne öffentliche Rechte vorwegzunehmen.",
+        "Währenddessen kannst du bereits Fragen, Quellen und Beiträge vorbereiten und als Person weiter mitmachen.",
       helperText:
-        "Prüfe Antrag und Status oder arbeite an persönlichen Entwürfen und öffentlichen Themen weiter.",
+        "Status ansehen oder direkt mit öffentlichen Themen weitermachen.",
       trustText:
-        "Nichts wird automatisch veröffentlicht. Organisationsrechte und Sichtbarkeit bleiben getrennte Schritte.",
+        "Organisationsrechte werden erst genutzt, wenn sie tatsächlich freigegeben sind.",
       showExtendedOrientation: false,
       workspaceHref,
       workspaceLabel: "Antrag und Status",
@@ -181,14 +181,14 @@ export async function buildStartExperienceModel(input: {
 
   return {
     familiarity,
-    eyebrow: "Neu für dich",
-    title: "Seit deinem letzten Besuch.",
+    eyebrow: "Willkommen zurück",
+    title: "Wo möchtest du weitermachen?",
     description:
-      "Entdecke neue Quellen, Positionen, Beteiligungsmöglichkeiten und Ergebnisse. eDebatte zeigt dir, was sich wesentlich verändert hat – nicht nur, was neu veröffentlicht wurde.",
+      "Entdecke neue Fragen, gib deine Meinung ab, ergänze etwas, das noch fehlt, oder starte selbst ein Thema für andere.",
     helperText:
-      "Öffne neue Entwicklungen, folge Themen oder führe einen eigenen Beitrag dort weiter, wo du aufgehört hast.",
+      "Mitmachen, etwas ergänzen oder eine eigene Frage starten.",
     trustText:
-      "Nichts wird automatisch veröffentlicht. Du entscheidest, welchen nächsten Schritt du gehst.",
+      "Du entscheidest selbst, welchen nächsten Schritt du gehst. Nichts wird automatisch veröffentlicht.",
     showExtendedOrientation: false,
     workspaceHref,
     workspaceLabel: "Konto und Organisation",

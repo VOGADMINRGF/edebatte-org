@@ -69,6 +69,9 @@ packages/**/src/generated/
 # Codex (generierte Reports)
 .codex/
 
+# Private local render evidence (never commit or publish)
+/artifacts
+
 # Playwright local artifacts
 apps/web/.playwright/
 apps/web/playwright-report/

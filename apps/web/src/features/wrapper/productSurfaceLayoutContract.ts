@@ -19,7 +19,7 @@ export const PRODUCT_SURFACE_SHELL_CLASSNAME =
   "mx-auto w-full max-w-[1700px] px-4 py-8 sm:px-6 sm:py-10 lg:px-9 lg:py-12 xl:px-12 xl:py-14";
 
 function toComparablePath(input: InternalRedirectPath): InternalRedirectPath {
-  const [pathname] = input.split(/[?#]/);
+  const [pathname] = input.split("?");
   if (pathname.length > 1 && pathname.endsWith("/")) {
     return pathname.slice(0, -1) as InternalRedirectPath;
   }
@@ -42,12 +42,12 @@ export function classifyProductSurfacePath(pathname: unknown): ProductSurfaceLay
     };
   }
 
-  const comparablePath = toComparablePath(normalizedPath);
-  const id = resolveProductSurfaceId(comparablePath);
+  const path = toComparablePath(normalizedPath);
+  const id = resolveProductSurfaceId(path);
   return {
     id,
     isProductSurface: Boolean(id),
-    path: normalizedPath,
+    path,
     mainClassName: PRODUCT_SURFACE_MAIN_CLASSNAME,
     shellClassName: PRODUCT_SURFACE_SHELL_CLASSNAME,
   };

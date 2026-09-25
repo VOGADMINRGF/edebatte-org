@@ -5,93 +5,33 @@ import { buildRundenFrontendAiTransparencyReadModel } from "@/features/create/fr
 import { readManualAnlassraumServerDraftForCurrentUser } from "@/features/surfaces/runden/manualAnlassraumServerDraft";
 import { readRundenEntryCanonReadModel } from "@/features/surfaces/runden/rundenEntryCanon";
 import AnlassraumSetupForm from "./AnlassraumSetupForm";
+import GuidedBallotStart from "./GuidedBallotStart";
 
 export const metadata: Metadata = {
-  title: "Mitmachraum vorbereiten - eDebatte",
-  description:
-    "Lege einen Mitmachraum zuerst als Entwurf an und entscheide später bewusst über Voxy, Prüfung und Sichtbarkeit.",
+  title: "Kostenlose Abstimmung starten - eDebatte",
+  description: "Stelle eine Frage, lege Antworten fest und bereite deine Abstimmung in wenigen Schritten vor.",
 };
 
-type SearchParamsShape =
-  | Promise<Record<string, string | string[] | undefined>>
-  | Record<string, string | string[] | undefined>;
+type SearchParamsShape = Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+function readParam(value?: string | string[]) { return Array.isArray(value) ? value[0] : value; }
 
-function readParam(value?: string | string[]) {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-export default async function RundenManualCreatePage(props: {
-  searchParams?: SearchParamsShape;
-}) {
+export default async function RundenManualCreatePage(props: { searchParams?: SearchParamsShape }) {
   const resolved = props.searchParams ? await props.searchParams : undefined;
-  const initialServerDraft = await readManualAnlassraumServerDraftForCurrentUser(
-    readParam(resolved?.draftId),
-  );
+  const conversionMode = readParam(resolved?.gtm) === "1";
+  const detailsMode = readParam(resolved?.details) === "1";
+  const initialTemplateId = readParam(resolved?.template) ?? null;
+  const initialServerDraft = await readManualAnlassraumServerDraftForCurrentUser(readParam(resolved?.draftId));
+  const showGuidedStart = conversionMode && !detailsMode && !initialServerDraft;
   const entryCanon = readRundenEntryCanonReadModel();
-  const frontendAiTransparency = buildRundenFrontendAiTransparencyReadModel(
-    entryCanon,
-    initialServerDraft,
-  );
+  const frontendAiTransparency = buildRundenFrontendAiTransparencyReadModel(entryCanon, initialServerDraft);
 
-  return (
-    <section className="public-canvas vog-page-stage min-h-screen">
-      <main className="public-shell vog-main-shell min-h-screen space-y-8">
-        <div className="mx-auto flex w-full max-w-[78rem] flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-              eDebatte Mitmachraum
-            </p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[rgb(var(--fg))] md:text-4xl">
-              Mitmachraum vorbereiten
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[rgb(var(--muted))]">
-              Setze zuerst Thema, Frage und mögliche Antworten. Danach entscheidest du: ohne Voxy weiter oder mit Voxy strukturieren.
-            </p>
-          </div>
-          <Link
-            href="/themen"
-            className="vog-btn-secondary"
-          >
-            Zurück zur Themensuche
-          </Link>
-        </div>
+  if (showGuidedStart) {
+    return <section className="public-canvas vog-page-stage min-h-screen"><main className="public-shell vog-main-shell min-h-screen"><div className="mx-auto mb-10 flex w-full max-w-3xl items-center justify-between gap-3"><Link href="/" className="text-sm font-bold text-[rgb(var(--muted))] hover:text-[rgb(var(--fg))]">← eDebatte</Link><span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300">Kostenlos starten</span></div><GuidedBallotStart initialTemplateId={initialTemplateId} /></main></section>;
+  }
 
-        <section
-          className="mx-auto w-full max-w-[78rem] rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-5 py-4 text-sm text-[rgb(var(--fg))]"
-          data-runden-entry-canon="true"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            So funktioniert der Start
-          </p>
-          <h2 className="mt-1 text-lg font-semibold text-[rgb(var(--fg))]">
-            Erst festhalten, dann sortieren, dann gemeinsam klären.
-          </h2>
-          <p className="mt-2 leading-6 text-[rgb(var(--muted))]">
-            Ein Mitmachraum beginnt als Entwurf für eine Frage, kleine Umfrage oder gemeinsame Klärung. Du kannst direkt weiterarbeiten oder Voxy für Struktur, offene Punkte und nächste Schritte nutzen.
-          </p>
-          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[rgb(var(--muted))]">
-            <li>
-              <strong className="text-[rgb(var(--fg))]">Ohne Voxy</strong> speicherst du deinen Stand ohne zusätzliche Ausarbeitung.
-            </li>
-            <li>
-              <strong className="text-[rgb(var(--fg))]">Mit Voxy</strong> werden Thema, Fragen, Zielgruppe und nächste Schritte geordnet.
-            </li>
-            <li>
-              Debatte &amp; Argumente, Beteiligung oder Veröffentlichung entstehen erst nach bewusster Prüfung und Bestätigung.
-            </li>
-          </ul>
-          <p className="mt-3 leading-6 text-[rgb(var(--muted))]">
-            So bleibt verständlich, was vorbereitet wurde, was noch offen ist und wobei Menschen konkret aktiv dabei sein können.
-          </p>
-        </section>
+  if (conversionMode) {
+    return <section className="public-canvas vog-page-stage min-h-screen"><main className="public-shell vog-main-shell min-h-screen"><div className="mx-auto w-full max-w-3xl"><Link href="/runden/new?gtm=1" className="text-sm font-bold text-[rgb(var(--muted))] hover:text-[rgb(var(--fg))]">← Zur einfachen Ansicht</Link><div className="mt-7 rounded-[2rem] border border-[rgb(var(--border))] p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300">Bereit zum Teilen</p><h1 className="mt-3 text-3xl font-black tracking-tight text-[rgb(var(--fg))] sm:text-4xl">Deine Befragung steht.</h1><div className="mt-7 divide-y divide-[rgb(var(--border))] border-y border-[rgb(var(--border))]"><p className="flex justify-between gap-4 py-4 text-sm"><span>Frage & Antworten</span><strong>✓ vorbereitet</strong></p><p className="flex justify-between gap-4 py-4 text-sm"><span>Voxy</span><strong>✓ gewählt</strong></p><p className="flex justify-between gap-4 py-4 text-sm"><span>Sichtbarkeit</span><strong>privat bis zur Freigabe</strong></p></div><p className="mt-6 text-sm leading-6 text-[rgb(var(--muted))]">Nach dem Speichern erhältst du den Teilnahmelink und den echten QR-Code. Nichts wird automatisch veröffentlicht.</p></div><details className="mt-5 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))]"><summary className="cursor-pointer list-none px-5 py-4 font-black text-[rgb(var(--fg))]">Weitere Einstellungen <span className="ml-2 text-[rgb(var(--muted))]">▾</span></summary><div className="border-t border-[rgb(var(--border))] p-4 sm:p-6"><p className="mb-5 text-sm leading-6 text-[rgb(var(--muted))]">Nur öffnen, wenn du Sichtbarkeit, Moderation, KI-Unterstützung oder den erweiterten Ablauf verändern möchtest.</p><AnlassraumSetupForm conversionMode initialServerDraft={initialServerDraft} initialTemplateId={initialTemplateId} /></div></details></div></main></section>;
+  }
 
-        <div className="mx-auto w-full max-w-[78rem]">
-          <FrontendAiTransparencyPanel model={frontendAiTransparency} />
-        </div>
-
-        <AnlassraumSetupForm initialServerDraft={initialServerDraft} />
-      </main>
-    </section>
-  );
+  return <section className="public-canvas vog-page-stage min-h-screen"><main className="public-shell vog-main-shell min-h-screen space-y-6"><div className="mx-auto flex w-full max-w-[78rem] flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Erweiterte Einstellungen</p><h1 className="mt-1 text-3xl font-semibold tracking-tight text-[rgb(var(--fg))] md:text-4xl">Deine Frage im Detail vorbereiten</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[rgb(var(--muted))]">Hier kannst du zusätzliche Einstellungen festlegen. Für einen schnellen Start reicht die einfache Ansicht.</p></div><div className="flex flex-wrap gap-2"><Link href="/runden/new?gtm=1" className="vog-btn-brand">Zur einfachen Ansicht</Link><Link href="/themen" className="vog-btn-secondary">Themen ansehen</Link></div></div><details className="mx-auto w-full max-w-[78rem] rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]"><summary className="cursor-pointer list-none px-5 py-4 font-semibold text-[rgb(var(--fg))]">Wie KI dich dabei unterstützt <span className="ml-2 text-[rgb(var(--muted))]">▾</span></summary><div className="border-t border-[rgb(var(--border))] p-4 sm:p-6"><FrontendAiTransparencyPanel model={frontendAiTransparency} /></div></details><AnlassraumSetupForm conversionMode={false} initialServerDraft={initialServerDraft} initialTemplateId={initialTemplateId} /></main></section>;
 }

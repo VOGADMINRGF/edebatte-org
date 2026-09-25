@@ -1,0 +1,110 @@
+name: Voxy documentary voice bake-off evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/voxy-documentary-voice-bakeoff-evidence.yml"
+      - "apps/web/src/features/voxyVideo/documentaryVoiceBakeoff.ts"
+      - "apps/web/scripts/lib/voxy-mimic3-requirements.txt"
+      - "apps/web/scripts/provision-voxy-documentary-voice-bakeoff.ts"
+      - "apps/web/scripts/render-voxy-documentary-voice-bakeoff.ts"
+      - "apps/web/tests/voxy-documentary-voice-bakeoff.contract.test.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  render-documentary-voice-bakeoff:
+    name: Exact-head offline documentary voice bake-off
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      VOXY_MOUTH_V41_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      VOXY_MOTION_V41_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      VOXY_DOCUMENTARY_VOICE_BAKEOFF_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PLAYWRIGHT_BROWSERS_PATH: /tmp/voxy-playwright-browsers
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository and media dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec playwright install chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Verify bake-off and frozen visual contracts
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-jacket-canon-gate.contract.test.ts \
+            tests/voxy-pocket-mark-final-gate.contract.test.ts \
+            tests/voxy-static-canon-recovery.contract.test.ts \
+            tests/voxy-first-explainer-video.contract.test.ts \
+            tests/voxy-mouth-v4-1-gate.contract.test.ts \
+            tests/voxy-motion-v4-1.contract.test.ts \
+            tests/voxy-local-tts-voiced-explainer-v1.contract.test.ts \
+            tests/voxy-documentary-voice-bakeoff.contract.test.ts
+          pnpm -C apps/web run typecheck
+          pnpm -C apps/web run lint
+          git diff --check
+
+      - name: Provision pinned local engines and models with network
+        run: |
+          pnpm -C apps/web exec tsx scripts/provision-voxy-local-tts.ts
+          pnpm -C apps/web exec tsx scripts/provision-voxy-documentary-voice-bakeoff.ts
+
+      - name: Render frozen visual and bake-off without network
+        run: |
+          PNPM_BIN="$(command -v pnpm)"
+          sudo env VOXY_MOUTH_V41_COMMIT_SHA="$VOXY_MOUTH_V41_COMMIT_SHA" PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" PATH="$PATH" unshare --net "$PNPM_BIN" -C apps/web exec tsx scripts/render-voxy-mouth-v4-1-gate.ts
+          sudo env VOXY_MOTION_V41_COMMIT_SHA="$VOXY_MOTION_V41_COMMIT_SHA" PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" PATH="$PATH" unshare --net "$PNPM_BIN" -C apps/web exec tsx scripts/render-voxy-motion-v4-1.ts
+          sudo env VOXY_DOCUMENTARY_VOICE_BAKEOFF_COMMIT_SHA="$VOXY_DOCUMENTARY_VOICE_BAKEOFF_COMMIT_SHA" PATH="$PATH" unshare --net "$PNPM_BIN" -C apps/web exec tsx scripts/render-voxy-documentary-voice-bakeoff.ts
+
+      - name: Verify exact-head evidence and release gates
+        run: |
+          sudo chown -R "$USER":"$USER" artifacts
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const root = "artifacts/voxy-documentary-voice-bakeoff";
+          const manifest = JSON.parse(fs.readFileSync(`${root}/manifest.json`, "utf8"));
+          const required = ["comparison.wav", "comparison.mp4", "voice-comparison.json", "license-matrix.json", "runtime-license-report.json", "README.md", ...["control-current", "candidate-a", "candidate-b", "candidate-c"].flatMap((candidate) => [`${candidate}/raw.wav`, `${candidate}/finished.wav`, `${candidate}/preview.mp4`])];
+          if (required.some((file) => !fs.existsSync(`${root}/${file}`))) process.exit(1);
+          if (manifest.exactHeadSha !== process.env.VOXY_DOCUMENTARY_VOICE_BAKEOFF_COMMIT_SHA || manifest.candidateCount !== 3 || !manifest.controlIncluded || !manifest.identicalVisibleText || manifest.licenseGate !== "pass" || manifest.offlineContract.runtimeNetworkRequests !== 0 || manifest.visual.visualMasterHeadSha !== "58548d2a5f6e4a59e84464a5c4aea3875f38662c" || !manifest.visual.identicalSourceAndTreatmentForAllCandidates || manifest.visual.mouthShapesChanged || manifest.visual.mouthAnchorChanged || manifest.visual.mouthPivotChanged || manifest.visual.waveformCount !== 1 || manifest.visual.waveformPlacement !== "behind_voxy" || manifest.humanVisualAcceptance !== "accepted" || manifest.humanAudioAcceptance !== "pending" || manifest.documentaryVoiceBakeoff !== "ready_for_human_review" || manifest.humanWinner !== "pending" || manifest.productionEligible || manifest.autoPublish) process.exit(1);
+          if (manifest.finalists.some((candidate) => candidate.metrics.clipping || candidate.gates.runtimeNetworkRequests !== 0 || candidate.gates.licenseProvenance !== "pass" || candidate.gates.visualMasterUnchanged !== true)) process.exit(1);
+          const runtimeLicenses = JSON.parse(fs.readFileSync(`${root}/runtime-license-report.json`, "utf8"));
+          if (runtimeLicenses.status !== "pass" || runtimeLicenses.dependencies.some((dependency) => !dependency.License || dependency.License === "UNKNOWN")) process.exit(1);
+          NODE
+          ffprobe -v error -show_streams -show_format -of json artifacts/voxy-documentary-voice-bakeoff/comparison.wav
+          ffprobe -v error -show_streams -show_format -of json artifacts/voxy-documentary-voice-bakeoff/comparison.mp4
+
+      - name: Upload exact-head documentary voice bake-off
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-documentary-voice-bakeoff-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-documentary-voice-bakeoff
+          if-no-files-found: error
+          retention-days: 14

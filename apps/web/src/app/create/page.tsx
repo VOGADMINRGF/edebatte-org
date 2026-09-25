@@ -38,10 +38,12 @@ import { buildCreateDraftResumeLookupOrder } from "@features/account/draftSsotPo
 import { buildAgenticCivicE2ECreateHint } from "@/features/agenticRuntime/agenticCivicE2EPilotContract";
 import { buildCreateSegmentHint } from "@/features/agenticRuntime/segmentedAgentExperienceContract";
 import { buildVoxyExperienceShellHint } from "@/features/voxy/voxyExperienceShellContract";
+import GuestCreateEphemeralClient from "./GuestCreateEphemeralClient";
+import AuthenticatedGuestAdoptionResumeClient from "./AuthenticatedGuestAdoptionResumeClient";
 
 export const metadata: Metadata = {
-  title: "Erstellen - eDebatte",
-  description: "Einheitlicher Einstieg für Statements, Beiträge und weitere Intents.",
+  title: "Etwas beitragen - eDebatte",
+  description: "Ergänze eine Quelle, Perspektive, Frage oder einen Hinweis direkt im passenden Kontext.",
 };
 
 type SearchParamsShape =
@@ -144,19 +146,24 @@ export default async function CreatePage({
 }: {
   searchParams?: SearchParamsShape;
 }) {
-  const resolved = searchParams ? await searchParams : {};
-  const query = toQueryString(resolved);
   const pageLocale = resolveOperatorLocale(await detectPageLocale());
-  const createText = getOperatorCreateTexts(pageLocale);
-
   const entitlements = await getCreateEntitlementsForRequest();
   if (!entitlements.isAuthenticated || !entitlements.userId) {
-    redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
+    return <GuestCreateEphemeralClient locale={pageLocale} />;
   }
+
+  const resolved = searchParams ? await searchParams : {};
+  const query = toQueryString(resolved);
+  const createText = getOperatorCreateTexts(pageLocale);
 
   const overview = await getAccountOverview(entitlements.userId);
   if (!overview) {
     redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
+  }
+
+  const nextAction = readParam(resolved.nextAction) ?? null;
+  if (nextAction === "guest-adoption-resume") {
+    return <AuthenticatedGuestAdoptionResumeClient locale={pageLocale} />;
   }
 
   const mode = mapMode(readParam(resolved.mode));
@@ -171,7 +178,6 @@ export default async function CreatePage({
   const dossierId = readParam(resolved.dossierId) ?? null;
   const anlassraumId = readParam(resolved.anlassraumId) ?? null;
   const returnTo = readParam(resolved.returnTo) ?? null;
-  const nextAction = readParam(resolved.nextAction) ?? null;
   const intakeContext = parseCreateIntakeContextFromQuery(resolved);
   const prefillText = decodeMaybe(readParam(resolved.prefill) ?? readParam(resolved.text));
   const draftId = readParam(resolved.draftId);

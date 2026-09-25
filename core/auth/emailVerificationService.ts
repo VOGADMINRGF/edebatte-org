@@ -46,7 +46,11 @@ async function ensureIndexes(col: Awaited<ReturnType<typeof getCol<EmailVerifica
   indexesEnsured = true;
 }
 
-export async function createEmailVerificationToken(userId: ObjectId, email: string) {
+export async function createEmailVerificationToken(
+  userId: ObjectId,
+  email: string,
+  continuationTarget?: string | null,
+) {
   const Tokens = await getCol<EmailVerificationTokenDoc>(TOKEN_COLLECTION);
   const rawToken = crypto.randomBytes(32).toString("hex");
   const now = new Date();
@@ -66,6 +70,7 @@ export async function createEmailVerificationToken(userId: ObjectId, email: stri
         usedAt: null,
         invalidatedAt: null,
         invalidationReason: null,
+        continuationTarget: continuationTarget ?? null,
         deliveryStatus: "pending",
         deliveryRetryable: null,
         deliveryCategory: null,
@@ -219,5 +224,10 @@ export async function consumeEmailVerificationToken(rawToken: string) {
     },
   );
 
-  return { userId: activeDoc.userId, email: activeDoc.email, verification: nextVerification };
+  return {
+    userId: activeDoc.userId,
+    email: activeDoc.email,
+    verification: nextVerification,
+    continuationTarget: activeDoc.continuationTarget ?? null,
+  };
 }

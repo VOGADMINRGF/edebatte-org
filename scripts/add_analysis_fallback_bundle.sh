@@ -64,23 +64,13 @@ export default function AnalysisFallbackNotice({
   async function doReport(){
     try{
       setBusy(true);
-      // optional Umgebung einholen
-      let env:any = null;
-      try{
-        const r = await fetch("/api/debug/env");
-        env = await r.json();
-      }catch{}
-
       const payload = {
         ts: Date.now(),
         source,
         tookMs,
         meta,
         textLen: (textSample||"").length,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-        env: env && typeof env === "object" ? {
-          NODE_ENV: env.NODE_ENV, hasOpenAI: env.hasOpenAI
-        } : null
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null
       };
       const res = await fetch("/api/support/report", {
         method:"POST",
@@ -175,7 +165,7 @@ export async function POST(req: NextRequest){
 
     // einfache Protokollierung (Serverlog)
     console.warn("[support-report]", id, JSON.stringify({
-      source: body?.source, tookMs: body?.tookMs, meta: body?.meta, textLen: body?.textLen, env: body?.env
+      source: body?.source, tookMs: body?.tookMs, meta: body?.meta, textLen: body?.textLen
     }));
 
     // optional: Usage protokollieren (non-blocking)

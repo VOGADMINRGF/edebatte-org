@@ -1,0 +1,118 @@
+name: Voxy layer master and Motion v3 evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/voxy-motion-v3-evidence.yml"
+      - "apps/web/public/brands/voxy/rig/layers/**"
+      - "apps/web/public/brands/voxy/overlays/voxy-lapel-pin.svg"
+      - "apps/web/public/brands/voxy/overlays/edebatte-pocket-mark.svg"
+      - "apps/web/public/brands/voxy/overlays/voiceopengov-edebatte-lockup.svg"
+      - "apps/web/public/brands/voxy/references/derived/CANON-04-pocket-clean.png"
+      - "apps/web/src/features/voxyVideo/motionV3.ts"
+      - "apps/web/src/features/voxyVideo/motionV3Html.ts"
+      - "apps/web/scripts/generate-voxy-motion-v3-layers.ts"
+      - "apps/web/scripts/render-voxy-motion-v3.ts"
+      - "apps/web/tests/voxy-motion-v3.contract.test.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  render-motion-v3:
+    name: Render exact-head layer master and Motion v3
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      VOXY_MOTION_V3_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install local Chromium renderer and FFmpeg
+        run: |
+          pnpm -C apps/web exec playwright install chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Verify frozen character and Motion v3 contracts
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-jacket-canon-gate.contract.test.ts \
+            tests/voxy-pocket-mark-final-gate.contract.test.ts \
+            tests/voxy-static-canon-recovery.contract.test.ts \
+            tests/voxy-motion-v3.contract.test.ts
+
+      - name: Regenerate and verify committed local SVG layers
+        run: |
+          pnpm -C apps/web exec tsx scripts/generate-voxy-motion-v3-layers.ts
+          test -z "$(git status --porcelain -- apps/web/public/brands/voxy/rig/layers)"
+
+      - name: Render exact-head layer master and Motion v3
+        run: pnpm -C apps/web exec tsx scripts/render-voxy-motion-v3.ts
+
+      - name: Verify exact-head evidence and media
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const layer = JSON.parse(fs.readFileSync("artifacts/voxy-layer-master/layer-manifest.json", "utf8"));
+          const motion = JSON.parse(fs.readFileSync("artifacts/voxy-motion-v3/manifest.json", "utf8"));
+          const required = [
+            "artifacts/voxy-layer-master/layer-overview.png",
+            "artifacts/voxy-layer-master/neutral.png",
+            "artifacts/voxy-layer-master/blink.png",
+            "artifacts/voxy-layer-master/speaking.png",
+            "artifacts/voxy-layer-master/gesture.png",
+            "artifacts/voxy-motion-v3/voxy-motion-v3-16x9.mp4",
+            "artifacts/voxy-motion-v3/voxy-motion-v3-16x9.webm",
+            "artifacts/voxy-motion-v3/voxy-motion-v3-preview.png",
+            "artifacts/voxy-motion-v3/voxy-motion-v3-contact-sheet.png",
+            "artifacts/voxy-motion-v3/voxy-motion-v3.de.vtt",
+            "artifacts/voxy-motion-v3/voxy-motion-v3.de.srt",
+            "artifacts/voxy-motion-v3/hand-crops/gesture-left.png",
+            "artifacts/voxy-motion-v3/hand-crops/gesture-right.png",
+            "artifacts/voxy-motion-v3/safe-crops/safe-frame-9x16.png",
+            "artifacts/voxy-motion-v3/safe-crops/safe-frame-1x1.png",
+          ];
+          if (required.some((file) => !fs.existsSync(file))) process.exit(1);
+          if (layer.exactHeadSha !== process.env.VOXY_MOTION_V3_COMMIT_SHA || motion.exactHeadSha !== process.env.VOXY_MOTION_V3_COMMIT_SHA || layer.layers.length < 25 || layer.layerMasterSha !== motion.layerMasterSha || motion.durationMs !== 25000 || motion.fps !== 24 || motion.frameCount !== 600 || motion.resolution.width !== 1920 || motion.resolution.height !== 1080 || motion.waveform.count !== 1 || motion.waveform.placement !== "behind_voxy" || motion.brand.lapelPin !== "VOXY" || motion.brand.pocketMark !== "eDebatte" || motion.brand.pocketRotation !== -2.5 || motion.brand.pocketOpacity !== 0.94 || motion.handQa.detector588Status !== "not_run_not_applicable" || motion.handQa.thresholdChanged !== false || motion.audioProvenance.audioIncluded !== false || motion.externalProviderUsed !== false || motion.externalVisualUploadUsed !== false || motion.humanVisualAcceptance !== "pending" || motion.productionEligible !== false || motion.autoPublish !== false || motion.exactHeadInputsClean !== true) process.exit(1);
+          NODE
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,avg_frame_rate -show_entries format=duration -of json artifacts/voxy-motion-v3/voxy-motion-v3-16x9.mp4
+          test -z "$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 artifacts/voxy-motion-v3/voxy-motion-v3-16x9.mp4)"
+
+      - name: Upload exact-head layer master
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-layer-master-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-layer-master
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload exact-head Motion v3
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-motion-v3-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-motion-v3
+          if-no-files-found: error
+          retention-days: 14

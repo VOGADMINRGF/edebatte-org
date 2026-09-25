@@ -257,7 +257,7 @@ describe("/topic/[slug] public topic page target", () => {
     expect(html).toContain("Quelle ergänzen");
     expect(html).toContain("Share-Link");
     expect(html).toContain("QR-Link");
-    expect(html).toContain("/studio?caller=public_topic_page&amp;target=");
+    expect(html).toContain("/qr-studio?caller=public_topic_page&amp;target=");
   });
 
   it("allows an internal preview for a hidden topic page only with explicit preview access", async () => {
@@ -292,7 +292,7 @@ describe("/topic/[slug] public topic page target", () => {
     expect(html).toContain("Themenseite in Vorbereitung");
     expect(html).toContain("Verdeckte Themenseite");
     expect(html).toContain("noch nicht öffentlich sichtbar");
-    expect(html).not.toContain("/studio?target=");
+    expect(html).not.toContain("/qr-studio?target=");
     expect(html).not.toContain(">Öffentliche URL<");
     expect(html).not.toContain("Was muss vor Sichtbarkeit noch geprüft werden?");
   });
@@ -313,7 +313,7 @@ describe("/topic/[slug] public topic page target", () => {
 
     expect(archivedHtml).toContain("Themenseite archiviert");
     expect(archivedHtml).toContain("Öffentliche URL, Share-Link und QR bleiben deshalb deaktiviert.");
-    expect(archivedHtml).not.toContain("/studio?target=");
+    expect(archivedHtml).not.toContain("/qr-studio?target=");
     expect(blockedHtml).toContain("Themenseite derzeit nicht öffentlich verfügbar");
     expect(blockedHtml).toContain("Dieser Themenstand ist aktuell blockiert.");
     expect(blockedHtml).not.toContain(">Öffentliche URL<");

@@ -47,6 +47,17 @@ export const LOCALE_CONFIG: LocaleConfig[] = [
   { code: "ro", label: "Română", flagEmoji: "🇷🇴", defaultRegion: "RO" },
   { code: "el", label: "Ελληνικά", flagEmoji: "🇬🇷", defaultRegion: "GR" },
   { code: "uk", label: "Українська", flagEmoji: "🇺🇦", defaultRegion: "UA" },
+  { code: "bg", label: "Български", flagEmoji: "🇧🇬", defaultRegion: "BG" },
+  { code: "da", label: "Dansk", flagEmoji: "🇩🇰", defaultRegion: "DK" },
+  { code: "et", label: "Eesti", flagEmoji: "🇪🇪", defaultRegion: "EE" },
+  { code: "ga", label: "Gaeilge", flagEmoji: "🇮🇪", defaultRegion: "IE" },
+  { code: "hr", label: "Hrvatski", flagEmoji: "🇭🇷", defaultRegion: "HR" },
+  { code: "hu", label: "Magyar", flagEmoji: "🇭🇺", defaultRegion: "HU" },
+  { code: "lv", label: "Latviešu", flagEmoji: "🇱🇻", defaultRegion: "LV" },
+  { code: "lt", label: "Lietuvių", flagEmoji: "🇱🇹", defaultRegion: "LT" },
+  { code: "mt", label: "Malti", flagEmoji: "🇲🇹", defaultRegion: "MT" },
+  { code: "sk", label: "Slovenčina", flagEmoji: "🇸🇰", defaultRegion: "SK" },
+  { code: "sl", label: "Slovenščina", flagEmoji: "🇸🇮", defaultRegion: "SI" },
 ];
 
 export function getLocaleConfig(code: SupportedLocale): LocaleConfig {

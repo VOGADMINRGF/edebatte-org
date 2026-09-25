@@ -4,9 +4,9 @@ import { buildPublicPageMetadata } from "@/lib/seo/publicDiscovery";
 
 /* page-contract: delegated-h1 */
 
-const HOME_TITLE = "eDebatte – Verstehen, was sich verändert. Mitreden, wo es zählt.";
+const HOME_TITLE = "eDebatte – Kostenlos Abstimmungen starten und gemeinsam entscheiden";
 const HOME_DESCRIPTION =
-  "eDebatte bündelt aktuelle Entwicklungen, Quellen, Positionen und Beteiligungsmöglichkeiten zu nachvollziehbaren Themenständen – von deiner Region bis zur Welt.";
+  "Starte kostenlos eine Abstimmung, sammle Positionen und mache sichtbar, was eure Gruppe gemeinsam weiterbringt.";
 
 export const metadata: Metadata = {
   ...buildPublicPageMetadata({

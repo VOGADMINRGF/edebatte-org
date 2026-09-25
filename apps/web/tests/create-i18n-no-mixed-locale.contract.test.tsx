@@ -83,8 +83,8 @@ describe("create i18n no mixed locale contract", () => {
   it("keeps EN entry copy free from DE leftovers", () => {
     const html = renderCreate("en");
 
-    expect(html).toContain("What would you like to contribute?");
-    expect(html).toContain("Review");
+    expect(html).toContain("Organize concern");
+    expect(html).toContain("Write or speak");
     expect(html).toContain("Hello neighbor,");
     expect(html).toContain("No auto-publishing");
 
@@ -99,12 +99,12 @@ describe("create i18n no mixed locale contract", () => {
   it("keeps DE entry copy free from EN leftovers", () => {
     const html = renderCreate("de");
 
-    expect(html).toContain("Was möchtest du einbringen?");
-    expect(html).toContain("Prüfen");
+    expect(html).toContain("Anliegen einordnen");
+    expect(html).toContain("Schreiben oder sprechen");
     expect(html).toContain("Hallo Nachbar,");
     expect(html).toContain("Kein Auto-Publish");
 
     expect(html).not.toContain("Different mode");
-    expect(html).not.toContain("What would you like to contribute?");
+    expect(html).not.toContain("Organize concern");
   });
 });

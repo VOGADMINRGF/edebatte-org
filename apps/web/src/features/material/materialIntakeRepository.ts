@@ -30,6 +30,7 @@ export const MATERIAL_INTAKE_EXTRACTION_STATES = [
   "not_required",
   "not_started",
   "submitted_text_only",
+  "local_document_extraction",
   "pending_external_extraction",
   "failed",
 ] as const;
@@ -192,6 +193,12 @@ function scanStateFor(item: MaterialIntakeItem): MaterialIntakeScanState {
 }
 
 function extractionStateFor(item: MaterialIntakeItem): MaterialIntakeExtractionState {
+  if (
+    item.extractedBy === "pdf-parse@2" ||
+    item.extractedBy === "mammoth@1"
+  ) {
+    return "local_document_extraction";
+  }
   if (item.extractionStatus === "full" || item.extractionStatus === "partial") return "submitted_text_only";
   if (item.riskFlags.includes("extraction_missing")) return "pending_external_extraction";
   return "not_required";

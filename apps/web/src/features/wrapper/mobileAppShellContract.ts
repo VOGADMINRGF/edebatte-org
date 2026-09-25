@@ -18,7 +18,6 @@ const EXCLUDED_EXACT_PATHS = new Set<InternalRedirectPath>([
   "/embed",
   "/research",
   "/studio",
-  "/qr-studio",
   "/partner/demo",
 ]);
 
@@ -69,7 +68,7 @@ const AUTH_EXACT_PATHS = new Set<InternalRedirectPath>(["/login", "/register"]);
 const AUTH_PREFIX_PATHS: readonly InternalRedirectPath[] = ["/register/"];
 
 function toComparablePath(input: InternalRedirectPath): InternalRedirectPath {
-  const [pathname] = input.split(/[?#]/);
+  const [pathname] = input.split("?");
   if (pathname.length > 1 && pathname.endsWith("/")) {
     return pathname.slice(0, -1) as InternalRedirectPath;
   }
@@ -105,37 +104,37 @@ export function classifyMobileAppShellPath(pathname: unknown): MobileAppShellPol
     };
   }
 
-  const comparablePath = toComparablePath(normalizedPath);
-  if (isExcluded(comparablePath)) {
+  const path = toComparablePath(normalizedPath);
+  if (isExcluded(path)) {
     return {
       shellEnabled: false,
       bottomNavEnabled: false,
       compactHeader: false,
       hideFooter: false,
       reason: "excluded",
-      path: normalizedPath,
+      path,
     };
   }
 
-  if (isCore(comparablePath)) {
+  if (isCore(path)) {
     return {
       shellEnabled: true,
       bottomNavEnabled: true,
       compactHeader: true,
       hideFooter: true,
       reason: "core",
-      path: normalizedPath,
+      path,
     };
   }
 
-  if (isAuth(comparablePath)) {
+  if (isAuth(path)) {
     return {
       shellEnabled: true,
       bottomNavEnabled: false,
       compactHeader: true,
       hideFooter: true,
       reason: "auth",
-      path: normalizedPath,
+      path,
     };
   }
 
@@ -145,7 +144,7 @@ export function classifyMobileAppShellPath(pathname: unknown): MobileAppShellPol
     compactHeader: false,
     hideFooter: false,
     reason: "web",
-    path: normalizedPath,
+    path,
   };
 }
 

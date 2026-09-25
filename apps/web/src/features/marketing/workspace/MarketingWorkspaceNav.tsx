@@ -13,6 +13,7 @@ const COPY = {
   de: {
     label: "Marketing-Arbeitsbereich",
     cockpit: "Cockpit",
+    brands: "Marken",
     campaigns: "Kampagnen",
     review: "Inhalte & Freigaben",
     insights: "Ergebnisse",
@@ -21,6 +22,7 @@ const COPY = {
   en: {
     label: "Marketing workspace",
     cockpit: "Cockpit",
+    brands: "Brands",
     campaigns: "Campaigns",
     review: "Content & approvals",
     insights: "Results",
@@ -37,6 +39,7 @@ export function MarketingWorkspaceNav({ reviewCount }: Props) {
 
   const items = [
     { href: `/admin/marketing?${lang}`, label: copy.cockpit, active: pathname === "/admin/marketing" },
+    { href: `/admin/marketing/brands?${lang}`, label: copy.brands, active: pathname === "/admin/marketing/brands" },
     { href: `/admin/marketing?${lang}#campaigns`, label: copy.campaigns, active: false },
     { href: `/admin/marketing/review?${lang}`, label: copy.review, active: pathname === "/admin/marketing/review", count: reviewCount },
     { href: `/admin/marketing/insights?${lang}`, label: copy.insights, active: pathname === "/admin/marketing/insights" },

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePrivacyGate } from "@/components/privacy/PrivacyGateProvider";
 import { buildSwipeDossierHref, buildSwipeEvidenceHref, buildSwipeVotingHref } from "@/features/surfaces/swipes/detailRoutes";
-import { useMobileChromeVisibility } from "@/hooks/useMobileChromeVisibility";
 import {
   buildSwipesFeedFilter,
   countFromDraftFocusItems,
@@ -33,7 +32,7 @@ import {
   SwipesOutcomeSummary,
   type DecisionHistoryItem,
 } from "@/features/surfaces/swipes/components";
-import { useFreeVoteLimit } from "@/features/surfaces/swipes/useFreeVoteLimit";
+import { FREE_VOTE_LIMIT, useFreeVoteLimit } from "@/features/surfaces/swipes/useFreeVoteLimit";
 import { resolveSwipesProgressState } from "@/features/surfaces/swipes/progressContract";
 import type {
   Eventuality,
@@ -43,18 +42,11 @@ import type {
   SwipeNeutralReason,
 } from "@/features/swipes/types";
 import type { SurfaceAudience, SurfaceMode } from "@/features/surface";
+import { buildFreeBallotStartHref } from "@features/pricing/goToMarketPackaging";
 
 const SWIPES_SESSION_COUNT_KEY = "edb_swipes_session_count";
 const SWIPES_SAVED_IDS_KEY = "edb_swipes_saved_ids";
 const SWIPES_TOPIC_HINTS_KEY = "edb_swipes_topic_hints";
-
-const NEUTRAL_REASON_OPTIONS: ReadonlyArray<{ id: SwipeNeutralReason; label: string }> = [
-  { id: "missing_sources", label: "Mir fehlen Quellen" },
-  { id: "responsibility_unclear", label: "Zuständigkeit unklar" },
-  { id: "impacts_unclear", label: "Folgen unklar" },
-  { id: "missing_option", label: "Mir fehlt eine Option" },
-  { id: "decide_later", label: "Ich möchte später entscheiden" },
-];
 
 async function fetchSwipeFeed(
   filter: SwipeFeedFilter,
@@ -119,16 +111,6 @@ async function deleteSwipeVote(statementId: string) {
   }
 }
 
-function transitionLabel(decision: SwipeDecision) {
-  if (decision === "agree") return "Ja gespeichert. Optional direkt Variante wählen.";
-  if (decision === "disagree") return "Nein gespeichert. Optional direkt Variante wählen.";
-  return "Offen gespeichert. Optional direkt Variante wählen.";
-}
-
-function buildTransitionHint(decision: SwipeDecision, remainingToAnalysis: number) {
-  return `+1 Swipe gespeichert · ${remainingToAnalysis} bis zur Analyse. ${transitionLabel(decision)}`;
-}
-
 type SwipesClientProps = {
   initialTopic?: string;
   initialClaim?: string;
@@ -179,12 +161,10 @@ export function SwipesClient({
   const [sessionVoteCount, setSessionVoteCount] = useState(0);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [savedTopicHints, setSavedTopicHints] = useState<string[]>([]);
-  const [pendingNeutralReasonStatementId, setPendingNeutralReasonStatementId] = useState<string | null>(null);
   const [lastVote, setLastVote] = useState<LastVoteSnapshot | null>(null);
   const [seededClaimMatchCount, setSeededClaimMatchCount] = useState(0);
   const [seededTopicMatchCount, setSeededTopicMatchCount] = useState(0);
 
-  const [screenFlash, setScreenFlash] = useState<SwipeDecision | null>(null);
   const [liveMessage, setLiveMessage] = useState("");
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -198,7 +178,6 @@ export function SwipesClient({
   const [eventualityStepItems, setEventualityStepItems] = useState<Eventuality[]>([]);
   const [eventualityStepLoading, setEventualityStepLoading] = useState(false);
   const [openGateAfterStep, setOpenGateAfterStep] = useState(false);
-  const [chromeRevealSignal, setChromeRevealSignal] = useState(0);
 
   const liveTimerRef = useRef<number | null>(null);
   const pendingVoteTimerRef = useRef<number | null>(null);
@@ -215,17 +194,8 @@ export function SwipesClient({
 
   const freeVote = useFreeVoteLimit({
     enabled: requireAuthAfterFreeVotes && mode === "live" && !isSolo,
-    limit: 3,
+    limit: FREE_VOTE_LIMIT,
   });
-  const mobileActionChromeVisible = useMobileChromeVisibility({
-    disabled: isSolo || eventualityStepOpen || detailOpen || freeVote.gateOpen,
-    minY: 72,
-    hideDelta: 12,
-    showDelta: 14,
-    revealSignal: chromeRevealSignal,
-    holdVisibleMs: 900,
-  });
-
   const isVoteLocked = freeVote.enabled && !freeVote.canVote;
   const swipeProgressCount = Math.max(sessionVoteCount, freeVote.count);
   const progressState = resolveSwipesProgressState({
@@ -236,12 +206,11 @@ export function SwipesClient({
   const deckProgressLabel = `${Math.min(completedCount, deckSize)}/${deckSize || 0} im aktuellen Deck`;
   const savedIdsKey = useMemo(() => [...savedIds].sort().join(","), [savedIds]);
   const preferredTopics = useMemo(() => {
-    const historyHints = decisionHistory.map((entry) => entry.category);
     return derivePreferredSwipeTopics({
       savedTopicHints,
-      decisionTopicHints: historyHints,
+      decisionTopicHints: [],
     });
-  }, [decisionHistory, savedTopicHints]);
+  }, [savedTopicHints]);
   const preferredTopicsKey = useMemo(() => preferredTopics.join("|"), [preferredTopics]);
 
   const openDossierRoute = useCallback(
@@ -406,7 +375,6 @@ export function SwipesClient({
         setItems(nextItems);
         setDeckSize(nextItems.length);
         setCompletedCount(0);
-        setPendingNeutralReasonStatementId(null);
         setLoading(false);
         setLastVote(null);
       }
@@ -524,9 +492,7 @@ export function SwipesClient({
         freeVote.setGateOpen(true);
         return;
       }
-      const openGateAfterTopic = freeVote.enabled && nextCount >= freeVote.limit;
-      const nextProgress = Math.max(completedCount, freeVote.count) + 1;
-      const remainingToAnalysis = Math.max(100 - nextProgress, 0);
+      const openGateBeforeNextVote = freeVote.enabled && nextCount >= freeVote.limit;
       const historyEntry: DecisionHistoryItem = {
         id: item.id,
         title: item.title,
@@ -551,13 +517,7 @@ export function SwipesClient({
         return next.slice(-20);
       });
 
-      setScreenFlash(decision);
-      setTransitionHint(buildTransitionHint(decision, remainingToAnalysis));
-      if (decision === "neutral") {
-        setPendingNeutralReasonStatementId(item.id);
-      } else {
-        setPendingNeutralReasonStatementId(null);
-      }
+      setTransitionHint(null);
       announce(
         decision === "agree"
           ? "Zustimmung gespeichert."
@@ -565,21 +525,18 @@ export function SwipesClient({
             ? "Ablehnung gespeichert."
             : "Offene Bewertung gespeichert.",
       );
-      setChromeRevealSignal((prev) => prev + 1);
-      if (!item.hasEventualities) {
-        queueVotePayload({ statementId: item.id, decision });
+      queueVotePayload({ statementId: item.id, decision });
+      moveToNextTopic();
+      if (openGateBeforeNextVote) {
+        freeVote.setGateOpen(true);
       }
-      window.setTimeout(() => setScreenFlash(null), 260);
-
-      await beginEventualityStep(item, decision, openGateAfterTopic);
     },
     [
       adjustSessionVoteCount,
       announce,
-      beginEventualityStep,
-      completedCount,
       freeVote,
       isVoteLocked,
+      moveToNextTopic,
       openDossierRoute,
       privacyGate,
       queueVotePayload,
@@ -618,7 +575,6 @@ export function SwipesClient({
     }
 
     setOpenGateAfterStep(false);
-    setScreenFlash(null);
     setTransitionHint(prevHint ?? "Letzte Entscheidung zurückgenommen.");
     const pendingVote = pendingVotePayloadRef.current;
     if (pendingVote && pendingVote.statementId === item.id) {
@@ -629,10 +585,8 @@ export function SwipesClient({
     if (freeVote.enabled) {
       freeVote.unregisterVote();
     }
-    setPendingNeutralReasonStatementId((prev) => (prev === item.id ? null : prev));
     freeVote.setGateOpen(false);
     announce("Letzte Bewertung wurde zurückgenommen.");
-    setChromeRevealSignal((prev) => prev + 1);
     setLastVote(null);
   }, [activeItem, adjustSessionVoteCount, announce, cancelPendingVote, eventualityStepOpen, freeVote, lastVote]);
 
@@ -670,28 +624,9 @@ export function SwipesClient({
         excludedEventualityIds: selection.excludedEventualityIds,
       });
       setTransitionHint("Variante mit Gewichtung gespeichert. Nächstes Thema folgt.");
-      setChromeRevealSignal((prev) => prev + 1);
       finishEventualityStep();
     },
     [eventualityStepDecision, eventualityStepItem, finishEventualityStep, queueVotePayload],
-  );
-
-  const handleNeutralReasonSelect = useCallback(
-    (reason: SwipeNeutralReason | null) => {
-      const statementId = pendingNeutralReasonStatementId;
-      if (!statementId) return;
-      if (reason) {
-        void postSwipeVote({
-          statementId,
-          decision: "neutral",
-          neutralReason: reason,
-        });
-        const selectedLabel = NEUTRAL_REASON_OPTIONS.find((option) => option.id === reason)?.label ?? "Grund erfasst";
-        setTransitionHint(`Offen-Grund erfasst: ${selectedLabel}.`);
-      }
-      setPendingNeutralReasonStatementId(null);
-    },
-    [pendingNeutralReasonStatementId],
   );
 
   useEffect(() => {
@@ -721,22 +656,10 @@ export function SwipesClient({
   }, [activeItem, eventualityStepOpen, handlePrimaryVote, openDetail]);
 
   return (
-    <div className={`mx-auto flex flex-col gap-3 px-3 pt-1.5 md:gap-4 md:px-4 md:pt-6 ${isSolo ? "max-w-3xl" : "max-w-6xl"} pb-36 md:pb-24`}>
+    <div className={`mx-auto flex flex-col gap-2.5 px-3 pt-1.5 md:gap-4 md:px-4 md:pt-6 ${isSolo ? "max-w-3xl" : "max-w-6xl"} pb-28 md:pb-24`}>
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {liveMessage}
       </div>
-
-      {screenFlash ? (
-        <div
-          className={`pointer-events-none fixed inset-0 z-40 transition-opacity duration-200 ${
-            screenFlash === "agree"
-              ? "bg-emerald-200/35"
-              : screenFlash === "disagree"
-                ? "bg-rose-200/35"
-                : "bg-sky-200/35"
-          }`}
-        />
-      ) : null}
 
       {isSolo ? <SoloHeader statementId={focusStatementId} /> : null}
 
@@ -827,7 +750,7 @@ export function SwipesClient({
       ) : null}
 
       {!isSolo ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
           {SWIPE_DISCOVERY_SEGMENTS.map((segment) => {
             const active = activeSegment === segment.id;
             return (
@@ -853,6 +776,7 @@ export function SwipesClient({
           ) : activeItem ? (
             <SwipeTopicStep
               item={activeItem}
+              nextItem={items[1] ?? null}
               step={completedCount + 1}
               onVote={(decision) => {
                 void handlePrimaryVote(activeItem, decision);
@@ -868,7 +792,6 @@ export function SwipesClient({
                 }
                 saveItemForLater(activeItem);
                 setTransitionHint("Für später vertiefen gespeichert. Du findest das Thema unter „Gespeichert“.");
-                setChromeRevealSignal((prev) => prev + 1);
                 moveToNextTopic();
               }}
             />
@@ -926,64 +849,54 @@ export function SwipesClient({
         />
       ) : null}
 
+      {!isSolo && decisionHistory.length > 0 ? (
+        <section className="rounded-3xl border border-cyan-300 bg-cyan-50 p-4 text-cyan-950 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-50 md:p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-800 dark:text-cyan-200">
+            Deine Frage, eure Positionen
+          </p>
+          <h2 className="mt-2 text-lg font-bold">Jetzt eine eigene Abstimmung kostenlos starten</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed">
+            Beginne mit einem Entwurf, prüfe ihn selbst und teile ihn erst nach der Freigabe mit deiner Gruppe.
+          </p>
+          <Link
+            href={buildFreeBallotStartHref(undefined, "swipes-outcome")}
+            className="mt-4 inline-flex min-h-11 items-center rounded-full bg-cyan-600 px-5 py-2 text-sm font-bold text-white hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+          >
+            Eigene Abstimmung starten
+          </Link>
+        </section>
+      ) : null}
+
       {!isSolo && activeItem && !eventualityStepOpen && !detailOpen && !freeVote.gateOpen ? (
         <nav
-          className={`fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-30 border-t border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 px-3 pt-2 pb-3 backdrop-blur transition-all duration-200 md:hidden ${
-            mobileActionChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[120%] opacity-0"
-          }`}
+          aria-label="Swipe-Entscheidungen"
+          data-swipe-controls="touch-fallback"
+          className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-30 border-t border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 px-3 py-2 backdrop-blur md:hidden"
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sky-500/10 to-transparent" />
-          <div className="relative mx-auto max-w-xl space-y-2">
-            <div className="mx-auto h-1.5 w-12 rounded-full bg-[rgb(var(--border))]/80" aria-hidden />
-            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
-              Schnellaktionen
-            </p>
-            <div className={`grid gap-2 ${lastVote ? "grid-cols-3" : "grid-cols-2"}`}>
-              <button
-                type="button"
-                onClick={() => {
-                  void openDetail(activeItem);
-                }}
-                className="btn-secondary min-h-[44px] w-full rounded-xl px-3 py-2 text-sm"
-              >
-                Mehr Kontext
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  saveItemForLater(activeItem);
-                  setTransitionHint("Für später vertiefen gespeichert.");
-                  setChromeRevealSignal((prev) => prev + 1);
-                }}
-                className="btn-secondary min-h-[44px] w-full rounded-xl px-3 py-2 text-sm"
-              >
-                Später vertiefen
-              </button>
-              {lastVote ? (
-                <button
-                  type="button"
-                  onClick={handleUndoLastVote}
-                  className="btn-secondary min-h-[44px] w-full rounded-xl px-3 py-2 text-sm"
-                >
-                  Rückgängig
-                </button>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="relative mx-auto max-w-md">
+            <div className="grid grid-cols-4 items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   void handlePrimaryVote(activeItem, "disagree");
                 }}
-                aria-label="Ablehnen"
-                className="btn-vote btn-vote-disagree min-h-[52px] rounded-xl px-2 py-2 text-xs"
+                aria-label="Nein – Karte ablehnen"
+                aria-keyshortcuts="ArrowLeft"
+                className="btn-vote btn-vote-disagree min-h-[54px] rounded-2xl px-2 py-2 text-sm font-bold"
               >
-                <span className="flex flex-col items-center gap-0.5 leading-none">
-                  <span className="text-sm" aria-hidden>
-                    👎
-                  </span>
-                  <span>Nein</span>
-                </span>
+                ← Nein
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void openDetail(activeItem);
+                }}
+                aria-label="Details und Quellen öffnen"
+                aria-keyshortcuts="ArrowUp"
+                className="btn-secondary min-h-[54px] rounded-2xl px-2 py-2 text-xs font-semibold"
+              >
+                Details
               </button>
               <button
                 type="button"
@@ -991,31 +904,32 @@ export function SwipesClient({
                   void handlePrimaryVote(activeItem, "neutral");
                 }}
                 aria-label="Neutral"
-                className="btn-vote btn-vote-neutral min-h-[52px] rounded-xl px-2 py-2 text-xs"
+                aria-keyshortcuts="ArrowDown"
+                className="btn-vote btn-vote-neutral min-h-[54px] rounded-2xl px-2 py-2 text-xs font-semibold"
               >
-                <span className="flex flex-col items-center gap-0.5 leading-none">
-                  <span className="text-sm" aria-hidden>
-                    😐
-                  </span>
-                  <span>Offen</span>
-                </span>
+                Neutral
               </button>
               <button
                 type="button"
                 onClick={() => {
                   void handlePrimaryVote(activeItem, "agree");
                 }}
-                aria-label="Zustimmen"
-                className="btn-vote btn-vote-agree min-h-[52px] rounded-xl px-2 py-2 text-xs"
+                aria-label="Ja – Karte zustimmen"
+                aria-keyshortcuts="ArrowRight"
+                className="btn-vote btn-vote-agree min-h-[54px] rounded-2xl px-2 py-2 text-sm font-bold"
               >
-                <span className="flex flex-col items-center gap-0.5 leading-none">
-                  <span className="text-sm" aria-hidden>
-                    👍
-                  </span>
-                  <span>Ja</span>
-                </span>
+                Ja →
               </button>
             </div>
+            {lastVote ? (
+              <button
+                type="button"
+                onClick={handleUndoLastVote}
+                className="absolute -top-9 right-0 min-h-8 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 px-3 text-[11px] font-semibold text-[rgb(var(--muted))] shadow-sm"
+              >
+                Rückgängig
+              </button>
+            ) : null}
           </div>
         </nav>
       ) : null}
@@ -1045,7 +959,6 @@ export function SwipesClient({
             queueVotePayload({ statementId: eventualityStepItem.id, decision: eventualityStepDecision });
           }
           setTransitionHint("Variante übersprungen. Nächstes Thema folgt.");
-          setChromeRevealSignal((prev) => prev + 1);
           finishEventualityStep();
         }}
       />
@@ -1072,9 +985,6 @@ export function SwipesClient({
         }}
       />
 
-      {!isSolo && pendingNeutralReasonStatementId ? (
-        <NeutralReasonPrompt onSelect={handleNeutralReasonSelect} />
-      ) : null}
     </div>
   );
 }
@@ -1211,34 +1121,6 @@ function EmptyState({
           {ctaLabel}
         </Link>
       ) : null}
-    </section>
-  );
-}
-
-function NeutralReasonPrompt({ onSelect }: { onSelect: (reason: SwipeNeutralReason | null) => void }) {
-  return (
-    <section className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+10.5rem)] z-40 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]/95 p-3 backdrop-blur md:right-4 md:left-auto md:w-[25rem]">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Optional bei Offen</p>
-      <p className="mt-1 text-sm text-[rgb(var(--fg))]">Was fehlt dir gerade für eine Entscheidung?</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {NEUTRAL_REASON_OPTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onSelect(option.id)}
-            className="vog-chip"
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => onSelect(null)}
-        className="mt-3 text-xs font-semibold text-[rgb(var(--muted))] underline-offset-4 hover:underline"
-      >
-        Jetzt überspringen
-      </button>
     </section>
   );
 }

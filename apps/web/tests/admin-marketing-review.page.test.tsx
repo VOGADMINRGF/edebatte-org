@@ -14,6 +14,8 @@ describe("admin marketing review", () => {
     expect(html).toContain("Voxy erklärt · Was ist ein Debattenstand?");
     expect(html).toContain("Caption-Entwurf");
     expect(html).toContain("Script-Entwurf");
+    expect(html).toContain("Für Social-Distribution freigeben");
+    expect(html).toContain("Veröffentlichung und externe Ausspielung bleiben separat freigabepflichtig.");
     expect(html).not.toContain("/admin/editorial/queue");
   });
 
@@ -38,6 +40,7 @@ describe("admin marketing review", () => {
     expect(html).toContain("Review marketing content");
     expect(html).toContain("Content items to review: 2");
     expect(html).toContain("Ready for review");
+    expect(html).toContain("Approve for social distribution");
     expect(html).toContain("Open campaign context");
   });
 });

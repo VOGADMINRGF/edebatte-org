@@ -1,0 +1,7 @@
+# Install the released dependency graph first. The provisioning script then
+# overlays the exact MIT-licensed source revision with --no-deps to add
+# Multilingual V3 support while retaining package version 0.1.7.
+chatterbox-tts==0.1.7
+# PerTh 1.0.1 imports pkg_resources; newer setuptools deliberately removed it.
+setuptools==80.9.0
+pip-licenses==5.5.5

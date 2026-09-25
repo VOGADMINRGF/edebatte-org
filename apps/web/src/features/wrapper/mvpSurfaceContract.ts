@@ -1,9 +1,5 @@
 import { BRAND } from "@/lib/brand";
-import {
-  validateSameOriginNavigationTarget,
-  type InternalNavigationFailureReason,
-  type InternalRedirectPath,
-} from "@/lib/security/internalNavigation";
+import { normalizeInternalRedirectPath, type InternalRedirectPath } from "@/features/create/finalizeRedirect";
 import { ROUTE_ALIAS_CANONICAL_PATHS } from "@features/routes/routeInventoryContract";
 
 export type WrapperMvpSurfaceBucket = "mvp" | "later" | "excluded" | "unknown" | "invalid";
@@ -82,7 +78,7 @@ const BRAND_ORIGIN = new URL(BRAND.baseUrl).origin;
 const SAFE_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 
 function toComparablePath(input: InternalRedirectPath): InternalRedirectPath {
-  const [pathname] = input.split(/[?#]/);
+  const [pathname] = input.split("?");
   if (pathname.length > 1 && pathname.endsWith("/")) {
     return pathname.slice(0, -1) as InternalRedirectPath;
   }
@@ -108,28 +104,23 @@ function classifyPathBucket(path: InternalRedirectPath): WrapperMvpSurfaceBucket
   return "unknown";
 }
 
-function validateWrapperInternalTarget(input: unknown) {
-  return validateSameOriginNavigationTarget(input, {
-    expectedOrigin: BRAND_ORIGIN,
-    allowAbsolute: true,
-  });
-}
+function toInternalPath(input: string): InternalRedirectPath | null {
+  if (!input) return null;
 
-function classifyValidatedPath(path: InternalRedirectPath): WrapperMvpPathClassification {
-  const comparable = toComparablePath(path);
-  return {
-    bucket: classifyPathBucket(path),
-    path,
-    canonicalPath: WRAPPER_ALIAS_CANONICAL[comparable] ?? null,
-  };
-}
+  const trimmed = input.trim();
+  if (!trimmed) return null;
 
-function isStructuralNavigationFailure(reason: InternalNavigationFailureReason): boolean {
-  return ![
-    "not_internal_path",
-    "origin_not_allowed",
-    "unsafe_scheme",
-  ].includes(reason);
+  if (trimmed.startsWith("/")) {
+    return normalizeInternalRedirectPath(trimmed);
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.origin !== BRAND_ORIGIN) return null;
+    return normalizeInternalRedirectPath(`${url.pathname}${url.search}`);
+  } catch {
+    return null;
+  }
 }
 
 export function classifyWrapperMvpPath(input: unknown): WrapperMvpPathClassification {
@@ -137,11 +128,20 @@ export function classifyWrapperMvpPath(input: unknown): WrapperMvpPathClassifica
     return { bucket: "invalid", path: null, canonicalPath: null };
   }
 
-  const validation = validateWrapperInternalTarget(input);
-  if (!validation.ok) {
+  const path = toInternalPath(input);
+  if (!path) {
     return { bucket: "invalid", path: null, canonicalPath: null };
   }
-  return classifyValidatedPath(validation.value.relativeTarget);
+
+  const comparable = toComparablePath(path);
+  const canonicalPath = WRAPPER_ALIAS_CANONICAL[comparable] ?? null;
+  const bucket = classifyPathBucket(path);
+
+  return {
+    bucket,
+    path,
+    canonicalPath,
+  };
 }
 
 export function isWrapperMvpAllowedPath(input: unknown): boolean {
@@ -149,23 +149,19 @@ export function isWrapperMvpAllowedPath(input: unknown): boolean {
 }
 
 export function classifyWrapperHref(input: unknown): WrapperHrefClassification {
-  const href = typeof input === "string" ? input : "";
+  const href = typeof input === "string" ? input.trim() : "";
   if (!href) {
     return { kind: "invalid", href: "", reason: "empty" };
   }
 
-  const internal = validateWrapperInternalTarget(href);
-  if (internal.ok) {
-    const path = internal.value.relativeTarget;
+  const internal = toInternalPath(href);
+  if (internal) {
     return {
       kind: "internal",
       href,
-      path,
-      surface: classifyValidatedPath(path),
+      path: internal,
+      surface: classifyWrapperMvpPath(internal),
     };
-  }
-  if ("reason" in internal && isStructuralNavigationFailure(internal.reason)) {
-    return { kind: "invalid", href, reason: "invalid_path" };
   }
 
   try {

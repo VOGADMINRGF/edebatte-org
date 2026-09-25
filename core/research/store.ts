@@ -5,6 +5,7 @@ import type {
   ResearchContributionDoc,
   ResearchContributionStatus,
   ResearchTask,
+  ResearchTaskDossierBinding,
   ResearchTaskKind,
   ResearchTaskLevel,
   ResearchTaskStatus,
@@ -22,7 +23,10 @@ type TaskFilter = {
   limit?: number;
 };
 
-type SaveTaskInput = Omit<ResearchTask, "id" | "createdAt" | "updatedAt"> & { id?: string };
+type SaveTaskInput = Omit<
+  ResearchTask,
+  "id" | "createdAt" | "updatedAt" | "dossierBinding"
+> & { id?: string };
 
 type CreateContributionInput = Omit<ResearchContribution, "id" | "status" | "createdAt" | "updatedAt">;
 
@@ -47,6 +51,20 @@ type SeedTasksInput = {
   tags?: string[];
   status?: ResearchTaskStatus;
 };
+
+export type BindResearchTaskDossierResult =
+  | { ok: true; status: "bound" | "already_bound" }
+  | {
+      ok: false;
+      reason:
+        | "invalid_task_id"
+        | "invalid_binding"
+        | "task_not_found"
+        | "malformed_existing_binding"
+        | "binding_conflict";
+    };
+
+const DOSSIER_REVISION_HASH_RE = /^[a-f0-9]{64}$/i;
 
 async function researchTasksCol(): Promise<Collection<ResearchTaskDoc>> {
   return coreCol<ResearchTaskDoc>("researchTasks");
@@ -94,6 +112,32 @@ function normalizeLimit(limit?: number): number | undefined {
   return safe > 0 ? safe : undefined;
 }
 
+function isValidDossierBinding(value: unknown): value is ResearchTaskDossierBinding {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const binding = value as Partial<ResearchTaskDossierBinding>;
+  return (
+    typeof binding.dossierId === "string" &&
+    binding.dossierId.length > 0 &&
+    binding.dossierId === binding.dossierId.trim() &&
+    typeof binding.dossierRevisionSeq === "number" &&
+    Number.isInteger(binding.dossierRevisionSeq) &&
+    binding.dossierRevisionSeq > 0 &&
+    typeof binding.dossierRevisionHash === "string" &&
+    DOSSIER_REVISION_HASH_RE.test(binding.dossierRevisionHash)
+  );
+}
+
+function isSameDossierBinding(
+  left: ResearchTaskDossierBinding,
+  right: ResearchTaskDossierBinding,
+): boolean {
+  return (
+    left.dossierId === right.dossierId &&
+    left.dossierRevisionSeq === right.dossierRevisionSeq &&
+    left.dossierRevisionHash === right.dossierRevisionHash
+  );
+}
+
 export async function listTasks(filter?: TaskFilter): Promise<ResearchTask[]> {
   const col = await researchTasksCol();
   const query = buildTaskFilter(filter);
@@ -124,6 +168,37 @@ export async function getTaskById(id: string): Promise<ResearchTask | null> {
   const col = await researchTasksCol();
   const doc = await col.findOne({ _id: new ObjectId(id) });
   return doc ? sanitizeTask(doc) : null;
+}
+
+export async function bindResearchTaskToDossier(
+  taskId: string,
+  binding: ResearchTaskDossierBinding,
+): Promise<BindResearchTaskDossierResult> {
+  if (!ObjectId.isValid(taskId)) return { ok: false, reason: "invalid_task_id" };
+  if (!isValidDossierBinding(binding)) return { ok: false, reason: "invalid_binding" };
+
+  const col = await researchTasksCol();
+  const _id = new ObjectId(taskId);
+  const result = await col.updateOne(
+    { _id, dossierBinding: { $exists: false } },
+    { $set: { dossierBinding: binding, updatedAt: new Date() } },
+    { upsert: false },
+  );
+
+  if (result.modifiedCount === 1) {
+    return { ok: true, status: "bound" };
+  }
+
+  const current = await col.findOne({ _id });
+  if (!current) return { ok: false, reason: "task_not_found" };
+  if (!("dossierBinding" in current)) return { ok: false, reason: "binding_conflict" };
+  if (!isValidDossierBinding(current.dossierBinding)) {
+    return { ok: false, reason: "malformed_existing_binding" };
+  }
+  if (isSameDossierBinding(current.dossierBinding, binding)) {
+    return { ok: true, status: "already_bound" };
+  }
+  return { ok: false, reason: "binding_conflict" };
 }
 
 export async function saveTask(input: SaveTaskInput): Promise<ResearchTask> {

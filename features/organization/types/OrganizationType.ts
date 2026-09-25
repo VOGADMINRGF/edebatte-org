@@ -1,10 +1,11 @@
 import { QRCodeEntry } from "../../contribution/types/QRCodeEntry";
 import { OrganizationEvent } from "../../contribution/types/OrganizationEvent";
+import type { OrganizationStorageType } from "../registryContract";
 
 export interface Organization {
   _id?: string;
   name: string;
-  type: 'company' | 'school' | 'ngo' | 'foundation' | 'media' | 'association' | 'party' | 'other';
+  type: OrganizationStorageType;
   projects?: OrganizationProject[];
   users?: string[];
   events?: OrganizationEvent[];

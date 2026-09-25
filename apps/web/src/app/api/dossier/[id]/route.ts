@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { coreCol } from "@core/db/triMongo";
 import demoDossier from "@features/dossier/data/demoDossier";
+import chatkontrolleDossier from "@features/dossier/data/chatkontrolleDossier";
 import type { MaterialLink, StoredDossier } from "@features/dossier/infra/types";
 import { findDossierByAnyId } from "@features/dossier/lookup";
 import { buildDossierUpdateReadModel } from "@features/dossier/updateReadModel";
@@ -21,6 +22,19 @@ export async function GET(_: NextRequest, { params }: RouteParams) {
   const id = rawId ?? "demo";
   if (id === "demo" || id === demoDossier.meta.id) {
     return NextResponse.json({ ok: true, dossier: demoDossier, materialLinks: [] }, { status: 200 });
+  }
+  if (id === "chatkontrolle") {
+    return NextResponse.json(
+      {
+        ok: true,
+        dossier: chatkontrolleDossier,
+        materialLinks: [],
+        updateContext: null,
+        sourceStatusLabel: "Redaktioneller Quellenstand · 17.09.2026",
+        updateSummary: null,
+      },
+      { status: 200 },
+    );
   }
 
   try {

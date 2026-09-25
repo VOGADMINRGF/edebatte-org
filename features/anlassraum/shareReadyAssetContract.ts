@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { requireQrStudioTargetHref } from "@/features/qr/security";
 
 export const SHARE_READY_TARGET_KINDS = [
   "anlass_public_target",
@@ -295,12 +294,11 @@ export function resolveShareReadyAssetContract(
     primaryTargetKind,
     targets,
   });
-  const qrDestination = resolveQrTarget({
+  const qrTarget = resolveQrTarget({
     primaryTargetKind,
     canonicalPublicTarget,
     roundOperatingTarget: targets.roundOperatingTarget,
   });
-  const qrTarget = requireQrStudioTargetHref(qrDestination);
 
   const shareTitleBase = normalizeText(input.title) || "Neuer Anlass";
   const shareSummaryBase =

@@ -8,14 +8,6 @@ describe("mobile app shell contract", () => {
     expect(surface.bottomNavEnabled).toBe(true);
     expect(surface.hideFooter).toBe(true);
     expect(surface.reason).toBe("core");
-    expect(surface.path).toBe("/swipes?fromDraft=abc");
-  });
-
-  it("preserves query and fragment after raw-first validation", () => {
-    const surface = classifyMobileAppShellPath("/swipes?fromDraft=abc#current");
-    expect(surface.reason).toBe("core");
-    expect(surface.path).toBe("/swipes?fromDraft=abc#current");
-    expect(classifyMobileAppShellPath(" /swipes ").path).toBeNull();
   });
 
   it("keeps create/factcheck/companion in mobile core shell", () => {

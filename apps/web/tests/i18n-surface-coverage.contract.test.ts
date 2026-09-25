@@ -81,7 +81,20 @@ describe("i18n surface coverage contract", () => {
     expect(audit.bundleLocales).toContain("de");
     expect(audit.bundleLocales).toContain("en");
     expect(audit.bundleLocales).toContain("ar");
-    expect(audit.bundleDrift.missingFromBundles).toEqual(["zh"]);
+    expect(audit.bundleDrift.missingFromBundles).toEqual([
+      "bg",
+      "da",
+      "et",
+      "ga",
+      "hr",
+      "hu",
+      "lt",
+      "lv",
+      "mt",
+      "sk",
+      "sl",
+      "zh",
+    ]);
   });
 
   it("keeps the current switcher and reader-language drift explicit instead of silently claiming full UI parity", () => {
@@ -120,7 +133,19 @@ describe("i18n surface coverage contract", () => {
       "ro",
       "el",
       "uk",
+      "bg",
+      "da",
+      "et",
+      "ga",
+      "hr",
+      "hu",
+      "lv",
+      "lt",
+      "mt",
+      "sk",
+      "sl",
     ]);
+    expect(new Set(audit.contentLanguageSelectLocales)).toEqual(new Set(SUPPORTED_LOCALES));
     expect(audit.dormantLocaleSwitcherLocales).toEqual([
       "de",
       "en",
@@ -142,6 +167,17 @@ describe("i18n surface coverage contract", () => {
       "ro",
       "el",
       "uk",
+      "bg",
+      "da",
+      "et",
+      "ga",
+      "hr",
+      "hu",
+      "lv",
+      "lt",
+      "mt",
+      "sk",
+      "sl",
     ]);
     expect(audit.publicAutoTranslateLocales).toEqual(["it", "ru", "zh", "fr", "es", "pl"]);
     expect(audit.coverageStatus).toBe("partial");
@@ -199,5 +235,4 @@ describe("i18n surface coverage contract", () => {
       "LIVE-PRODUCT-CONTRACT-01 evidence: PR #419 gemergt",
     );
   });
-
 });

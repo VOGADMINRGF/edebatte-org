@@ -50,9 +50,9 @@ describe("swipes public topic supply contract", () => {
       />,
     );
 
-    expect(html).toContain("Warum wird dir das angezeigt?");
-    expect(html).toContain("Dossier öffnen");
-    expect(html).toContain("Zum Anlassraum");
-    expect(html).toContain("Noch keine automatische Veröffentlichung.");
+    expect(html).toContain("Warum sehe ich das?");
+    expect(html).toContain("Vollständigen Hintergrund");
+    expect(html).toContain("Zum Thema");
+    expect(html).toContain("bleibt aber bis zur Prüfung ein Vorschlag");
   });
 });

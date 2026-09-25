@@ -64,12 +64,9 @@ export function CreateDebattenstandStatusBar(props: {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            Debattenstand
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">{props.model.phaseLabel}</p>
+          <p className="text-sm font-semibold text-[rgb(var(--fg))]">{props.model.nextStepLabel}</p>
           <p className="mt-1 text-[13px] leading-relaxed text-[rgb(var(--muted))]">
-            {props.model.topicSummaryLabel} · {props.model.nextStepLabel}
+            {props.model.topicSummaryLabel} · {props.model.progressLabel}
           </p>
         </div>
         <button
@@ -96,43 +93,19 @@ export default function CreateDebattenstandSidecar({
     <div
       data-create-debattenstand-sidecar
       data-create-debattenstand-density={density}
-      className={`space-y-4 ${isExpanded ? "" : "space-y-3.5"}`}
+      className="space-y-3.5"
     >
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-              Debattenstand
-            </p>
-            <p className="mt-1 text-[1.02rem] font-semibold text-[rgb(var(--fg))]">
-              {model.phaseLabel}
-            </p>
-            <p className="mt-1 text-[13px] leading-relaxed text-[rgb(var(--muted))]">
-              {model.phaseDetail}
-            </p>
-          </div>
-          <span
-            className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${toneClassName(model.statusTone)}`}
-          >
+      <div className="rounded-[1.2rem] border border-cyan-300/35 bg-cyan-500/[0.06] px-3.5 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[12px] font-semibold text-cyan-950 dark:text-cyan-100">Jetzt wichtig</p>
+          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toneClassName(model.statusTone)}`}>
             {model.progressLabel}
           </span>
         </div>
-        <div className="rounded-[1.2rem] border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3.5 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">
-            Nächster Schritt
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">{model.nextStepLabel}</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-[rgb(var(--muted))]">
-            {model.nextStepDetail}
-          </p>
-          <p className="mt-2 text-[12px] font-medium text-[rgb(var(--muted))]">{model.openDecisionLabel}</p>
-        </div>
-      </div>
-
-      <div className={`grid gap-3 ${isExpanded ? "sm:grid-cols-1" : ""}`}>
-        <StatusPair label={model.analysisStatusLabel} detail={model.analysisStatusDetail} />
-        <StatusPair label={model.validationStatusLabel} detail={model.validationStatusDetail} />
-        <StatusPair label={model.sourceStatusLabel} detail={model.sourceStatusDetail} />
+        <p className="mt-2 text-base font-semibold text-[rgb(var(--fg))]">{model.nextStepLabel}</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-[rgb(var(--muted))]">
+          {model.nextStepDetail}
+        </p>
       </div>
 
       {model.errorLabel && model.errorDetail ? (
@@ -142,16 +115,13 @@ export default function CreateDebattenstandSidecar({
         </div>
       ) : null}
 
-      <div className="rounded-[1.25rem] border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--bg))_10%)] px-3.5 py-3.5">
+      <div className="rounded-[1.2rem] border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3.5 py-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-              Themen
-            </p>
-            <p className="mt-1 text-sm font-semibold text-[rgb(var(--fg))]">{model.topicSummaryLabel}</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-[rgb(var(--muted))]">
-              {model.topicPreviewLabel}
-            </p>
+            <p className="text-sm font-semibold text-[rgb(var(--fg))]">{model.topicSummaryLabel}</p>
+            {isExpanded ? (
+              <p className="mt-1 text-[13px] leading-relaxed text-[rgb(var(--muted))]">{model.topicPreviewLabel}</p>
+            ) : null}
           </div>
           <span className="rounded-full border border-[rgb(var(--border))] px-3 py-1 text-[12px] font-medium text-[rgb(var(--muted))]">
             {model.visibleTopicCount}/{model.totalTopicCount}
@@ -179,6 +149,21 @@ export default function CreateDebattenstandSidecar({
           </button>
         ) : null}
       </div>
+
+      <details
+        className="rounded-[1.2rem] border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--bg))_10%)] px-3.5 py-3"
+        open={isExpanded || undefined}
+      >
+        <summary className="cursor-pointer text-sm font-medium text-[rgb(var(--fg))]">
+          Einordnung und Quellen
+        </summary>
+        <div className="mt-3 grid gap-3">
+          <StatusPair label={model.analysisStatusLabel} detail={model.analysisStatusDetail} />
+          <StatusPair label={model.validationStatusLabel} detail={model.validationStatusDetail} />
+          <StatusPair label={model.sourceStatusLabel} detail={model.sourceStatusDetail} />
+        </div>
+        <p className="mt-3 text-[12px] leading-relaxed text-[rgb(var(--muted))]">{model.phaseDetail}</p>
+      </details>
     </div>
   );
 }

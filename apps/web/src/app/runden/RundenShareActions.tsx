@@ -115,12 +115,6 @@ export default function RundenShareActions({ share }: RundenShareActionsProps) {
     await handleCopy(shareText, "Teilnahmehinweis");
   }
 
-  function handlePrint() {
-    if (typeof window === "undefined") return;
-    window.print();
-    setMessage("Druckansicht geöffnet.");
-  }
-
   return (
     <section className="mt-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-[rgb(var(--muted))]">
@@ -156,30 +150,12 @@ export default function RundenShareActions({ share }: RundenShareActionsProps) {
         >
           Teilnahme teilen
         </button>
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="rounded-md border border-[rgb(var(--border))] px-3 py-1.5 text-xs font-semibold text-[rgb(var(--fg))] hover:bg-[rgb(var(--card))]"
-        >
-          QR drucken
-        </button>
       </div>
-
-      <p className="mt-2 break-all text-[11px] text-[rgb(var(--muted))]">
-        Teilnahmelink:{" "}
-        <a
-          href={canonicalUrl}
-          className="font-semibold text-[rgb(var(--grad-from))] hover:text-[rgb(var(--grad-to))]"
-        >
-          {canonicalUrl}
-        </a>
-      </p>
 
       <div className="mt-3 space-y-1 text-[11px] text-[rgb(var(--muted))]">
         <p>Teile diesen Anlassraum mit Nachbarn, Freunden oder deiner Initiative.</p>
         <p>Nutze den QR-Code für Bürgerdialoge, Veranstaltungen oder Workshops.</p>
         <p>Link, Share und QR erscheinen erst nach einer bewussten sichtbaren Freigabe.</p>
-        <p>Ohne Kamera bleibt der sichere Link sichtbar und kann direkt kopiert oder geöffnet werden.</p>
         <p>Wird der Anlass pausiert, geschlossen oder archiviert, endet auch dieser öffentliche Teilnahmepfad wieder sichtbar.</p>
       </div>
 

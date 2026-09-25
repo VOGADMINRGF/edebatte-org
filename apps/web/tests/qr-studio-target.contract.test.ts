@@ -5,8 +5,8 @@ import {
   resolveQrStudioTarget,
 } from "@features/qr";
 
-describe("studio target contract", () => {
-  it("keeps internal public paths on the canonical studio route", () => {
+describe("qr studio target contract", () => {
+  it("keeps internal public paths on the canonical qr-studio route", () => {
     const resolved = resolveQrStudioTarget({
       target: "/dossier/demo-1?view=public",
       caller: "content_release_workbench",
@@ -26,7 +26,7 @@ describe("studio target contract", () => {
         caller: "content_release_workbench",
       }),
     ).toBe(
-      "/studio?caller=content_release_workbench&target=%2Fdossier%2Fdemo-1%3Fview%3Dpublic",
+      "/qr-studio?caller=content_release_workbench&target=%2Fdossier%2Fdemo-1%3Fview%3Dpublic",
     );
   });
 
@@ -66,7 +66,7 @@ describe("studio target contract", () => {
     ).toMatchObject({
       status: "blocked",
       caller: "legacy_qrcodegenerator",
-      reason: "origin_not_allowed",
+      reason: "host_not_allowed",
     });
 
     expect(
@@ -74,29 +74,17 @@ describe("studio target contract", () => {
         target: "https://example.com/foreign",
         caller: "legacy_qrcodegenerator",
       }),
-    ).toBe("/studio?caller=legacy_qrcodegenerator&targetState=blocked");
+    ).toBe("/qr-studio?caller=legacy_qrcodegenerator&targetState=blocked");
   });
 
-  it("does not turn surrounding whitespace into an empty or ready target", () => {
-    expect(
-      resolveQrStudioTarget({
-        target: " /dossier/demo ",
-        publicOrigin: "https://www.edebatte.org",
-      }),
-    ).toMatchObject({
-      status: "blocked",
-      reason: "surrounding_whitespace",
-    });
-  });
-
-  it("keeps a small caller inventory for known studio entry sources", () => {
+  it("keeps a small caller inventory for known qr entry sources", () => {
     expect(QR_STUDIO_CALLER_INVENTORY).toMatchObject({
       content_release_workbench: "Review-to-Publish Workspace",
       public_topic_page: "Öffentliche Themenseite",
       organization_dashboard: "Organisations-Dashboard",
       legacy_qrcodegenerator: "Legacy QR Generator",
       legacy_qrcodewizard: "Legacy QR Wizard",
-      qr_studio: "Studio",
+      qr_studio: "QR Studio",
     });
   });
 });

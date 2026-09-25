@@ -2,6 +2,14 @@
 
 > Status-Hinweis (2026-03-19): Dieses Part ist normativ. Der verbindliche Aufgabenstand liegt in `docs/E150/OpenTasks.md`. Dieses Dokument definiert jedoch die Leitplanken, an die alle Folge-Parts gebunden sind.
 
+## Update 2026-09-02 (Bürgerkern und kanonische Reconciliation)
+
+- Primärer Adressat der öffentlichen Produkterfahrung ist der Bürger beziehungsweise die Bürgerin mit einem konkreten Anliegen; institutionelle Nutzer bleiben wichtige sekundäre und professionelle Pfade derselben Plattform.
+- Der bürgerverständliche Wirkpfad `Anliegen → Region/Zuständigkeit → Strukturierung/Qualifizierung → gemeinsames Lagebild → Debatte/Priorisierung/Evidenz → Mandat/Handlung → Umsetzung/Impact` ersetzt den fachlichen Kernfluss nicht, sondern projiziert ihn nach außen.
+- Ein Anliegen kann als direktes Signal oder reviewpflichtiger Signalkandidat in den bestehenden Pfad eintreten. Place-/Registry-/Jurisdiction-, Anlassraum-, Dossier-, Runden-, Mandats- und Impact-Verträge bleiben die kanonische Fachwahrheit.
+- Direkter Anliegen-Intake und direkter Einstieg in eine bestehende Abstimmungs-/Swipe-Frage sind zwei zulässige Einstiegssituationen derselben Bürgerreise; daraus entsteht keine zweite Beteiligungs- oder Vote-Wahrheit.
+- Voxy ist langfristig die primäre sichtbare KI-Schnittstelle. Spezialisierte Agenten bleiben im normalen Bürgerpfad verborgen und werden nur auf ausdrücklich vorgesehenen Operatorflächen sichtbar.
+
 ## Update 2026-05-03 (Public Journey)
 
 - Oeffentliche Erstfuehrung bleibt informationsorientiert: Themen -> Swipes -> Dossier -> Beitrag/Hinweis -> Follow.
@@ -41,6 +49,21 @@ eDebatte / VoiceOpenGov soll zu einer dauerhaften Demokratie- und Entscheidungsi
 Der Kernfluss lautet:
 
 **Signal -> Anlassraum -> Dossier -> Runde -> Mandat -> Umsetzung -> Impact**
+
+Aus Bürgerperspektive wird derselbe Fluss verständlich als:
+
+**Anliegen -> Region / Zuständigkeit -> Strukturierung / Qualifizierung -> gemeinsames Lagebild -> Debatte / Priorisierung / Evidenz -> Mandat / Handlung -> Umsetzung / Impact**
+
+Dabei gilt die verbindliche Zuordnung:
+
+- `Anliegen` -> direktes Signal oder reviewpflichtiger Signalkandidat;
+- `Region / Zuständigkeit` -> bestehende Place-, Registry-, Region- und Jurisdiction-Auflösung;
+- `Strukturierung / Qualifizierung` -> kanonischer `/create`-/Intake-Pfad;
+- `gemeinsames Lagebild` -> Kontext im Anlassraum und analytische Verdichtung im Dossier;
+- `Debatte / Priorisierung / Evidenz` -> Dossier, Runde und Beteiligung auf derselben Claim-/Source-/Evidence-Wahrheit;
+- `Mandat / Handlung -> Umsetzung -> Impact` -> bestehende nachgelagerte Wirkungsstufen.
+
+Die Zuordnung erzeugt keine automatische Fachobjekterstellung. Review-, Reife-, Sichtbarkeits- und Human-Gates bleiben erhalten.
 
 ### 2.2 Was die Plattform ist
 

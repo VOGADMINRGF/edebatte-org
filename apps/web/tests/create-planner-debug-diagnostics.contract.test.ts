@@ -99,8 +99,11 @@ describe("create planner debug diagnostics contract", () => {
       });
 
     const planner = await buildCreatePlanner({
-      text:
-        "Bei uns im Bezirk fährt der Bus abends nur noch alle 30 Minuten. Dadurch verpassen viele Beschäftigte den Anschluss an die S-Bahn. Gleichzeitig soll die Hauptstraße umgebaut werden, aber niemand weiß, ob dabei Parkplätze wegfallen oder neue Radwege entstehen.",
+      text: Array.from(
+        { length: 10 },
+        () =>
+          "Bei uns im Bezirk fährt der Bus abends nur noch alle 30 Minuten. Dadurch verpassen viele Beschäftigte den Anschluss an die S-Bahn. Gleichzeitig soll die Hauptstraße umgebaut werden, aber niemand weiß, ob dabei Parkplätze wegfallen oder neue Radwege entstehen.",
+      ).join(" "),
       locale: "de",
     });
 
@@ -170,7 +173,10 @@ describe("create planner debug diagnostics contract", () => {
     );
 
     const planner = await buildCreatePlanner({
-      text: "Ein längerer politischer Beitrag mit mehreren Themen.",
+      text: Array.from(
+        { length: 20 },
+        () => "Ein längerer politischer Beitrag mit mehreren eigenständigen Themen und ausführlichem Kontext.",
+      ).join(" "),
       locale: "de",
     });
 
@@ -268,7 +274,7 @@ describe("create planner debug diagnostics contract", () => {
 
     expect(planner.degradedReason).toBe("invalid_provider_payload");
     expect(planner.plannerDebug.normalizedPayloadValid).toBe(false);
-    expect(planner.plannerDebug.providerErrorCode).toBe("planner_core_missing");
+    expect(planner.plannerDebug.providerErrorCode).toBe("contract_violation_plannerCore");
     expect(planner.plannerDebug).not.toHaveProperty("errorMessage");
     expect(planner.plannerDebug).not.toHaveProperty("providerErrorMessage");
   });

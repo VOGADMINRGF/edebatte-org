@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stableHash } from "@core/utils/hash";
 import { buildCreateIntelligentFollowup } from "@/features/create/intelligentFollowup";
@@ -19,6 +19,7 @@ import {
   ensureCreateSupportTicket,
   type CreateSupportHandoffPublic,
 } from "@/features/support/createSupportTickets";
+import { scheduleSupportTicketNotification } from "@/features/operator/operatorNotifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,12 @@ function supportFailureMessage(locale: string) {
     : "Dein Beitrag ist gespeichert. Bitte versuche es erneut und nutze die technische Fehlerreferenz, falls das Problem bestehen bleibt.";
 }
 
+function supportRecordedMessage(locale: string, ticketNumber: string) {
+  return locale.toLowerCase().startsWith("en")
+    ? `Your contribution is saved. A technical case (${ticketNumber}) was recorded for QA/Auth review.`
+    : `Dein Beitrag ist gespeichert. Der technische Fall ${ticketNumber} wurde für QA/Auth erfasst.`;
+}
+
 async function createSupportHandoff(input: {
   actor: VerifiedCreateUserActor;
   requestId: string;
@@ -73,28 +80,27 @@ async function createSupportHandoff(input: {
   technicalErrorCodeOverride?: string;
 }): Promise<CreateSupportHandoffPublic> {
   try {
+    const technicalErrorCode =
+      input.technicalErrorCodeOverride ??
+      (input.analysisState === "fetch_failed" ? "CREATE_FETCH_FAILED" : "CREATE_AI_FAILED");
+    const provider = input.planner?.plannerDebug?.attemptedProvider ?? null;
+    const reason = input.reasonOverride ?? input.planner?.degradedReason ?? input.analysisState;
     const ticket = await ensureCreateSupportTicket({
       affectedUserId: input.actor.affectedUserId,
       orchestrationPhase: "intelligent_followup",
       correlationId: input.requestId,
       traceId: input.requestId,
-      technicalErrorCode:
-        input.technicalErrorCodeOverride ??
-        (input.analysisState === "fetch_failed"
-          ? "CREATE_FETCH_FAILED"
-          : "CREATE_AI_FAILED"),
-      provider: input.planner?.plannerDebug?.attemptedProvider ?? null,
-      reason:
-        input.reasonOverride ??
-        input.planner?.degradedReason ??
-        input.analysisState,
+      technicalErrorCode,
+      provider,
+      reason,
       providerErrorCode:
         input.planner?.plannerDebug?.providerErrorCode ?? null,
       attemptCount: input.planner?.providerAttemptCount ?? 1,
       draftId: input.draftId,
       locale: input.locale,
     });
-    return { status: "created", ticket };
+    scheduleSupportTicketNotification({ ticketNumber: ticket.ticketNumber, technicalErrorCode, provider, reason });
+    return { status: "created", ticket: { ...ticket, safeUserMessage: supportRecordedMessage(input.locale, ticket.ticketNumber) } };
   } catch {
     return {
       status: "failed",
@@ -105,6 +111,7 @@ async function createSupportHandoff(input: {
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartedAt = Date.now();
   const fallbackRequestId = crypto.randomUUID();
   const sessionUser = await getSessionUser(req).catch(() => null);
   const userId = sessionUser?._id?.toString() ?? null;
@@ -177,6 +184,7 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
+    const accessMs = Date.now() - requestStartedAt;
     const requestId = body.correlationId;
     const normalizedIntent = parseCreateIntent(body.intent ?? undefined);
     const operationType = "create_intelligent_followup_planner" as const;
@@ -231,12 +239,19 @@ export async function POST(req: NextRequest) {
               operationId,
               operationType,
               userScope: "present" as const,
+              timings: {
+                accessMs,
+                plannerMs: 0,
+                contextMs: 0,
+                totalMs: Date.now() - requestStartedAt,
+              },
             },
           };
         }
 
         try {
           await markExternalExecutionStarted();
+          const orchestrationStartedAt = Date.now();
           const result = await buildCreateIntelligentFollowup({
             text: body.text,
             locale,
@@ -248,7 +263,10 @@ export async function POST(req: NextRequest) {
             dossierId: body.dossierId ?? null,
             intent: normalizedIntent,
             maxSuggestions: 6,
+            schedulePostResponseTask: after,
           });
+          const orchestrationMs = Date.now() - orchestrationStartedAt;
+          const plannerMs = result.meta?.planner?.runtimeMs ?? null;
           const analysisState = result.meta?.analysis?.state ?? null;
           const supportHandoff =
             analysisState === "ai_failed" || analysisState === "fetch_failed"
@@ -271,6 +289,27 @@ export async function POST(req: NextRequest) {
               operationId,
               operationType,
               userScope: "present" as const,
+              intake: result.meta?.planner
+                ? {
+                    selectedTimingLane: result.meta.planner.timingLane ?? "standard",
+                    inputLength: result.meta.planner.inputLength ?? body.text.trim().length,
+                    canonicalTopicCount: result.understanding.topics.length,
+                    issueMode:
+                      result.meta.planner.issueMode ??
+                      (result.understanding.topics.length >= 3
+                        ? "multi_issue"
+                        : "single_issue"),
+                  }
+                : undefined,
+              timings: {
+                accessMs,
+                plannerMs,
+                contextMs:
+                  plannerMs === null
+                    ? null
+                    : Math.max(0, orchestrationMs - plannerMs),
+                totalMs: Date.now() - requestStartedAt,
+              },
             },
           };
         } catch {
@@ -302,6 +341,12 @@ export async function POST(req: NextRequest) {
               operationId,
               operationType,
               userScope: "present" as const,
+              timings: {
+                accessMs,
+                plannerMs: null,
+                contextMs: null,
+                totalMs: Date.now() - requestStartedAt,
+              },
             },
           };
         }
@@ -316,6 +361,10 @@ export async function POST(req: NextRequest) {
           : singleFlight.recovered
             ? "recovered"
             : "owner",
+        timings: {
+          ...singleFlight.result.trace.timings,
+          totalMs: Date.now() - requestStartedAt,
+        },
       },
     });
     return response;
@@ -353,6 +402,12 @@ export async function POST(req: NextRequest) {
         operationType: "create_intelligent_followup_planner",
         userScope: "present",
         singleFlight: "unavailable",
+        timings: {
+          accessMs: Date.now() - requestStartedAt,
+          plannerMs: null,
+          contextMs: null,
+          totalMs: Date.now() - requestStartedAt,
+        },
       },
     });
     return response;

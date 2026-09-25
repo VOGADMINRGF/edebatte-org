@@ -1,0 +1,1 @@
+Status note: strict public-brand routing contract introduced on PR #641. Existing marketing registry/schema wiring remains follow-up within the same review stack; no live distribution behavior is changed by this note.

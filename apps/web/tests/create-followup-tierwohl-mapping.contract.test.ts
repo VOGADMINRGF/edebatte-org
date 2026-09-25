@@ -20,7 +20,7 @@ describe("create follow-up tierwohl mapping", () => {
     process.env.OPENAI_API_KEY = "";
   });
 
-  it("maps tierwohl, import-export and eu/international scope without officeholder drift", async () => {
+  it("does not invent tierwohl structure when the provider is unavailable", async () => {
     mocks.analyzeContribution.mockRejectedValue(new Error("provider_failed"));
 
     const result = await buildCreateIntelligentFollowup({
@@ -33,33 +33,19 @@ describe("create follow-up tierwohl mapping", () => {
     const branchTitles = branches.map((branch) => branch.title);
     const suggestionTitles = result.suggestions.map((suggestion) => suggestion.title);
 
-    expect(result.meta?.planner.plannerTopic).toBe("Tierschutz, Tierhaltung und Agrarstandards");
+    expect(result.meta?.planner.plannerTopic).toBe("Analyse noch nicht validiert");
     expect(result.meta?.planner.providerPlan.plannerRole).toBe("planner_only");
     expect(result.meta?.researchUsed).toBe("none");
     expect(result.meta?.deepSearchUsed).toBe(false);
-    expect(result.understanding.statements[0]?.text).toBe("Forderung nach besseren Tierschutz- und Tierhaltungsstandards");
-    expect(result.understanding.scopes).toEqual(expect.arrayContaining(["eu", "federal", "international"]));
-    expect(topicLabels).toEqual(
-      expect.arrayContaining([
-        "Tierschutz, Tierhaltung und Agrarstandards",
-        "Tierwohl",
-        "Import und Export",
-      ]),
-    );
-    expect(topicLabels.join(" ")).toContain("Bio-Label");
-    expect(topicLabels.join(" ")).toContain("Haltungsstufen");
-    expect(branchTitles).toEqual(
-      expect.arrayContaining([
-        "Tierwohl und Haltungsstandards",
-        "Import- und Exportregeln",
-        "EU-/internationale Mindeststandards",
-        "Verbraucherinformation / Kennzeichnung / Bio-Label / Haltungsstufen",
-        "ethische Bewertung von Tierhaltung",
-      ]),
-    );
-    expect(result.understanding.openQuestion).toBe("Welche Produkte, Länder, Standards und Kontrollmechanismen sind gemeint?");
+    expect(result.meta?.planner.qualityStatus).toBe("failed");
+    expect(result.meta?.planner.degradedReason).toBe("missing_provider_key");
+    expect(result.understanding.statements).toEqual([]);
+    expect(result.understanding.scopes).toEqual(["unclear"]);
+    expect(topicLabels).toEqual([]);
+    expect(branchTitles).toEqual([]);
+    expect(result.understanding.openQuestion).toBeNull();
     expect(suggestionTitles.some((title) => /amtstr[aä]ger|wohnen|verkehr|klima/i.test(title))).toBe(false);
     expect(topicLabels.some((label) => /amtstr[aä]ger|wohnen|verkehr|klima/i.test(label))).toBe(false);
-    expect(topicLabels[0]).not.toBe("Öffentliches Anliegen");
+    expect(suggestionTitles).toEqual([]);
   });
 });

@@ -23,6 +23,18 @@ export type JsonCallArgs = {
   max_tokens?: number;
   timeoutMs?: number;
   response_format?: any;
+  allowJsonFormatFallback?: boolean;
+};
+
+export type JsonCallResult = {
+  text: string;
+  model?: string;
+  tokensIn?: number;
+  tokensOut?: number;
+  formatUsed?: "json_schema" | "json_object";
+  didFallback?: boolean;
+  openaiErrorCode?: string | null;
+  openaiErrorMessage?: string | null;
 };
 
 function normalizeJsonSchemaConfig(responseFormat: any): { name?: string; schema: any; strict?: boolean } | null {
@@ -66,7 +78,7 @@ function normalizeJsonSchemaConfig(responseFormat: any): { name?: string; schema
 export async function callOpenAIJson(
   promptOrArgs: string | JsonCallArgs,
   maxOutputTokens?: number
-): Promise<{ text: string }> {
+): Promise<JsonCallResult> {
   // --- Variante A: simpler String-Prompt ---
   if (typeof promptOrArgs === "string") {
     const prompt = promptOrArgs;
@@ -79,7 +91,16 @@ export async function callOpenAIJson(
   }
 
   // --- Variante B: Objekt aus analyzeContribution.ts ---
-  const { system, user, model, temperature, max_tokens, timeoutMs, response_format } = promptOrArgs;
+  const {
+    system,
+    user,
+    model,
+    temperature,
+    max_tokens,
+    timeoutMs,
+    response_format,
+    allowJsonFormatFallback,
+  } = promptOrArgs;
   const parts: string[] = [];
 
   if (system && system.trim()) {
@@ -98,7 +119,7 @@ export async function callOpenAIJson(
   const jsonSchema = normalizeJsonSchemaConfig(response_format);
   const forceJsonFormat = Boolean(response_format);
 
-  const { text } = await callOpenAI({
+  const result = await callOpenAI({
     prompt: combinedPrompt,
     asJson: true,
     model,
@@ -107,9 +128,10 @@ export async function callOpenAIJson(
     timeoutMs,
     forceJsonFormat,
     jsonSchema,
+    allowJsonFormatFallback,
   });
 
-  return { text };
+  return result;
 }
 
 /* ------------------------------------------------------------------ */

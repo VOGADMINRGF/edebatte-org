@@ -85,6 +85,33 @@ Zu vermeiden oder nur mit eindeutiger Einordnung zu verwenden:
 
 Im Hero-Bereich kann die optionale Leitzeile mit der verdichteten Kernbotschaft kombiniert werden. Die kanonische Langfassung soll anschließend in drei aufeinanderfolgenden Absätzen erscheinen, ohne sichtbare Why–How–What-Überschriften.
 
+Der öffentliche Einstieg ist produkt- und beteiligungsorientiert: Menschen sehen
+ohne vorgeschaltete Erklärung eine konkrete, nicht parteipolitisch polarisierende
+Frage, geben eine Position oder Priorität ab und erkennen anschließend Ergebnis,
+Perspektiven und den nächsten Schritt. Der primäre Handlungsaufruf lautet
+sinngemäß **„Kostenlos Abstimmung starten“**. Eine Registrierung wird vor dieser
+ersten nachvollziehbaren Produkterfahrung nur verlangt, wenn bestehende
+Sicherheits- oder Missbrauchsschutzverträge dies erfordern.
+
+Vereine sind die primäre Pilotkundengruppe. Bürgerinitiativen und lokale Gruppen,
+Verbände und organisierte Netzwerke sowie Organisationen und Kommunen erhalten
+ebenfalls je einen klaren, sachlich belegbaren Einstieg. Öffentliche Conversion-
+Texte sprechen von Fragen, Abstimmungen, Positionen, Prioritäten, Perspektiven,
+Argumenten, Quellen, Ergebnissen und dem Vorbereiten gemeinsamer Entscheidungen.
+Interne Architektur- und Workflowbegriffe wie „Anlassraum“, „Dossier“,
+„Review-first“ oder „Orchestrator“ sind keine primären Einstiegsbegriffe; die
+zugrunde liegenden fachlichen Schutz- und Reviewgrenzen bleiben unverändert.
+
+Der Einstieg und kleine echte Abstimmungen werden freemium positioniert. Bis zu
+30 Teilnehmende sind zunächst ein zentral konfigurierbarer Packaging-Richtwert,
+kein hart codiertes Entitlement, kein Preisversprechen und keine Aussage über
+rechtlich bindende Wahlen. Kostenpflichtige Erweiterungen dürfen nur mit
+tatsächlich verfügbaren Fähigkeiten beworben werden. Solange Preise, Billing oder
+Entitlements nicht beschlossen und produktiv belegt sind, werden weder Europreise
+noch Checkout-, Leistungs- oder Verfügbarkeitsversprechen erfunden. KI unterstützt
+Menschen beim Formulieren, Strukturieren oder Verstehen; sie entscheidet nicht
+autonom und veröffentlicht nicht automatisch.
+
 ### Social Media und Kampagnen
 
 Einzelne Beiträge dürfen jeweils Problem, Wirkweise oder konkrete Beteiligung hervorheben. Über mehrere Beiträge hinweg muss das Gesamtbild erhalten bleiben: Stimmen verbinden, Evidenzen und Zusammenhänge sichtbar machen, Debattenstand herstellen und informierte Beteiligung ermöglichen. Gemeinschaftliche Aufrufe dürfen mit „Hallo Nachbarn,“ eröffnet werden.

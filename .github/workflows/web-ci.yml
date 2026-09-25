@@ -21,6 +21,8 @@ jobs:
       BROWSERSLIST_IGNORE_OLD_DATA: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.17.1
@@ -32,9 +34,47 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: git diff --check
+      - run: node scripts/ci/check-repository-integrity-guards.mjs --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+      - run: pnpm -C apps/web run test:repository-integrity-guards
+      - run: pnpm -C apps/web run test:decision-dossier-t0
       - run: pnpm -C apps/web run test:web-pr-critical-guardrails
       - run: pnpm -C apps/web run test:production-guardrails
       - run: node scripts/ci/check-web-critical-guardrails.mjs
+
+      - name: Focused AI and public discovery contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/ai-public-discovery.contract.test.ts
+          tests/ai-specialist-composition-contract.test.ts
+
+
+      - name: Focused Newsletter N1-N9 contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/newsletter-subscription-contract.test.ts
+          tests/newsletter-subscription-reconciliation.test.ts
+          tests/newsletter-unsubscribe-token.test.ts
+          tests/newsletter-profile-signal-adapter.test.ts
+          tests/newsletter-profile-relevance.test.ts
+          tests/newsletter-preference-center.test.ts
+          tests/newsletter-briefing-policy.test.ts
+          tests/newsletter-delivery-policy.test.ts
+          tests/newsletter-delivery-lifecycle.test.ts
+          tests/newsletter-delivery-lease.test.ts
+          tests/newsletter-n8-n9-acceptance.test.ts
+
+      - name: Focused organization registry contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/organization-brand-source-registry.contract.test.ts
+          tests/organization-registry-onboarding-compatibility.contract.test.ts
+
+      - name: Focused Voxy self-hosted motion contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/voxy-animatable-master-asset.contract.test.ts
+          tests/voxy-self-hosted-motion-strategy.contract.test.ts
+          tests/voxy-character-motion-fixture.contract.test.ts
 
       - name: Focused Create runtime contracts
         run: >-
@@ -47,7 +87,15 @@ jobs:
           tests/create-intelligent-followup.contract.test.ts
           tests/create-intelligent-followup.route.test.ts
           tests/create-link-analysis.auth-contract.test.ts
+          tests/safe-external-fetch.security.test.ts
+          tests/create-external-source-intake.security.test.ts
+          tests/create-external-source-pdf-timeout.contract.test.ts
+          tests/create-external-source-analysis.contract.test.ts
+          tests/youtube-source.contract.test.ts
+          tests/server-drafts.source-evidence.contract.test.ts
           tests/create-route-security.contract.test.ts
+          tests/create-handoff-c9.contract.test.ts
+          tests/create-handoff-security.contract.test.ts
           tests/create-orchestration-single-flight.contract.test.ts
           tests/create-support-tickets.contract.test.ts
           tests/admin-create-support-tickets.route.test.ts
@@ -65,6 +113,8 @@ jobs:
           tests/create-planner-debug-diagnostics.contract.test.ts
           tests/create-planner-timeout.contract.test.ts
           tests/openai-provider.reasoning.contract.test.ts
+          tests/qr-question-set-guard.contract.test.ts
+          tests/qr-question-set-review-flow.route.test.ts
 
       - name: Create save domain contracts with isolated security harness
         run: >-
@@ -72,6 +122,33 @@ jobs:
           --config vitest.create-save.config.ts
           tests/create-mode.save.route.test.ts
           tests/create-save.safety-gate.test.ts
+
+      - name: Focused operator notification contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/operator-notifications.contract.test.ts
+          tests/operator-digest.route.test.ts
+
+      - name: Focused T1 topic qualification contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/topic-qualification-system-question.contract.test.ts
+          tests/topic-qualification-system-question.edge.test.ts
+
+      - name: Focused T2A research dossier binding contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/research-dossier-binding.contract.test.ts
+
+      - name: Focused T2B research plan contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/research-plan-contract.test.ts
+
+      - name: Focused swipe graph projection contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/swipe-graph-projection.contract.test.ts
 
   web-quality:
     name: Web quality
@@ -108,3 +185,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node scripts/ci/check-web-critical-guardrails.mjs
+
+  indexnow-production:
+    name: Post-deploy search discovery
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web-contracts, web-quality, web-security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+      - name: Notify IndexNow only after exact Vercel production success
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node apps/web/scripts/submit-indexnow-after-vercel.mjs

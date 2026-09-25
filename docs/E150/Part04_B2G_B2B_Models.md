@@ -146,6 +146,22 @@ Wichtig:
 - nicht gleich Wahrheitsurteil
 - Truth Guardrails bleiben sichtbar
 
+Redaktionen duerfen den gemeinsamen eDebatte-Evidenzstand bereits vor und waehrend ihrer
+Berichterstattung nutzen. Vorhandene Quellen, Gegenquellen, Claims, Widersprueche,
+Unsicherheiten und offene Fragen koennen in den redaktionellen Arbeitsprozess einfliessen,
+soweit Rechte, Datenschutz, Embargo und Quellenschutz dies erlauben. Oeffentliche Evidenz wird
+durch einen Medienvertrag nicht exklusiv.
+
+Eine spaetere QR-/Companion-Freigabe bewertet den final eingereichten Revisionsstand agent-first
+und policy-gebunden nach Evidenz-, Transparenz- und Methodenkompatibilitaet, nicht nach
+Meinungsgleichheit. Der Agent klaert behebbare Maengel zuerst direkt mit Redaktion, Verfasser
+oder Kunde; nur verbleibende materielle Unsicherheit, hohe Wirkung, sensible Quellen,
+Policy-Konflikt oder Einspruch fuehren mit vorbereitetem Pruefbericht in den Human Loop.
+Abweichende Bewertungen bleiben zulaessig; belegbar falsche, erheblich irrefuehrende oder
+manipulativ verkuerzte Darstellungen erhalten keinen aktiven eDebatte-QR-/Companion-Status. Der
+vollstaendige Contract steht in
+`docs/E150/MEDIA_EVIDENCE_QR_PRICING_DECISION_2026-09-14.md`.
+
 ## 7. Unternehmen / interne Beteiligung
 
 Auch Unternehmen koennen das Modell intern nutzen:
@@ -166,10 +182,16 @@ Die alte pauschale Einwohnerlogik wird nicht mehr als Hauptpfad fortgeschrieben.
 Preis setzt sich zusammen aus:
 
 - **Basispreis** (Infrastruktur)
-- **Anlassraum-Komponente** (aktive / komplexe Themenraeume)
-- **optionale Teilnehmer-Komponente** (aktive, tatsaechliche Beteiligung)
-- **Add-ons** (Event, Assistenz, Reports, Managed Governance)
-- optional **Outcome-/Report-Komponenten**
+- **Organisationsumfang** (Teams, Rollen, Arbeitsbereiche)
+- **Integrationen** (CMS, API, Embed, QR)
+- **Betrieb / SLA** (Support, Reaktionszeit, Schulung)
+- **menschliche Zusatzleistungen** (individuelle Aufbereitung, Moderation, Export, Reporting)
+- **einmalige Einfuehrungsleistungen**
+
+Nicht bepreist werden einzelne Faktenchecks, normale Recherche, Wahrheit, Fakten-/Finding-/
+Evidenzstatus, politische Uebereinstimmung, Review-/QR-Ergebnis, Abstimmungs-/Debattenausgang
+oder Community-/Hinweisgeberwissen. Aufwendige menschliche Zusatzleistungen duerfen transparent
+als Arbeitsleistung angeboten werden, ohne ein inhaltliches Ergebnis zu verkaufen.
 
 ### 8.2 Kommunen
 
@@ -192,9 +214,13 @@ nicht an Einwohnern.
 ### 8.4 Medien
 
 Preis orientiert sich eher an:
-- Anlassraeumen / Dossiers
-- Anzahl Redaktionsraume
-- Factcheck / Review / Embed Nutzung
+- Anzahl und Umfang von Redaktions-/Organisationsarbeitsbereichen
+- Team-, Rollen- und Freigabelogik
+- CMS-/API-/Embed-/QR-Integration und deren Betrieb
+- Servicelevel, Support und Schulung
+- individuellen Export-, Aufbereitungs- und Reporting-Leistungen
+
+Faktencheck, Quellenpruefung und normale Recherche sind keine einzeln bepreisten Wahrheitsprodukte.
 
 ### 8.5 Parteien
 
@@ -240,6 +266,10 @@ ausdruecklich governance-gebunden (`GOV-PRICING-02`):
 - Specials/Add-ons/Pilotstatus transparent steuerbar
 - Overrides nur mit Begruendung + Auditspur
 - Explainability-Pflicht: warum Tarif/Fee/Segment/Sonderstatus greift
+- feste Angebotsachsen fuer Basispaket, Organisation, Integration, Betrieb/SLA, menschliche
+  Zusatzleistung und Einfuehrung
+- Faktencheck-, Evidenz-, Meinungs-, Review- und QR-Freigabestatus als technisch verbotene
+  Preisachsen
 
 Der operative Vorbereitungscontract ist dokumentiert in:
 `docs/E150/GOV-PRICING-02_ADMIN_PRICING_CONTROL_CONTRACT_2026-03-29.md`.

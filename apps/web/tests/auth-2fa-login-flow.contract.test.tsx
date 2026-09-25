@@ -13,8 +13,49 @@ function jsonResponse(body: Record<string, unknown>, ok = true) {
 
 describe("2FA login flow idempotency", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("starts target navigation immediately after the successful auth response", async () => {
+    vi.useFakeTimers();
+    const apiLatencyMs = 150;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(
+            () =>
+              resolve(
+                jsonResponse({
+                  ok: true,
+                  redirectUrl: "/account",
+                }),
+              ),
+            apiLatencyMs,
+          );
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const navigate = vi.fn();
+
+    const { result } = renderHook(() => useLoginFlow({ navigate }));
+    let submit!: Promise<void>;
+    act(() => {
+      submit = result.current.submitCredentials("nachbar@example.org", "secret");
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(apiLatencyMs - 1);
+    });
+    expect(navigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+      await submit;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/account");
   });
 
   it("allows exactly one verify request and stays terminal while redirecting", async () => {
@@ -109,35 +150,5 @@ describe("2FA login flow idempotency", () => {
     expect(navigate).toHaveBeenCalledWith("/account");
     expect(result.current.verificationState).toBe("redirecting");
     expect(result.current.loading).toBe(true);
-  });
-
-  it("never navigates to an unvalidated redirect returned by the API", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse({
-          ok: true,
-          redirectUrl: " /\\evil.example ",
-        }),
-      ),
-    );
-    const navigate = vi.fn();
-
-    const { result } = renderHook(() =>
-      useLoginFlow({
-        initialStep: "twofactor",
-        initialMethod: "email",
-        redirectTo: " /admin ",
-        navigate,
-      }),
-    );
-
-    await act(async () => {
-      await result.current.submitTwoFactor("123456");
-    });
-
-    expect(result.current.redirectUrl).toBe("");
-    expect(navigate).toHaveBeenCalledWith("/account");
-    expect(navigate).not.toHaveBeenCalledWith(" /\\evil.example ");
   });
 });

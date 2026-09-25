@@ -1,0 +1,104 @@
+name: Public Ballot Preview Runtime
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/app/api/public-ballots/**"
+      - "apps/web/src/app/anlassraum/digitalisierung-politik/**"
+      - "apps/web/src/features/socialPublicBallot/**"
+      - "apps/web/tests/social-public-ballot-digital-politics.contract.test.ts"
+      - ".github/workflows/public-ballot-preview-runtime.yml"
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: public-ballot-preview-runtime-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview-votes-readiness:
+    name: Preview VOTES readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve Vercel preview URL
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          preview=""
+          for attempt in $(seq 1 30); do
+            comments="$(curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${REPO}/issues/${PR}/comments?per_page=100")"
+
+            preview="$(printf '%s' "$comments" \
+              | jq -r '[.[] | select(.user.login == "vercel[bot]") | .body] | last // ""' \
+              | grep -Eo 'https://[A-Za-z0-9.-]+\.vercel\.app' \
+              | head -n1 || true)"
+
+            if [[ -n "$preview" ]]; then
+              break
+            fi
+            sleep 10
+          done
+
+          if [[ -z "$preview" ]]; then
+            echo "No Vercel preview URL found in PR comments" >&2
+            exit 1
+          fi
+
+          echo "url=$preview" >> "$GITHUB_OUTPUT"
+          echo "Resolved Vercel preview URL"
+
+      - name: Probe dedicated VOTES runtime
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="${PREVIEW_URL}/api/public-ballots/digital-politics/vote"
+          status=""
+          body=""
+
+          for attempt in $(seq 1 30); do
+            tmp="$(mktemp)"
+            status="$(curl -sS -L \
+              -H 'accept: application/json' \
+              -A 'edebatte-public-ballot-preview-smoke/1.0' \
+              -o "$tmp" \
+              -w '%{http_code}' \
+              "$endpoint" || true)"
+            body="$(cat "$tmp")"
+            rm -f "$tmp"
+
+            if [[ "$status" == "200" || "$status" == "503" || "$status" == "401" ]]; then
+              break
+            fi
+            sleep 10
+          done
+
+          echo "HTTP ${status}"
+          printf '%s\n' "$body" | jq -c . 2>/dev/null || printf '%s\n' "$body"
+
+          if [[ "$status" == "401" ]] && printf '%s' "$body" | grep -q 'Protected deployment'; then
+            echo "Vercel preview is deployment-protected; runtime probe skipped."
+            exit 0
+          fi
+
+          if [[ "$status" != "200" ]]; then
+            echo "Dedicated VOTES runtime is not ready on preview" >&2
+            exit 1
+          fi
+
+          ok="$(printf '%s' "$body" | jq -r '.ok // false')"
+          store="$(printf '%s' "$body" | jq -r '.store // ""')"
+          [[ "$ok" == "true" && "$store" == "votes" ]]

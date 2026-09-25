@@ -88,5 +88,113 @@
     "requiresApprovalBeforeNotification": true,
     "requiresVerifiedAuthority": true,
     "postTrial": "professional_adoption_requires_pilot_single_case_or_operating_package"
+  },
+  "alpha2": {
+    "schemaVersion": "alpha2.registry.v1",
+    "controlPlane": {
+      "id": "alpha_orchestrator",
+      "maxParallelWorkers": 8,
+      "workerSliceMaxTasks": 3,
+      "modelAgnostic": true,
+      "durableLedger": "mongodb",
+      "executionQueue": "bullmq_redis",
+      "legacyRunnerRemainsBounded": true
+    },
+    "providers": [
+      {
+        "id": "openai",
+        "enabledByDefault": true,
+        "purposes": ["reasoning", "research", "content", "support", "visual_qa", "translation"],
+        "requiresRuntimeCredential": true
+      },
+      {
+        "id": "codex",
+        "enabledByDefault": true,
+        "purposes": ["engineering", "repository_execution"],
+        "requiresRuntimeCredential": false
+      },
+      {
+        "id": "oss",
+        "enabledByDefault": false,
+        "purposes": ["classification", "routine_processing", "engineering_benchmark"],
+        "requiresRuntimeCredential": false
+      },
+      {
+        "id": "anthropic",
+        "enabledByDefault": false,
+        "purposes": ["critic_benchmark", "reasoning_benchmark"],
+        "requiresRuntimeCredential": true
+      }
+    ],
+    "organizationRoles": [
+      { "id": "alpha_orchestrator", "title": "Alpha Orchestrator", "domains": ["control-plane", "priority", "delegation", "recovery"], "capabilities": ["orchestration"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "chief_critic", "title": "Chief Critic", "domains": ["adversarial-review", "priority-challenge"], "capabilities": ["critique"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "knowledge_curator", "title": "Knowledge Curator", "domains": ["memory", "lessons", "knowledge-quality"], "capabilities": ["memory_curation"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "risk_governor", "title": "Risk Governor", "domains": ["risk", "policy", "human-gates"], "capabilities": ["risk_governance"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "product_agent", "title": "Product Agent", "domains": ["product", "journey", "requirements"], "capabilities": ["product_analysis"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "engineering_agent", "title": "Engineering Agent", "domains": ["code", "refactoring", "repository"], "capabilities": ["engineering"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "engineering", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts", "vitest:apps/web/tests/alpha2-review-auth-boundary.contract.test.ts"] },
+      { "id": "review_agent", "title": "Independent Review Agent", "domains": ["code-review", "architecture-review"], "capabilities": ["independent_review"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts", "vitest:apps/web/tests/alpha2-review-auth-boundary.contract.test.ts"] },
+      { "id": "qa_agent", "title": "QA Agent", "domains": ["tests", "regression", "accessibility"], "capabilities": ["qa"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "visual_qa_agent", "title": "Visual QA Agent", "domains": ["responsive", "visual", "video-qa"], "capabilities": ["visual_qa"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "visual_qa", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "sre_support_agent", "title": "SRE & Support Agent", "domains": ["observability", "incident", "support"], "capabilities": ["sre_support"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "support", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "security_agent", "title": "Security Agent", "domains": ["security", "dependencies", "secrets", "abuse"], "capabilities": ["security_review"], "toolPermissions": ["read_only"], "defaultRisk": "orange", "riskCeiling": "orange", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "research_agent", "title": "Research Agent", "domains": ["research", "sources", "monitoring"], "capabilities": ["research"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "research", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "evidence_agent", "title": "Evidence Agent", "domains": ["claims", "sources", "uncertainty"], "capabilities": ["evidence"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "research", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "dossier_agent", "title": "Dossier Agent", "domains": ["dossier", "briefing", "participation-format"], "capabilities": ["dossier"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "neutrality_red_team", "title": "Neutrality Red Team", "domains": ["bias", "symmetry", "omissions"], "capabilities": ["neutrality_review"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "global_governance_agent", "title": "Global Governance Agent", "domains": ["vote4gov", "comparative-governance", "civic-tech"], "capabilities": ["global_governance"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "research", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "system_challenger", "title": "System Challenger", "domains": ["institutional-alternatives", "counter-models"], "capabilities": ["system_challenge"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "growth_agent", "title": "Growth Agent", "domains": ["growth", "funnels", "experiments"], "capabilities": ["growth"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "membership_agent", "title": "Membership Agent", "domains": ["voiceopengov", "membership", "activation", "retention"], "capabilities": ["membership"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "community_agent", "title": "Community Agent", "domains": ["community", "feedback", "questions"], "capabilities": ["community"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "funding_agent", "title": "Funding Agent", "domains": ["grants", "partners", "funding"], "capabilities": ["funding"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "analytics_agent", "title": "Analytics Agent", "domains": ["analytics", "impact", "performance"], "capabilities": ["analytics"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "green", "riskCeiling": "green", "defaultModelClass": "reasoning", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "editorial_agent", "title": "Editorial Agent", "domains": ["story", "content", "campaign"], "capabilities": ["editorial"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "content", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "voxy_agent", "title": "Voxy Media Agent", "domains": ["voxy", "script", "voice", "video"], "capabilities": ["voxy_media"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "content", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "distribution_agent", "title": "Distribution Agent", "domains": ["social", "channel-adaptation", "scheduling"], "capabilities": ["distribution"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "content", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] },
+      { "id": "brand_trust_agent", "title": "Brand & Trust Agent", "domains": ["brand", "external-risk", "provenance-wording"], "capabilities": ["brand_trust"], "toolPermissions": ["read_only", "write_reversible"], "defaultRisk": "yellow", "riskCeiling": "yellow", "defaultModelClass": "review", "evaluationSuiteRefs": ["vitest:apps/web/tests/alpha2-agent-fleet.contract.test.ts"] }
+    ],
+    "capabilityRoutes": [
+      { "capability": "orchestration", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "engineering", "preferredProviders": ["codex", "openai"], "fallbackProviders": ["oss"], "independentReviewRequired": true },
+      { "capability": "independent_review", "preferredProviders": ["openai"], "fallbackProviders": ["anthropic"], "independentReviewRequired": false },
+      { "capability": "research", "preferredProviders": ["openai"], "fallbackProviders": ["anthropic"], "independentReviewRequired": false },
+      { "capability": "critique", "preferredProviders": ["openai"], "fallbackProviders": ["anthropic"], "independentReviewRequired": false },
+      { "capability": "high_volume_routine", "preferredProviders": ["oss", "openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "content", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": true },
+      { "capability": "visual_qa", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "support", "preferredProviders": ["openai"], "fallbackProviders": ["oss"], "independentReviewRequired": false },
+      { "capability": "memory_curation", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "risk_governance", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "product_analysis", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "qa", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "sre_support", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "security_review", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "evidence", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "dossier", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "neutrality_review", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "global_governance", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "system_challenge", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "growth", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "membership", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "community", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "funding", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "analytics", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "editorial", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "voxy_media", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "distribution", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false },
+      { "capability": "brand_trust", "preferredProviders": ["openai"], "fallbackProviders": [], "independentReviewRequired": false }
+    ],
+    "globalDeniedActions": [
+      "auto_merge_without_policy",
+      "auto_deploy_without_policy",
+      "general_auto_publish",
+      "synthetic_grassroots",
+      "deceptive_political_microtargeting",
+      "autonomous_spend",
+      "autonomous_contract",
+      "autonomous_rights_change",
+      "secret_exfiltration"
+    ]
   }
 }

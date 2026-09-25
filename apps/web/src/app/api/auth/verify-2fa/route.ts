@@ -79,8 +79,7 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json().catch(() => ({}))) as VerifyBody;
     const method = body.method === "totp" ? "otp" : body.method;
-    const requestedRedirect =
-      typeof body.next === "string" ? sanitizeRedirect(body.next) : null;
+    const requestedRedirect = body.next ? sanitizeRedirect(body.next) : null;
     if (!method) {
       return errorResponse("method_required", 400);
     }

@@ -60,7 +60,14 @@ describe("/api/admin/marketing", () => {
     expect(body.readModel.mode).toBe("read_only");
     expect(body.readModel.opportunities.length).toBeGreaterThan(0);
     expect(body.readModel.campaigns.length).toBeGreaterThan(0);
-    expect(body.readModel.brandProfiles).toHaveLength(2);
+    expect(body.readModel.brandProfiles.map((profile: { id: string }) => profile.id)).toEqual(
+      expect.arrayContaining([
+        "brand-edebatte-light",
+        "brand-edebatte-dark",
+        "brand-voiceopengov",
+        "brand-vote4gov",
+      ]),
+    );
   });
 
   it("exposes no mutation handlers in this slice", () => {

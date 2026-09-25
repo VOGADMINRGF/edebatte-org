@@ -154,6 +154,20 @@ export type CreatePlannerRuntimeTrace = {
   operationId: string | null;
   operationType: string | null;
   userScope: "present" | "missing_runtime_truth";
+  timings?: {
+    saveMs?: number | null;
+    accessMs: number;
+    plannerMs: number | null;
+    contextMs: number | null;
+    totalMs: number;
+    submitToResultMs?: number | null;
+  };
+  intake?: {
+    selectedTimingLane: "fast" | "standard";
+    inputLength: number;
+    canonicalTopicCount: number;
+    issueMode: "single_issue" | "multi_issue";
+  };
 };
 
 export type CreateAnalyzeRuntimeTrace = {

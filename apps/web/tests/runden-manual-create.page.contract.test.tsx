@@ -46,6 +46,23 @@ import AnlassraumOptionEditor from "@/app/runden/new/AnlassraumOptionEditor";
 import AnlassraumVisibilitySettings from "@/app/runden/new/AnlassraumVisibilitySettings";
 
 describe("/runden/new manual create contract", () => {
+  it("renders the conversion entry in simple language with one visible h1", async () => {
+    const page = await RundenManualCreatePage({
+      searchParams: { gtm: "1", template: "member-priorities" },
+    });
+    const html = renderToStaticMarkup(page);
+    const visibleText = html.replace(/<[^>]*>/g, " ");
+
+    expect((html.match(/<h1/g) ?? []).length).toBe(1);
+    expect(visibleText).toContain("Eigene Abstimmung kostenlos starten");
+    expect(visibleText).toContain("Kostenlos für kleine Gruppen");
+    expect(visibleText).toContain("Du behältst die Kontrolle.");
+    expect(visibleText).not.toContain("Anlassraum");
+    expect(visibleText).not.toContain("Dossier");
+    expect(visibleText).not.toContain("Review-first");
+    expect(visibleText).not.toContain("Orchestrator");
+  });
+
   it("renders the guided manual setup sequence with one prominent Voxy guide and inline markers", async () => {
     const page = await RundenManualCreatePage({});
     const html = renderToStaticMarkup(page);
@@ -67,7 +84,7 @@ describe("/runden/new manual create contract", () => {
     expect(html).toContain("Zur Prüfung");
     expect(html).toContain("So funktioniert der Start");
     expect(html).toContain("Erst festhalten, dann sortieren, dann gemeinsam klären.");
-    expect(html).toContain("KI-Transparenz");
+    expect(html).toContain("Warum sehe ich das?");
     expect(html).toContain("Welche KI hier greift oder bewusst nicht greift");
     expect(html).toContain("Nachvollziehbarkeit heute");
     expect(html).toContain("Keine KI aktiv");

@@ -1,0 +1,77 @@
+name: Voxy static canon final evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/web/public/brands/voxy/references/canon/**"
+      - "apps/web/public/brands/voxy/references/derived/CANON-04-pocket-clean.png"
+      - "apps/web/public/brands/voxy/overlays/voxy-wordmark.svg"
+      - "apps/web/public/brands/voxy/overlays/vog-pin.svg"
+      - "apps/web/public/brands/voxy/overlays/edebatte-pocket-mark.svg"
+      - "apps/web/src/features/voxyVideo/staticCanonRecovery.ts"
+      - "apps/web/src/features/voxyVideo/staticCanonRecoveryHtml.ts"
+      - "apps/web/scripts/render-voxy-static-canon-recovery.ts"
+      - "apps/web/tests/voxy-static-canon-recovery.contract.test.ts"
+      - ".github/workflows/voxy-static-canon-recovery.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  render-static-finals:
+    name: Render exact-head static canon finals
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VOXY_STATIC_CANON_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install local Chromium renderer
+        run: pnpm -C apps/web exec playwright install chromium
+
+      - name: Run static canon contracts
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-animatable-master-asset.contract.test.ts \
+            tests/voxy-self-hosted-motion-strategy.contract.test.ts \
+            tests/voxy-static-canon-recovery.contract.test.ts
+
+      - name: Render static exact-head finals
+        run: |
+          pnpm -w exec tsx \
+            apps/web/scripts/render-voxy-static-canon-recovery.ts \
+            --output=artifacts/voxy-static-canon-final
+
+      - name: Verify static human-review artifact
+        run: |
+          node -e 'const fs=require("node:fs");const p="artifacts/voxy-static-canon-final/";const files=["primary-a-final.png","primary-a-clean.png","editorial-c-final.png","canon-comparison-final.png","manifest.json"];if(files.some(f=>!fs.existsSync(p+f)))process.exit(1);const m=JSON.parse(fs.readFileSync(p+"manifest.json","utf8"));const waveform=m.waveform??{};if(m.schemaVersion!=="voxy-static-canon-final-v1"||m.exactHeadSha!==process.env.VOXY_STATIC_CANON_COMMIT_SHA||m.primaryMaster!=="A"||m.editorialVariant!=="C"||m.rejectedVariant!=="B"||m.rejectedVariantIncluded!==false||m.canonBoards?.length!==4||m.variants?.length!==2||m.cleanPrimary?.exampleContentLayersIncluded!==false||waveform.count!==1||waveform.placement!=="behind_voxy"||waveform.futureAudioReactiveEligible!==true||waveform.currentlyAudioReactive!==false||m.audioAnalysisImplemented!==false||m.humanVisualAcceptance!=="pending"||m.animationEligible!==false||m.productionEligible!==false||m.autoPublish!==false||m.externalProviderUsed!==false||m.externalUploadUsed!==false||m.generativeRedrawUsed!==false)process.exit(1)'
+
+      - name: Upload directly visible static review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-static-canon-final-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-static-canon-final
+          if-no-files-found: error
+          retention-days: 14

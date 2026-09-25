@@ -19,9 +19,9 @@ const BodySchema = z
     visibility: z.enum(CREATE_SAVED_WORKSTATE_VISIBILITIES),
     type: z.enum(CREATE_SAVED_WORKSTATE_TYPES),
     status: z.enum(CREATE_SAVED_WORKSTATE_STATUSES),
-    sourceUrl: z.string().trim().optional(),
-    sourceAnalysisId: z.string().trim().optional(),
-    parentTopicId: z.string().trim().optional(),
+    sourceUrl: z.string().trim().nullable().optional(),
+    sourceAnalysisId: z.string().trim().nullable().optional(),
+    parentTopicId: z.string().trim().nullable().optional(),
     title: z.string().trim().min(1).max(160),
     content: z.string().trim().min(1).max(4000),
     metadata: z
@@ -35,6 +35,10 @@ const BodySchema = z
         sourceSection: z.string().trim().optional().nullable(),
         sourceLabel: z.string().trim().optional().nullable(),
         linkLoaded: z.boolean().optional(),
+        materialReviewId: z.string().trim().optional().nullable(),
+        materialId: z.string().trim().optional().nullable(),
+        materialReviewAction: z.enum(["reuse", "continue", "enrich", "create_new"]).optional().nullable(),
+        suggestedOptions: z.array(z.string().trim().min(1)).max(12).optional(),
       })
       .optional(),
     resumeHref: z.string().trim().min(1),

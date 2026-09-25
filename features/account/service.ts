@@ -29,6 +29,7 @@ import { loadAccountFactcheckJobs } from "./loadAccountFactcheckJobs";
 import { loadAccountManualAnlassraumServerDrafts } from "./loadAccountManualAnlassraumServerDrafts";
 import { loadAccountSavedWorkstates } from "./loadAccountSavedWorkstates";
 import { loadAccountUserScopedRuntimeLinkage } from "./loadAccountUserScopedRuntimeLinkage";
+import { loadOptionalAccountData } from "./optionalAccountData";
 
 const RESEARCH_XP_AWARD = 25;
 
@@ -197,50 +198,76 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
   );
   const showOriginalByDefault = Boolean(doc.settings?.showOriginalByDefault);
   const preferredLocale = readingLocale;
-  const graphMergeCandidatesPromise = import("./loadAccountGraphMergeCandidates").then(
-    ({ loadAccountGraphMergeCandidates }) =>
-      loadAccountGraphMergeCandidates(String(doc._id), 8),
-  );
-  const createContributionLedgerPromise = loadAccountCreateContributionLedgerForOverview(
-    String(doc._id),
-    preferredLocale,
-    8,
-  );
-  const editorialReviewRequestsPromise = loadAccountEditorialReviewRequests(String(doc._id), 8);
-  const factcheckJobsPromise = loadAccountFactcheckJobs(String(doc._id), 8);
-  const manualAnlassraumServerDraftsPromise = loadAccountManualAnlassraumServerDrafts(
-    String(doc._id),
-    8,
-  );
-  const userScopedRuntimeLinkagesPromise = loadAccountUserScopedRuntimeLinkage(
-    String(doc._id),
-    8,
-  );
+  const accountUserId = String(doc._id);
+  const roles = deriveRoles(doc);
 
   const [
     paymentProfileDoc,
     signatureDoc,
+    createContributionLedger,
+    graphMergeCandidates,
+    savedWorkstates,
     manualAnlassraumServerDrafts,
     editorialReviewRequests,
     factcheckJobs,
     userScopedRuntimeLinkages,
   ] = await Promise.all([
-    getUserPaymentProfile(doc._id),
-    getUserSignature(doc._id),
-    manualAnlassraumServerDraftsPromise,
-    editorialReviewRequestsPromise,
-    factcheckJobsPromise,
-    userScopedRuntimeLinkagesPromise,
+    loadOptionalAccountData({
+      source: "payment_profile",
+      fallback: null,
+      load: () => getUserPaymentProfile(doc._id),
+    }),
+    loadOptionalAccountData({
+      source: "signature",
+      fallback: null,
+      load: () => getUserSignature(doc._id),
+    }),
+    loadOptionalAccountData({
+      source: "create_contribution_ledger",
+      fallback: [],
+      load: () =>
+        loadAccountCreateContributionLedgerForOverview(
+          accountUserId,
+          preferredLocale,
+          8,
+        ),
+    }),
+    loadOptionalAccountData({
+      source: "graph_merge_candidates",
+      fallback: [],
+      load: () =>
+        import("./loadAccountGraphMergeCandidates").then(
+          ({ loadAccountGraphMergeCandidates }) =>
+            loadAccountGraphMergeCandidates(accountUserId, 8),
+        ),
+    }),
+    loadOptionalAccountData({
+      source: "saved_workstates",
+      fallback: [],
+      load: () => loadAccountSavedWorkstates(accountUserId, roles, 40),
+    }),
+    loadOptionalAccountData({
+      source: "manual_anlassraum_server_drafts",
+      fallback: [],
+      load: () => loadAccountManualAnlassraumServerDrafts(accountUserId, 8),
+    }),
+    loadOptionalAccountData({
+      source: "editorial_review_requests",
+      fallback: [],
+      load: () => loadAccountEditorialReviewRequests(accountUserId, 8),
+    }),
+    loadOptionalAccountData({
+      source: "factcheck_jobs",
+      fallback: [],
+      load: () => loadAccountFactcheckJobs(accountUserId, 8),
+    }),
+    loadOptionalAccountData({
+      source: "user_scoped_runtime_linkages",
+      fallback: [],
+      load: () => loadAccountUserScopedRuntimeLinkage(accountUserId, 8),
+    }),
   ]);
-  const createContributionLedger = await createContributionLedgerPromise;
-  const graphMergeCandidates = await graphMergeCandidatesPromise;
 
-  const roles = deriveRoles(doc);
-  const savedWorkstatesPromise = loadAccountSavedWorkstates(
-    String(doc._id),
-    roles,
-    40,
-  );
   const accessTier = deriveTier(doc);
   const groups = deriveGroups(doc, accessTier, roles);
   const stats = deriveStats(doc);
@@ -360,7 +387,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
     editorialReviewRequests,
     factcheckJobs,
     userScopedRuntimeLinkages,
-    savedWorkstates: await savedWorkstatesPromise,
+    savedWorkstates,
   };
 }
 

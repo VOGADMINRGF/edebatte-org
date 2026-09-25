@@ -9,7 +9,6 @@ import {
   TWO_FACTOR_CODE_LENGTH,
   TWO_FACTOR_EMAIL_COOLDOWN_SECONDS,
 } from "@/features/auth/twoFactorSetup";
-import { normalizeInternalRedirectPath } from "@/lib/security/internalNavigation";
 
 type TotpStatus = {
   enabled?: boolean;
@@ -36,7 +35,9 @@ export default function TwoFactorSetupClient() {
   const [emailCooldownUntil, setEmailCooldownUntil] = useState<number | null>(null);
 
   const nextPath = useMemo(() => {
-    return normalizeInternalRedirectPath(searchParams?.get("next")) ?? "/account";
+    const raw = searchParams?.get("next") ?? "";
+    if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
+    return "/account";
   }, [searchParams]);
   const recoveryMode = searchParams?.get("mode") === "recovery";
   const codeLabel = mode === "email" ? "E-Mail-Code eingeben" : "Code aus der Authenticator-App";
@@ -187,11 +188,7 @@ export default function TwoFactorSetupClient() {
           : "2FA ist jetzt aktiviert. Du wirst jetzt weitergeleitet.",
       );
       window.setTimeout(() => {
-        const redirectTarget =
-          normalizeInternalRedirectPath(body?.redirectUrl) ??
-          normalizeInternalRedirectPath(body?.next) ??
-          nextPath;
-        router.replace(redirectTarget as Parameters<typeof router.replace>[0]);
+        router.replace(body?.redirectUrl || body?.next || nextPath);
       }, 400);
     } catch (verifyError: any) {
       setError(mapTwoFactorSetupError(verifyError?.message));

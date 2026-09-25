@@ -2,6 +2,7 @@ import Link from "next/link";
 import { buildMarketingCampaignControlReadModel } from "@/features/marketing/campaignControl/readModel";
 import type { MarketingControlChannel } from "@/features/marketing/campaignControl/contracts";
 import { getMarketingContentOperations } from "@/features/marketing/contentOperations/data";
+import DistributionPreparationAction from "./DistributionPreparationAction";
 
 export const metadata = { title: "Marketing-Inhalte prüfen · Admin · eDebatte" };
 
@@ -98,6 +99,8 @@ export default async function MarketingReviewPage({ searchParams }: PageProps) {
                   <TextPanel title={copy.caption} body={item.captionDraft} />
                   <TextPanel title={copy.script} body={item.scriptDraft ?? copy.noScript} />
                 </div>
+
+                <DistributionPreparationAction contentId={item.id} locale={locale} />
 
                 <div className="mt-5 flex flex-wrap gap-2">
                   <Link href={`/admin/marketing?lang=${locale}&campaign=${encodeURIComponent(item.campaignId)}#campaign-detail`} className="inline-flex rounded-xl bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800">

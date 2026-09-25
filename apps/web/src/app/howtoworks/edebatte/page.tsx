@@ -6,159 +6,117 @@ import { useLocale } from "@/context/LocaleContext";
 import { resolveLocalizedField } from "@/lib/localization/getLocalizedField";
 import { useAutoTranslateText } from "@/lib/i18n/autoTranslate";
 
-const CHIP =
-  "inline-flex items-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-1 text-xs font-medium text-[rgb(var(--muted))]";
-const CARD =
-  "rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm";
+const CARD = "rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-sm";
 
 const hero = {
   id: "hero",
-  kicker_de: "So funktioniert’s in der Praxis",
-  kicker_en: "How it works in practice",
-  title_de: "Vom Thema zum nachvollziehbaren Prozess",
-  title_en: "From topic to a traceable process",
+  kicker_de: "So funktioniert eDebatte",
+  kicker_en: "How eDebatte works",
+  title_de: "Mitmachen, etwas ergänzen oder selbst eine Frage starten.",
+  title_en: "Take part, add something useful or start your own question.",
   lead_de:
-    "VoiceOpenGov ist die Initiative für faire, nachvollziehbare Beteiligung. eDebatte ist das Werkzeug, das den Ablauf review-first und auditierbar umsetzt: Check → Dossier → Beteiligung → Status. Es gibt dabei keine automatische Veröffentlichung und kein automatisches Siegel. Lass das beste Argument gewinnen.",
+    "Du musst das System nicht erst verstehen. Wenn du über einen Link, eine Nachricht oder einen QR-Code kommst, landest du direkt beim Thema. Dort kannst du abstimmen, etwas ergänzen oder sehen, was noch offen ist.",
   lead_en:
-    "VoiceOpenGov is the initiative for fair, traceable participation. eDebatte is the tool that executes the flow: check → dossier → participation → status.",
+    "You do not need to understand the system first. If you arrive through a link, message or QR code, you go straight to the topic. There you can vote, add something useful or see what is still open.",
 };
 
-const heroChips = [
-  { id: "check", label_de: "Check", label_en: "Check" },
-  { id: "dossier", label_de: "Dossier", label_en: "Dossier" },
-  { id: "beteiligung", label_de: "Beteiligung", label_en: "Participation" },
-  { id: "status", label_de: "Status", label_en: "Status" },
-];
-
-const journey = {
-  id: "journey",
-  title_de: "Die RePro-Nutzerreise",
-  title_en: "The RePro user journey",
-  lead_de:
-    "Kein Sprung ins Unklare: Jede Station hat einen klaren Zweck, sichtbare Review-Grenzen und ein nachvollziehbares Ergebnis. Lass das beste Argument gewinnen, nicht die lauteste Behauptung.",
-  lead_en:
-    "No leap into the unknown: every stage has a clear purpose and visible outcome.",
-};
-
-const journeySteps = [
+const actions = [
   {
-    id: "step-check",
-    step: "01",
-    title_de: "Check",
-    title_en: "Check",
-    body_de:
-      "Ein Thema wird in prüfbare Aussagen und offene Fragen getrennt. Quellen werden sichtbar gemacht, Lücken werden markiert und es gibt keine automatische Factcheck- oder Siegel-Freigabe.",
-    body_en:
-      "A topic is split into verifiable claims and open questions. Sources are made visible and gaps are marked.",
-    cta_de: "Check starten",
-    cta_en: "Start check",
-    href: "/start",
+    id: "take-part",
+    title_de: "Mitmachen",
+    title_en: "Take part",
+    body_de: "Position wählen, einen Vorschlag ergänzen oder auf eine offene Frage antworten.",
+    body_en: "Choose a position, add a proposal or answer an open question.",
+    cta_de: "Jetzt mitmachen",
+    cta_en: "Take part now",
+    href: "/swipes",
   },
   {
-    id: "step-dossier",
-    step: "02",
-    title_de: "Dossier",
-    title_en: "Dossier",
-    body_de:
-      "Das Dossier bündelt den Stand: Pro und Contra, Quellenlage, Unsicherheiten und Handlungsoptionen an einem Ort.",
-    body_en:
-      "The dossier consolidates the current state: pro and con, evidence, uncertainties and action options in one place.",
-    cta_de: "Dossier ansehen",
-    cta_en: "View dossier",
+    id: "contribute",
+    title_de: "Etwas beitragen",
+    title_en: "Contribute something",
+    body_de: "Eine Quelle, Erfahrung, Korrektur oder Perspektive ergänzen, wenn du etwas beitragen kannst.",
+    body_en: "Add a source, experience, correction or perspective when you can help.",
+    cta_de: "Beitrag starten",
+    cta_en: "Start a contribution",
+    href: "/create?mode=source&intent=contribution&entryIntent=content_companion&entryMode=direct",
+  },
+  {
+    id: "start",
+    title_de: "Etwas starten",
+    title_en: "Start something",
+    body_de: "Eine eigene Frage öffnen, Menschen einladen und gemeinsam herausfinden, was trägt oder noch fehlt.",
+    body_en: "Open your own question, invite people and find out what holds up or is still missing.",
+    cta_de: "Eigene Frage starten",
+    cta_en: "Start your own question",
+    href: "/runden/new?gtm=1",
+  },
+];
+
+const deeper = {
+  id: "deeper",
+  title_de: "Wenn du tiefer einsteigen willst",
+  title_en: "When you want to go deeper",
+  lead_de:
+    "eDebatte verbindet Beiträge mit Gründen, Quellen, offenen Punkten und späteren Ergebnissen. Du siehst nicht nur, wie abgestimmt wurde, sondern auch, was dahinterliegt und was noch geklärt werden sollte.",
+  lead_en:
+    "eDebatte connects contributions with reasons, sources, open points and later results. You see not only how people voted, but what sits behind it and what still needs clarification.",
+};
+
+const deeperCards = [
+  {
+    id: "knowledge",
+    title_de: "Was wissen wir schon?",
+    title_en: "What do we already know?",
+    body_de: "Quellen, Hinweise und Gegenpositionen werden am Thema zusammengeführt. Unsicherheiten dürfen sichtbar bleiben.",
+    body_en: "Sources, notes and opposing views are brought together around the topic. Uncertainty can remain visible.",
     href: "/howtoworks/edebatte/dossier",
+    cta_de: "Mehr zu Quellen und Wissensstand",
+    cta_en: "More about sources and current knowledge",
   },
   {
-    id: "step-beteiligung",
-    step: "03",
-    title_de: "Beteiligung",
-    title_en: "Participation",
-    body_de:
-      "Auf Basis des Dossiers wird beteiligt: Vorschläge werden eingeordnet, Positionen abgestimmt und Rückmeldungen dokumentiert.",
-    body_en:
-      "Based on the dossier, participation starts: proposals are ranked, positions are voted on and feedback is documented.",
-    cta_de: "Beteiligung ansehen",
-    cta_en: "View participation",
+    id: "decision",
+    title_de: "Was wollen Menschen?",
+    title_en: "What do people want?",
+    body_de: "Abstimmungen zeigen Positionen. Eigene Vorschläge, Gründe und Erfahrungen helfen zu verstehen, warum sie entstehen.",
+    body_en: "Votes show positions. Proposals, reasons and experiences help explain why they exist.",
     href: "/howtoworks/edebatte/abstimmen",
+    cta_de: "Mehr zum Mitmachen",
+    cta_en: "More about taking part",
   },
   {
-    id: "step-status",
-    step: "04",
-    title_de: "Status",
-    title_en: "Status",
-    body_de:
-      "Nach der Entscheidung bleibt der Verlauf sichtbar: Mandat, Zuständigkeiten, Fortschritt und offene Punkte.",
-    body_en:
-      "After decisions, progress remains visible: mandate, responsibilities, progress and open items.",
-    cta_de: "Status verfolgen",
-    cta_en: "Track status",
-    href: "/howtoworks/edebatte/mandat",
+    id: "next",
+    title_de: "Was ist der nächste Schritt?",
+    title_en: "What is the next step?",
+    body_de: "Offene Punkte bleiben sichtbar. Daraus kann eine weitere Frage, eine Ergänzung oder ein neuer gemeinsamer Schritt entstehen.",
+    body_en: "Open points remain visible. They can lead to another question, an addition or a new shared next step.",
+    href: "/runden",
+    cta_de: "Laufende Fragen ansehen",
+    cta_en: "See current questions",
   },
 ];
 
-const roleSection = {
-  id: "roles",
-  title_de: "Wer macht was im Prozess?",
-  title_en: "Who does what in the process?",
-  lead_de:
-    "Die Verantwortung ist verteilt und nachvollziehbar. Genau das macht die Ergebnisse belastbar.",
-  lead_en:
-    "Responsibility is distributed and traceable. That is what makes outcomes reliable.",
-};
-
-const roleCards = [
-  {
-    id: "role-citizens",
-    anchor: "rolle-buerger",
-    title_de: "Bürger:innen und Initiativen",
-    title_en: "Citizens and initiatives",
-    body_de:
-      "Bringen Themen ein, präzisieren Fragen und ergänzen Hinweise. Der Beitrag bleibt als Prozessobjekt sichtbar.",
-    body_en:
-      "Submit topics, refine questions and add evidence. Contributions remain visible as process objects.",
-  },
-  {
-    id: "role-association",
-    anchor: "rolle-vereine",
-    title_de: "Verbände, Vereine und Redaktion",
-    title_en: "Associations and editorial teams",
-    body_de:
-      "Ordnen Beiträge, strukturieren Dossiers und machen Gegenpositionen sichtbar. Ziel ist Klarheit statt Lautstärke.",
-    body_en:
-      "Structure contributions, curate dossiers and surface opposing positions. The goal is clarity over volume.",
-  },
-  {
-    id: "role-admin",
-    anchor: "rolle-verwaltung",
-    title_de: "Verwaltung und Umsetzung",
-    title_en: "Administration and implementation",
-    body_de:
-      "Übernimmt Mandate in die Umsetzung, dokumentiert Fortschritt und begründet Abweichungen im Status.",
-    body_en:
-      "Takes mandates into implementation, tracks progress and explains deviations in the status layer.",
-  },
-];
-
-const benefits = {
-  id: "benefits",
-  title_de: "Was du als Nutzer:in davon hast",
-  title_en: "What you gain as a user",
+const principles = {
+  id: "principles",
+  title_de: "Wichtig dabei",
+  title_en: "Important principles",
   items_de: [
-    "Du siehst, worauf eine Aussage basiert und was noch unklar ist.",
-    "Du kannst dich beteiligen, ohne in einem Meinungschaos zu landen.",
-    "Du bekommst einen Status statt eines toten Abschlusses.",
-    "Du kannst Entscheidungen später prüfen und einordnen.",
+    "Fakten werden nicht durch Mehrheiten wahr oder falsch.",
+    "Fehlende Quellen und offene Fragen dürfen sichtbar bleiben.",
+    "Voxy kann helfen, entscheidet aber nicht an deiner Stelle.",
+    "Nichts wird allein durch einen KI-Vorschlag automatisch veröffentlicht.",
   ],
   items_en: [
-    "You can see what a claim is based on and what is still unclear.",
-    "You can participate without getting lost in opinion noise.",
-    "You get a status layer instead of a dead endpoint.",
-    "You can revisit and verify decisions later.",
+    "Facts do not become true or false through majority votes.",
+    "Missing sources and open questions can remain visible.",
+    "Voxy can help but does not decide for you.",
+    "Nothing is published automatically merely because AI suggested it.",
   ],
 };
 
 export default function HowToWorksEdebattePage() {
   const { locale } = useLocale();
-  const t = useAutoTranslateText({ locale, namespace: "howtoworks-edebatte-repro" });
+  const t = useAutoTranslateText({ locale, namespace: "howtoworks-edebatte" });
 
   const text = React.useCallback(
     (entry: Record<string, unknown>, key: string) => {
@@ -169,93 +127,59 @@ export default function HowToWorksEdebattePage() {
     [locale, t],
   );
 
+  const isEnglish = String(locale ?? "de").startsWith("en");
+
   return (
     <main className="min-h-screen bg-[rgb(var(--bg))] pb-16">
-      <section className="mx-auto max-w-5xl space-y-10 px-4 py-12 sm:py-16">
+      <section className="mx-auto max-w-5xl space-y-12 px-4 py-12 sm:py-16">
         <header className="space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
-            {text(hero, "kicker")}
-          </p>
-          <h1 className="headline-grad text-4xl font-extrabold leading-tight sm:text-5xl">
-            {text(hero, "title")}
-          </h1>
-          <p className="max-w-3xl text-base leading-relaxed text-[rgb(var(--muted))] sm:text-lg">
-            {text(hero, "lead")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {heroChips.map((chip) => (
-              <span key={chip.id} className={CHIP}>
-                {text(chip, "label")}
-              </span>
-            ))}
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">{text(hero, "kicker")}</p>
+          <h1 className="headline-grad max-w-4xl text-4xl font-extrabold leading-tight sm:text-5xl">{text(hero, "title")}</h1>
+          <p className="max-w-3xl text-base leading-relaxed text-[rgb(var(--muted))] sm:text-lg">{text(hero, "lead")}</p>
         </header>
 
-        <section className="space-y-3" aria-labelledby="journey-title">
-          <h2 id="journey-title" className="text-2xl font-bold tracking-tight text-[rgb(var(--fg))]">
-            {text(journey, "title")}
+        <section aria-labelledby="actions-title" className="space-y-4">
+          <h2 id="actions-title" className="text-2xl font-bold tracking-tight text-[rgb(var(--fg))]">
+            {isEnglish ? "What would you like to do?" : "Was möchtest du tun?"}
           </h2>
-          <p className="text-sm leading-relaxed text-[rgb(var(--muted))]">{text(journey, "lead")}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {journeySteps.map((step) => (
-              <article key={step.id} className={`${CARD} flex flex-col gap-3`}>
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">
-                    {step.step}
-                  </span>
-                  <h3 className="text-base font-semibold text-[rgb(var(--fg))]">{text(step, "title")}</h3>
-                </div>
-                <p className="text-sm leading-relaxed text-[rgb(var(--muted))]">{text(step, "body")}</p>
-                <div>
-                  <Link
-                    href={step.href}
-                    className="inline-flex items-center text-sm font-semibold text-sky-700 underline decoration-sky-300 underline-offset-4 hover:text-sky-800 dark:text-sky-300 dark:decoration-sky-600 dark:hover:text-sky-200"
-                  >
-                    {text(step, "cta")}
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-3" aria-labelledby="roles-title">
-          <h2 id="roles-title" className="text-2xl font-bold tracking-tight text-[rgb(var(--fg))]">
-            {text(roleSection, "title")}
-          </h2>
-          <p className="text-sm leading-relaxed text-[rgb(var(--muted))]">{text(roleSection, "lead")}</p>
           <div className="grid gap-3 md:grid-cols-3">
-            {roleCards.map((role) => (
-              <article key={role.id} id={role.anchor} className={CARD}>
-                <h3 className="text-base font-semibold text-[rgb(var(--fg))]">{text(role, "title")}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[rgb(var(--muted))]">{text(role, "body")}</p>
+            {actions.map((action) => (
+              <article key={action.id} className={`${CARD} flex flex-col`}>
+                <h3 className="text-xl font-bold text-[rgb(var(--fg))]">{text(action, "title")}</h3>
+                <p className="mt-2 flex-1 text-sm leading-6 text-[rgb(var(--muted))]">{text(action, "body")}</p>
+                <Link href={action.href} className="mt-5 inline-flex font-semibold text-sky-700 hover:underline dark:text-sky-300">
+                  {text(action, "cta")} →
+                </Link>
               </article>
             ))}
           </div>
         </section>
 
-        <section className={CARD} aria-labelledby="benefits-title">
-          <h2 id="benefits-title" className="text-2xl font-bold tracking-tight text-[rgb(var(--fg))]">
-            {text(benefits, "title")}
-          </h2>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-[rgb(var(--muted))]">
-            {(String(locale ?? "de").startsWith("en") ? benefits.items_en : benefits.items_de).map(
-              (item, idx) => (
-                <li key={`${idx}-${item}`}>{t(item, `benefits.items.${idx}`)}</li>
-              ),
-            )}
-          </ul>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link href="/start" className="btn btn-primary">
-              {t("Thema starten", "cta.start")}
-            </Link>
-            <Link href="/runden" className="btn btn-ghost">
-              {t("Anlassräume ansehen", "cta.rounds")}
-            </Link>
-            <Link href="/swipes" className="btn btn-ghost">
-              {t("Zur Beteiligung", "cta.swipes")}
-            </Link>
+        <section aria-labelledby="deeper-title" className="space-y-4">
+          <div>
+            <h2 id="deeper-title" className="text-2xl font-bold tracking-tight text-[rgb(var(--fg))]">{text(deeper, "title")}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[rgb(var(--muted))]">{text(deeper, "lead")}</p>
           </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {deeperCards.map((item) => (
+              <article key={item.id} className={CARD}>
+                <h3 className="text-base font-semibold text-[rgb(var(--fg))]">{text(item, "title")}</h3>
+                <p className="mt-2 text-sm leading-6 text-[rgb(var(--muted))]">{text(item, "body")}</p>
+                <Link href={item.href} className="mt-4 inline-flex text-sm font-semibold text-sky-700 hover:underline dark:text-sky-300">
+                  {text(item, "cta")} →
+                </Link>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className={CARD} aria-labelledby="principles-title">
+          <h2 id="principles-title" className="text-2xl font-bold tracking-tight text-[rgb(var(--fg))]">{text(principles, "title")}</h2>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-[rgb(var(--muted))]">
+            {(isEnglish ? principles.items_en : principles.items_de).map((item, index) => (
+              <li key={item}>{t(item, `principles.items.${index}`)}</li>
+            ))}
+          </ul>
         </section>
       </section>
     </main>

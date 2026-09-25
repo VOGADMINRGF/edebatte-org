@@ -40,7 +40,8 @@ describe("create planner timeout contract", () => {
     else process.env.OPENAI_PLANNER_MODEL = originalOpenAiPlannerModel;
   });
 
-  it("uses the 10000ms production default and classifies provider aborts as TIMEOUT", async () => {
+  it("uses the 6500ms fast-intake ceiling and classifies provider aborts as TIMEOUT", async () => {
+    const scheduledTasks: Array<() => Promise<void>> = [];
     const timeoutError = Object.assign(new Error("The operation was aborted."), {
       name: "AbortError",
       meta: { code: "TIMEOUT" },
@@ -53,13 +54,14 @@ describe("create planner timeout contract", () => {
       requestId: "request-timeout",
       operationId: "operation-timeout",
       dossierId: "dossier-timeout",
+      schedulePostResponseTask: (task) => scheduledTasks.push(task),
     });
 
     expect(mocks.callOpenAIJson).toHaveBeenCalledTimes(1);
     expect(mocks.callOpenAIJson).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-4.1-mini",
-        timeoutMs: 10_000,
+        timeoutMs: 6_500,
       }),
     );
     expect(planner.source).toBe("technical_fallback");
@@ -67,6 +69,7 @@ describe("create planner timeout contract", () => {
     expect(planner.providerPlan.plannerProvider).toBe("local_fallback");
     expect(planner.plannerDegraded).toBe(true);
     expect(planner.degradedReason).toBe("timeout");
+    expect(planner.degradedReason).not.toBe("quality_gate_failed");
     expect(planner.plannerTopic).toBe("Analyse noch nicht validiert");
     expect(planner.topicCandidates).toEqual([]);
     expect(planner.plannerDebug.attemptedProvider).toBe("openai");
@@ -76,6 +79,9 @@ describe("create planner timeout contract", () => {
     expect(JSON.stringify(planner)).not.toContain("aborted");
     expect(planner.permissions.nonMutative).toBe(true);
     expect(planner.permissions.canDeepSearch).toBe(false);
+    expect(mocks.logAiUsage).not.toHaveBeenCalled();
+    expect(scheduledTasks).toHaveLength(1);
+    await scheduledTasks[0]!();
     expect(mocks.logAiUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "openai",

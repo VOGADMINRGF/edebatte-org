@@ -13,18 +13,16 @@ vi.mock("next/image", () => ({
 }));
 
 describe("start CTA immediate navigation contract", () => {
-  it("renders visible start CTAs as direct links with one clear participation entry", () => {
+  it("renders participation and creator CTAs as direct links", () => {
     const html = renderToStaticMarkup(
       <LocaleProvider initialLocale="de">
         <LandingStart />
       </LocaleProvider>,
     );
 
-    expect((html.match(/href="\/create"/g) ?? []).length).toBeGreaterThan(1);
-    expect((html.match(/href="\/swipes"/g) ?? []).length).toBe(1);
-    expect((html.match(/href="\/themen"/g) ?? []).length).toBeGreaterThan(0);
-    expect((html.match(/href="\/dossier"/g) ?? []).length).toBeGreaterThan(0);
-    expect(html).not.toContain("<button");
+    expect((html.match(/href="\/runden\/new\?gtm=1/g) ?? []).length).toBeGreaterThan(1);
+    expect((html.match(/href="\/swipes"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(html).toContain("<button");
     expect(html).not.toContain("disabled");
     expect(html).not.toContain("aria-busy");
   });
@@ -35,17 +33,15 @@ describe("start CTA immediate navigation contract", () => {
       "utf8",
     );
     const splitLandingSource = readFileSync(
-      resolve(process.cwd(), "src/features/home/HomeSplitVoxyLanding.tsx"),
+      resolve(process.cwd(), "src/features/home/HomeGoToMarketLanding.tsx"),
       "utf8",
     );
 
     expect(landingSource).not.toContain("useRouter");
     expect(splitLandingSource).not.toContain("useRouter");
-    expect(splitLandingSource).not.toContain("fetch(");
     expect(splitLandingSource).not.toContain("onSubmit");
     expect(splitLandingSource).not.toContain("startBusy");
-    expect(splitLandingSource).toContain('href: "/create"');
-    expect(splitLandingSource).toContain('href: "/swipes"');
+    expect(splitLandingSource).toContain("buildFreeBallotStartHref");
     expect(splitLandingSource).toContain("Link");
   });
 });

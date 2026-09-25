@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { LoginPageShell } from "@/components/auth/LoginPageShell";
 import { PRODUCTION_ENTRY_COPY } from "@/features/access/productionEntryContract";
-import { normalizeInternalRedirectPath } from "@/lib/security/internalNavigation";
 
 export default function LoginPageClient() {
   const params = useSearchParams();
-  const redirectTo = normalizeInternalRedirectPath(params.get("next")) ?? undefined;
+  const redirectTo = params.get("next") || undefined;
   const stepParam = params.get("step");
   const methodParam = params.get("method");
   const initialStep = stepParam === "verify" || stepParam === "twofactor" ? "twofactor" : "credentials";
@@ -25,6 +24,7 @@ export default function LoginPageClient() {
       <h1 className="sr-only">Login</h1>
       <LoginPageShell
         redirectTo={redirectTo}
+        registerHref={registerHref}
         initialStep={initialStep}
         initialMethod={initialMethod}
         forceTwoFactor={forceTwoFactor}

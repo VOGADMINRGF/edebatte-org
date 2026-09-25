@@ -1,0 +1,145 @@
+name: Voxy Mouth v4.1 and Motion v4.1 evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/voxy-mouth-motion-v4-1-evidence.yml"
+      - "apps/web/public/brands/voxy/references/derived/CANON-04-pocket-clean.png"
+      - "apps/web/public/brands/voxy/overlays/**"
+      - "apps/web/src/features/voxyVideo/headRelativeFaceRigHtml.ts"
+      - "apps/web/src/features/voxyVideo/mouthRig.ts"
+      - "apps/web/src/features/voxyVideo/mouthV41.ts"
+      - "apps/web/src/features/voxyVideo/mouthV41Gate.ts"
+      - "apps/web/src/features/voxyVideo/mouthV41GateHtml.ts"
+      - "apps/web/src/features/voxyVideo/motionV4.ts"
+      - "apps/web/src/features/voxyVideo/motionV4Html.ts"
+      - "apps/web/src/features/voxyVideo/motionV41.ts"
+      - "apps/web/src/features/voxyVideo/motionV41Html.ts"
+      - "apps/web/scripts/render-voxy-mouth-v4-1-gate.ts"
+      - "apps/web/scripts/render-voxy-motion-v4-1.ts"
+      - "apps/web/tests/voxy-mouth-v4-1-gate.contract.test.ts"
+      - "apps/web/tests/voxy-motion-v4-1.contract.test.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  render-mouth-and-motion-v4-1:
+    name: Render exact-head Mouth v4.1 Gate and Motion v4.1
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      VOXY_MOUTH_V41_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      VOXY_MOTION_V41_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install local Chromium renderer and FFmpeg
+        run: |
+          pnpm -C apps/web exec playwright install chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Verify Mouth v4.1, Motion v4.1, and frozen #589 contracts
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-jacket-canon-gate.contract.test.ts \
+            tests/voxy-pocket-mark-final-gate.contract.test.ts \
+            tests/voxy-static-canon-recovery.contract.test.ts \
+            tests/voxy-first-explainer-video.contract.test.ts \
+            tests/voxy-animatable-master-asset.contract.test.ts \
+            tests/voxy-character-motion-fixture.contract.test.ts \
+            tests/voxy-motion-v3.contract.test.ts \
+            tests/voxy-self-hosted-motion-strategy.contract.test.ts \
+            tests/voxy-mouth-canon-gate.contract.test.ts \
+            tests/voxy-motion-v4.contract.test.ts \
+            tests/voxy-mouth-v4-1-gate.contract.test.ts \
+            tests/voxy-motion-v4-1.contract.test.ts
+
+      - name: Render exact-head Mouth v4.1 Gate
+        run: pnpm -C apps/web exec tsx scripts/render-voxy-mouth-v4-1-gate.ts
+
+      - name: Verify Mouth v4.1 Gate before Motion v4.1
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync("artifacts/voxy-mouth-v4-1-gate/manifest.json", "utf8"));
+          const required = [
+            "neutral-400pct.png",
+            "closed-400pct.png",
+            "slight-open-400pct.png",
+            "speaking-open-400pct.png",
+            "mouth-v4-vs-v4-1.png",
+            "mouth-state-overlay-v4-1.png",
+            "speaking-sequence-contact-sheet.png",
+          ];
+          if (required.some((file) => !fs.existsSync(`artifacts/voxy-mouth-v4-1-gate/${file}`))) process.exit(1);
+          const mouth = manifest.mouth;
+          if (manifest.exactHeadSha !== process.env.VOXY_MOUTH_V41_COMMIT_SHA || manifest.technicalMouthShapeGate !== "passed" || mouth.architectureChanged !== false || mouth.anchorChanged !== false || mouth.pivotChanged !== false || mouth.headBindingChanged !== false || mouth.neutralStateChanged !== false || mouth.slightOpenPolished !== true || mouth.speakingOpenPolished !== true || mouth.transitionPolished !== true || mouth.anchorType !== "head_relative" || mouth.sharedAnchor !== true || mouth.sharedPivot !== true || mouth.canvasRelativePositioning !== false || manifest.exactHeadInputsClean !== true || manifest.humanVisualAcceptance !== "pending" || manifest.productionEligible !== false || manifest.autoPublish !== false) process.exit(1);
+          NODE
+
+      - name: Render exact-head Motion v4.1
+        run: pnpm -C apps/web exec tsx scripts/render-voxy-motion-v4-1.ts
+
+      - name: Verify Motion v4.1 evidence and release gates
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync("artifacts/voxy-motion-v4-1/manifest.json", "utf8"));
+          const required = [
+            "voxy-motion-v4-1-16x9.mp4",
+            "voxy-motion-v4-1-16x9.webm",
+            "preview.png",
+            "contact-sheet.png",
+            "captions.de.vtt",
+            "captions.de.srt",
+            "standframes/start.png",
+            "standframes/vote4gov.png",
+            "standframes/voiceopengov.png",
+            "standframes/edebatte.png",
+            "standframes/end.png",
+          ];
+          if (required.some((file) => !fs.existsSync(`artifacts/voxy-motion-v4-1/${file}`))) process.exit(1);
+          const mouth = manifest.mouth;
+          if (manifest.exactHeadSha !== process.env.VOXY_MOTION_V41_COMMIT_SHA || manifest.durationMs !== 22000 || manifest.fps !== 24 || manifest.frameCount !== 528 || manifest.resolution.width !== 1920 || manifest.resolution.height !== 1080 || mouth.architectureChanged !== false || mouth.anchorChanged !== false || mouth.pivotChanged !== false || mouth.headBindingChanged !== false || mouth.neutralStateChanged !== false || mouth.slightOpenPolished !== true || mouth.speakingOpenPolished !== true || mouth.transitionPolished !== true || mouth.anchorType !== "head_relative" || mouth.sharedAnchor !== true || mouth.sharedPivot !== true || mouth.canvasRelativePositioning !== false || manifest.waveform.count !== 1 || manifest.waveform.placement !== "behind_voxy" || manifest.brand.lapelPin !== "VOXY" || manifest.brand.pocketMark !== "eDebatte" || manifest.brand.pocketRotation !== -2.5 || manifest.brand.pocketOpacity !== 0.94 || manifest.audioProvenance.audioIncluded !== false || manifest.externalProviderUsed !== false || manifest.externalVisualUploadUsed !== false || manifest.humanVisualAcceptance !== "pending" || manifest.productionEligible !== false || manifest.autoPublish !== false || manifest.exactHeadInputsClean !== true) process.exit(1);
+          NODE
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,avg_frame_rate -show_entries format=duration -of json artifacts/voxy-motion-v4-1/voxy-motion-v4-1-16x9.mp4
+          test -z "$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 artifacts/voxy-motion-v4-1/voxy-motion-v4-1-16x9.mp4)"
+
+      - name: Upload exact-head Mouth v4.1 Gate
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-mouth-v4-1-gate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-mouth-v4-1-gate
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload exact-head Motion v4.1
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-motion-v4-1-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-motion-v4-1
+          if-no-files-found: error
+          retention-days: 14

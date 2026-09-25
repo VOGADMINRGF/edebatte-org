@@ -81,6 +81,7 @@ export type MaterialIntakeItem = {
   uploadId: string | null;
   mimeType: string | null;
   fileName: string | null;
+  extractedBy: string | null;
   extractionStatus: "full" | "partial" | "none";
   riskFlags: MaterialIntakeRiskFlag[];
   reviewRequired: true;
@@ -99,7 +100,11 @@ export type MaterialIntakeContract = {
     | "persistent_metadata_store"
     | "request_metadata_only"
     | "local_pending";
-  extractionMode: "none" | "submitted_text_only" | "external_extraction_pending";
+  extractionMode:
+    | "none"
+    | "submitted_text_only"
+    | "local_document_extraction"
+    | "external_extraction_pending";
   guardrails: MaterialIntakeGuardrails;
 };
 
@@ -256,6 +261,7 @@ export function buildMaterialIntakeContract(input: {
       uploadId: item.uploadId,
       mimeType: item.mimeType,
       fileName: item.fileName,
+      extractedBy: item.extractedBy,
       extractionStatus: item.extractionStatus,
       riskFlags: riskFlagsForItem(item, type),
       reviewRequired: true,
@@ -269,6 +275,9 @@ export function buildMaterialIntakeContract(input: {
   });
   const riskFlags = unique(items.flatMap((item) => item.riskFlags));
   const hasSubmittedText = input.items.some((item) => item.text?.trim());
+  const hasLocallyExtractedDocument = input.items.some(
+    (item) => item.extractedBy === "pdf-parse@2" || item.extractedBy === "mammoth@1",
+  );
 
   return {
     items,
@@ -277,8 +286,10 @@ export function buildMaterialIntakeContract(input: {
     reviewRequired: items.length > 0,
     productionTruth,
     storageMode,
-    extractionMode: hasSubmittedText
-      ? "submitted_text_only"
+    extractionMode: hasLocallyExtractedDocument
+      ? "local_document_extraction"
+      : hasSubmittedText
+        ? "submitted_text_only"
       : items.length > 0
         ? "external_extraction_pending"
         : "none",
@@ -296,10 +307,13 @@ export function buildMaterialIntakeAnalyzeManifest(input: {
     productionTruth: input.productionTruth,
   });
   const labels = intake.items.map((item) => item.label).slice(0, 4);
+  const localDocumentExtraction = intake.extractionMode === "local_document_extraction";
   const summary =
     labels.length > 0
-      ? `Material eingereicht: ${labels.join(", ")}. Es wurde keine automatische Extraktion, KI-Recherche, DeepSearch-Auswertung oder Veröffentlichung gestartet.`
-      : "Material-Intake ist leer. Es wurde keine automatische Extraktion, KI-Recherche oder Veröffentlichung gestartet.";
+      ? localDocumentExtraction
+        ? `Material eingereicht: ${labels.join(", ")}. Lokale Textextraktion wurde ausgeführt; es wurde keine KI-Recherche, DeepSearch-Auswertung oder Veröffentlichung gestartet.`
+        : `Material eingereicht: ${labels.join(", ")}. Es wurde keine automatische Extraktion, KI-Recherche, DeepSearch-Auswertung oder Veröffentlichung gestartet.`
+      : "Material-Intake ist leer. Es wurde keine KI-Recherche oder Veröffentlichung gestartet.";
   const userText = input.userText?.trim();
   const evidenceItems = input.items.map((item) => {
     const type = materialTypeForItem(item);

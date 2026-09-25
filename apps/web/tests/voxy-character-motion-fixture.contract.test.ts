@@ -5,6 +5,19 @@ import {
   validateVoxyCharacterMotionFixturePlan,
 } from "@/features/voxyVideo/characterMotionFixture";
 import { renderVoxyCharacterMotionFixtureHtml } from "@/features/voxyVideo/characterMotionFixtureHtml";
+import { VOXY_LOCAL_RIG } from "@/features/voxyVideo/animatableMasterAsset";
+
+function minimalRigSvg(): string {
+  const ids = new Set([
+    ...VOXY_LOCAL_RIG.controls.flatMap((control) => control.nodeIds),
+    ...VOXY_LOCAL_RIG.immutableBrandOverlays,
+    ...VOXY_LOCAL_RIG.hands.left.digitIds,
+    ...VOXY_LOCAL_RIG.hands.right.digitIds,
+  ]);
+  return `<svg xmlns="http://www.w3.org/2000/svg">${[...ids]
+    .map((id) => `<g id="${id}"></g>`)
+    .join("")}</svg>`;
+}
 
 describe("Voxy character motion fixture", () => {
   it("supports the three required review output formats", () => {
@@ -16,7 +29,7 @@ describe("Voxy character motion fixture", () => {
   it("builds a contiguous eight-second review-first fixture", () => {
     const plan = buildVoxyCharacterMotionFixturePlan("16:9");
     expect(validateVoxyCharacterMotionFixturePlan(plan)).toEqual({ ok: true, errors: [] });
-    expect(plan.version).toBe("voxy-character-motion-fixture-v2");
+    expect(plan.version).toBe("voxy-character-motion-fixture-v3");
     expect(plan.durationMs).toBe(8_000);
     expect(plan.fps).toBe(24);
     expect(plan.reviewRequired).toBe(true);
@@ -50,16 +63,21 @@ describe("Voxy character motion fixture", () => {
     expect(plan.waveformContract.mayOverlapLogo).toBe(false);
   });
 
-  it("contains source, counterposition and open-question scenes", () => {
+  it("contains the four deterministic rig states used by the eight-second clip", () => {
     const plan = buildVoxyCharacterMotionFixturePlan("16:9");
     expect(plan.scenes.map((scene) => scene.kind)).toEqual([
       "opening",
-      "source_update",
+      "explanation",
       "contrast",
-      "open_question",
-      "closing",
+      "invitation",
     ]);
-    expect(plan.scenes.find((scene) => scene.kind === "source_update")?.sourceIds)
+    expect(plan.scenes.map((scene) => scene.motion)).toEqual([
+      "neutral_idle",
+      "explaining",
+      "showing_contrast",
+      "inviting_participation",
+    ]);
+    expect(plan.scenes.find((scene) => scene.kind === "explanation")?.sourceIds)
       .toHaveLength(3);
     expect(plan.scenes.find((scene) => scene.kind === "contrast")?.sourceIds)
       .toHaveLength(1);
@@ -71,8 +89,8 @@ describe("Voxy character motion fixture", () => {
     plan.anatomyContract = { ...plan.anatomyContract, visibleFingerCountPerHand: 4 as 5 };
     const validation = validateVoxyCharacterMotionFixturePlan(plan);
     expect(validation.ok).toBe(false);
-    expect(validation.errors).toContain("scene_timeline_gap_or_overlap:source-update");
-    expect(validation.errors).toContain("source_update_requires_sources");
+    expect(validation.errors).toContain("scene_timeline_gap_or_overlap:explanation");
+    expect(validation.errors).toContain("explanation_requires_sources");
     expect(validation.errors).toContain("five_finger_anatomy_contract_broken");
   });
 
@@ -81,32 +99,61 @@ describe("Voxy character motion fixture", () => {
     const html = renderVoxyCharacterMotionFixtureHtml({
       plan,
       embeddedStudioAssetUrl: "data:image/svg+xml;base64,studio",
-      embeddedCharacterAssetUrl: "data:image/svg+xml;base64,character",
+      embeddedCharacterSvg: minimalRigSvg(),
     });
 
     expect(html).toContain("VOXY · ON AIR");
     expect(html).toContain("QUELLENSTAND");
     expect(html).toContain("GEGENPOSITION");
     expect(html).toContain("OFFENE FRAGE");
-    expect(html).toContain("Ohne Lip-Sync");
+    expect(html).toContain("Lokales Layer-/Pivot-Rig");
     expect(html).toContain("prefers-reduced-motion");
     expect(html).toContain("studio-layer");
-    expect(html).toContain("character-layer");
+    expect(html).toContain("character-stage");
+    expect(html).toContain('data-rig-id="voxy-stretchy-compatible-svg-rig"');
+    expect(html).toContain("#left-hand-five-fingers");
+    expect(html).toContain("rotate(calc(-58deg");
+    expect(html).toContain("rotate(calc(58deg");
+    expect(html).toContain("0%,20%");
     expect(html).not.toContain('class="waveform"');
     expect(html).not.toContain("HeyGen");
   });
 
   it("prevents long card copy from rendering past the right edge", () => {
     const plan = buildVoxyCharacterMotionFixturePlan("16:9");
-    const html = renderVoxyCharacterMotionFixtureHtml({ plan });
+    const html = renderVoxyCharacterMotionFixtureHtml({
+      plan,
+      embeddedCharacterSvg: minimalRigSvg(),
+    });
     expect(html).toContain("overflow-wrap:anywhere");
     expect(html).toContain("max-width:100%");
     expect(html).toContain("hyphens:auto");
   });
 
+  it("rejects raster-backed or incomplete character rigs", () => {
+    const plan = buildVoxyCharacterMotionFixturePlan("16:9");
+    expect(() =>
+      renderVoxyCharacterMotionFixtureHtml({
+        plan,
+        embeddedCharacterSvg:
+          '<svg xmlns="http://www.w3.org/2000/svg"><image href="character.png"/></svg>',
+      }),
+    ).toThrow("invalid_or_non_local_voxy_rig_svg");
+    expect(() =>
+      renderVoxyCharacterMotionFixtureHtml({
+        plan,
+        embeddedCharacterSvg:
+          '<svg xmlns="http://www.w3.org/2000/svg"><g id="body"/></svg>',
+      }),
+    ).toThrow("voxy_rig_node_missing");
+  });
+
   it("adapts the fixture canvas for vertical output", () => {
     const plan = buildVoxyCharacterMotionFixturePlan("9:16");
-    const html = renderVoxyCharacterMotionFixtureHtml({ plan });
+    const html = renderVoxyCharacterMotionFixtureHtml({
+      plan,
+      embeddedCharacterSvg: minimalRigSvg(),
+    });
     expect(plan.width).toBe(720);
     expect(plan.height).toBe(1280);
     expect(html).toContain("width:720px");

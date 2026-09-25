@@ -203,6 +203,21 @@ const CAMPAIGN_PROFILES: MarketingCampaignControlProfile[] = [
     secondaryKpis: ["email_replies", "downloads", "landing_page_views"],
     reportingWindow: NO_WINDOW,
   },
+  {
+    campaignId: "CAM-V4G-14",
+    primarySegment: "b2c",
+    segments: ["b2c", "b2b", "b2g"],
+    audienceLabels: ["Bürger", "Civic-Tech", "Forschung", "öffentliche Akteure"],
+    regionKeys: ["germany", "europe", "international"],
+    reachScopes: ["national", "international"],
+    locales: ["de-DE", "en-GB"],
+    promotion: "organic",
+    plannedChannels: ["website", "linkedin", "instagram", "youtube_shorts", "newsletter"],
+    objective: "Vote4Gov als Denkwerkstatt für nachvollziehbare Governance-Vergleiche und transparent gekennzeichnete Alternativhypothesen etablieren.",
+    primaryKpi: "product_actions_started",
+    secondaryKpis: ["saves", "shares", "link_clicks", "qualified_inquiries"],
+    reportingWindow: NO_WINDOW,
+  },
 ];
 
 const METRIC_SNAPSHOTS: MarketingMetricSnapshot[] = [];

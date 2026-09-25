@@ -1,5 +1,5 @@
 import type { BucketBlock } from "@/components/landing/ExamplesBackdrop";
-import HomeSplitVoxyLanding from "@/features/home/HomeSplitVoxyLanding";
+import HomeGoToMarketLanding from "@/features/home/HomeGoToMarketLanding";
 import type { StartExperienceModel } from "@/features/start/startExperience";
 
 type LandingStartProps = {
@@ -9,21 +9,21 @@ type LandingStartProps = {
 
 const DEFAULT_START_EXPERIENCE: StartExperienceModel = {
   familiarity: "unknown_visitor",
-  eyebrow: "Aktuelle Themen · Quellen · Beteiligung",
-  title: "Verstehen, was sich verändert. Mitreden, wo es zählt.",
+  eyebrow: "Dein Anliegen zählt",
+  title: "Was sollte sich ändern?",
   description:
-    "eDebatte bündelt aktuelle Entwicklungen, Quellen, Positionen und Beteiligungsmöglichkeiten zu nachvollziehbaren Themenständen – von deiner Region bis zur Welt.",
-  helperText: "Entwicklungen entdecken, mitwirken oder einen eigenen Beitrag prüfen lassen.",
+    "Bring ein, was dich beschäftigt, oder entscheide schnell bei laufenden Themen mit. Der öffentliche Einstieg beginnt beim Menschen und seinem Anliegen.",
+  helperText: "Ein Satz reicht zum Start. Ort, Thema und Kontext werden nur ergänzt, soweit sie wirklich gebraucht werden.",
   trustText:
-    "Nichts wird automatisch veröffentlicht. Quellen, Prüfstatus und Beteiligung bleiben nachvollziehbar.",
+    "Nichts wird automatisch veröffentlicht. Quellen, Positionen und offene Fragen bleiben voneinander unterscheidbar.",
   showExtendedOrientation: false,
   workspaceHref: null,
   workspaceLabel: null,
   quickActionCenter: {
-    eyebrow: "Neu hier?",
-    title: "Entdecke, was sich verändert und wo du mitwirken kannst.",
+    eyebrow: "Direkt loslegen",
+    title: "Anliegen einbringen oder mitentscheiden.",
     description:
-      "Die Startseite führt direkt zu aktuellen Entwicklungen, Dossiers, Beteiligung und deinem eigenen Beitrag.",
+      "Starte frei mit deinem Anliegen oder beteilige dich schnell an laufenden Fragen. Professionelle Werkzeuge bleiben nachgelagert.",
     primaryActions: [],
     secondaryActions: [],
   },
@@ -33,5 +33,6 @@ export default function LandingStart({
   blocks,
   experience = DEFAULT_START_EXPERIENCE,
 }: LandingStartProps) {
-  return <HomeSplitVoxyLanding blocks={blocks} experience={experience} />;
+  void blocks;
+  return <HomeGoToMarketLanding experience={experience} />;
 }

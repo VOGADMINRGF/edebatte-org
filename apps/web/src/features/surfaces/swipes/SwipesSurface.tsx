@@ -25,7 +25,7 @@ export function SwipesSurface({
   showWelcomeHint = false,
 }: SwipesSurfaceProps) {
   return (
-    <main className="public-canvas relative min-h-screen overflow-hidden pb-14 text-[rgb(var(--fg))]">
+    <main className="public-canvas relative min-h-[100dvh] overflow-x-clip pb-[calc(env(safe-area-inset-bottom)+8rem)] text-[rgb(var(--fg))] md:pb-14">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-sky-500/10 via-transparent to-emerald-500/8 dark:from-sky-500/18 dark:to-emerald-500/12" />
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 -left-20 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl dark:bg-cyan-500/10" />
@@ -34,7 +34,7 @@ export function SwipesSurface({
       </div>
 
       <div className="public-shell relative z-10">
-        <div className="mb-3">
+        <div className="mb-3 hidden md:block">
           <VoxyGuide appearance="compact" title="Voxy als Hinweis" variant="miniAvatar">
             {getVoxyCopy("swipes")}
           </VoxyGuide>

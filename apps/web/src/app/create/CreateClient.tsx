@@ -64,7 +64,10 @@ import {
   type CreateIntelligentFollowupResult,
 } from "@/features/create/intelligentFollowupContract";
 import { buildCreateTechnicalFollowup } from "@/features/create/intelligentFollowupResults";
-import { createMutationRequestHeaders } from "@/features/create/createMutationSecurityContract";
+import {
+  CREATE_HONEYPOT_MAX_LENGTH,
+  createMutationRequestHeaders,
+} from "@/features/create/createMutationSecurityContract";
 import {
   buildCreateFollowupPrimaryCtaHref,
   buildCreateFollowupTargetHref,
@@ -113,6 +116,16 @@ import {
   type CreateVoxyLocale,
 } from "@/features/create/createVoxySupportCopy";
 import type { CreateSupportHandoffPublic } from "@/features/support/createSupportTicketContract";
+import {
+  applyCreateJurisdictionConfirmation,
+  applyCreateRegionPriority,
+} from "@/features/create/createCitizenIntakeContext";
+import {
+  isCreateIntelligentFollowupAbortError,
+  resolveCreateIntakeTiming,
+  startCreateIntelligentFollowupDeadline,
+  type CreateIntelligentFollowupDeadline,
+} from "@/features/create/createFastIntakeTiming";
 
 export type CreateClientProps = {
   initialEntitlements: CreateEntitlements;
@@ -454,9 +467,8 @@ function CreateSubmittedContributionBubble(props: {
   locale: CreateVoxyLocale;
 }) {
   return (
-    <div className="create-chat-message flex min-w-0 gap-3">
-      <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[rgb(var(--muted))] ring-4 ring-[rgb(var(--card))]" />
-      <div className="w-full min-w-0 max-w-full sm:max-w-[78%]">
+    <div className="create-chat-message flex min-w-0 justify-end">
+      <div className="w-full min-w-0 max-w-[46rem] sm:w-auto sm:min-w-[42%]">
         <p className="text-sm font-semibold text-[rgb(var(--muted))]">
           {props.locale === "en" ? "You" : "Du"}
         </p>
@@ -475,55 +487,33 @@ function CreateAssistantStatusBubble(props: {
   title: string;
   body: string;
   notice?: string | null;
-  chips?: string[];
-  largeAvatar?: boolean;
   announce?: boolean;
 }) {
   return (
     <div
-      className={`create-chat-message flex gap-3 ${
-        props.largeAvatar ? "flex-col sm:flex-row sm:gap-5" : ""
-      }`}
-      data-create-voxy-intro={props.largeAvatar ? "large-aura" : undefined}
+      className="create-chat-message flex items-start gap-3"
+      data-create-voxy-intro="dialog"
       role={props.announce ? "status" : undefined}
       aria-live={props.announce ? "polite" : undefined}
       aria-atomic={props.announce ? "true" : undefined}
     >
       <div className="mt-1 shrink-0">
         <VoxyAvatar
-          appearance={props.largeAvatar ? "panel" : "inline"}
-          compact={!props.largeAvatar}
-          priority={props.largeAvatar}
+          appearance="inline"
+          compact
           variant="presenting"
         />
       </div>
-      <div
-        className={`w-full min-w-0 flex-1 break-words [overflow-wrap:anywhere] ${
-          props.largeAvatar ? "max-w-4xl" : "max-w-full sm:max-w-[78%]"
-        }`}
-      >
+      <div className="w-full min-w-0 max-w-[46rem] flex-1 break-words [overflow-wrap:anywhere]">
         <p className="text-sm font-semibold text-[rgb(var(--muted))]">Voxy</p>
-        <div className="mt-2 rounded-2xl rounded-tl-sm border border-[rgb(var(--grad-from))]/25 bg-[linear-gradient(180deg,color-mix(in_oklab,rgb(var(--card))_90%,rgb(var(--grad-from))_10%),color-mix(in_oklab,rgb(var(--card))_94%,rgb(var(--bg))_6%))] px-4 py-4 md:px-5 md:py-5">
+        <div className="mt-2 rounded-2xl rounded-tl-sm border border-[rgb(var(--border))] bg-[color-mix(in_oklab,rgb(var(--card))_92%,rgb(var(--bg))_8%)] px-4 py-3.5 md:px-5 md:py-4">
           {props.eyebrow ? (
             <p className="text-sm font-medium text-[rgb(var(--muted))]">
               {props.eyebrow}
             </p>
           ) : null}
-          <p className="mt-1 text-lg font-semibold text-[rgb(var(--fg))] md:text-[1.35rem]">{props.title}</p>
-          <p className="mt-3 text-base leading-relaxed text-[rgb(var(--fg))] md:text-[17px]">{props.body}</p>
-          {props.chips?.length ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {props.chips.map((chip) => (
-                <span
-                  key={chip}
-                  data-create-thread-prompt-chip
-                  className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-1.5 text-sm font-medium text-[rgb(var(--muted))]"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <p className="mt-1 text-base font-semibold text-[rgb(var(--fg))] md:text-lg">{props.title}</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-[rgb(var(--fg))] md:text-base">{props.body}</p>
           {props.notice ? (
             <p className="mt-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-sm text-[rgb(var(--fg))]">
               {props.notice}
@@ -843,6 +833,7 @@ export default function CreateClient({
   const intakeHydratedRef = React.useRef(false);
   const [intakeText, setIntakeText] = React.useState(initialText ?? "");
   const [composerAttachments, setComposerAttachments] = React.useState<File[]>([]);
+  const [createHoneypotValue, setCreateHoneypotValue] = React.useState("");
   const [activeContextAnchorId, setActiveContextAnchorId] = React.useState<CreateContextIntent | null>(null);
   const [hasStarted, setHasStarted] = React.useState<boolean>(false);
   const [isStarting, setIsStarting] = React.useState(false);
@@ -853,6 +844,8 @@ export default function CreateClient({
     React.useState<CreateLightweightFollowupSnapshot | null>(null);
   const [intelligentFollowup, setIntelligentFollowup] =
     React.useState<CreateIntelligentFollowupResult | null>(null);
+  const [confirmedJurisdictionKey, setConfirmedJurisdictionKey] =
+    React.useState<string | null>(null);
   const [supportHandoff, setSupportHandoff] =
     React.useState<CreateSupportHandoffPublic | null>(null);
   const [plannerTrace, setPlannerTrace] = React.useState<CreatePlannerRuntimeTrace | null>(null);
@@ -884,6 +877,8 @@ export default function CreateClient({
   const [actionNotice, setActionNotice] = React.useState<string | null>(null);
   const [isRetryPlannerPending, setIsRetryPlannerPending] = React.useState(false);
   const analysisRunInFlightRef = React.useRef(false);
+  const plannerCorrelationIdRef = React.useRef<string | null>(null);
+  const plannerDeadlineRef = React.useRef<CreateIntelligentFollowupDeadline | null>(null);
   const [chatContinuationText, setChatContinuationText] = React.useState("");
   const [showFollowupCorrectionComposer, setShowFollowupCorrectionComposer] = React.useState(false);
   const [workspaceTransparencyOpen, setWorkspaceTransparencyOpen] = React.useState(false);
@@ -1152,6 +1147,14 @@ export default function CreateClient({
     intelligentFollowupResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [hasStarted, intelligentFollowup]);
 
+  React.useEffect(
+    () => () => {
+      plannerDeadlineRef.current?.cancel();
+      plannerDeadlineRef.current = null;
+    },
+    [],
+  );
+
   const startCreateFlow = React.useCallback(async (rawText: string) => {
     if (isStarting || analysisRunInFlightRef.current) return;
     const normalizedText = rawText.trim();
@@ -1170,7 +1173,12 @@ export default function CreateClient({
       return;
     }
     analysisRunInFlightRef.current = true;
+    plannerCorrelationIdRef.current = null;
     let draftSavedForRun = false;
+    const submitStartedAt = performance.now();
+    let saveMs: number | null = null;
+    let plannerCorrelationId: string | null = null;
+    let plannerDeadline: CreateIntelligentFollowupDeadline | null = null;
     try {
       setIntakeRestoreInfo(null);
       setIntakeError(null);
@@ -1219,9 +1227,12 @@ export default function CreateClient({
           : null,
       );
 
+      const saveStartedAt = performance.now();
       const saveResponse = await fetch("/api/create/save", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
+        // Save remains non-abortable so the UX deadline cannot break resume safety.
+        // The same deadline only cancels analysis after a durable draft exists.
         body: JSON.stringify({
           draftId: savedDraftId ?? undefined,
           text: normalizedText,
@@ -1243,6 +1254,7 @@ export default function CreateClient({
           },
         }),
       });
+      saveMs = performance.now() - saveStartedAt;
       const saveBody = await saveResponse.json().catch(() => ({}));
       if (!saveResponse.ok || !saveBody?.ok || typeof saveBody?.draftId !== "string") {
         throw new Error("create_auto_save_failed");
@@ -1274,9 +1286,15 @@ export default function CreateClient({
       let nextIntelligentFollowup: CreateIntelligentFollowupResult | null = null;
       let nextPlannerTrace: CreatePlannerRuntimeTrace | null = null;
       const correlationId = createClientCorrelationId();
+      plannerCorrelationId = correlationId;
+      plannerCorrelationIdRef.current = correlationId;
+      const intakeTiming = resolveCreateIntakeTiming(normalizedText);
+      plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
+      plannerDeadlineRef.current = plannerDeadline;
       const response = await fetch("/api/create/intelligent-followup", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
+        signal: plannerDeadline.signal,
         body: JSON.stringify({
           text: normalizedText,
           locale: surfaceLocale,
@@ -1294,7 +1312,18 @@ export default function CreateClient({
         throw new Error("create_intelligent_followup_failed");
       }
       nextIntelligentFollowup = body.result as CreateIntelligentFollowupResult;
-      nextPlannerTrace = body.trace ?? null;
+      nextPlannerTrace = body.trace
+        ? {
+            ...body.trace,
+            timings: body.trace.timings
+              ? {
+                  ...body.trace.timings,
+                  saveMs,
+                  submitToResultMs: performance.now() - submitStartedAt,
+                }
+              : undefined,
+          }
+        : null;
 
       setIntelligentFollowup(nextIntelligentFollowup);
       setSupportHandoff(body.supportHandoff ?? null);
@@ -1315,7 +1344,11 @@ export default function CreateClient({
         setAnalysisAutoRunToken((current) => current + 1);
       }
       setIsStarting(false);
-    } catch {
+    } catch (error: unknown) {
+      const plannerTimedOut =
+        draftSavedForRun &&
+        plannerDeadline?.didTimeout() === true &&
+        isCreateIntelligentFollowupAbortError(error);
       if (!draftSavedForRun) {
         setIntakeError(
           surfaceLocale === "en"
@@ -1323,15 +1356,20 @@ export default function CreateClient({
             : "Dein Beitrag konnte nicht sicher gespeichert werden. Bitte versuche es erneut.",
         );
       } else {
-        const technicalReference = createClientCorrelationId();
-        const failedHandoff: CreateSupportHandoffPublic = {
-          status: "failed",
-          technicalReference,
-          safeUserMessage:
-            surfaceLocale === "en"
-              ? "The support handoff could not be confirmed."
-              : "Die technische Übergabe konnte nicht bestätigt werden.",
-        };
+        const failedHandoff: CreateSupportHandoffPublic | null =
+          plannerCorrelationId
+            ? {
+                status: "failed",
+                technicalReference: plannerCorrelationId,
+                safeUserMessage: plannerTimedOut
+                  ? surfaceLocale === "en"
+                    ? "The classification took longer than expected. Your contribution remains saved."
+                    : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt gespeichert."
+                  : surfaceLocale === "en"
+                    ? "The support handoff could not be confirmed."
+                    : "Die technische Übergabe konnte nicht bestätigt werden.",
+              }
+            : null;
         setSupportHandoff(failedHandoff);
         setIntelligentFollowup(
           buildCreateTechnicalFollowup({
@@ -1346,7 +1384,14 @@ export default function CreateClient({
           }),
         );
       }
-      if (draftSavedForRun && productMode === "analyze") {
+      if (plannerTimedOut) {
+        setActionNotice(
+          surfaceLocale === "en"
+            ? "The classification took longer than expected. Your contribution is saved; you can try the classification again."
+            : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag ist gespeichert; du kannst die Einordnung erneut versuchen.",
+        );
+        setIntakeError(null);
+      } else if (draftSavedForRun && productMode === "analyze") {
         setActionNotice(
           surfaceLocale === "en"
             ? "I could not complete the automatic classification. You can refine the statement or review details again later."
@@ -1358,9 +1403,13 @@ export default function CreateClient({
             : "Die Systemprüfung ist gerade nicht verfügbar. Dein Text bleibt erhalten.",
         );
       } else if (draftSavedForRun) {
-        setIntakeError(surfaceTexts.startFailedError);
+        setIntakeError(null);
       }
     } finally {
+      plannerDeadline?.clear();
+      if (plannerDeadlineRef.current === plannerDeadline) {
+        plannerDeadlineRef.current = null;
+      }
       analysisRunInFlightRef.current = false;
       setIsStarting(false);
     }
@@ -1368,6 +1417,7 @@ export default function CreateClient({
     activeContextAnchor?.label,
     activeIntent,
     composerAttachmentMaterialItems,
+    createHoneypotValue,
     dossierId,
     isStarting,
     canonicalCreateMode,
@@ -1506,6 +1556,76 @@ export default function CreateClient({
       : surfaceTexts.startBusyStatus;
   const showStartChatPreview =
     Boolean(followupSnapshot) && hasStarted && !showIntelligentFollowup && !showLinkClarification;
+  const citizenContext = React.useMemo(() => {
+    const detected = intelligentFollowup?.meta?.citizenContext ?? null;
+    if (!detected) return null;
+    const profileRegion =
+      overview.profile?.publicLocation?.city ??
+      overview.profile?.publicLocation?.region ??
+      null;
+    const confirmedRegion =
+      initialIntakeContext?.reviewState === "confirmed"
+        ? initialIntakeContext.region
+        : null;
+    const prioritized = applyCreateRegionPriority(detected, {
+      confirmedRegion,
+      profileRegion,
+    });
+    return applyCreateJurisdictionConfirmation(
+      prioritized,
+      confirmedJurisdictionKey,
+    );
+  }, [
+    confirmedJurisdictionKey,
+    initialIntakeContext,
+    intelligentFollowup?.meta?.citizenContext,
+    overview.profile,
+  ]);
+
+  React.useEffect(() => {
+    setConfirmedJurisdictionKey(null);
+  }, [intelligentFollowup?.sourceText]);
+
+  const confirmCitizenJurisdiction = React.useCallback(
+    (candidateKey: string) => {
+      if (!citizenContext) return;
+      const confirmed = applyCreateJurisdictionConfirmation(
+        citizenContext,
+        candidateKey,
+      );
+      if (confirmed.jurisdictionConfirmation.status !== "confirmed") return;
+      setConfirmedJurisdictionKey(
+        confirmed.jurisdictionConfirmation.candidateKey,
+      );
+      setIntelligentFollowup((current) =>
+        current
+          ? {
+              ...current,
+              meta: {
+                ...current.meta,
+                citizenContext: confirmed,
+              },
+            }
+          : current,
+      );
+    },
+    [citizenContext],
+  );
+
+  const clearCitizenJurisdictionConfirmation = React.useCallback(() => {
+    setConfirmedJurisdictionKey(null);
+    setIntelligentFollowup((current) => {
+      const context = current?.meta?.citizenContext;
+      if (!current || !context) return current;
+      return {
+        ...current,
+        meta: {
+          ...current.meta,
+          citizenContext: applyCreateJurisdictionConfirmation(context, null),
+        },
+      };
+    });
+  }, []);
   const startChatAssistantTitle = isStarting
     ? surfaceLocale === "en"
       ? "I’m organizing this briefly"
@@ -1645,15 +1765,11 @@ export default function CreateClient({
     : intakePlaceholder;
   const workspaceComposerStartLabel = hasStarted
     ? surfaceLocale === "en"
-      ? "Continue"
-      : "Weiter"
-    : productMode === "guided"
-      ? surfaceLocale === "en"
-        ? "Prepare draft"
-        : "Entwurf vorbereiten"
-      : surfaceLocale === "en"
-        ? "Review"
-        : "Prüfen";
+      ? "Send reply"
+      : "Antwort senden"
+    : surfaceLocale === "en"
+      ? "Organize concern"
+      : "Anliegen einordnen";
   const workspaceComposerStartBusyLabel = hasStarted
     ? surfaceLocale === "en"
       ? "I’m organizing your addition …"
@@ -1683,7 +1799,7 @@ export default function CreateClient({
   };
   const renderWorkspaceThread = () =>
     showLinkClarification && linkClarificationState ? (
-      <div className="create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))]">
+      <div className="min-w-0 space-y-5">
         <CreateSubmittedContributionBubble
           text={followupSnapshot?.originalText ?? normalizedIntakeText}
           locale={surfaceLocale}
@@ -1897,7 +2013,7 @@ export default function CreateClient({
     ) : showStartChatPreview && followupSnapshot ? (
       <div
         data-create-loading-thread={isStarting ? "true" : undefined}
-        className="create-chat-spine relative min-w-0 space-y-5 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))]"
+        className="min-w-0 space-y-5"
       >
         <CreateSubmittedContributionBubble
           text={followupSnapshot.originalText}
@@ -1926,18 +2042,12 @@ export default function CreateClient({
     ) : (
       <div
         data-create-initial-thread="true"
-        className="create-chat-spine relative flex min-h-[18rem] min-w-0 items-start pt-1 before:absolute before:left-[27px] before:top-8 before:h-[calc(100%-3rem)] before:w-px before:bg-slate-200 dark:before:bg-[rgb(var(--border))] md:min-h-[22rem] md:pt-2"
+        className="relative flex min-h-[10rem] min-w-0 items-start pt-1 md:min-h-[12rem] md:pt-2"
       >
         <CreateAssistantStatusBubble
           title={voxyCopy.greeting}
           body={voxyCopy.intro}
-          chips={
-            surfaceLocale === "en"
-              ? ["Organize topics", "Sharpen questions", "Check sources"]
-              : ["Thema ordnen", "Frage schärfen", "Quellen prüfen"]
-          }
           notice={localizedActionNotice}
-          largeAvatar
         />
       </div>
     );
@@ -2259,7 +2369,7 @@ export default function CreateClient({
     try {
       const response = await fetch("/api/create/save", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         body: JSON.stringify({
           draftId: savedDraftId ?? undefined,
           text: normalizedText,
@@ -2317,6 +2427,7 @@ export default function CreateClient({
     currentLinkDetection,
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
+    createHoneypotValue,
     linkClarificationState,
   ]);
 
@@ -2438,11 +2549,19 @@ export default function CreateClient({
     analysisRunInFlightRef.current = true;
     setIsRetryPlannerPending(true);
     setSupportHandoff(null);
+    const correlationId =
+      plannerCorrelationIdRef.current ??
+      plannerTrace?.requestId ??
+      createClientCorrelationId();
+    plannerCorrelationIdRef.current = correlationId;
+    const intakeTiming = resolveCreateIntakeTiming(sourceText);
+    const plannerDeadline = startCreateIntelligentFollowupDeadline(intakeTiming.clientTimeoutMs);
+    plannerDeadlineRef.current = plannerDeadline;
     try {
-      const correlationId = createClientCorrelationId();
       const response = await fetch("/api/create/intelligent-followup", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
+        signal: plannerDeadline.signal,
         body: JSON.stringify({
           text: sourceText,
           locale: surfaceLocale,
@@ -2482,17 +2601,33 @@ export default function CreateClient({
             ? "The classification remains pending. You can continue manually and choose the next step yourself."
             : "Die Einordnung bleibt noch offen. Du kannst jetzt manuell fortfahren und den nächsten Schritt selbst wählen.",
       );
-    } catch {
+    } catch (error: unknown) {
+      const plannerTimedOut =
+        plannerDeadline.didTimeout() &&
+        isCreateIntelligentFollowupAbortError(error);
       setSupportHandoff({
         status: "failed",
-        technicalReference: createClientCorrelationId(),
-        safeUserMessage:
-          surfaceLocale === "en"
+        technicalReference: correlationId,
+        safeUserMessage: plannerTimedOut
+          ? surfaceLocale === "en"
+            ? "The classification took longer than expected. Your contribution remains saved."
+            : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag bleibt gespeichert."
+          : surfaceLocale === "en"
             ? "The support handoff could not be confirmed."
             : "Die technische Übergabe konnte nicht bestätigt werden.",
       });
-      setActionNotice(null);
+      setActionNotice(
+        plannerTimedOut
+          ? surfaceLocale === "en"
+            ? "The classification took longer than expected. Your contribution is saved; you can try again."
+            : "Die Einordnung hat länger als erwartet gedauert. Dein Beitrag ist gespeichert; du kannst es erneut versuchen."
+          : null,
+      );
     } finally {
+      plannerDeadline.clear();
+      if (plannerDeadlineRef.current === plannerDeadline) {
+        plannerDeadlineRef.current = null;
+      }
       analysisRunInFlightRef.current = false;
       setIsRetryPlannerPending(false);
     }
@@ -2500,11 +2635,13 @@ export default function CreateClient({
     activeIntent,
     currentMaterialRouting.materialItems,
     currentMaterialRouting.sourceUrls,
+    createHoneypotValue,
     dossierId,
     followupSnapshot?.originalText,
     intelligentFollowup?.sourceText,
     isRetryPlannerPending,
     normalizedIntakeText,
+    plannerTrace?.requestId,
     privacyGate,
     savedDraftId,
     selectedAnlassraumId,
@@ -2713,7 +2850,7 @@ export default function CreateClient({
       const correlationId = createClientCorrelationId();
       const response = await fetch("/api/create/link-analysis", {
         method: "POST",
-        headers: createMutationRequestHeaders(),
+        headers: createMutationRequestHeaders({ honeypotValue: createHoneypotValue }),
         body: JSON.stringify({
           text: normalizedIntakeText,
           url: currentLinkDetection.primaryUrl,
@@ -2762,6 +2899,7 @@ export default function CreateClient({
     }
   }, [
     currentLinkDetection,
+    createHoneypotValue,
     intelligentFollowup?.meta?.analysis?.state,
     isStarting,
     linkClarificationState?.additionalContext,
@@ -3100,7 +3238,24 @@ export default function CreateClient({
               <CreateDebattenstandStatusBar model={debattenstandModel} onOpen={onOpen} />
             )}
             composer={
-              <SharedCreateComposer
+              <>
+                <input
+                  type="text"
+                  name="request_note_2f7"
+                  value={createHoneypotValue}
+                  onChange={(event) =>
+                    setCreateHoneypotValue(
+                      event.currentTarget.value.slice(0, CREATE_HONEYPOT_MAX_LENGTH),
+                    )
+                  }
+                  maxLength={CREATE_HONEYPOT_MAX_LENGTH}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  data-create-meta-field="v1"
+                  style={{ position: "fixed", left: "-10000px", top: "-10000px", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+                />
+                <SharedCreateComposer
                 badge={surfaceTexts.badgeCanonical}
                 subline={surfaceTexts.sublineCanonical}
                 texts={surfaceComposerTexts}
@@ -3190,6 +3345,27 @@ export default function CreateClient({
                 inputPlaceholder={workspaceComposerPlaceholder}
                 onInputChange={handleWorkspaceComposerChange}
                 onAttachmentsChange={setComposerAttachments}
+                citizenContext={citizenContext}
+                confirmedJurisdictionKey={confirmedJurisdictionKey}
+                onConfirmCitizenJurisdiction={confirmCitizenJurisdiction}
+                onEditCitizenJurisdiction={() => {
+                  clearCitizenJurisdictionConfirmation();
+                  setWorkspaceActionMode("edit");
+                  setActionNotice(
+                    surfaceLocale === "en"
+                      ? "Clarify the responsible place or authority directly in your contribution."
+                      : "Präzisiere den zuständigen Ort oder die Zuständigkeit direkt in deinem Beitrag.",
+                  );
+                }}
+                onEditCitizenRegion={() => {
+                  clearCitizenJurisdictionConfirmation();
+                  setWorkspaceActionMode("edit");
+                  setActionNotice(
+                    surfaceLocale === "en"
+                      ? "You can change the place or region directly in your contribution."
+                      : "Du kannst Ort oder Region direkt in deinem Beitrag ändern.",
+                  );
+                }}
                 onStart={hasStarted ? handleContinueConversation : handleStart}
                 startLabel={workspaceComposerStartLabel}
                 startDisabled={workspaceComposerStartDisabled}
@@ -3248,7 +3424,8 @@ export default function CreateClient({
                 workspacePhase={hasStarted ? "continuation" : "initial"}
                 hideAlternateModeDisclosure
                 locale={surfaceLocale}
-              />
+                />
+              </>
             }
           />
         </section>

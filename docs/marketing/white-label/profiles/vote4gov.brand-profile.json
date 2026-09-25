@@ -1,0 +1,35 @@
+{
+  "id": "brand-vote4gov",
+  "key": "vote4gov",
+  "mode": "vote4gov",
+  "status": "draft",
+  "displayName": "Vote4Gov",
+  "shortName": "Vote4Gov",
+  "localeDefault": "de-DE",
+  "locales": ["de-DE", "en"],
+  "logoSet": {
+    "primary": { "ref": "brand:vote4gov:primary" }
+  },
+  "colors": {
+    "canvas": "inherit",
+    "surface": "inherit",
+    "foreground": "inherit",
+    "mutedForeground": "inherit",
+    "accent": "inherit",
+    "accentForeground": "inherit",
+    "border": "inherit"
+  },
+  "typography": {
+    "displayStack": ["inherit"],
+    "bodyStack": ["inherit"]
+  },
+  "voxyMode": "vote4gov_context",
+  "website": "https://vote4gov.eu/",
+  "imprintUrl": null,
+  "privacyUrl": null,
+  "approvedBy": null,
+  "approvedAt": null,
+  "version": 1,
+  "createdAt": "2026-08-24T10:24:00+02:00",
+  "updatedAt": "2026-08-24T10:24:00+02:00"
+}

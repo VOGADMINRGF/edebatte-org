@@ -69,10 +69,20 @@ export const SOCIAL_DISTRIBUTION_CONTEXT_TYPES = [
   "topic_page",
   "round",
   "claim",
+  "marketing_campaign",
 ] as const;
 
 export type SocialDistributionContextType =
   (typeof SOCIAL_DISTRIBUTION_CONTEXT_TYPES)[number];
+
+export const SOCIAL_DISTRIBUTION_PUBLIC_BRANDS = [
+  "edebatte",
+  "voiceopengov",
+  "vote4gov",
+] as const;
+
+export type SocialDistributionPublicBrand =
+  (typeof SOCIAL_DISTRIBUTION_PUBLIC_BRANDS)[number];
 
 export const SOCIAL_DISTRIBUTION_SOURCE_STATES = [
   "review_only",
@@ -118,6 +128,9 @@ export const SocialDistributionPostSchema = z
     dossierId: z.string().trim().min(1).nullable(),
     sourceContextType: z.enum(SOCIAL_DISTRIBUTION_CONTEXT_TYPES),
     sourceContextId: z.string().trim().min(1),
+    publicBrand: z.enum(SOCIAL_DISTRIBUTION_PUBLIC_BRANDS).default("edebatte"),
+    marketingCampaignId: z.string().trim().min(1).nullable().default(null),
+    marketingContentId: z.string().trim().min(1).nullable().default(null),
     sourceVisibilityState: z.enum(REGION_PUBLICATION_VISIBILITY_STATES),
     sourceState: z.enum(SOCIAL_DISTRIBUTION_SOURCE_STATES),
     title: z.string().trim().min(1),
@@ -141,7 +154,31 @@ export const SocialDistributionPostSchema = z
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
   })
-  .strict();
+  .strict()
+  .superRefine((post, context) => {
+    if (post.sourceContextType !== "marketing_campaign") return;
+    if (!post.marketingCampaignId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "marketing_campaign source requires marketingCampaignId",
+        path: ["marketingCampaignId"],
+      });
+    }
+    if (!post.marketingContentId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "marketing_campaign source requires marketingContentId",
+        path: ["marketingContentId"],
+      });
+    }
+    if (post.marketingCampaignId && post.sourceContextId !== post.marketingCampaignId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "marketing_campaign sourceContextId must equal marketingCampaignId",
+        path: ["sourceContextId"],
+      });
+    }
+  });
 
 export type SocialDistributionPost = z.infer<typeof SocialDistributionPostSchema>;
 
@@ -170,6 +207,9 @@ export type CreateSocialDistributionPostInput = {
   dossierId?: string | null;
   sourceContextType: SocialDistributionContextType;
   sourceContextId: string;
+  publicBrand?: SocialDistributionPublicBrand;
+  marketingCampaignId?: string | null;
+  marketingContentId?: string | null;
   sourceVisibilityState: RegionPublicationVisibilityState;
   title: string;
   channels: SocialDistributionChannel[];
@@ -255,9 +295,10 @@ function postIdFor(input: {
   organizationId: string;
   sourceContextType: SocialDistributionContextType;
   sourceContextId: string;
+  marketingContentId?: string | null;
 }) {
   return `social-dist-${stableHash(
-    `${input.organizationId}:${input.sourceContextType}:${input.sourceContextId}`,
+    `${input.organizationId}:${input.sourceContextType}:${input.sourceContextId}:${input.marketingContentId ?? "-"}`,
   ).slice(0, 18)}`;
 }
 
@@ -325,6 +366,64 @@ function sourceStateFromVisibility(
   return "approved_context";
 }
 
+function brandLabel(brand: SocialDistributionPublicBrand) {
+  if (brand === "voiceopengov") return "VoiceOpenGov";
+  if (brand === "vote4gov") return "Vote4Gov";
+  return "eDebatte";
+}
+
+function buildMarketingAssets(input: {
+  title: string;
+  sourceSummary: string;
+  channels: SocialDistributionChannel[];
+  channelTexts: Partial<Record<SocialDistributionChannel, string>>;
+  backlinkHref: string;
+  embedHref?: string | null;
+  qrHref?: string | null;
+  publicBrand: SocialDistributionPublicBrand;
+}) {
+  const backlink = normalizeOptionalText(input.backlinkHref);
+  const assets: SocialDistributionAsset[] = input.channels.map((channel) =>
+    SocialDistributionAssetSchema.parse({
+      id: `social-asset-${stableHash(`${input.publicBrand}:${channel}:${input.title}`).slice(0, 12)}`,
+      channel,
+      kind: assetKindForChannel(channel),
+      label: channelLabel(channel),
+      href:
+        channel === "embed_snippet"
+          ? normalizeOptionalText(input.embedHref)
+          : channel === "qr_asset"
+            ? normalizeOptionalText(input.qrHref)
+            : backlink,
+      text:
+        channel === "embed_snippet" || channel === "qr_asset"
+          ? backlink
+          : redactPotentialPersonalData(
+              input.channelTexts[channel] ?? `${input.title}. ${input.sourceSummary}`,
+            ),
+      verificationLabel: "analysiert",
+      sealGranted: false,
+      publicSafe: true,
+    }),
+  );
+
+  assets.push(
+    SocialDistributionAssetSchema.parse({
+      id: `social-share-${stableHash(`${input.publicBrand}:${input.title}`).slice(0, 12)}`,
+      channel: "website_update",
+      kind: "share_reference",
+      label: `${brandLabel(input.publicBrand)} · Marketing-Referenz`,
+      href: backlink,
+      text: redactPotentialPersonalData(`${input.title}. ${input.sourceSummary}`),
+      verificationLabel: "analysiert",
+      sealGranted: false,
+      publicSafe: true,
+    }),
+  );
+
+  return assets;
+}
+
 function buildAssets(input: {
   title: string;
   sourceSummary: string;
@@ -334,7 +433,13 @@ function buildAssets(input: {
   embedHref?: string | null;
   qrHref?: string | null;
   factcheck?: CreateSocialDistributionPostInput["factcheck"];
+  sourceContextType: SocialDistributionContextType;
+  publicBrand: SocialDistributionPublicBrand;
 }) {
+  if (input.sourceContextType === "marketing_campaign") {
+    return buildMarketingAssets(input);
+  }
+
   const shareAsset = buildShareOutputAsset({
     baseUrl: "https://edebatte.org",
     canonicalPathOrUrl: input.backlinkHref,
@@ -454,6 +559,9 @@ function buildPost(input: CreateSocialDistributionPostInput): SocialDistribution
         : "draft_created"
       : "draft_created";
   const status = input.initialStatus ?? defaultStatus;
+  const publicBrand = input.publicBrand ?? "edebatte";
+  const marketingCampaignId = normalizeOptionalText(input.marketingCampaignId) ?? null;
+  const marketingContentId = normalizeOptionalText(input.marketingContentId) ?? null;
   const channelConnections = buildSocialChannelConnections({
     channels: input.channels,
     organizationId: input.organizationId,
@@ -462,12 +570,20 @@ function buildPost(input: CreateSocialDistributionPostInput): SocialDistribution
   });
 
   const draftLike = {
-    id: postIdFor(input),
+    id: postIdFor({
+      organizationId: input.organizationId,
+      sourceContextType: input.sourceContextType,
+      sourceContextId: input.sourceContextId,
+      marketingContentId,
+    }),
     organizationId: input.organizationId,
     regionId: normalizeOptionalText(input.regionId) ?? null,
     dossierId: normalizeOptionalText(input.dossierId) ?? null,
     sourceContextType: input.sourceContextType,
     sourceContextId: input.sourceContextId,
+    publicBrand,
+    marketingCampaignId,
+    marketingContentId,
     sourceVisibilityState: input.sourceVisibilityState,
     sourceState,
     title: redactPotentialPersonalData(input.title),
@@ -495,6 +611,8 @@ function buildPost(input: CreateSocialDistributionPostInput): SocialDistribution
       embedHref: input.embedHref ?? null,
       qrHref: input.qrHref ?? null,
       factcheck: input.factcheck ?? null,
+      sourceContextType: input.sourceContextType,
+      publicBrand,
     }),
     approval: {
       reviewRequired: true,
@@ -506,6 +624,9 @@ function buildPost(input: CreateSocialDistributionPostInput): SocialDistribution
     limitations: [
       "Kein Auto-Publish.",
       "Keine externe API-Verteilung im v1-Pfad.",
+      ...(input.sourceContextType === "marketing_campaign"
+        ? ["Marketing-Content bleibt markengebunden und review-first."]
+        : []),
       sourceState === "review_only"
         ? "Review-only-Kontext erzeugt keinen freigegebenen Social-Output."
         : "Verteilung bleibt review-first und manuell veröffentlicht.",
@@ -547,6 +668,7 @@ async function ensureMongoIndexes() {
   await Promise.all([
     posts.createIndex({ "post.organizationId": 1, "post.updatedAt": -1 }),
     posts.createIndex({ "post.sourceContextType": 1, "post.sourceContextId": 1 }),
+    posts.createIndex({ "post.marketingCampaignId": 1, "post.marketingContentId": 1 }),
     posts.createIndex({ "post.dossierId": 1 }),
     posts.createIndex({ "post.status": 1, "post.updatedAt": -1 }),
     audit.createIndex({ "event.postId": 1, createdAt: -1 }),

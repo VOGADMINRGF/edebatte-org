@@ -62,70 +62,60 @@ export default function RundenGuidedQuestionBuilder({
 
   return (
     <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-sm md:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-            Operativer Schnellstart
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Etwas starten</p>
+          <h2 className="mt-1 text-xl font-semibold text-[rgb(var(--fg))]">Aus einem Thema wird eine klare Frage.</h2>
+          <p className="mt-2 text-sm leading-6 text-[rgb(var(--muted))]">
+            Beschreibe kurz, worum es geht. eDebatte hilft dir daraus eine verständliche Frage und passende Antwortmöglichkeiten vorzubereiten.
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-[rgb(var(--fg))]">
-            Anlass, Frage und Abstimmungsfähigkeit vorbereiten
-          </h2>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/runden/new" className="vog-chip vog-chip--active">
-            Anlass starten
-          </Link>
-          <a href={participationTarget} className="vog-chip">
-            Per QR/Link teilnehmen
-          </a>
+          <Link href="/runden/new" className="vog-chip vog-chip--active">Neue Runde starten</Link>
+          <a href={participationTarget} className="vog-chip">Bei einer Runde mitmachen</a>
         </div>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => setDirection("prepare")}
-          className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+          className={`rounded-xl border px-3 py-3 text-left text-sm transition ${
             direction === "prepare"
               ? "border-[rgb(var(--grad-from))]/45 bg-[rgb(var(--bg))] text-[rgb(var(--fg))]"
               : "border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--muted))]"
           }`}
           aria-pressed={direction === "prepare"}
         >
-          <span className="font-semibold">Anlass / Beitrag / Frage vorbereiten</span>
-          <span className="mt-1 block text-xs text-[rgb(var(--muted))]">
-            Thema konkretisieren und den ersten strukturierten Einstieg bauen.
-          </span>
+          <span className="font-semibold">Ich möchte etwas Neues starten</span>
+          <span className="mt-1 block text-xs leading-5 text-[rgb(var(--muted))]">Aus meinem Thema oder Anliegen eine verständliche Frage entwickeln.</span>
         </button>
         <button
           type="button"
           onClick={() => setDirection("verify")}
-          className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+          className={`rounded-xl border px-3 py-3 text-left text-sm transition ${
             direction === "verify"
               ? "border-[rgb(var(--grad-from))]/45 bg-[rgb(var(--bg))] text-[rgb(var(--fg))]"
               : "border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--muted))]"
           }`}
           aria-pressed={direction === "verify"}
         >
-          <span className="font-semibold">Prüfen / abstimmungsfähig machen</span>
-          <span className="mt-1 block text-xs text-[rgb(var(--muted))]">
-            Frage schärfen, Optionen prüfen und Reihenfolge priorisieren.
-          </span>
+          <span className="font-semibold">Ich habe schon eine Frage</span>
+          <span className="mt-1 block text-xs leading-5 text-[rgb(var(--muted))]">Formulierung und Antwortmöglichkeiten noch einmal gemeinsam prüfen.</span>
         </button>
       </div>
 
       <div className="mt-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
-        <label htmlFor="runden-guided-input" className="text-xs font-semibold text-[rgb(var(--muted))]">
-          Ausgangstext
-        </label>
+        <label htmlFor="runden-guided-input" className="text-sm font-semibold text-[rgb(var(--fg))]">Worum geht es?</label>
+        <p className="mt-1 text-xs text-[rgb(var(--muted))]">Ein paar Sätze reichen. Du musst noch nichts perfekt formulieren.</p>
         <textarea
           id="runden-guided-input"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           className="mt-2 min-h-[96px] w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--fg))] outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-          placeholder="Beschreibe den Anlass, die offene Frage oder den Konflikt in 2-4 Sätzen."
+          placeholder="Zum Beispiel: In unserem Kiez fehlt ein sicherer Übergang an der Schule. Wir möchten wissen, welche Lösung die Menschen vor Ort bevorzugen."
         />
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
@@ -133,35 +123,28 @@ export default function RundenGuidedQuestionBuilder({
               setQuestionOverride("");
               setOptionsOverride([]);
             }}
-            className="inline-flex items-center justify-center rounded-lg bg-[rgb(var(--grad-from))] px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            className="vog-btn-brand"
           >
-            Flow starten
+            Vorschlag ansehen
           </button>
           <Link
             href={direction === "verify" ? verifyHref : prepareHref}
             className="inline-flex items-center justify-center rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm font-semibold text-[rgb(var(--fg))] transition hover:bg-[rgb(var(--bg))]"
           >
-            {direction === "verify"
-              ? "Prüfen / abstimmungsfähig machen"
-              : "Ersten Beitrag / erste Frage vorbereiten"}
+            {direction === "verify" ? "Direkt weiter prüfen" : "Direkt weiter vorbereiten"}
           </Link>
         </div>
       </div>
 
       {started ? (
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <article className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">1) Anlass erkennen</p>
-            <p className="mt-1 text-sm text-[rgb(var(--fg))]">{draft.occasion}</p>
-            <p className="mt-2 text-xs text-[rgb(var(--muted))]">
-              Nächster Schritt: Frage so formulieren, dass sie abstimmungsfähig wird.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">Worum es geht</p>
+            <p className="mt-2 text-sm leading-6 text-[rgb(var(--fg))]">{draft.occasion}</p>
           </article>
 
           <article className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-              2) Abstimmungsfrage vorschlagen
-            </p>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">Welche Frage sollen Menschen beantworten?</label>
             <input
               value={question}
               onChange={(event) => setQuestionOverride(event.target.value)}
@@ -170,44 +153,19 @@ export default function RundenGuidedQuestionBuilder({
           </article>
 
           <article className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-3 lg:col-span-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-              3) Antwortoptionen priorisieren
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">Welche Antworten sind möglich?</p>
             <ul className="mt-2 space-y-2">
               {options.map((option, index) => (
-                <li
-                  key={`${option}-${index}`}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2"
-                >
-                  <span className="text-sm text-[rgb(var(--fg))]">
-                    {index + 1}. {option}
-                  </span>
+                <li key={`${option}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2">
+                  <span className="text-sm text-[rgb(var(--fg))]">{index + 1}. {option}</span>
                   <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setOptionsOverride((prev) => reorderOptions(prev.length ? prev : options, index, index - 1))}
-                      disabled={index === 0}
-                      className="rounded border border-[rgb(var(--border))] px-2 py-1 text-xs text-[rgb(var(--muted))] disabled:opacity-50"
-                      aria-label="Option nach oben"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOptionsOverride((prev) => reorderOptions(prev.length ? prev : options, index, index + 1))}
-                      disabled={index === options.length - 1}
-                      className="rounded border border-[rgb(var(--border))] px-2 py-1 text-xs text-[rgb(var(--muted))] disabled:opacity-50"
-                      aria-label="Option nach unten"
-                    >
-                      ↓
-                    </button>
+                    <button type="button" onClick={() => setOptionsOverride((prev) => reorderOptions(prev.length ? prev : options, index, index - 1))} disabled={index === 0} className="rounded border border-[rgb(var(--border))] px-2 py-1 text-xs text-[rgb(var(--muted))] disabled:opacity-50" aria-label="Option nach oben">↑</button>
+                    <button type="button" onClick={() => setOptionsOverride((prev) => reorderOptions(prev.length ? prev : options, index, index + 1))} disabled={index === options.length - 1} className="rounded border border-[rgb(var(--border))] px-2 py-1 text-xs text-[rgb(var(--muted))] disabled:opacity-50" aria-label="Option nach unten">↓</button>
                   </div>
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-[rgb(var(--muted))]">
-              4) Nächste Schritte: Prüfen, abstimmungsfähig machen, dann Teilnahmelink/QR aktiv teilen.
-            </p>
+            <p className="mt-3 text-xs leading-5 text-[rgb(var(--muted))]">Danach kannst du Quellen ergänzen, weitere Perspektiven zulassen und entscheiden, wann du die Runde per Link oder QR teilst.</p>
           </article>
         </div>
       ) : null}

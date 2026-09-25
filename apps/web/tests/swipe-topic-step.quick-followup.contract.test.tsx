@@ -20,13 +20,17 @@ const ITEM: SwipeItem = {
 };
 
 describe("swipe topic quick follow-up contract", () => {
-  it("renders lightweight follow-up chips when callback is provided", () => {
+  it("keeps details secondary and exposes the next card in the same deck", () => {
     const html = renderToStaticMarkup(
-      <SwipeTopicStep item={ITEM} step={1} onVote={vi.fn()} onQuickFollowup={vi.fn()} />,
+      <SwipeTopicStep item={ITEM} nextItem={{ ...ITEM, id: "st_2", title: "Nächste Frage" }} step={1} onVote={vi.fn()} onQuickFollowup={vi.fn()} />,
     );
 
-    expect(html).toContain("🤔 Mehr Kontext");
-    expect(html).toContain("⚖️ Varianten");
-    expect(html).toContain("🔖 Später vertiefen");
+    expect(html).toContain('data-swipe-deck="mobile-first"');
+    expect(html).toContain('data-swipe-card="active"');
+    expect(html).toContain('data-swipe-card="next"');
+    expect(html).toContain("Details &amp; Quellen");
+    expect(html).toContain("← Nein");
+    expect(html).toContain("Ja →");
+    expect(html).not.toContain("Für später speichern");
   });
 });

@@ -532,7 +532,7 @@ describe("content release workbench", () => {
     });
     expect(
       visibleTargets.find((target) => target.targetType === "dossier")?.qrHref,
-    ).toContain("/studio?caller=content_release_workbench&target=");
+    ).toContain("/qr-studio?caller=content_release_workbench&target=");
     expect(
       visibleTargets.find((target) => target.targetType === "dossier")?.publicLink,
     ).toMatchObject({
@@ -626,17 +626,17 @@ describe("content release workbench", () => {
           prepared: true,
           statusLabel: "Arbeitsstand",
         }),
-        expect.objectContaining({
-          targetType: "anlassraum",
-          prepared: true,
-          statusLabel: "Arbeitsstand",
-        }),
-        expect.objectContaining({
-          targetType: "topic_page",
-          prepared: false,
-          statusLabel: "Arbeitsstand",
-        }),
-      ]),
+            expect.objectContaining({
+              targetType: "anlassraum",
+              prepared: true,
+              statusLabel: "Arbeitsstand",
+            }),
+            expect.objectContaining({
+              targetType: "topic_page",
+              prepared: false,
+              statusLabel: "Arbeitsstand",
+            }),
+          ]),
     );
   });
 

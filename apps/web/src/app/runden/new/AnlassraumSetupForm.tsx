@@ -15,6 +15,7 @@ import {
 } from "@/features/start/startDraftContext";
 import { PUBLIC_TERMINOLOGY, publicTerminologyText } from "@/features/public/publicTerminology";
 import { RUNDEN_VOXY_COPY } from "@/features/voxy/rundenVoxyCopy";
+import { getGoToMarketTemplate } from "@features/pricing/goToMarketPackaging";
 import {
   buildManualAnlassraumContinueCreateHref,
   buildManualAnlassraumServerDraftSavePayload,
@@ -95,7 +96,9 @@ function StepMarker(props: StepGuideProps) {
 }
 
 type AnlassraumSetupFormProps = {
+  conversionMode?: boolean;
   initialServerDraft?: ManualAnlassraumServerDraftSnapshot | null;
+  initialTemplateId?: string | null;
 };
 
 function syncDraftUrl(draftId: string) {
@@ -106,7 +109,9 @@ function syncDraftUrl(draftId: string) {
 }
 
 export default function AnlassraumSetupForm({
+  conversionMode = false,
   initialServerDraft = null,
+  initialTemplateId = null,
 }: AnlassraumSetupFormProps) {
   const router = useRouter();
   const [setup, setSetup] = useState<ManualAnlassraumSetup>(createEmptyManualAnlassraumSetup);
@@ -124,12 +129,26 @@ export default function AnlassraumSetupForm({
       setStartDraft(existingDraft);
     }
     const restoredSetup = initialServerDraft?.setup ?? readStoredSetup();
+    const selectedTemplate = getGoToMarketTemplate(initialTemplateId);
     const restoreText = restoredSetup
       ? "Dein lokal gesicherter Entwurf wurde wieder geöffnet."
       : null;
     if (initialServerDraft?.draftId) {
       setServerDraftId(initialServerDraft.draftId);
       syncDraftUrl(initialServerDraft.draftId);
+    }
+    if (!restoredSetup && selectedTemplate) {
+      const templateSetup = sanitizeManualAnlassraumSetup({
+        ...createEmptyManualAnlassraumSetup(),
+        title: selectedTemplate.title.de,
+        votingQuestion: selectedTemplate.question.de,
+        description: selectedTemplate.description.de,
+        options: [...selectedTemplate.options.de],
+      });
+      setSetup(templateSetup);
+      persistSetup(templateSetup);
+      setRestoreNotice(`Vorlage „${selectedTemplate.title.de}“ wurde geladen.`);
+      return;
     }
     if (!restoredSetup) return;
 
@@ -144,7 +163,7 @@ export default function AnlassraumSetupForm({
         }
       }
     }
-  }, [initialServerDraft]);
+  }, [initialServerDraft, initialTemplateId]);
 
   const actionState = useMemo(() => resolveManualAnlassraumActionState(setup), [setup]);
   const continueCreateHref = useMemo(
@@ -309,29 +328,41 @@ export default function AnlassraumSetupForm({
       <section className="public-dialog-surface p-5 md:p-6 lg:p-8">
         <div className="public-reader-grid lg:gap-8">
           <aside className="public-voxy-rail order-2 lg:order-1">
-            <VoxyGuide
+            {conversionMode ? (
+              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] p-4 text-sm leading-6 text-[rgb(var(--muted))]">
+                <p className="font-semibold text-[rgb(var(--fg))]">Optional unterstützen lassen</p>
+                <p className="mt-1">Auf Wunsch hilft Voxy später beim Strukturieren. Vorschläge bleiben gekennzeichnet und unter deiner Kontrolle.</p>
+              </section>
+            ) : <VoxyGuide
               appearance="panel"
               title="Ich helfe dir, daraus einen verständlichen Mitmachraum zu machen."
               variant="welcome"
             >
               <p>{publicTerminologyText(RUNDEN_VOXY_COPY.manualFrame)}</p>
-            </VoxyGuide>
+            </VoxyGuide>}
           </aside>
 
           <div className="public-dialog-area order-1 lg:order-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">
-              eDebatte Mitmachraum
+              {conversionMode ? "Deine kostenlose Abstimmung" : "eDebatte Mitmachraum"}
             </p>
-            <h1 className="mt-2 public-hero-title anlassraum-hero-title font-semibold tracking-tight text-[rgb(var(--fg))]">
-              Bereite deinen <span className="public-gradient-text">Mitmachraum</span>{" "}
-              <span className="public-gradient-text">Schritt für Schritt</span> vor.
-            </h1>
+            {conversionMode ? (
+              <h2 className="mt-2 public-hero-title anlassraum-hero-title font-semibold tracking-tight text-[rgb(var(--fg))]">
+                Frage stellen. <span className="public-gradient-text">Antworten festlegen.</span>{" "}<span className="public-gradient-text">Gemeinsam entscheiden.</span>
+              </h2>
+            ) : (
+              <h1 className="mt-2 public-hero-title anlassraum-hero-title font-semibold tracking-tight text-[rgb(var(--fg))]">
+                <>Bereite deinen <span className="public-gradient-text">Mitmachraum</span>{" "}<span className="public-gradient-text">Schritt für Schritt</span> vor.</>
+              </h1>
+            )}
             <p className="public-hero-lead mt-3 max-w-3xl">
-              Lege Thema, Frage, mögliche Antworten und Sichtbarkeit zuerst selbst fest. Danach kannst du ohne Voxy speichern oder mit Voxy strukturieren.
+              {conversionMode
+                ? "Du kannst sofort beginnen. Der Arbeitsstand bleibt privat, bis du ihn selbst geprüft und bewusst freigegeben hast."
+                : "Lege Thema, Frage, mögliche Antworten und Sichtbarkeit zuerst selbst fest. Danach kannst du ohne Voxy speichern oder mit Voxy strukturieren."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-sm text-[rgb(var(--muted))]">
               <span className="anlassraum-soft-signal">4 klare Schritte</span>
-              <span className="anlassraum-soft-signal">Mit oder ohne Voxy</span>
+              <span className="anlassraum-soft-signal">{conversionMode ? "Kostenlos beginnen" : "Mit oder ohne Voxy"}</span>
               <span className="anlassraum-soft-signal">Nichts geht automatisch online</span>
             </div>
           </div>
@@ -364,7 +395,7 @@ export default function AnlassraumSetupForm({
         ) : null}
         <AnlassraumStartDraftPanel
           visible={Boolean(startDraft)}
-          title="Runde aus deinem Entwurf vorbereiten"
+          title={conversionMode ? "Abstimmung weiter vorbereiten" : "Runde aus deinem Entwurf vorbereiten"}
           statusLine="Noch nicht veröffentlicht"
           helperText="Du kannst Titel, Frage und Antworten weiterbearbeiten oder den Stand später fortsetzen."
         />
@@ -441,7 +472,7 @@ export default function AnlassraumSetupForm({
         <section className="space-y-4">
           <div className="space-y-4">
             <StepMarker
-              copy={RUNDEN_VOXY_COPY.manualFrame}
+              copy={conversionMode ? "Formuliere die Frage so, dass eure Gruppe sie ohne weitere Erklärung versteht." : RUNDEN_VOXY_COPY.manualFrame}
               stepId="rahmen"
               label="Schritt 1"
             />
@@ -517,11 +548,12 @@ export default function AnlassraumSetupForm({
         <section className="space-y-4">
           <div className="space-y-4">
             <StepMarker
-              copy={RUNDEN_VOXY_COPY.manualOptions}
+              copy={conversionMode ? "Lege klare Antwortmöglichkeiten fest; weitere Vorschläge bleiben optional." : RUNDEN_VOXY_COPY.manualOptions}
               stepId="optionen"
               label="Schritt 2"
             />
             <AnlassraumOptionEditor
+              conversionMode={conversionMode}
               communityOptionsMode={setup.communityOptionsMode}
               configuredOptionCount={actionState.optionCount}
               onAddOption={() =>
@@ -563,11 +595,12 @@ export default function AnlassraumSetupForm({
         <section className="space-y-4">
           <div className="space-y-4">
             <StepMarker
-              copy={RUNDEN_VOXY_COPY.manualVisibility}
+              copy={conversionMode ? "Der Entwurf bleibt privat, bis du ihn bewusst freigibst." : RUNDEN_VOXY_COPY.manualVisibility}
               stepId="sichtbarkeit"
               label="Schritt 3"
             />
             <AnlassraumVisibilitySettings
+              conversionMode={conversionMode}
               onScopeChange={(value: ManualAnlassraumScope) =>
                 patchSetup((current) => ({
                   ...current,
@@ -591,7 +624,7 @@ export default function AnlassraumSetupForm({
         <section className="space-y-4">
           <div className="space-y-4">
             <StepMarker
-              copy={RUNDEN_VOXY_COPY.manualSupport}
+              copy={conversionMode ? "Speichere kostenlos oder nutze optionale, gekennzeichnete Unterstützung." : RUNDEN_VOXY_COPY.manualSupport}
               stepId="unterstuetzung"
               label="Schritt 4"
             />
@@ -608,6 +641,7 @@ export default function AnlassraumSetupForm({
 
               <AnlassraumPrePublishCheck
                 actionState={actionState}
+                conversionMode={conversionMode}
                 continueCreateHref={continueCreateHref}
                 isSaving={isPersisting}
                 onContinueCreate={(event) => {
@@ -621,11 +655,17 @@ export default function AnlassraumSetupForm({
                     "save_draft",
                     {
                       saved:
-                        "Mitmachraum-Entwurf gespeichert. Es wurde nichts veröffentlicht. Du kannst später ohne Voxy weiterarbeiten oder mit Voxy strukturieren.",
+                        conversionMode
+                          ? "Abstimmungsentwurf gespeichert. Es wurde nichts veröffentlicht. Du kannst später weiterarbeiten oder dir Unterstützung beim Strukturieren holen."
+                          : "Mitmachraum-Entwurf gespeichert. Es wurde nichts veröffentlicht. Du kannst später ohne Voxy weiterarbeiten oder mit Voxy strukturieren.",
                       authRequired:
-                        "Mitmachraum-Entwurf lokal gespeichert. Zum Speichern im Konto bitte anmelden. Es wurde nichts veröffentlicht.",
+                        conversionMode
+                          ? "Abstimmungsentwurf lokal gespeichert. Zum dauerhaften Speichern und späteren Teilen bitte anmelden. Es wurde nichts veröffentlicht."
+                          : "Mitmachraum-Entwurf lokal gespeichert. Zum Speichern im Konto bitte anmelden. Es wurde nichts veröffentlicht.",
                       failed:
-                        "Mitmachraum-Entwurf lokal gespeichert. Das Speichern im Konto ist fehlgeschlagen. Es wurde nichts veröffentlicht.",
+                        conversionMode
+                          ? "Abstimmungsentwurf lokal gespeichert. Das Speichern im Konto ist fehlgeschlagen. Es wurde nichts veröffentlicht."
+                          : "Mitmachraum-Entwurf lokal gespeichert. Das Speichern im Konto ist fehlgeschlagen. Es wurde nichts veröffentlicht.",
                     },
                   );
                 }}
@@ -635,11 +675,17 @@ export default function AnlassraumSetupForm({
                     "start_internal",
                     {
                       saved:
-                        "Mitmachraum intern vorgemerkt. Sichtbarkeit, Prüfung und Voxy bleiben bewusste nächste Schritte.",
+                        conversionMode
+                          ? "Abstimmung intern vorgemerkt. Sichtbarkeit, Prüfung und optionale Unterstützung bleiben bewusste nächste Schritte."
+                          : "Mitmachraum intern vorgemerkt. Sichtbarkeit, Prüfung und Voxy bleiben bewusste nächste Schritte.",
                       authRequired:
-                        "Mitmachraum lokal vorgemerkt. Zum Speichern im Konto bitte anmelden. Sichtbarkeit, Prüfung und Voxy bleiben bewusste nächste Schritte.",
+                        conversionMode
+                          ? "Abstimmung lokal vorgemerkt. Zum Speichern im Konto bitte anmelden. Es wurde nichts veröffentlicht."
+                          : "Mitmachraum lokal vorgemerkt. Zum Speichern im Konto bitte anmelden. Sichtbarkeit, Prüfung und Voxy bleiben bewusste nächste Schritte.",
                       failed:
-                        "Mitmachraum lokal vorgemerkt. Das Speichern im Konto ist fehlgeschlagen. Sichtbarkeit, Prüfung und Voxy bleiben bewusste nächste Schritte.",
+                        conversionMode
+                          ? "Abstimmung lokal vorgemerkt. Das Speichern im Konto ist fehlgeschlagen. Es wurde nichts veröffentlicht."
+                          : "Mitmachraum lokal vorgemerkt. Das Speichern im Konto ist fehlgeschlagen. Sichtbarkeit, Prüfung und Voxy bleiben bewusste nächste Schritte.",
                     },
                   );
                 }}

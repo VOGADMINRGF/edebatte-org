@@ -11,6 +11,7 @@ const resolveAlias = {
 };
 
 const config = {
+  serverExternalPackages: ["mammoth", "pdf-parse"],
   experimental: {
     externalDir: true,
   },

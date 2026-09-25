@@ -10,7 +10,7 @@ import QrCodeGeneratorRedirectPage from "@/app/qrcodegenerator/page";
 import QrCodeWizardRedirectPage from "@/app/qrcodewizard/page";
 
 describe("legacy qr route redirects", () => {
-  it("redirects the legacy generator onto the canonical studio target path", async () => {
+  it("redirects the legacy generator onto the canonical qr-studio target path", async () => {
     await expect(
       QrCodeGeneratorRedirectPage({
         searchParams: Promise.resolve({
@@ -18,7 +18,7 @@ describe("legacy qr route redirects", () => {
         }),
       }),
     ).rejects.toThrow(
-      "redirect:/studio?caller=legacy_qrcodegenerator&target=%2Fdossier%2Fdemo-1%3Fview%3Dpublic",
+      "redirect:/qr-studio?caller=legacy_qrcodegenerator&target=%2Fdossier%2Fdemo-1%3Fview%3Dpublic",
     );
   });
 
@@ -30,15 +30,15 @@ describe("legacy qr route redirects", () => {
         }),
       }),
     ).rejects.toThrow(
-      "redirect:/studio?caller=legacy_qrcodegenerator&targetState=blocked",
+      "redirect:/qr-studio?caller=legacy_qrcodegenerator&targetState=blocked",
     );
   });
 
-  it("redirects the legacy wizard to studio without inventing a second flow", async () => {
+  it("redirects the legacy wizard to qr-studio without inventing a second flow", async () => {
     await expect(
       QrCodeWizardRedirectPage({
         searchParams: Promise.resolve({}),
       }),
-    ).rejects.toThrow("redirect:/studio?caller=legacy_qrcodewizard");
+    ).rejects.toThrow("redirect:/qr-studio?caller=legacy_qrcodewizard");
   });
 });

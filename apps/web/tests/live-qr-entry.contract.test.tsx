@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("next/navigation", () => ({
@@ -7,10 +7,14 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import PublicQrEntryPage from "@/app/qr/[qrId]/page";
+import QRScanPage from "@/app/qr/[qrId]/page";
 
 describe("live qr entry contract", () => {
-  it("opens a campaign session directly instead of routing through the operator studio", async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("routes campaign qr resolutions into the guarded live campaign landing", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -25,31 +29,37 @@ describe("live qr entry contract", () => {
       }),
     );
 
-    const tree = await PublicQrEntryPage({
+    const tree = await QRScanPage({
       params: Promise.resolve({ qrId: "pflege-berlin" }),
     });
     const html = renderToStaticMarkup(tree);
 
     expect(html).toContain('data-testid="qr-campaign-landing"');
+    expect(html).toContain("Kampagnen-QR");
     expect(html).toContain("Pflege vor Ort 2026");
     expect(html).toContain('href="/live/demo-pflege-vor-ort?source=qr&amp;session=session-berlin-01"');
-    expect(html).not.toContain("/studio?code=");
-    expect(html).not.toContain("/qr-studio?code=");
+    expect(html).toContain("Live-Einstieg öffnen");
+    expect(html).toContain("Kampagnenkontext ansehen");
+    expect(html).toContain("nichts automatisch veröffentlicht oder gezählt");
   });
 
-  it("shows the guarded public fallback for unknown qr ids", async () => {
+  it("shows a safe fallback for unknown qr ids instead of crashing", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
-        json: async () => ({ success: false, data: null }),
+        json: async () => ({
+          success: false,
+        }),
       }),
     );
 
-    const tree = await PublicQrEntryPage({
+    const tree = await QRScanPage({
       params: Promise.resolve({ qrId: "unknown-live-qr" }),
     });
     const html = renderToStaticMarkup(tree);
 
+    expect(html).toContain('data-testid="qr-entry-fallback"');
+    expect(html).toContain('data-qr-fallback-reason="not_found"');
     expect(html).toContain("QR-Code nicht verfügbar");
     expect(html).toContain("unknown-live-qr");
     expect(html).toContain('href="/start"');

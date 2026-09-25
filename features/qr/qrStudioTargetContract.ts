@@ -1,9 +1,4 @@
 import { BRAND } from "@/lib/brand";
-import {
-  STUDIO_PATH,
-  validateQrTarget,
-  type QrTargetValidationFailureReason,
-} from "@/features/qr/security";
 
 export const QR_STUDIO_CALLER_INVENTORY = {
   content_release_workbench: "Review-to-Publish Workspace",
@@ -11,7 +6,7 @@ export const QR_STUDIO_CALLER_INVENTORY = {
   organization_dashboard: "Organisations-Dashboard",
   legacy_qrcodegenerator: "Legacy QR Generator",
   legacy_qrcodewizard: "Legacy QR Wizard",
-  qr_studio: "Studio",
+  qr_studio: "QR Studio",
 } as const;
 
 export type QrStudioCaller = keyof typeof QR_STUDIO_CALLER_INVENTORY;
@@ -24,7 +19,13 @@ export type QrStudioTargetResolution =
   | {
       status: "blocked";
       caller: QrStudioCaller;
-      reason: QrTargetValidationFailureReason;
+      reason:
+        | "empty"
+        | "network_path_not_allowed"
+        | "unsafe_scheme"
+        | "invalid_url"
+        | "credentials_not_allowed"
+        | "host_not_allowed";
     }
   | {
       status: "ready";
@@ -54,33 +55,63 @@ export function resolveQrStudioTarget(input: {
   publicOrigin?: string | null | undefined;
 }): QrStudioTargetResolution {
   const caller = parseQrStudioCaller(input.caller);
-  const rawTarget = typeof input.target === "string" ? input.target : "";
+  const rawTarget = String(input.target ?? "").trim();
   if (!rawTarget) {
     return { status: "empty", caller };
   }
 
-  const baseOrigin = normalizeBaseOrigin(input.publicOrigin);
-  const validation = validateQrTarget(rawTarget, {
-    expectedOrigin: baseOrigin,
-  });
-  if ("reason" in validation) {
-    return {
-      status: "blocked",
-      caller,
-      reason: validation.reason,
-    };
+  if (/[\u0000-\u001f\u007f]/.test(rawTarget)) {
+    return { status: "blocked", caller, reason: "invalid_url" };
   }
 
-  const target = validation.value;
-  const isInternal = target.kind === "internal";
+  if (rawTarget.startsWith("//")) {
+    return { status: "blocked", caller, reason: "network_path_not_allowed" };
+  }
+
+  const baseOrigin = normalizeBaseOrigin(input.publicOrigin);
+  if (rawTarget.startsWith("/")) {
+    try {
+      const url = new URL(rawTarget, baseOrigin);
+      const normalizedTarget = `${url.pathname}${url.search}${url.hash}`;
+      return {
+        status: "ready",
+        caller,
+        targetKind: "internal",
+        normalizedTarget,
+        absoluteHref: url.toString(),
+        displayHref: normalizedTarget,
+      };
+    } catch {
+      return { status: "blocked", caller, reason: "invalid_url" };
+    }
+  }
+
+  let url: URL;
+  try {
+    url = new URL(rawTarget);
+  } catch {
+    return { status: "blocked", caller, reason: "invalid_url" };
+  }
+
+  if (url.protocol !== "https:") {
+    return { status: "blocked", caller, reason: "unsafe_scheme" };
+  }
+
+  if (url.username || url.password) {
+    return { status: "blocked", caller, reason: "credentials_not_allowed" };
+  }
+
+  if (!isAllowedHttpsHostname(url.hostname, baseOrigin)) {
+    return { status: "blocked", caller, reason: "host_not_allowed" };
+  }
 
   return {
     status: "ready",
     caller,
-    targetKind: isInternal ? "internal" : "allowed_https",
-    normalizedTarget: target.normalizedTarget,
-    absoluteHref: target.absoluteTarget,
-    displayHref: isInternal ? target.normalizedTarget : target.absoluteTarget,
+    targetKind: "allowed_https",
+    normalizedTarget: url.toString(),
+    absoluteHref: url.toString(),
+    displayHref: url.toString(),
   };
 }
 
@@ -107,7 +138,7 @@ export function buildQrStudioHref(input: {
   }
 
   const query = params.toString();
-  return query ? `${STUDIO_PATH}?${query}` : STUDIO_PATH;
+  return query ? `/qr-studio?${query}` : "/qr-studio";
 }
 
 function normalizeBaseOrigin(publicOrigin: string | null | undefined): string {
@@ -121,4 +152,33 @@ function normalizeBaseOrigin(publicOrigin: string | null | undefined): string {
     }
   }
   return "https://www.edebatte.org";
+}
+
+function isAllowedHttpsHostname(hostname: string, publicOrigin: string): boolean {
+  const allowedHosts = new Set<string>();
+
+  try {
+    allowedHosts.add(new URL(publicOrigin).hostname.toLowerCase());
+  } catch {
+    // ignore
+  }
+
+  allowedHosts.add(BRAND.domain.toLowerCase());
+
+  try {
+    allowedHosts.add(new URL(BRAND.baseUrl).hostname.toLowerCase());
+  } catch {
+    // ignore
+  }
+
+  const normalizedHostname = hostname.toLowerCase();
+  for (const allowedHost of allowedHosts) {
+    if (
+      normalizedHostname === allowedHost ||
+      normalizedHostname.endsWith(`.${allowedHost}`)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

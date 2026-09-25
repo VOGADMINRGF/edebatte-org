@@ -10,6 +10,8 @@ const PATHS = [
   "/create",
   "/pricing/institutionen",
   "/order",
+  "/anlassraum/digitalisierung-politik",
+  "/api/public-ballots/digital-politics/vote",
 ];
 const FORBIDDEN_MARKERS = [
   "CriticalProductionWebRuntimeEnvError",
@@ -78,7 +80,7 @@ function requestOnce(url) {
         method: "GET",
         headers: {
           "user-agent": "edebatte-production-live-smoke/1.0",
-          accept: "text/html,application/xhtml+xml",
+          accept: "text/html,application/xhtml+xml,application/json",
         },
       },
       async (response) => {

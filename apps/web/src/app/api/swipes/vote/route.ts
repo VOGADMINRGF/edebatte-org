@@ -6,6 +6,27 @@ import { readSession } from "@/utils/session";
 import { normalizeAccessTier } from "@/config/accessTiers";
 import { getFeaturesWithOverrides } from "@/lib/server/access/featureOverrides";
 
+const SWIPES_SEEN_COOKIE = "edb_swipes_seen";
+const MAX_SEEN_IDS = 80;
+
+function readSeenIds(raw?: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(-MAX_SEEN_IDS);
+}
+
+function writeSeenCookie(res: ReturnType<typeof NextResponse.json>, ids: string[]) {
+  res.cookies.set(SWIPES_SEEN_COOKIE, ids.slice(-MAX_SEEN_IDS).join(","), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const userId = cookieStore.get("u_id")?.value;
@@ -47,6 +68,10 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 365,
     });
   }
+
+  const seenIds = readSeenIds(cookieStore.get(SWIPES_SEEN_COOKIE)?.value);
+  const nextSeenIds = [...seenIds.filter((id) => id !== body.statementId), body.statementId];
+  writeSeenCookie(res, nextSeenIds);
   return res;
 }
 
@@ -58,10 +83,15 @@ export async function DELETE(req: NextRequest) {
   if (!body.statementId) {
     return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
   }
-  if (!userId) {
-    return NextResponse.json({ ok: true });
+
+  if (userId) {
+    await removeSwipeVotesForStatement(userId, body.statementId);
   }
 
-  await removeSwipeVotesForStatement(userId, body.statementId);
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  const seenIds = readSeenIds(cookieStore.get(SWIPES_SEEN_COOKIE)?.value).filter(
+    (id) => id !== body.statementId,
+  );
+  writeSeenCookie(res, seenIds);
+  return res;
 }

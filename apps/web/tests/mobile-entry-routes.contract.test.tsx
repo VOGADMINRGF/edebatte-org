@@ -21,94 +21,30 @@ import { classifyMobileAppShellPath } from "@/features/wrapper/mobileAppShellCon
 describe("mobile entry routes contract", () => {
   const startPageSource = readFileSync(resolve(process.cwd(), "src/app/start/page.tsx"), "utf8");
 
-  it("keeps citizen participation routes inside the mobile core shell", () => {
-    expect(classifyMobileAppShellPath("/start")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/swipes")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/runden")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/anlassraum")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/dossier")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/dossier/dossier-123")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/stream")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/stream/event-berlin")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/qr/event-berlin")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort/host")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort/report")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort/media-kit")).toMatchObject({
-      shellEnabled: true,
-      bottomNavEnabled: true,
-      reason: "core",
-    });
-  });
-
-  it("keeps the operator studio and its legacy redirect outside the citizen bottom navigation", () => {
-    expect(classifyMobileAppShellPath("/studio")).toMatchObject({
-      shellEnabled: false,
-      bottomNavEnabled: false,
-      reason: "excluded",
-    });
-    expect(classifyMobileAppShellPath("/qr-studio")).toMatchObject({
-      shellEnabled: false,
-      bottomNavEnabled: false,
-      reason: "excluded",
-    });
+  it("keeps start, swipes, event, dossier and QR entry inside the mobile core shell", () => {
+    expect(classifyMobileAppShellPath("/start")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/swipes")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/runden")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/anlassraum")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/dossier")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/dossier/dossier-123")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/stream")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/stream/event-berlin")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/qr/event-berlin")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort/host")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort/report")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
+    expect(classifyMobileAppShellPath("/live/demo-pflege-vor-ort/media-kit")).toMatchObject({ shellEnabled: true, bottomNavEnabled: true, reason: "core" });
   });
 
   it("keeps /start as a mobile-first citizen entry without demo dossier fallback", () => {
     const html = renderToStaticMarkup(<LandingStart blocks={[]} />);
 
-    expect(html).toContain("Verstehen, was sich verändert. Mitreden, wo es zählt.");
-    expect((html.match(/data-testid="home-entry-card"/g) ?? []).length).toBe(4);
-    expect(html).toContain("Beitrag starten");
-    expect(html).toContain('href="/dossier"');
+    expect(html).toContain("Eine Frage. Viele Perspektiven. Ein klareres Bild.");
+    expect(html).toContain("Schnell deine Meinung abgeben");
+    expect(html).toContain("Eigene Frage starten");
+    expect(html).toContain('href="/runden/new?gtm=1&amp;source=homepage-intent"');
+    expect(html).toContain('href="/swipes"');
     expect(html).not.toContain('href="/dossier/demo"');
   });
 
@@ -117,12 +53,11 @@ describe("mobile entry routes contract", () => {
     expect(startPageSource).not.toContain("min-h-screen");
   });
 
-  it("reserves space for the voxy guide artwork so the hero does not jump on load", () => {
+  it("renders the interactive question before secondary homepage sections", () => {
     const html = renderToStaticMarkup(<LandingStart blocks={[]} />);
 
-    expect(html).toContain('data-voxy-avatar=""');
-    expect(html).toContain("aspect-ratio:4 / 5");
-    expect(html).toContain("/brand/voxy/voxy-create-guide-light.png");
-    expect(html).toContain("/brand/voxy/voxy-create-guide-dark.png");
+    expect(html).toContain("1 Frage · direkt ausprobieren");
+    expect(html.indexOf("1 Frage · direkt ausprobieren")).toBeLessThan(html.indexOf("Nicht nur Antworten sammeln"));
+    expect(html).toContain("min-h-14");
   });
 });

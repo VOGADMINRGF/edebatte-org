@@ -7,7 +7,11 @@ import {
   buildVoxyCharacterMotionFixturePlan,
   validateVoxyCharacterMotionFixturePlan,
 } from "../src/features/voxyVideo/characterMotionFixture";
-import { renderVoxyCharacterMotionFixtureHtml } from "../src/features/voxyVideo/characterMotionFixtureHtml";
+import {
+  getVoxyRigFrameCssProperties,
+  renderVoxyCharacterMotionFixtureHtml,
+} from "../src/features/voxyVideo/characterMotionFixtureHtml";
+import { buildVoxyRigFrame } from "../src/features/voxyVideo/animatableMasterAsset";
 import type { VoxyVideoFormat } from "../src/features/voxyVideo/modernCharacterContracts";
 
 const SUPPORTED_FORMATS = new Set<VoxyVideoFormat>(["16:9", "9:16", "1:1"]);
@@ -83,11 +87,11 @@ async function main(): Promise<void> {
   }
 
   const embeddedStudioAssetUrl = await embeddedSvgDataUrl(studioPath);
-  const embeddedCharacterAssetUrl = await embeddedSvgDataUrl(characterPath);
+  const embeddedCharacterSvg = await readFile(characterPath, "utf8");
   const previewHtml = renderVoxyCharacterMotionFixtureHtml({
     plan,
     embeddedStudioAssetUrl,
-    embeddedCharacterAssetUrl,
+    embeddedCharacterSvg,
   });
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "voxy-character-motion-fixture-"));
@@ -115,7 +119,7 @@ async function main(): Promise<void> {
   const captureHtml = renderVoxyCharacterMotionFixtureHtml({
     plan,
     embeddedStudioAssetUrl,
-    embeddedCharacterAssetUrl,
+    embeddedCharacterSvg,
     captureTimeMs: 0,
   });
   await page.setContent(captureHtml, { waitUntil: "load" });
@@ -124,11 +128,19 @@ async function main(): Promise<void> {
   const frameCount = Math.round((plan.durationMs / 1_000) * plan.fps);
   for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
     const captureTimeMs = Math.round((frameIndex * 1_000) / plan.fps);
-    await page.evaluate((timeMs) => {
+    const rigFrame = buildVoxyRigFrame(captureTimeMs);
+    const cssProperties = getVoxyRigFrameCssProperties(rigFrame);
+    await page.evaluate(({ timeMs, state, properties }) => {
       const fixture = document.getElementById("fixture");
       fixture?.style.setProperty("--capture-time", `${timeMs}ms`);
+      if (fixture) {
+        fixture.dataset.rigState = state;
+        for (const [name, value] of Object.entries(properties)) {
+          fixture.style.setProperty(name, value);
+        }
+      }
       if (fixture) void fixture.offsetHeight;
-    }, captureTimeMs);
+    }, { timeMs: captureTimeMs, state: rigFrame.state, properties: cssProperties });
     await page.screenshot({
       path: join(framesDirectory, `frame-${String(frameIndex).padStart(4, "0")}.png`),
       type: "png",

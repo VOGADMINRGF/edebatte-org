@@ -1,0 +1,124 @@
+name: Voxy pocket mark final gate evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/web/public/brands/voxy/overlays/edebatte-pocket-mark.svg"
+      - "apps/web/public/brands/voxy/overlays/voxy-lapel-pin.svg"
+      - "apps/web/public/brands/voxy/references/derived/CANON-04-pocket-clean.png"
+      - "apps/web/src/features/voxyVideo/pocketMarkFinalGate.ts"
+      - "apps/web/src/features/voxyVideo/jacketCanonGate.ts"
+      - "apps/web/src/features/voxyVideo/firstExplainerVideo.ts"
+      - "apps/web/src/features/voxyVideo/firstExplainerVideoHtml.ts"
+      - "apps/web/src/features/voxyVideo/staticCanonRecovery.ts"
+      - "apps/web/scripts/render-voxy-pocket-mark-final-gate.ts"
+      - "apps/web/tests/voxy-pocket-mark-final-gate.contract.test.ts"
+      - ".github/workflows/voxy-pocket-mark-final-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pocket-mark-final-gate:
+    name: Render exact-head Pocket Mark final gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VOXY_POCKET_GATE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install local Chromium renderer and FFmpeg
+        run: |
+          pnpm -C apps/web exec playwright install chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Run Pocket Mark final gate contract
+        run: pnpm -C apps/web exec vitest run tests/voxy-pocket-mark-final-gate.contract.test.ts
+
+      - name: Render exact-head Pocket Mark evidence
+        run: |
+          pnpm -w exec tsx \
+            apps/web/scripts/render-voxy-pocket-mark-final-gate.ts \
+            --output=artifacts/voxy-pocket-mark-final-gate
+
+      - name: Verify Pocket Mark evidence and human-review stop
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const crypto = require("node:crypto");
+          const root = "artifacts/voxy-pocket-mark-final-gate/";
+          const files = [
+            "jacket-final-context.png",
+            "pocket-mark-final-100pct.png",
+            "pocket-mark-final-200pct.png",
+            "pocket-mark-final-400pct.png",
+            "pocket-micro-pass-comparison.png",
+            "manifest.json",
+          ];
+          if (files.some((file) => !fs.existsSync(root + file))) process.exit(1);
+          const manifest = JSON.parse(fs.readFileSync(root + "manifest.json", "utf8"));
+          const hash = (file) => crypto.createHash("sha256").update(fs.readFileSync(root + file)).digest("hex");
+          if (
+            manifest.schemaVersion !== "voxy-pocket-mark-final-gate-v2" ||
+            manifest.exactHeadSha !== process.env.VOXY_POCKET_GATE_COMMIT_SHA ||
+            manifest.previousPassHeadSha !== "f948e1e6ce09fd9c62e8621b490eb8f0994c60ab" ||
+            manifest.microPassDecision !== "adopted" ||
+            manifest.expectedText !== "eDebatte" ||
+            manifest.visibleMarkCount !== 1 ||
+            manifest.badgePresent !== false ||
+            manifest.secondLinePresent !== false ||
+            manifest.vectorSource !== true ||
+            manifest.rasterUpscaleUsed !== false ||
+            manifest.strokePresent !== false ||
+            manifest.glowPresent !== false ||
+            manifest.boxPresent !== false ||
+            manifest.humanLegibilityRequired !== true ||
+            manifest.humanVisualAcceptance !== "pending" ||
+            manifest.machineOcrClaimed !== false ||
+            manifest.technicalPocketGate !== "passed" ||
+            manifest.presentation?.rotationDegrees !== -2.5 ||
+            manifest.surfaceIntegration?.fillOpacity !== 0.94 ||
+            manifest.surfaceIntegration?.blur !== false ||
+            manifest.surfaceIntegration?.filter !== false ||
+            manifest.unchangedLapelPin?.changed !== false ||
+            manifest.outsidePocketPixelMatch?.matched !== true ||
+            manifest.animationEligible !== false ||
+            manifest.productionEligible !== false ||
+            manifest.autoPublish !== false ||
+            Object.values(manifest.outputs).some((entry) => entry.sha256 !== hash(entry.file))
+          ) process.exit(1);
+          NODE
+          test ! -e artifacts/voxy-layer-master
+          test ! -e artifacts/voxy-motion-v3
+
+      - name: Upload directly reviewable Pocket Mark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-pocket-mark-final-gate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-pocket-mark-final-gate
+          if-no-files-found: error
+          retention-days: 14

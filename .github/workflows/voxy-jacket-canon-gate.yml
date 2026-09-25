@@ -1,0 +1,124 @@
+name: Voxy jacket Canon gate evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/web/public/brands/voxy/references/canon/**"
+      - "apps/web/public/brands/voxy/references/derived/CANON-04-pocket-clean.png"
+      - "apps/web/public/brands/voxy/overlays/voxy-lapel-pin.svg"
+      - "apps/web/public/brands/voxy/overlays/edebatte-pocket-mark.svg"
+      - "apps/web/src/features/voxyVideo/jacketCanonGate.ts"
+      - "apps/web/src/features/voxyVideo/firstExplainerVideo.ts"
+      - "apps/web/src/features/voxyVideo/firstExplainerVideoHtml.ts"
+      - "apps/web/src/features/voxyVideo/staticCanonRecovery.ts"
+      - "apps/web/src/features/voxyVideo/staticCanonRecoveryHtml.ts"
+      - "apps/web/scripts/render-voxy-jacket-canon-gate.ts"
+      - "apps/web/tests/voxy-jacket-canon-gate.contract.test.ts"
+      - ".github/workflows/voxy-jacket-canon-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  jacket-canon-gate:
+    name: Render exact-head Jacket Canon gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VOXY_JACKET_GATE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install local Chromium renderer and FFmpeg
+        run: |
+          pnpm -C apps/web exec playwright install chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Run Jacket Canon gate contract
+        run: pnpm -C apps/web exec vitest run tests/voxy-jacket-canon-gate.contract.test.ts
+
+      - name: Render exact-head Jacket Canon evidence
+        run: |
+          pnpm -w exec tsx \
+            apps/web/scripts/render-voxy-jacket-canon-gate.ts \
+            --output=artifacts/voxy-jacket-canon-gate
+
+      - name: Verify Canon match and human-review stop
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const crypto = require("node:crypto");
+          const root = "artifacts/voxy-jacket-canon-gate/";
+          const files = [
+            "jacket-full.png",
+            "jacket-200pct.png",
+            "lapel-pin-400pct.png",
+            "pocket-mark-400pct.png",
+            "jacket-canon-comparison.png",
+            "jacket-brand-legibility-comparison.png",
+            "manifest.json",
+          ];
+          if (files.some((file) => !fs.existsSync(root + file))) process.exit(1);
+          const manifest = JSON.parse(fs.readFileSync(root + "manifest.json", "utf8"));
+          const hash = (file) => crypto.createHash("sha256").update(fs.readFileSync(root + file)).digest("hex");
+          if (
+            manifest.schemaVersion !== "voxy-jacket-canon-gate-v2" ||
+            manifest.exactHeadSha !== process.env.VOXY_JACKET_GATE_COMMIT_SHA ||
+            manifest.jacketCanonGate?.passed !== true ||
+            manifest.jacketCanonGate?.nonBrandPixelsPreserved !== true ||
+            manifest.jacketCanonGate?.humanLegibility !== "pending" ||
+            manifest.brandQa?.lapelPin?.expectedText !== "VOXY" ||
+            manifest.brandQa?.lapelPin?.visibleMarkCount !== 1 ||
+            manifest.brandQa?.lapelPin?.technicalStatus !== "passed" ||
+            manifest.brandQa?.lapelPin?.humanLegibilityRequired !== true ||
+            manifest.brandQa?.lapelPin?.humanLegibilityStatus !== "pending" ||
+            manifest.brandQa?.pocketMark?.expectedText !== "eDebatte" ||
+            manifest.brandQa?.pocketMark?.visibleMarkCount !== 1 ||
+            manifest.brandQa?.pocketMark?.badgePresent !== false ||
+            manifest.brandQa?.pocketMark?.secondLinePresent !== false ||
+            manifest.brandQa?.pocketMark?.technicalStatus !== "passed" ||
+            manifest.brandQa?.pocketMark?.humanLegibilityRequired !== true ||
+            manifest.brandQa?.pocketMark?.humanLegibilityStatus !== "pending" ||
+            manifest.nonBrandPixelMatch?.matched !== true ||
+            manifest.layerMasterEligible !== false ||
+            manifest.motionV3Eligible !== false ||
+            manifest.animationEligible !== false ||
+            manifest.humanVisualAcceptance !== "pending" ||
+            manifest.productionEligible !== false ||
+            manifest.autoPublish !== false ||
+            Object.values(manifest.outputs).some((entry) => entry.sha256 !== hash(entry.file))
+          ) process.exit(1);
+          NODE
+          test ! -e artifacts/voxy-layer-master
+          test ! -e artifacts/voxy-motion-v3
+
+      - name: Upload directly reviewable Jacket Canon evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-jacket-canon-gate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-jacket-canon-gate
+          if-no-files-found: error
+          retention-days: 14

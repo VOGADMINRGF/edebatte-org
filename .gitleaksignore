@@ -1,0 +1,4 @@
+# Public IndexNow verification token from an earlier commit in PR #857.
+# This value is intentionally published at https://www.edebatte.org/<token>.txt
+# and is not an authentication credential. Keep the exemption fingerprint-scoped.
+d92168f0c852343a6e624a00d6c0d8899f5bc625:apps/web/scripts/submit-indexnow-after-vercel.mjs:generic-api-key:3

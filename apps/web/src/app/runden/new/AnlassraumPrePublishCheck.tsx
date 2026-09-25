@@ -8,6 +8,7 @@ import type {
 type AnlassraumPrePublishCheckProps = {
   actionState: ManualAnlassraumActionState;
   continueCreateHref: string;
+  conversionMode?: boolean;
   isSaving?: boolean;
   onContinueCreate: (event: React.MouseEvent<HTMLAnchorElement>) => void;
   onSaveDraft: () => void;
@@ -26,7 +27,9 @@ export default function AnlassraumPrePublishCheck(
       <div className="space-y-2">
         <h2 className="text-xl font-semibold text-[rgb(var(--fg))]">Nächste Schritte</h2>
         <p className="max-w-3xl text-sm leading-6 text-[rgb(var(--muted))]">
-          Prüfe den Entwurf zum Schluss noch einmal. Danach kannst du ohne Voxy speichern, mit Voxy strukturieren oder ihn bewusst zur Prüfung einreichen.
+          {props.conversionMode
+            ? "Prüfe den Entwurf zum Schluss noch einmal. Du kannst ihn kostenlos speichern, optional strukturieren lassen oder bewusst zur Prüfung einreichen."
+            : "Prüfe den Entwurf zum Schluss noch einmal. Danach kannst du ohne Voxy speichern, mit Voxy strukturieren oder ihn bewusst zur Prüfung einreichen."}
         </p>
       </div>
 
@@ -80,7 +83,7 @@ export default function AnlassraumPrePublishCheck(
           disabled={!props.actionState.canSaveDraft || actionDisabled}
           className="vog-btn-brand disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {props.isSaving ? "Speichert..." : "Ohne Voxy"}
+          {props.isSaving ? "Speichert..." : props.conversionMode ? "Kostenlos als Entwurf speichern" : "Ohne Voxy"}
         </button>
         <Link
           href={props.continueCreateHref}
@@ -93,7 +96,7 @@ export default function AnlassraumPrePublishCheck(
           aria-disabled={!props.actionState.canContinueCreate || actionDisabled}
           data-continue-create-href={props.continueCreateHref}
         >
-          Mit Voxy
+          {props.conversionMode ? "Optional strukturieren" : "Mit Voxy"}
         </Link>
         <button
           type="button"

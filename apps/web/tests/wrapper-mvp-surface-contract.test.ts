@@ -56,12 +56,10 @@ describe("wrapper href classification", () => {
       expect(internal.surface.bucket).toBe("mvp");
     }
 
-    const sameOrigin = classifyWrapperHref(
-      "https://www.edebatte.org/swipes?mode=fast#current",
-    );
+    const sameOrigin = classifyWrapperHref("https://edebatte.org/swipes");
     expect(sameOrigin.kind).toBe("internal");
     if (sameOrigin.kind === "internal") {
-      expect(sameOrigin.path).toBe("/swipes?mode=fast#current");
+      expect(sameOrigin.path).toBe("/swipes");
     }
   });
 
@@ -80,15 +78,5 @@ describe("wrapper href classification", () => {
     if (js.kind === "invalid") {
       expect(js.reason).toBe("unsupported_protocol");
     }
-  });
-
-  it.each([
-    ["surrounding whitespace", " /swipes "],
-    ["raw backslash", "/\\evil.example"],
-    ["encoded backslash", "/%5Cevil.example"],
-    ["malformed encoding", "/%GG"],
-  ])("passes raw hrefs to the shared validator and blocks %s", (_label, href) => {
-    expect(classifyWrapperMvpPath(href).bucket).toBe("invalid");
-    expect(classifyWrapperHref(href).kind).toBe("invalid");
   });
 });

@@ -8,9 +8,13 @@ import type {
   MarketingRegistry,
 } from "./contracts";
 import { MarketingRegistrySchema } from "./contracts";
+import {
+  resolveCanonicalMarketingBrandProfile,
+  type MarketingPublicBrand,
+} from "@/features/marketing/multibrand/brandRoutingContract";
 
 const CREATED_AT = "2026-07-26T16:20:00+02:00";
-const UPDATED_AT = "2026-07-26T21:30:00+02:00";
+const UPDATED_AT = "2026-08-24T10:24:00+02:00";
 
 function repositoryEvidence(ref: string, note: string): MarketingEvidenceRef {
   return {
@@ -203,6 +207,33 @@ const opportunities: MarketingOpportunity[] = [
     createdAt: CREATED_AT,
     updatedAt: UPDATED_AT,
   },
+  {
+    id: "MOP-V4G-14",
+    title: "Vote4Gov Global Governance Lab",
+    summary:
+      "Demokratische und administrative Strukturen international vergleichbar machen und Alternativmodelle als klar gekennzeichnete Hypothesen diskutierbar aufbereiten.",
+    sourceType: "content_development",
+    sourceRef: "docs/E150/MARKETING-MULTIBRAND-CONTROL-PLANE-01_2026-08-24.md",
+    marketability: "concept_only",
+    status: "qualified",
+    audienceKeys: ["public", "civic-tech", "research"],
+    evidence: [
+      decisionEvidence(
+        "docs/E150/MARKETING-MULTIBRAND-CONTROL-PLANE-01_2026-08-24.md",
+        "Drei-Marken- und Governance-Lab-Zielbild; reale Kampagnenassets bleiben review-pflichtig.",
+      ),
+    ],
+    routeStatus: "concept",
+    productProofStatus: "partial",
+    ctaStatus: "verified",
+    blockerKeys: ["vote4gov-brand-approval-required"],
+    campaignIds: ["CAM-V4G-14"],
+    assetIds: [],
+    reviewRequired: true,
+    autoPublishEligible: false,
+    createdAt: UPDATED_AT,
+    updatedAt: UPDATED_AT,
+  },
 ];
 
 const campaigns: MarketingCampaign[] = [
@@ -216,9 +247,10 @@ const campaigns: MarketingCampaign[] = [
   campaign("CAM-TECH-08", "technologiepartner-werden", "Technologiepartner werden", "Technische Unterstützung und offene Infrastruktur ohne Einflussrechte erklären.", "qualified", "offer_decision_required", [], ["technology-partners", "open-source-partners"], "Technologiepartnerschaft prüfen", null, "needs_routing_decision", [], ["offer-decision-required", "routing-decision-required"]),
   campaign("CAM-MUNI-09", "beteiligung-nachvollziehbar-organisieren", "Beteiligung nachvollziehbar organisieren", "Kommunen und Verwaltungen strukturierte Beteiligung, Dossiers und Review zeigen.", "blocked", "product_proof_required", [], ["municipalities", "public-administration"], "Anwendungsfall besprechen", null, "needs_routing_decision", [], ["product-proof-required", "routing-decision-required"]),
   campaign("CAM-COMMUNITY-10", "anliegen-anschlussfaehig-machen", "Macht euer Anliegen anschlussfähig", "Initiativen, Vereine und NGOs beim Strukturieren eines Anliegens unterstützen.", "idea", "product_proof_required", [], ["initiatives", "associations", "ngos"], "Anliegen vorbereiten", null, "needs_routing_decision", [], ["product-proof-required"]),
-  campaign("CAM-VOG-11", "voiceopengov-mitgliedschaft-verstehen", "VoiceOpenGov-Mitgliedschaft verstehen", "Persönliche Mitgliedschaft, Mitwirkung und Verantwortung innerhalb der bestätigten Grenzen erklären.", "qualified", "offer_decision_required", [], ["individual-members", "mission-supporters"], "Membership-Modell kennenlernen", null, "needs_routing_decision", ["MAS-VOG-MEMBERSHIP-01"], ["offer-decision-required", "legal-review-required"]),
-  campaign("CAM-VOG-PARTNER-12", "partner-fuer-transparente-debatten", "Partner für transparente Debatten", "Partnerkategorien, Beiträge und klare Einflussgrenzen erläutern.", "qualified", "offer_decision_required", [], ["organizations", "partners"], "Partnerkategorien kennenlernen", null, "needs_routing_decision", ["MAS-PARTNER-KIT-01"], ["offer-decision-required", "legal-review-required"]),
+  campaign("CAM-VOG-11", "voiceopengov-mitgliedschaft-verstehen", "VoiceOpenGov-Mitgliedschaft verstehen", "Persönliche Mitgliedschaft, Mitwirkung und Verantwortung innerhalb der bestätigten Grenzen erklären.", "qualified", "offer_decision_required", [], ["individual-members", "mission-supporters"], "Membership-Modell kennenlernen", "https://voiceopengov.org/", "verified", ["MAS-VOG-MEMBERSHIP-01"], ["offer-decision-required", "legal-review-required"], "voiceopengov"),
+  campaign("CAM-VOG-PARTNER-12", "partner-fuer-transparente-debatten", "Partner für transparente Debatten", "Partnerkategorien, Beiträge und klare Einflussgrenzen erläutern.", "qualified", "offer_decision_required", [], ["organizations", "partners"], "Partnerkategorien kennenlernen", "https://voiceopengov.org/", "verified", ["MAS-PARTNER-KIT-01"], ["offer-decision-required", "legal-review-required"], "voiceopengov"),
   campaign("CAM-WHITE-LABEL-13", "beteiligung-im-eigenen-auftritt", "Beteiligung im eigenen Auftritt", "Kontrollierte Co-Branding- und White-Label-Ausgaben als späteren Anwendungsfall erklären.", "idea", "offer_decision_required", ["MOP-WHITELABEL-13"], ["municipalities", "associations", "organizations"], "White-Label-Anwendungsfall prüfen", null, "needs_routing_decision", [], ["offer-decision-required", "legal-review-required", "tenant-model-required"]),
+  campaign("CAM-V4G-14", "vote4gov-governance-lab", "Vote4Gov · Global Governance Lab", "Internationale Governance-Strukturen vergleichen, Alternativmodelle prüfen und Hypothesen transparent von Evidenz trennen.", "qualified", "governance_decision_required", ["MOP-V4G-14"], ["public", "civic-tech", "research"], "Systemvergleich ansehen", "https://vote4gov.eu/", "verified", [], ["vote4gov-brand-approval-required"], "vote4gov"),
 ];
 
 function campaign(
@@ -235,6 +267,7 @@ function campaign(
   ctaStatus: MarketingCampaign["primaryCta"]["status"],
   assetIds: string[],
   blockerKeys: string[],
+  brand: MarketingPublicBrand = "edebatte",
 ): MarketingCampaign {
   return {
     id,
@@ -244,7 +277,7 @@ function campaign(
     status,
     readiness,
     opportunityIds,
-    brandProfileId: "brand-edebatte-light",
+    brandProfileId: resolveCanonicalMarketingBrandProfile(brand).brandProfileId,
     audienceKeys,
     primaryCta: { label: ctaLabel, url: ctaUrl, status: ctaStatus },
     assetIds,
@@ -273,10 +306,13 @@ function asset(
   status: MarketingAsset["status"],
   sourcePath: string,
 ): MarketingAsset {
+  const ownerCampaign = campaigns.find((candidate) => candidate.id === campaignId);
+  if (!ownerCampaign) throw new Error(`marketing_asset_campaign_missing:${campaignId}`);
+
   return {
     id,
     campaignId,
-    brandProfileId: "brand-edebatte-light",
+    brandProfileId: ownerCampaign.brandProfileId,
     assetType,
     title,
     status,
@@ -325,6 +361,36 @@ const brandProfiles: MarketingBrandProfile[] = [
     sourcePath: "docs/marketing/white-label/profiles/edebatte-dark.brand-profile.json",
     updatedAt: "2026-07-26T16:20:00+02:00",
   },
+  {
+    id: "brand-voiceopengov",
+    key: "voiceopengov",
+    mode: "voiceopengov",
+    displayName: "VoiceOpenGov",
+    status: "draft",
+    version: 1,
+    locales: ["de-DE", "en"],
+    logoStatus: "partial",
+    tokenStatus: "partial",
+    legalTargetStatus: "missing",
+    voxyMode: "contextual",
+    sourcePath: "docs/marketing/white-label/profiles/voiceopengov.brand-profile.json",
+    updatedAt: UPDATED_AT,
+  },
+  {
+    id: "brand-vote4gov",
+    key: "vote4gov",
+    mode: "vote4gov",
+    displayName: "Vote4Gov",
+    status: "draft",
+    version: 1,
+    locales: ["de-DE", "en"],
+    logoStatus: "partial",
+    tokenStatus: "partial",
+    legalTargetStatus: "missing",
+    voxyMode: "vote4gov_context",
+    sourcePath: "docs/marketing/white-label/profiles/vote4gov.brand-profile.json",
+    updatedAt: UPDATED_AT,
+  },
 ];
 
 const distributionRecords: MarketingDistributionRecord[] = [];
@@ -332,12 +398,17 @@ const distributionRecords: MarketingDistributionRecord[] = [];
 const REGISTRY_SOURCE_PATHS = [
   "docs/marketing/campaigns/campaign-plan-2026.md",
   "docs/marketing/admin/marketing-control-plane.md",
+  "docs/marketing/admin/multibrand-operator-model.md",
+  "docs/marketing/brand/three-brand-content-boundary.md",
   "docs/marketing/schemas/marketing-control-plane.schema.json",
   "docs/marketing/white-label/profiles/edebatte-light.brand-profile.json",
   "docs/marketing/white-label/profiles/edebatte-dark.brand-profile.json",
+  "docs/marketing/white-label/profiles/voiceopengov.brand-profile.json",
+  "docs/marketing/white-label/profiles/vote4gov.brand-profile.json",
   "docs/E150/MARKETING-CONTROL-PLANE-01_DECISIONS_2026-07-26.md",
   "docs/E150/MARKETING-CAMPAIGN-ANALYTICS-01_DECISIONS_2026-07-26.md",
   "docs/E150/MARKETING-REGIONAL-CIVIC-OPPORTUNITY-AGENT-01_DECISIONS_2026-07-26.md",
+  "docs/E150/MARKETING-MULTIBRAND-CONTROL-PLANE-01_2026-08-24.md",
 ] as const;
 
 export function getMarketingRegistry(): MarketingRegistry {

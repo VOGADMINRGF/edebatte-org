@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  Bcp47LocaleSchema,
+  OrganizationJurisdictionSchema,
+  type OrganizationJurisdiction,
+} from "../organization/registryContract";
 import type { RegionPublicationVisibilityState } from "./publicationRiskLadder";
 import type {
   RegionIntelligenceClusterHint,
@@ -144,9 +149,16 @@ export type SourceConnectionTestResult = {
   noAutoResearch: true;
 };
 
+/**
+ * Organization-level source identity. `regionId` is nullable by design so
+ * national, supranational and global sources do not need a fabricated local
+ * region. Regional runtime consumers use the narrower RegionSourceConnection.
+ */
 export type OrganizationSourceConnection = {
   id: string;
-  regionId: string;
+  regionId: string | null;
+  jurisdiction?: OrganizationJurisdiction | null;
+  locale?: string | null;
   organizationId?: string | null;
   label: string;
   sourceType: RegionSourceConnectionType;
@@ -178,7 +190,9 @@ export type OrganizationSourceConnection = {
   noAutoModerationRights?: true;
 };
 
-export type RegionSourceConnection = OrganizationSourceConnection;
+export type RegionSourceConnection = OrganizationSourceConnection & {
+  regionId: string;
+};
 
 export type RegionSourcePossibleClaim = {
   text: string;
@@ -271,6 +285,54 @@ const SampleItemSchema = z
   })
   .strict();
 
+function addExplicitUrlIssue(
+  value: { sourceType: RegionSourceConnectionType; url?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  if (
+    requiresExplicitUrl(value.sourceType) &&
+    !String(value.url ?? "").trim()
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["url"],
+      message: "explicit_url_required",
+    });
+  }
+}
+
+export const OrganizationSourceConnectionUpsertSchema = z
+  .object({
+    id: z.string().trim().min(1).optional(),
+    organizationId: z.string().trim().min(1),
+    regionId: z.string().trim().min(1).nullable().optional(),
+    jurisdiction: OrganizationJurisdictionSchema.nullable().optional(),
+    locale: Bcp47LocaleSchema.nullable().optional(),
+    label: z.string().trim().min(1),
+    sourceType: z.enum(ORGANIZATION_SOURCE_CONNECTION_TYPES),
+    url: z.string().trim().url().nullable().optional(),
+    notes: z.string().trim().nullable().optional(),
+    enabled: z.boolean().optional(),
+    snapshotSeedKind: z.enum(REGION_SOURCE_SNAPSHOT_SEED_KINDS).optional(),
+    snapshotTemplateLabel: z.string().trim().min(1).optional(),
+    sampleItems: z.array(SampleItemSchema).max(5).optional(),
+  })
+  .superRefine((value, ctx) => {
+    addExplicitUrlIssue(value, ctx);
+    if (!String(value.regionId ?? "").trim() && !value.jurisdiction) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["jurisdiction"],
+        message: "jurisdiction_required_without_region",
+      });
+    }
+  });
+
+/**
+ * Existing regional operator/runtime contract. It intentionally keeps a
+ * mandatory regionId while OrganizationSourceConnectionUpsertSchema covers
+ * organization sources outside a local/regional runtime.
+ */
 export const RegionSourceConnectionUpsertSchema = z
   .object({
     id: z.string().trim().min(1).optional(),
@@ -285,16 +347,7 @@ export const RegionSourceConnectionUpsertSchema = z
     sampleItems: z.array(SampleItemSchema).max(5).optional(),
   })
   .superRefine((value, ctx) => {
-    if (
-      requiresExplicitUrl(value.sourceType) &&
-      !String(value.url ?? "").trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["url"],
-        message: "explicit_url_required",
-      });
-    }
+    addExplicitUrlIssue(value, ctx);
   });
 
 export const RegionSourceConnectionDryRunSchema = z

@@ -1,0 +1,21 @@
+{
+  "status": "human-approved canonical visual target",
+  "files": [
+    {
+      "filename": "CANON-01-character-development-board.png",
+      "sha256": "e58f4f5a6b23d8da6ccd81d979057f1b6f8ce8ae22eeba7032a2fb417a2c8bcc"
+    },
+    {
+      "filename": "CANON-02-character-overview-board.png",
+      "sha256": "e881e2c0e698f70eeb71ed78a021c5ef6bab8d37d52277e00a08e2f7ed9a8fe7"
+    },
+    {
+      "filename": "CANON-03-broadcast-layout-teal.png",
+      "sha256": "479caf603da577009318beda49b4e0dc61f79c70e6bdb9fed820d448767aaded"
+    },
+    {
+      "filename": "CANON-04-broadcast-layout-blue.png",
+      "sha256": "8ec3927f2871b210f46468f56a2845811c89dbb971c11bf086de7446ac0efff8"
+    }
+  ]
+}

@@ -29,8 +29,17 @@ const mocks = vi.hoisted(() => ({
   getSessionUser: vi.fn(),
 }));
 
+const jurisdictionMocks = vi.hoisted(() => ({
+  validateConfirmation: vi.fn(),
+}));
+
 vi.mock("@/lib/server/auth/sessionUser", () => ({
   getSessionUser: (...args: unknown[]) => mocks.getSessionUser(...args),
+}));
+
+vi.mock("@/features/create/createCitizenIntakeContextServer", () => ({
+  validateCreateJurisdictionConfirmation: (...args: unknown[]) =>
+    jurisdictionMocks.validateConfirmation(...args),
 }));
 
 import { GET } from "@/app/api/create/handoffs/[handoffId]/route";
@@ -241,6 +250,8 @@ const activeContractRecord = {
 
 describe("/api/create/handoffs", () => {
   beforeEach(async () => {
+    jurisdictionMocks.validateConfirmation.mockReset();
+    jurisdictionMocks.validateConfirmation.mockReturnValue(null);
     mocks.getSessionUser.mockResolvedValue({
       _id: { toHexString: () => "user-1" },
       roles: ["organization_member"],
@@ -474,6 +485,95 @@ describe("/api/create/handoffs", () => {
       noAutoPublish: true,
       noPublicOfficial: true,
     });
+  });
+
+  it("rejects a manipulated C7 jurisdiction key before review persistence", async () => {
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            jurisdictionConfirmation: {
+              candidateKey: "municipality:frei erfundene behörde",
+              candidate: {
+                level: "municipality",
+                label: "Frei erfundene Behörde",
+              },
+              serverValidated: true,
+            },
+          },
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "invalid_jurisdiction_confirmation",
+    });
+    expect(
+      await getPersistedCreateHandoffRecord("create-handoff-route-1"),
+    ).toBeNull();
+  });
+
+  it("revalidates C7 jurisdiction before handoff persistence", async () => {
+    const candidateKey =
+      "district:kreis dithmarschen (wahrscheinlich)";
+    jurisdictionMocks.validateConfirmation.mockReturnValueOnce({
+      selectedRegionLabel: "Dithmarschen",
+      jurisdictionCandidates: [{
+        level: "district",
+        label: "Kreis Dithmarschen (wahrscheinlich)",
+        authorityName: "Heide",
+        administrativeUnitType: "kreis",
+        confidence: 0.68,
+        reason: "server",
+        needsReview: true,
+      }],
+      jurisdictionConfirmation: {
+        status: "confirmed",
+        candidateKey,
+      },
+      placeResolution: {
+        selectedCandidate: {
+          id: "region-official-01051",
+          city: "Dithmarschen",
+          registryId: "01051",
+        },
+      },
+    });
+
+    const response = await persistRoute(
+      new NextRequest("http://localhost/api/create/handoffs", {
+        method: "POST",
+        body: JSON.stringify({
+          draft: {
+            ...draftPayload,
+            sourceText: "In Dithmarschen muss der Busverkehr besser werden.",
+            jurisdictionConfirmation: {
+              candidateKey,
+              candidate: {
+                level: "municipality",
+                label: "Client manipulation",
+              },
+              regionId: "client-region",
+              serverValidated: true,
+            },
+          },
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(jurisdictionMocks.validateConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceText: "In Dithmarschen muss der Busverkehr besser werden.",
+        candidateKey,
+      }),
+    );
+    expect(response.status).toBe(200);
   });
 
   it("rejects persisting a handoff into a foreign organization workspace", async () => {

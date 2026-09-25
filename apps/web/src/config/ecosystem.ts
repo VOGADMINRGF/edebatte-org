@@ -1,4 +1,4 @@
-import { VOG_SUPPORT_URL } from "@/config/links";
+import { VOG_HOME_URL, VOTE4GOV_URL } from "@/config/links";
 import { BRAND } from "@/lib/brand";
 
 export type EcosystemBrandId = "edebatte" | "voiceopengov" | "vote4gov" | "voxy";
@@ -61,38 +61,39 @@ export const ECOSYSTEM_BRANDS = [
   {
     id: "edebatte",
     displayName: BRAND.name,
-    canonicalRole: "Offene Infrastruktur",
+    canonicalRole: "Unabhängiger Evidenz-, Beteiligungs- und Entscheidungsraum",
     description:
-      "Offene Infrastruktur für nachvollziehbare Erkenntnis, Orientierung und Beteiligung.",
+      "Offene Infrastruktur für Quellen, Dossiers, Gegenpositionen, Alternativen, Beteiligung sowie versionierte Mehrheits- und Minderheitenergebnisse.",
     relationshipToEDebatte:
-      "eDebatte bleibt offen für Bürger, Kommunen, Unternehmen, Vereine, Parteien, Wissenschaft, Medien und NGOs.",
+      "eDebatte bleibt für Bürger, Kommunen, Unternehmen, Vereine, Parteien, Wissenschaft, Medien, NGOs und andere Akteure unabhängig nutzbar.",
     target: availableInternalTarget(eDebatteBaseUrl.pathname),
   },
   {
     id: "voiceopengov",
     displayName: "VoiceOpenGov",
-    canonicalRole: "Internationale Mitgliederbewegung",
+    canonicalRole: "Politische Repräsentations- und Umsetzungsschicht",
     description:
-      "Internationale Mitgliederbewegung, die offene demokratische Zusammenarbeit organisiert.",
-    relationshipToEDebatte: "VoiceOpenGov nutzt eDebatte, besitzt eDebatte aber nicht.",
-    target: availableExternalTarget(VOG_SUPPORT_URL),
+      "VoiceOpenGov organisiert regionale Präsenz und politische Verantwortlichkeit für gültige eDebatte-Mehrheitsmandate innerhalb ihres definierten Geltungsbereichs.",
+    relationshipToEDebatte:
+      "VoiceOpenGov besitzt eDebatte nicht. Es verpflichtet seine politische Repräsentation jedoch an gültig abgeschlossene eDebatte-Entscheidungen innerhalb ihres definierten sachlichen und regionalen Geltungsbereichs. Entwürfe, laufende Debatten, unvollständige Abstimmungen und informelle Stimmungsbilder binden nicht.",
+    target: availableExternalTarget(VOG_HOME_URL),
   },
   {
     id: "vote4gov",
     displayName: "Vote4Gov",
-    canonicalRole: "Gesellschaftliche Denkwerkstatt",
+    canonicalRole: "Persönlicher Denk- und Entwurfsraum",
     description:
-      "Gesellschaftliche Denkwerkstatt für die Weiterentwicklung demokratischer Repräsentation und Beteiligung.",
+      "Ricky Gerd Fleischers persönliche öffentliche Stimme für Thesen, historische Herleitungen, Systemkritik, internationale Vergleiche und einen eigenen überprüfbaren Gegenentwurf.",
     relationshipToEDebatte:
-      "Vote4Gov ist eigenständig und ersetzt weder eDebatte noch VoiceOpenGov.",
-    target: UNAVAILABLE_TARGET,
+      "Vote4Gov kann Thesen zur offenen Prüfung an eDebatte übergeben. Persönliche Vote4Gov-Positionen sind weder eDebatte-Ergebnisse noch automatisch VoiceOpenGov-Positionen; ein später gültig abgeschlossenes eDebatte-Ergebnis bindet die zuständige VoiceOpenGov-Repräsentation, nicht automatisch Rickys persönliche Überzeugung.",
+    target: availableExternalTarget(VOTE4GOV_URL),
   },
   {
     id: "voxy",
     displayName: "Voxy",
-    canonicalRole: "Transparente Begleitung",
+    canonicalRole: "Erklär- und Übersetzungsschicht",
     description:
-      "Transparente Begleitung, die Orientierung gibt und nächste Schritte nachvollziehbar macht.",
+      "Voxy erklärt, strukturiert und übersetzt Inhalte und Unsicherheiten, ohne politische oder organisatorische Entscheidungen zu treffen.",
     relationshipToEDebatte:
       "Voxy begleitet eDebatte und ist weder Eigentümer, Entscheider noch Veröffentlichungsautomatismus.",
     target: UNAVAILABLE_TARGET,

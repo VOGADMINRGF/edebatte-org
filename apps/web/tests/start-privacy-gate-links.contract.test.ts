@@ -14,14 +14,16 @@ vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => createElement("img", { alt: "", ...props }),
 }));
 
+vi.mock("@/context/LocaleContext", () => ({
+  useLocale: () => ({ locale: "de" }),
+}));
+
 describe("start privacy gate link contract", () => {
-  it("marks active create and participation ctas as privacy-gated triggers", () => {
+  it("allows the local draft entry before active processing and keeps participation explicit", () => {
     const html = renderToStaticMarkup(createElement(LandingStart));
 
-    expect((html.match(/data-requires-privacy-gate="true"/g) ?? []).length).toBe(3);
-    expect(html).toContain('href="/create"');
+    expect(html).not.toContain('data-requires-privacy-gate="true"');
     expect(html).toContain('href="/swipes"');
-    expect(html).not.toContain('href="/runden/new"');
-    expect(html).not.toContain('href="/create?intent=check"');
+    expect(html).toContain('href="/runden/new?gtm=1&amp;source=homepage"');
   });
 });

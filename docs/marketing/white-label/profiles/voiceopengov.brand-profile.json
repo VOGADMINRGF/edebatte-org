@@ -1,0 +1,35 @@
+{
+  "id": "brand-voiceopengov",
+  "key": "voiceopengov",
+  "mode": "voiceopengov",
+  "status": "draft",
+  "displayName": "VoiceOpenGov",
+  "shortName": "VoiceOpenGov",
+  "localeDefault": "de-DE",
+  "locales": ["de-DE", "en"],
+  "logoSet": {
+    "primary": { "ref": "brand:voiceopengov:primary" }
+  },
+  "colors": {
+    "canvas": "inherit",
+    "surface": "inherit",
+    "foreground": "inherit",
+    "mutedForeground": "inherit",
+    "accent": "inherit",
+    "accentForeground": "inherit",
+    "border": "inherit"
+  },
+  "typography": {
+    "displayStack": ["inherit"],
+    "bodyStack": ["inherit"]
+  },
+  "voxyMode": "contextual",
+  "website": "https://voiceopengov.org/",
+  "imprintUrl": null,
+  "privacyUrl": null,
+  "approvedBy": null,
+  "approvedAt": null,
+  "version": 1,
+  "createdAt": "2026-08-24T10:24:00+02:00",
+  "updatedAt": "2026-08-24T10:24:00+02:00"
+}

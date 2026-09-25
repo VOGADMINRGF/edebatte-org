@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import MarketingAdminPage from "@/app/admin/marketing/page";
 import { flattenNavItems } from "@/app/admin/adminNav";
+import { getMarketingRegistry } from "@/features/marketing/registry/data";
 
 describe("admin marketing operator workspace", () => {
   it("prioritises real work, compact campaigns and the contextual assistant", async () => {
@@ -11,7 +12,7 @@ describe("admin marketing operator workspace", () => {
 
     expect(html).toContain("Marketing-Cockpit");
     expect(html).toContain("Heute wichtig");
-    expect(html).toContain("13 Kampagnen");
+    expect(html).toContain(`${getMarketingRegistry().campaigns.length} Kampagnen`);
     expect(html).toContain("2 konkrete Beiträge &amp; Videos");
     expect(html).toContain("Inhalte prüfen");
     expect(html).toContain("B2C");

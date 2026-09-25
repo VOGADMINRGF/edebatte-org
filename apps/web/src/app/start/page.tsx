@@ -7,9 +7,9 @@ import { buildHomeStructuredData, buildPublicPageMetadata } from "@/lib/seo/publ
 
 /* page-contract: delegated-h1 */
 
-const HOME_TITLE = "eDebatte – Verstehen, was sich verändert. Mitreden, wo es zählt.";
+const HOME_TITLE = "eDebatte – Mitmachen oder eine eigene Frage starten";
 const HOME_DESCRIPTION =
-  "eDebatte bündelt aktuelle Entwicklungen, Quellen, Positionen und Beteiligungsmöglichkeiten zu nachvollziehbaren Themenständen – von deiner Region bis zur Welt.";
+  "Stimme mit ab, ergänze Perspektiven, Quellen oder offene Fragen – oder starte selbst kostenlos eine Frage für andere.";
 
 const HOME_STRUCTURED_DATA = JSON.stringify(buildHomeStructuredData());
 
@@ -35,7 +35,7 @@ export default async function StartPage() {
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: HOME_STRUCTURED_DATA }}
       />
-      <main className="min-h-[100svh]">
+      <main id="main-content" className="min-h-[100svh]">
         <LandingStart experience={experience} />
       </main>
     </>

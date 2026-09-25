@@ -46,6 +46,10 @@ export type CreateSavedWorkstateMetadata = {
   sourceSection?: string | null;
   sourceLabel?: string | null;
   linkLoaded?: boolean;
+  materialReviewId?: string | null;
+  materialId?: string | null;
+  materialReviewAction?: "reuse" | "continue" | "enrich" | "create_new" | null;
+  suggestedOptions?: string[];
 };
 
 export type CreateSavedWorkstateRecord = {

@@ -2,12 +2,36 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 
+const jurisdictionMocks = vi.hoisted(() => ({
+  resolveServerContext: vi.fn(),
+  validateConfirmation: vi.fn(),
+}));
+
 const mocks = vi.hoisted(() => {
   type AnyDoc = Record<string, any>;
 
   let userId: string | null = "user-1";
   const docs: AnyDoc[] = [];
   const reviewDocs: AnyDoc[] = [];
+  const consumePersistentRateLimit = vi.fn();
+  let parallelInsertGate: {
+    insertCalls: number;
+    duplicateKeyPathExercised: boolean;
+    firstInsertArrived: Promise<void>;
+    resolveFirstInsertArrived: () => void;
+    secondInsertArrived: Promise<void>;
+    resolveSecondInsertArrived: () => void;
+    firstInsertCommitted: Promise<void>;
+    resolveFirstInsertCommitted: () => void;
+  } | null = null;
+
+  function deferred() {
+    let resolve = () => undefined;
+    const promise = new Promise<void>((next) => {
+      resolve = next;
+    });
+    return { promise, resolve };
+  }
 
   function toKey(value: unknown) {
     if (value && typeof value === "object" && "toHexString" in (value as Record<string, unknown>)) {
@@ -33,6 +57,8 @@ const mocks = vi.hoisted(() => {
   }
 
   return {
+    consumePersistentRateLimit,
+    persistentRateLimitModule: { consumePersistentRateLimit },
     setUser(next: string | null) {
       userId = next;
     },
@@ -40,6 +66,31 @@ const mocks = vi.hoisted(() => {
       docs.length = 0;
       reviewDocs.length = 0;
       userId = "user-1";
+      parallelInsertGate = null;
+    },
+    enableParallelInsertCollisionGate() {
+      const firstInsertArrived = deferred();
+      const secondInsertArrived = deferred();
+      const firstInsertCommitted = deferred();
+      parallelInsertGate = {
+        insertCalls: 0,
+        duplicateKeyPathExercised: false,
+        firstInsertArrived: firstInsertArrived.promise,
+        resolveFirstInsertArrived: firstInsertArrived.resolve,
+        secondInsertArrived: secondInsertArrived.promise,
+        resolveSecondInsertArrived: secondInsertArrived.resolve,
+        firstInsertCommitted: firstInsertCommitted.promise,
+        resolveFirstInsertCommitted: firstInsertCommitted.resolve,
+      };
+    },
+    parallelInsertCollisionState() {
+      return {
+        insertCalls: parallelInsertGate?.insertCalls ?? 0,
+        duplicateKeyPathExercised: parallelInsertGate?.duplicateKeyPathExercised ?? false,
+      };
+    },
+    waitForFirstParallelInsert() {
+      return parallelInsertGate?.firstInsertArrived ?? Promise.reject(new Error("parallel_insert_gate_disabled"));
     },
     readAll() {
       return docs.map((doc) => ({ ...doc }));
@@ -70,12 +121,27 @@ const mocks = vi.hoisted(() => {
       if (name === "drafts") {
         return {
           async insertOne(doc: AnyDoc) {
+            const gate = parallelInsertGate;
+            let isFirstInsert = false;
+            if (gate) {
+              gate.insertCalls += 1;
+              if (gate.insertCalls === 1) {
+                isFirstInsert = true;
+                gate.resolveFirstInsertArrived();
+                await gate.secondInsertArrived;
+              } else if (gate.insertCalls === 2) {
+                gate.resolveSecondInsertArrived();
+                await gate.firstInsertCommitted;
+              }
+            }
             if (docs.some((entry) => toKey(entry._id) === toKey(doc._id))) {
               const error = new Error("duplicate key");
               (error as Error & { code?: number }).code = 11000;
+              if (gate) gate.duplicateKeyPathExercised = true;
               throw error;
             }
             docs.push({ ...doc });
+            if (isFirstInsert) gate?.resolveFirstInsertCommitted();
             return { acknowledged: true, insertedId: doc._id };
           },
           async findOne(filter: AnyDoc) {
@@ -155,6 +221,9 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("@/utils/persistentRateLimit", () => mocks.persistentRateLimitModule);
+vi.unmock("@/features/create/createRouteSecurity");
+
 vi.mock("@core/db/triMongo", async () => {
   const mongodb = await import("mongodb");
   return {
@@ -171,6 +240,13 @@ vi.mock("@/lib/server/auth/requestScope", () => ({
 
 vi.mock("@/lib/server/auth/sessionUser", () => ({
   getSessionUser: (...args: unknown[]) => mocks.getSessionUser(...args),
+}));
+
+vi.mock("@/features/create/createCitizenIntakeContextServer", () => ({
+  resolveCreateCitizenIntakeContextForServer: (...args: unknown[]) =>
+    jurisdictionMocks.resolveServerContext(...args),
+  validateCreateJurisdictionConfirmation: (...args: unknown[]) =>
+    jurisdictionMocks.validateConfirmation(...args),
 }));
 
 vi.mock("@/server/draftStore", () => ({
@@ -197,6 +273,26 @@ describe("create mode split - save route", () => {
     vi.clearAllMocks();
     mocks.reset();
     mocks.getDraft.mockResolvedValue(null);
+    mocks.consumePersistentRateLimit.mockResolvedValue({
+      ok: true,
+      remaining: 10,
+      limit: 12,
+      resetAt: Date.now() + 60_000,
+      retryIn: 0,
+    });
+    jurisdictionMocks.resolveServerContext.mockReturnValue({
+      regionSource: "none",
+      regionStatus: "unresolved",
+      selectedRegionLabel: null,
+      jurisdictionCandidates: [],
+      jurisdictionConfirmation: { status: "not_required", candidateKey: null },
+      placeResolution: {
+        selectedCandidate: null,
+        jurisdictionCandidates: [],
+        jurisdictionConfirmation: { status: "not_required", candidateKey: null },
+      },
+    });
+    jurisdictionMocks.validateConfirmation.mockReturnValue(null);
   });
 
   it("rejects a guest before parsing the body and never emits a cookie or draft", async () => {
@@ -305,6 +401,103 @@ describe("create mode split - save route", () => {
     expect(saved[0].analysis?.safety?.noAutoPublish).toBe(true);
     expect(saved[0].analysis?.safety?.noSilentMerge).toBe(true);
     expect(saved[0].analysis?.draftWriteRuntime?.sourceCollection).toBe("drafts");
+  });
+
+  it("rejects a manipulated C7 jurisdiction key before any draft write", async () => {
+    const res = await savePOST(
+      req({
+        textPrepared: "In Wuppertal sollte der Schulweg sicherer werden.",
+        source: "create_followup",
+        createMode: "source",
+        analysis: {
+          intelligentFollowup: {
+            meta: {
+              citizenContext: {
+                jurisdictionConfirmation: {
+                  status: "confirmed",
+                  candidateKey: "municipality:frei erfundene behörde",
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      error: "invalid_jurisdiction_confirmation",
+    });
+    expect(mocks.readAll()).toHaveLength(0);
+  });
+
+  it("persists only the server-revalidated C7 jurisdiction context", async () => {
+    const serverContext = {
+      regionSource: "contribution_text",
+      regionStatus: "resolved",
+      selectedRegionLabel: "Wuppertal",
+      jurisdictionCandidates: [{
+        level: "municipality",
+        label: "Kommune Wuppertal (wahrscheinlich)",
+        authorityName: "Stadt Wuppertal",
+        confidence: 0.68,
+        reason: "server",
+        needsReview: true,
+      }],
+      jurisdictionConfirmation: {
+        status: "confirmed",
+        candidateKey: "municipality:kommune wuppertal (wahrscheinlich)",
+      },
+      placeResolution: {
+        selectedCandidate: {
+          id: "region-official-05124000",
+          city: "Wuppertal",
+          registryId: "05124000",
+        },
+        jurisdictionCandidates: [],
+        jurisdictionConfirmation: {
+          status: "confirmed",
+          candidateKey: "municipality:kommune wuppertal (wahrscheinlich)",
+        },
+      },
+    };
+    jurisdictionMocks.validateConfirmation.mockReturnValueOnce(serverContext);
+
+    const res = await savePOST(
+      req({
+        textPrepared: "In Wuppertal sollte der Schulweg sicherer werden.",
+        source: "create_followup",
+        createMode: "source",
+        analysis: {
+          intelligentFollowup: {
+            meta: {
+              citizenContext: {
+                selectedRegionLabel: "Manipuliert",
+                jurisdictionConfirmation: {
+                  status: "confirmed",
+                  candidateKey:
+                    "municipality:kommune wuppertal (wahrscheinlich)",
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(jurisdictionMocks.validateConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceText: "In Wuppertal sollte der Schulweg sicherer werden.",
+        candidateKey: "municipality:kommune wuppertal (wahrscheinlich)",
+      }),
+    );
+    const saved = mocks.readAll();
+    expect(saved).toHaveLength(1);
+    expect(
+      saved[0].analysis?.intelligentFollowup?.meta?.citizenContext,
+    ).toEqual(serverContext);
   });
 
   it("accepts ai mode only as draft intent with no publish side effect", async () => {
@@ -446,7 +639,11 @@ describe("create mode split - save route", () => {
       createMode: "source",
     };
 
-    const [first, second] = await Promise.all([savePOST(req(payload)), savePOST(req(payload))]);
+    mocks.enableParallelInsertCollisionGate();
+    const firstRequest = savePOST(req(payload));
+    await mocks.waitForFirstParallelInsert();
+    const secondRequest = savePOST(req(payload));
+    const [first, second] = await Promise.all([firstRequest, secondRequest]);
     const firstBody = await first.json();
     const secondBody = await second.json();
 
@@ -454,6 +651,11 @@ describe("create mode split - save route", () => {
     expect(second.status).toBe(200);
     expect(firstBody.draftId).toBe(secondBody.draftId);
     expect(mocks.readAll()).toHaveLength(1);
+    expect(mocks.consumePersistentRateLimit).toHaveBeenCalledTimes(4);
+    expect(mocks.parallelInsertCollisionState()).toEqual({
+      insertCalls: 2,
+      duplicateKeyPathExercised: true,
+    });
   });
 
   it("updates the same draft id on controlled follow-up saves", async () => {

@@ -97,7 +97,7 @@ describe("live campaign entry contract", () => {
   });
 
   it("keeps the QR landing wired to the draft-first live route instead of the old join shortcut", () => {
-    const qrPageSource = readFileSync(resolve(process.cwd(), "src/features/qr/publicEntry.tsx"), "utf8");
+    const qrPageSource = readFileSync(resolve(process.cwd(), "src/app/qr/[qrId]/page.tsx"), "utf8");
 
     expect(qrPageSource).toContain('source: "qr"');
     expect(qrPageSource).toContain('href={liveHref}');

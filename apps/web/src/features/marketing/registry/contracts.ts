@@ -179,7 +179,7 @@ export const MarketingBrandProfileSchema = z
   .object({
     id: idSchema,
     key: keySchema,
-    mode: z.enum(["edebatte", "voiceopengov", "co_branded", "white_label"]),
+    mode: z.enum(["edebatte", "voiceopengov", "vote4gov", "co_branded", "white_label"]),
     displayName: z.string().trim().min(1).max(180),
     status: z.enum(["draft", "review_ready", "approved", "retired"]),
     version: z.number().int().min(1),
@@ -187,7 +187,7 @@ export const MarketingBrandProfileSchema = z
     logoStatus: z.enum(["missing", "partial", "approved"]),
     tokenStatus: z.enum(["missing", "partial", "complete"]),
     legalTargetStatus: z.enum(["missing", "partial", "complete"]),
-    voxyMode: z.enum(["canonical", "contextual", "hidden"]),
+    voxyMode: z.enum(["canonical", "contextual", "vote4gov_context", "hidden"]),
     sourcePath: z.string().trim().min(1).max(500),
     updatedAt: isoDateSchema,
   })

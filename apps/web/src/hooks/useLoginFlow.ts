@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { normalizeInternalRedirectPath } from "@/lib/security/internalNavigation";
 
 export type LoginStep = "credentials" | "twofactor";
 export type TwoFactorMethod = "email" | "otp" | "totp";
@@ -9,12 +8,6 @@ export type TwoFactorVerificationState = "idle" | "submitting" | "redirecting";
 
 function navigateWindow(href: string) {
   window.location.href = href;
-}
-
-const AUTH_REDIRECT_FALLBACK = "/account";
-
-function resolveAuthRedirect(value: unknown, fallback = AUTH_REDIRECT_FALLBACK) {
-  return normalizeInternalRedirectPath(value) ?? fallback;
 }
 
 function normalizeMethod(method?: TwoFactorMethod | null): TwoFactorMethod | null {
@@ -57,9 +50,7 @@ export function useLoginFlow(opts?: {
     normalizeAvailableMethods(undefined, initialMethod),
   );
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [redirectUrl, setRedirectUrl] = useState(
-    normalizeInternalRedirectPath(opts?.redirectTo) ?? "",
-  );
+  const [redirectUrl, setRedirectUrl] = useState(opts?.redirectTo || "");
   const [loading, setLoading] = useState(false);
   const [requestingEmail, setRequestingEmail] = useState(false);
   const [switchingMethod, setSwitchingMethod] = useState(false);
@@ -91,17 +82,13 @@ export function useLoginFlow(opts?: {
             normalizeAvailableMethods(body.availableMethods, nextMethod, Boolean(body.allowEmailFallback)),
           );
           setExpiresAt(body.expiresAt ?? null);
-          setRedirectUrl(
-            resolveAuthRedirect(body.redirectUrl, redirectUrl || AUTH_REDIRECT_FALLBACK),
-          );
+          setRedirectUrl(body.redirectUrl || redirectUrl || "/account");
           setAllowEmailFallback(Boolean(body.allowEmailFallback));
           setStep("twofactor");
           return;
         }
 
-        navigate(
-          resolveAuthRedirect(body.redirectUrl, redirectUrl || AUTH_REDIRECT_FALLBACK),
-        );
+        navigate(body.redirectUrl || redirectUrl || "/account");
       } catch (e: any) {
         setError(mapLoginError(e?.message));
       } finally {
@@ -137,7 +124,7 @@ export function useLoginFlow(opts?: {
         }
         succeeded = true;
         setVerificationState("redirecting");
-        navigate(resolveAuthRedirect(body.redirectUrl));
+        navigate(body.redirectUrl || "/");
       } catch (e: any) {
         const codeVal = e?.message as string | undefined;
         setError(mapVerifyError(codeVal));

@@ -1,17 +1,36 @@
-import {
-  normalizeInternalRedirectPath,
-  type InternalRedirectPath,
-} from "@/lib/security/internalNavigation";
+export type InternalRedirectPath = `/${string}`;
 
-export {
-  normalizeInternalRedirectPath,
-  type InternalRedirectPath,
-} from "@/lib/security/internalNavigation";
+const INTERNAL_REDIRECT_ORIGIN = "https://internal-redirect.invalid";
 
 function trimString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function hasUnsafeRawRedirectCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (character === "\\" || codePoint <= 0x1f || codePoint === 0x7f) return true;
+  }
+  return false;
+}
+
+export function normalizeInternalRedirectPath(value: unknown): InternalRedirectPath | null {
+  if (typeof value !== "string") return null;
+  if (hasUnsafeRawRedirectCharacter(value)) return null;
+
+  const trimmed = trimString(value);
+  if (!trimmed) return null;
+  if (!trimmed.startsWith("/")) return null;
+
+  try {
+    const parsed = new URL(trimmed, INTERNAL_REDIRECT_ORIGIN);
+    if (parsed.origin !== INTERNAL_REDIRECT_ORIGIN) return null;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` as InternalRedirectPath;
+  } catch {
+    return null;
+  }
 }
 
 export function buildFinalizeRedirectPath(params: {

@@ -1,6 +1,8 @@
 import type { Eventuality, SwipeFeedFilter, SwipeItem } from "./types";
+import { PUBLIC_PROGRAMME_QUESTION_SEEDS } from "./publicProgrammeQuestionSeeds";
 
 export const SWIPE_SEED_ITEMS: SwipeItem[] = [
+  ...PUBLIC_PROGRAMME_QUESTION_SEEDS,
   {
     id: "seed-kommunal-mobilitaet",
     title: "Soll die Stadt mehr Mittel für sichere Radwege priorisieren?",
@@ -152,11 +154,21 @@ export function getSwipeSeedEventualities(statementId: string): Eventuality[] {
   return SWIPE_SEED_EVENTUALITIES[statementId] ?? [];
 }
 
+function dedupe(items: SwipeItem[]): SwipeItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.title.trim().toLocaleLowerCase("de-DE").replace(/\s+/g, " ");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function filterSwipeSeedItems(filter?: SwipeFeedFilter): SwipeItem[] {
   const topicQuery = filter?.topicQuery?.trim().toLowerCase() ?? "";
   const level = filter?.level;
   const statementId = filter?.statementId;
-  let items = [...SWIPE_SEED_ITEMS];
+  let items = dedupe([...SWIPE_SEED_ITEMS]);
   if (statementId) {
     items = items.filter((item) => item.id === statementId);
   }

@@ -1,0 +1,58 @@
+name: Voxy first-party voice clone evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/voxy-first-party-voice-clone-evidence.yml"
+      - "apps/web/scripts/render-voxy-first-party-voice-clone-public-evidence.ts"
+      - "apps/web/scripts/provision-voxy-first-party-voice-clone.ts"
+      - "apps/web/scripts/render-voxy-first-party-voice-clone.ts"
+      - "apps/web/scripts/render-voxy-first-party-voice-clone-previews.ts"
+      - "apps/web/scripts/lib/voxyChatterboxFirstParty.py"
+      - "apps/web/scripts/lib/voxy-chatterbox-requirements.txt"
+      - "apps/web/src/features/voxyVideo/firstPartyVoiceClone.ts"
+      - "apps/web/src/features/voxyVideo/motionV4Html.ts"
+      - "apps/web/tests/voxy-first-party-voice-clone.contract.test.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-safe-contract-evidence:
+    name: Exact-head privacy-safe first-party voice contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VOXY_FIRST_PARTY_VOICE_CLONE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Contract test
+        run: pnpm -C apps/web exec vitest run tests/voxy-first-party-voice-clone.contract.test.ts
+      - name: Render public technical evidence without audio or private metadata
+        run: pnpm -C apps/web exec tsx scripts/render-voxy-first-party-voice-clone-public-evidence.ts
+      - name: Verify privacy-safe artifact
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const root = "artifacts/voxy-first-party-voice-clone-public";
+          const files = fs.readdirSync(root);
+          if (files.some((file) => /\.(wav|m4a|mp3|mp4|webm)$/i.test(file))) process.exit(1);
+          const manifest = JSON.parse(fs.readFileSync(`${root}/manifest.json`, "utf8"));
+          if (manifest.exactHeadSha !== process.env.VOXY_FIRST_PARTY_VOICE_CLONE_COMMIT_SHA || manifest.publicAudioCount !== 0 || !manifest.referenceEvidence.pathsWithheld || !manifest.referenceEvidence.hashesWithheld || manifest.referenceEvidence.audioIncluded || manifest.humanAudioAcceptance !== "pending" || manifest.humanVoiceWinner !== "pending" || manifest.productionEligible || manifest.autoPublish) process.exit(1);
+          NODE
+      - name: Upload exact-head public technical evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-first-party-voice-clone-public-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-first-party-voice-clone-public
+          if-no-files-found: error
+          retention-days: 14

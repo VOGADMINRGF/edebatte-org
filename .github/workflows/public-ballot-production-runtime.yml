@@ -1,0 +1,62 @@
+name: Public Ballot Production Runtime
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "apps/web/src/app/api/public-ballots/**"
+      - "apps/web/src/app/anlassraum/digitalisierung-politik/**"
+      - "apps/web/src/features/socialPublicBallot/**"
+      - ".github/workflows/public-ballot-production-runtime.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-ballot-production-runtime
+  cancel-in-progress: true
+
+jobs:
+  production-votes-readiness:
+    name: Production VOTES readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for production deployment and probe dedicated VOTES runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://www.edebatte.org/api/public-ballots/digital-politics/vote"
+          status=""
+          body=""
+
+          for attempt in $(seq 1 60); do
+            tmp="$(mktemp)"
+            status="$(curl -sS -L \
+              -H 'accept: application/json' \
+              -A 'edebatte-public-ballot-production-smoke/1.0' \
+              -o "$tmp" \
+              -w '%{http_code}' \
+              "$endpoint" || true)"
+            body="$(cat "$tmp")"
+            rm -f "$tmp"
+
+            if [[ "$status" == "200" || "$status" == "503" ]]; then
+              break
+            fi
+
+            echo "Waiting for production ballot runtime (attempt ${attempt}, HTTP ${status})"
+            sleep 10
+          done
+
+          echo "HTTP ${status}"
+          printf '%s\n' "$body" | jq -c . 2>/dev/null || printf '%s\n' "$body"
+
+          if [[ "$status" != "200" ]]; then
+            echo "Dedicated VOTES runtime is not ready in production" >&2
+            exit 1
+          fi
+
+          ok="$(printf '%s' "$body" | jq -r '.ok // false')"
+          store="$(printf '%s' "$body" | jq -r '.store // ""')"
+          [[ "$ok" == "true" && "$store" == "votes" ]]

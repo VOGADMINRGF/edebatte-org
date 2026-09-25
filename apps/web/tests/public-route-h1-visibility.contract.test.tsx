@@ -47,8 +47,8 @@ describe("public route h1 visibility contract", () => {
     const themenHtml = renderToStaticMarkup(<ThemenPage />);
     const participationHtml = renderToStaticMarkup(await PublicParticipationSpaceIndexPage());
 
-    expectSingleVisibleH1(landingHtml, "Verstehen, was sich verändert. Mitreden, wo es zählt.");
-    expectSingleVisibleH1(pricingHtml, "Pakete &amp; Preise");
+    expectSingleVisibleH1(landingHtml, "Eine Frage. Viele Perspektiven. Ein klareres Bild.");
+    expectSingleVisibleH1(pricingHtml, "Kostenlos mitmachen. Mehr nur buchen, wenn du es brauchst.");
     expectSingleVisibleH1(orderHtml, "Paket wählen und Start vorbereiten");
     expectSingleVisibleH1(legacyOrderHtml, "Paket wählen und Start vorbereiten");
     expectSingleVisibleH1(registerHtml, "Registrieren");

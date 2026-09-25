@@ -7,13 +7,25 @@ This pack replaces new-production use of the older raster-only `/brand/voxy` dir
 ## Non-negotiable details
 
 - exactly five fingers on every visible hand
-- `VOG` on the lapel pin
+- `VOXY` on the lapel pin for the accepted Static-/Motion-v3 line
 - `eDebatte` on the outside breast-pocket mark
 - deep navy base with the eDebatte turquoise-to-electric-blue gradient
 - one canonical Jarvis-style waveform behind Voxy
 - the waveform never crosses the logo zone
 - dynamic headlines, dates, sources and captions are not baked into character artwork
 - SVG is the source of truth; raster and video outputs are generated from the SVG masters
+
+## Accepted Static source and Motion v3 layers
+
+The human-accepted Character/Clothing source for PR #589 is exact head
+`93217eca79013d13affc7bc9881a9c76f19feab9`. Motion v3 does not use the older
+vector character as its visual source. It uses the accepted flattened Canon
+composition plus 26 local SVG definitions under `rig/layers/`.
+
+Those definitions are reproducible additive pixel plates. They preserve the
+accepted source at neutral pose and do not claim a hole-filled separated puppet.
+The lapel pin, eDebatte pocket mark, jacket and studio are frozen. Motion output
+requires a new human visual acceptance and is not production eligible.
 
 ## Masters
 

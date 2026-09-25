@@ -18,9 +18,9 @@ const infoLinks = [
 ];
 
 const platformLinks = [
-  { href: "/swipes", label: "Abstimmen" },
-  { href: "/statements", label: "Beitrag einreichen" },
-  { href: "/stream", label: "Präsentieren" },
+  { href: "/swipes", label: "Mitmachen" },
+  { href: "/runden/new?gtm=1", label: "Etwas starten" },
+  { href: "/themen", label: "Themen entdecken" },
   { href: "/reports", label: "Ergebnisse ansehen" },
 ];
 
@@ -65,10 +65,15 @@ export default function SiteFooter() {
   const tagline = t(taglineBase, "tagline");
 
   const brandCopy = t(
-    "Infrastruktur statt Parteiprogramm: eDebatte bündelt Dossiers, Abstimmungen und Umsetzungs-Tracking für nachvollziehbare Entscheidungen.",
+    "Fragen öffnen, Perspektiven sichtbar machen und gemeinsam zu einem nachvollziehbaren nächsten Schritt kommen.",
     "brand.copy",
   );
-  const donationLabel = t("Spenden:", "donation.label");
+  const supportLabel =
+    locale === "en" ? "Support VoiceOpenGov:" : t("VoiceOpenGov unterstützen:", "support.label");
+  const providerStatus =
+    locale === "en"
+      ? "Build phase: eDebatte is currently operated by Ricky G. Fleischer as a natural person; no eDebatte.org GmbH or VOG Holding is currently the provider or contractual partner."
+      : "Aufbauphase: eDebatte wird derzeit von Ricky G. Fleischer als natürlicher Person betrieben; eine eDebatte.org GmbH oder VOG Holding ist aktuell nicht Anbieter oder Vertragspartner.";
 
   return (
     <footer data-site-footer="true" className={`mt-10 ${TOP_BORDER} ${FOOTER_BG}`} role="contentinfo">
@@ -128,8 +133,8 @@ export default function SiteFooter() {
             links={info}
           />
           <FooterNav
-            title={t("Plattform nutzen", "nav.platform")}
-            ariaLabel={t("Footer Navigation: Plattform nutzen", "aria.platform")}
+            title={t("Auf eDebatte", "nav.platform")}
+            ariaLabel={t("Footer Navigation: Auf eDebatte", "aria.platform")}
             links={platform}
           />
           <FooterNav
@@ -139,8 +144,11 @@ export default function SiteFooter() {
           />
         </div>
 
-        <div className="mt-8 border-t border-[rgb(var(--border))] pt-6 text-xs text-[rgb(var(--muted))] md:flex md:items-center md:justify-between md:gap-6">
-          <p>© {currentYear} {BRAND.name}</p>
+        <div className="mt-8 border-t border-[rgb(var(--border))] pt-6 text-xs text-[rgb(var(--muted))] md:flex md:items-start md:justify-between md:gap-6">
+          <div className="space-y-2">
+            <p>© {currentYear} {BRAND.name}</p>
+            <p className="max-w-3xl text-[11px] leading-relaxed">{providerStatus}</p>
+          </div>
           <div className="mt-2 flex flex-col gap-1 text-[11px] text-[rgb(var(--muted))] md:mt-0 md:items-end">
             <p>
               {t("Kontakt:", "contact.label")}{" "}
@@ -152,7 +160,7 @@ export default function SiteFooter() {
               </a>
             </p>
             <p>
-              {donationLabel}{" "}
+              {supportLabel}{" "}
               <a
                 className="font-semibold text-[rgb(var(--fg))] underline decoration-[rgb(var(--border))] underline-offset-4 hover:decoration-[rgb(var(--grad-from))]"
                 href={VOG_SUPPORT_URL}

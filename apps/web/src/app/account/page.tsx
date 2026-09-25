@@ -13,6 +13,7 @@ import {
 } from "@/features/support/createSupportTickets";
 import CreateSupportTicketAccountCard from "./CreateSupportTicketAccountCard";
 import CreateSupportNotifications from "./CreateSupportNotifications";
+import { loadOptionalAccountData } from "@features/account/optionalAccountData";
 
 export const metadata = {
   title: "Mein Konto & eDebatte · eDebatte",
@@ -51,12 +52,20 @@ export default async function AccountPage({ searchParams }: Props) {
   const welcomeParam = readParam(params, "welcome");
   const welcomeNotice = Boolean(welcomeParam && ["1", "true", "yes"].includes(welcomeParam));
   const supportTicketNumber = readParam(params, "ticket")?.trim() ?? null;
-  const supportTicket = supportTicketNumber
-    ? await getCreateSupportTicketForUser(supportTicketNumber, userId).catch(() => null)
-    : null;
-  const supportNotifications = await listCreateSupportNotificationsForUser(
-    userId,
-  ).catch(() => []);
+  const [supportTicket, supportNotifications] = await Promise.all([
+    supportTicketNumber
+      ? loadOptionalAccountData({
+          source: "support_ticket",
+          fallback: null,
+          load: () => getCreateSupportTicketForUser(supportTicketNumber, userId),
+        })
+      : Promise.resolve(null),
+    loadOptionalAccountData({
+      source: "support_notifications",
+      fallback: [],
+      load: () => listCreateSupportNotificationsForUser(userId),
+    }),
+  ]);
   const supportLocale = overview.uiLocale === "en" ? "en" : "de";
 
   return (

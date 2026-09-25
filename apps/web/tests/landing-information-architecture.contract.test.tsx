@@ -18,38 +18,29 @@ vi.mock("next/image", () => ({
 }));
 
 describe("landing information architecture contract", () => {
-  it("keeps the homepage focused on developments, participation and Voxy guidance", () => {
+  it("keeps the homepage focused on participation first and depth on demand", () => {
     const html = renderToStaticMarkup(<LandingStart />);
 
-    expect(html).toContain("Verstehen, was sich verändert. Mitreden, wo es zählt.");
-    expect(html).toContain("Aktuelle Entwicklungen entdecken");
-    expect(html).toContain("Beitrag prüfen");
-    expect(html).toContain("Mit Voxy");
-    expect(html).toContain("Nicht nur die nächste Schlagzeile.");
-    expect(html).toContain("Was ist neu?");
-    expect(html).toContain("Was ist belegt?");
-    expect(html).toContain("Was bleibt offen?");
-    expect(html).toContain("Wo kannst du mitwirken?");
-    expect(html).toContain("Dossiers verstehen");
-    expect(html).toContain("Ein System, unterschiedliche Aufgaben");
-    expect(html).toContain("Für Bürger:innen");
-    expect(html).toContain("Für Organisationen, Medien &amp; Kultur");
-    expect(html).toContain("Für Verwaltung &amp; Behörden");
-    expect(html).toContain("eDebatte veröffentlicht nichts automatisch.");
-    expect(html).toContain("/brand/voxy/voxy-create-guide-light.png");
-    expect(html).toContain("/brand/voxy/voxy-create-guide-dark.png");
-    expect(html).toContain('href="/create"');
+    expect(html).toContain("Eine Frage. Viele Perspektiven. Ein klareres Bild.");
+    expect(html).toContain("Mitmachen");
+    expect(html).toContain("Etwas starten");
+    expect(html).toContain("Schnell deine Meinung abgeben");
+    expect(html).toContain("Eine eigene Frage öffnen");
+    expect(html).toContain("1 Frage · direkt ausprobieren");
+    expect(html).toContain("Jetzt beginnt der Unterschied");
+    expect(html).toContain("Nicht nur Antworten sammeln");
+    expect(html).toContain("Einfach anfangen. Tiefe entsteht erst, wenn du sie brauchst.");
+    expect(html).toContain("Du behältst die Kontrolle.");
+    expect(html).toContain("ohne eine feste Schablone vorzugeben");
+    expect(html).toContain("ohne Menschen in politische oder persönliche Schubladen einzuordnen");
+    expect(html).toContain('href="/runden/new?gtm=1&amp;source=homepage-intent"');
     expect(html).toContain('href="/swipes"');
-    expect(html).toContain('href="/themen"');
-    expect(html).toContain('href="/dossier"');
 
-    const developmentsIndex = html.indexOf("Aktuelle Entwicklungen entdecken");
-    const contributionIndex = html.indexOf("Beitrag prüfen");
-    expect(developmentsIndex).toBeGreaterThan(-1);
-    expect(contributionIndex).toBeGreaterThan(developmentsIndex);
-
+    expect(html).not.toContain("Parteiprogramm");
     expect(html).not.toContain("Review Queue");
     expect(html).not.toContain("Runtime-basiert");
-    expect(html).not.toContain("/brand/voxy/voxy-presenting.webp");
+    expect(html).not.toContain("Orchestrator");
+    expect(html).not.toContain("Anlassraum");
+    expect(html).not.toContain("Analysefortschritt");
   });
 });

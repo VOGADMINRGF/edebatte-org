@@ -11,6 +11,7 @@ import {
   validateRegisterStep3,
 } from "@/features/auth/registerSecurityContract";
 import { PRODUCTION_ENTRY_COPY } from "@/features/access/productionEntryContract";
+import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
 import { RegisterStepper } from "./RegisterStepper";
 import { resolveRegisterBridge } from "./registerFlowBridge";
 
@@ -108,12 +109,7 @@ function isAtLeastAge(isoBirthDate: string, minAge: number): boolean {
 
 function sanitizeNext(value?: string | string[] | null) {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith("/")) return null;
-  if (trimmed.startsWith("//")) return null;
-  if (trimmed.includes("://")) return null;
-  return trimmed;
+  return normalizeInternalRedirectPath(raw);
 }
 
 function sanitizeInvite(value?: string | string[] | null) {
@@ -436,6 +432,7 @@ function RegisterPageClient({ personCount = 1, searchParams }: RegisterPageClien
           formStartedAt: startedAt,
           [REGISTER_HONEYPOT_FIELD_NAME]: hpRegister,
           inviteCode: inviteCode ?? undefined,
+          next: nextParam ?? undefined,
         }),
         signal: ac.signal,
       });

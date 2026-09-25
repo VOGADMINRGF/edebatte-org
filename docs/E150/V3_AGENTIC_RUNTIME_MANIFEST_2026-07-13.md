@@ -4,6 +4,21 @@ Status: canonical architecture manifest
 Date: 2026-07-13
 Scope: review-first agent activation for eDebatte
 
+## Reconciliation 2026-09-02 — Voxy-First und Alpha2
+
+Die sieben Rollen dieses Manifests bleiben die kanonische fachliche Gruppierung des öffentlichen Civic-Workflows. Die breitere Alpha2-Organisationsflotte ergänzt spezialisierte interne Verantwortlichkeiten für Engineering, Architecture, Review, QA, SRE, Security, Research, Source Discovery, Evidence, Fact Checking, Dossier/Synthesis, Legal/Compliance, Moderation, Growth/Marketing, Membership/Community und Funding. Sie ersetzt weder diese sieben Rollen noch erzeugt sie einen zweiten öffentlichen Agentenkosmos.
+
+Für normale Nutzer gilt **Voxy-First**:
+
+- Voxy ist langfristig die primäre sichtbare KI-Schnittstelle;
+- Voxy versteht die Absicht, hält nur erlaubten Kontext und erklärt Ergebnisse, Quellen, Evidenz und Unsicherheit verständlich;
+- Voxy stellt nur Rückfragen, deren Antwort den nächsten fachlichen Schritt verändert;
+- Voxy delegiert intern an geeignete spezialisierte Rollen;
+- Nutzer müssen interne Agenten weder auswählen noch steuern oder verstehen;
+- Agenten-, Provider- und Routingdetails bleiben auf ausdrücklich vorgesehene Admin-, Operator-, Debug-, Governance- und Mission-Control-Flächen begrenzt.
+
+Voxy ist nicht Alpha2: Voxy ist die sichtbare Interaktions- und Erklärungsschicht; Alpha2 ist der organisationsweite, policy-gebundene Control-/Orchestration-Layer. Beide verwenden dieselbe kanonische Core-, Evidence-, OpenTasks- und Runtime-Wahrheit.
+
 ## Product decision
 
 eDebatte adopts a seven-role agent model on top of the existing V3 contracts, artifacts, graph, review queue, access model and no-auto-publish guardrails.
@@ -58,6 +73,8 @@ Hard boundaries:
 - no source may be represented as authoritative without provenance;
 - international examples require transferability analysis.
 
+This role owns discovery, retrieval and source-quality preparation inside the shared research pipeline. It does not own final evidence grading, fact-check decisions or synthesis approval.
+
 ### 4. Claims & Factcheck Agent
 
 Purpose:
@@ -72,6 +89,12 @@ Artifacts:
 - contradiction links;
 - factcheck requests;
 - uncertainty and stale-source flags.
+
+Together with the Research & Source, Evidence and Dossier/Synthesis capabilities, the target pipeline is:
+
+`question / claim -> discovery -> source retrieval -> source quality -> primary-source preference -> cross-check -> contradiction detection -> evidence mapping -> fact check -> synthesis -> citation / provenance`
+
+The pipeline prefers primary and independent sources where available, preserves contradictions and uncertainty, binds claims to evidence machine-readably and never treats an agent run, translation or unsupported synthesis as a source.
 
 ### 5. Participation & Moderation Agent
 

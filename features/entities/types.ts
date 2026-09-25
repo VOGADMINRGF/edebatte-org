@@ -12,6 +12,21 @@ export const ENTITY_TYPES = [
   "media",
   "initiative",
   "other",
+  "political_party",
+  "parliamentary_group",
+  "parliamentary_caucus",
+  "civic_initiative",
+  "trade_union",
+  "professional_association",
+  "foundation",
+  "public_administration",
+  "ministry",
+  "agency",
+  "public_body",
+  "research_institution",
+  "media_publisher",
+  "media_outlet",
+  "public_broadcaster",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 

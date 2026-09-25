@@ -1,0 +1,125 @@
+name: Voxy local TTS gate and voiced explainer v1 evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/voxy-local-tts-voiced-explainer-v1-evidence.yml"
+      - "apps/web/src/features/voxyVideo/localTts.ts"
+      - "apps/web/src/features/voxyVideo/voicedExplainerV1.ts"
+      - "apps/web/src/features/voxyVideo/voicedExplainerV1Html.ts"
+      - "apps/web/src/features/voxyVideo/motionV4Html.ts"
+      - "apps/web/scripts/lib/voxyLocalTtsAdapter.ts"
+      - "apps/web/scripts/provision-voxy-local-tts.ts"
+      - "apps/web/scripts/render-voxy-local-tts-gate.ts"
+      - "apps/web/scripts/render-voxy-voiced-explainer-v1.ts"
+      - "apps/web/tests/voxy-local-tts-voiced-explainer-v1.contract.test.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  render-local-tts-and-voiced-explainer:
+    name: Exact-head offline local TTS and voiced Voxy
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      VOXY_LOCAL_TTS_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PLAYWRIGHT_BROWSERS_PATH: /tmp/voxy-playwright-browsers
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install repository and media dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec playwright install chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Verify local TTS and frozen #589 contracts
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-jacket-canon-gate.contract.test.ts \
+            tests/voxy-pocket-mark-final-gate.contract.test.ts \
+            tests/voxy-static-canon-recovery.contract.test.ts \
+            tests/voxy-first-explainer-video.contract.test.ts \
+            tests/voxy-mouth-v4-1-gate.contract.test.ts \
+            tests/voxy-motion-v4-1.contract.test.ts \
+            tests/voxy-local-tts-voiced-explainer-v1.contract.test.ts
+          pnpm -C apps/web run typecheck
+          pnpm -C apps/web run lint
+          git diff --check
+
+      - name: Provision pinned engine and model with network
+        run: pnpm -C apps/web exec tsx scripts/provision-voxy-local-tts.ts
+
+      - name: Render TTS gate and voiced video in a network namespace
+        run: |
+          PNPM_BIN="$(command -v pnpm)"
+          sudo env \
+            VOXY_LOCAL_TTS_COMMIT_SHA="$VOXY_LOCAL_TTS_COMMIT_SHA" \
+            PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" \
+            PATH="$PATH" \
+            unshare --net "$PNPM_BIN" -C apps/web exec tsx scripts/render-voxy-local-tts-gate.ts
+          sudo env \
+            VOXY_LOCAL_TTS_COMMIT_SHA="$VOXY_LOCAL_TTS_COMMIT_SHA" \
+            PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" \
+            PATH="$PATH" \
+            unshare --net "$PNPM_BIN" -C apps/web exec tsx scripts/render-voxy-voiced-explainer-v1.ts
+
+      - name: Verify exact-head evidence and media streams
+        run: |
+          sudo chown -R "$USER":"$USER" artifacts
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const gate = JSON.parse(fs.readFileSync("artifacts/voxy-local-tts-gate/manifest.json", "utf8"));
+          const voiced = JSON.parse(fs.readFileSync("artifacts/voxy-voiced-explainer-v1/manifest.json", "utf8"));
+          const gateFiles = ["license-matrix.json", "engine-provenance.json", "model-provenance.json", "THIRD_PARTY_NOTICES.md", "tts-sample.wav", "tts-sample-normalized.wav", "waveform-preview.png", "manifest.json"];
+          const voicedFiles = ["voxy-voiced-explainer-v1-16x9.mp4", "voxy-voiced-explainer-v1-16x9.webm", "audio.wav", "captions.de.vtt", "captions.de.srt", "preview.png", "contact-sheet.png", "manifest.json"];
+          if (gateFiles.some((file) => !fs.existsSync(`artifacts/voxy-local-tts-gate/${file}`))) process.exit(1);
+          if (voicedFiles.some((file) => !fs.existsSync(`artifacts/voxy-voiced-explainer-v1/${file}`))) process.exit(1);
+          if (gate.exactHeadSha !== process.env.VOXY_LOCAL_TTS_COMMIT_SHA || gate.licenseGateStatus !== "pass" || gate.audio.externalRequestCountDuringRender !== 0 || gate.audio.peak >= 0 || gate.productionEligible || gate.autoPublish) process.exit(1);
+          if (voiced.exactHeadSha !== process.env.VOXY_LOCAL_TTS_COMMIT_SHA || voiced.visualMasterHeadSha !== "58548d2a5f6e4a59e84464a5c4aea3875f38662c" || voiced.audio.externalRequestCountDuringRender !== 0 || voiced.mouth.shapesChanged || voiced.mouth.anchorChanged || voiced.mouth.pivotChanged || voiced.mouth.syncSource !== "audio" || voiced.waveform.count !== 1 || voiced.waveform.placement !== "behind_voxy" || !voiced.waveform.audioReactive || voiced.visualMasterMutated || voiced.humanVisualAcceptance !== "accepted" || voiced.humanAudioAcceptance !== "pending" || voiced.productionEligible || voiced.autoPublish) process.exit(1);
+          NODE
+          ffprobe -v error -show_streams -show_format -of json artifacts/voxy-voiced-explainer-v1/voxy-voiced-explainer-v1-16x9.mp4
+          ffprobe -v error -show_streams -show_format -of json artifacts/voxy-voiced-explainer-v1/voxy-voiced-explainer-v1-16x9.webm
+          ffprobe -v error -show_streams -show_format -of json artifacts/voxy-voiced-explainer-v1/audio.wav
+
+      - name: Upload exact-head local TTS license gate
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-local-tts-gate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-local-tts-gate
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload exact-head voiced explainer v1
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxy-voiced-explainer-v1-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/voxy-voiced-explainer-v1
+          if-no-files-found: error
+          retention-days: 14

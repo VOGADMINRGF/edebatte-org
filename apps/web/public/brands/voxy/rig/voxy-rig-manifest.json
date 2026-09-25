@@ -62,5 +62,20 @@
     "mirrored VOG pin",
     "waveform over logo"
   ],
-  "humanApprovalRequired": true
+  "humanApprovalRequired": true,
+  "motionV3": {
+    "schemaVersion": "voxy-motion-v3-v1",
+    "sourceStaticHeadSha": "93217eca79013d13affc7bc9881a9c76f19feab9",
+    "sourceMode": "accepted_static_master_additive_pixel_motion_plates",
+    "layerDirectory": "/brands/voxy/rig/layers",
+    "layerCount": 26,
+    "neutralPosePixelSourceUnchanged": true,
+    "noGenerativeReplacement": true,
+    "lapelPin": "VOXY",
+    "pocketMark": "eDebatte",
+    "humanVisualAcceptance": "pending",
+    "productionEligible": false,
+    "autoPublish": false,
+    "note": "The legacy requiredLayers contract above remains for historical consumers; Motion v3 uses the accepted flattened Static source and the local layer directory, not the legacy vector character."
+  }
 }

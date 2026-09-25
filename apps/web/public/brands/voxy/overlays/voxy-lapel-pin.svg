@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240" viewBox="0 0 480 240" role="img" aria-labelledby="title desc">
+  <title id="title">VOXY lapel pin</title>
+  <desc id="desc">High-resolution reconstructed VOXY wordmark on a dark lapel-pin surface.</desc>
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#111827"/>
+      <stop offset="0.55" stop-color="#071126"/>
+      <stop offset="1" stop-color="#020714"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#D2D8E2"/>
+      <stop offset="0.46" stop-color="#7E8A9D"/>
+      <stop offset="1" stop-color="#33435E"/>
+    </linearGradient>
+  </defs>
+  <rect x="14" y="18" width="452" height="204" rx="22" fill="url(#surface)" stroke="#02050D" stroke-width="24"/>
+  <rect x="22" y="26" width="436" height="188" rx="17" fill="none" stroke="url(#rim)" stroke-width="12"/>
+  <text x="240" y="158" fill="#FFFFFF" stroke="#020611" stroke-width="7" paint-order="stroke fill" font-family="Arial, Helvetica, sans-serif" font-size="108" font-weight="800" letter-spacing="3" text-anchor="middle">VOXY</text>
+</svg>

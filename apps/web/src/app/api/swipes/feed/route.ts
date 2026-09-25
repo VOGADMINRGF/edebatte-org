@@ -8,6 +8,18 @@ import {
   summarizeRequestScopeContext,
 } from "@/lib/server/auth/requestScope";
 
+const SWIPES_SEEN_COOKIE = "edb_swipes_seen";
+
+function readSeenIds(raw?: string | null): Set<string> {
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const userId = cookieStore.get("u_id")?.value;
@@ -40,5 +52,14 @@ export async function POST(req: NextRequest) {
   };
 
   const resp = await getSwipeFeed(feedReq);
-  return NextResponse.json(resp);
+  const seenIds = readSeenIds(cookieStore.get(SWIPES_SEEN_COOKIE)?.value);
+  return NextResponse.json({
+    ...resp,
+    items: resp.items
+      .filter((item) => !seenIds.has(item.id))
+      .map((item) => ({
+        ...item,
+        hasEventualities: false,
+      })),
+  });
 }

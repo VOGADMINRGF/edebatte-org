@@ -131,7 +131,7 @@ function resolveAnalysisLabels(input: CreateDebattenstandSelectorInput): {
 } {
   if (!input.hasStarted) {
     return {
-      label: "Analyse ausstehend",
+      label: "Einordnung ausstehend",
       detail: "Nach dem Start werden Thema, Kontext und nächste Schritte eingeordnet.",
       errorLabel: null,
       errorDetail: null,
@@ -140,7 +140,7 @@ function resolveAnalysisLabels(input: CreateDebattenstandSelectorInput): {
   }
   if (input.isStarting) {
     return {
-      label: "Analyse läuft",
+      label: "Einordnung läuft",
       detail: "Der Beitrag wird gerade eingeordnet.",
       errorLabel: null,
       errorDetail: null,
@@ -149,16 +149,17 @@ function resolveAnalysisLabels(input: CreateDebattenstandSelectorInput): {
   }
   if (input.analysisState === "fetch_failed" || input.analysisState === "ai_failed") {
     return {
-      label: "Analyse blockiert",
-      detail: "Noch keine validierten Themen. Du kannst ergänzen, speichern oder später fortsetzen.",
-      errorLabel: "Retry nötig",
-      errorDetail: "Der Debattenstand bleibt bewusst unvollständig, bis die Analyse erneut gelingt.",
-      statusTone: "danger",
+      label: "Einordnung noch offen",
+      detail:
+        "Dein Beitrag ist aufgenommen. Die automatische Einordnung konnte gerade nicht abgeschlossen werden.",
+      errorLabel: null,
+      errorDetail: null,
+      statusTone: "warning",
     };
   }
   if (input.analysisState === "entitlement_required" || input.analysisState === "link_detected") {
     return {
-      label: "Analyse vorbereitet",
+      label: "Einordnung vorbereitet",
       detail: "Für eine belastbare Auswertung fehlt noch die bewusste Freigabe.",
       errorLabel: null,
       errorDetail: null,
@@ -166,7 +167,7 @@ function resolveAnalysisLabels(input: CreateDebattenstandSelectorInput): {
     };
   }
   return {
-    label: "Analyse validiert",
+    label: "Einordnung abgeschlossen",
     detail: "Themen und nächste Schritte stammen aus einem validierten Lauf.",
     errorLabel: null,
     errorDetail: null,
@@ -199,12 +200,13 @@ export function deriveCreateDebattenstandModel(
   }));
   const sourceLabels = resolveSourceLabels(input);
   const analysisLabels = resolveAnalysisLabels(input);
+  const analysisFailed = input.analysisState === "fetch_failed" || input.analysisState === "ai_failed";
   const phaseLabel = !input.hasStarted
     ? "Beitrag aufnehmen"
     : input.isStarting
       ? "Themen erkennen"
-      : input.analysisState === "fetch_failed" || input.analysisState === "ai_failed"
-        ? "Analyse blockiert"
+      : analysisFailed
+        ? "Einordnung noch offen"
         : !input.understandingConfirmed
           ? "Themenstruktur klären"
           : input.workspaceActionMode === "source"
@@ -216,26 +218,30 @@ export function deriveCreateDebattenstandModel(
     ? "Der Workspace wartet auf deinen Beitrag."
     : input.isStarting
       ? "Der Debattenstand wird aus dem aktuellen Beitrag abgeleitet."
-      : !input.understandingConfirmed
-        ? "Die Themenstruktur braucht noch deine bewusste Entscheidung."
-        : input.workspaceActionMode === "source"
-          ? "Quellen bleiben optional und starten nichts automatisch."
-          : "Der Arbeitsstand kann jetzt gezielt weitergeführt werden.";
+      : analysisFailed
+        ? "Dein Beitrag bleibt erhalten. Die Einordnung kann erneut versucht oder später fortgesetzt werden."
+        : !input.understandingConfirmed
+          ? "Die Themenstruktur braucht noch deine bewusste Entscheidung."
+          : input.workspaceActionMode === "source"
+            ? "Quellen bleiben optional und starten nichts automatisch."
+            : "Der Arbeitsstand kann jetzt gezielt weitergeführt werden.";
   const progressLabel = !input.hasStarted
-    ? "0 von 5 Schritten sichtbar"
+    ? "Bereit"
     : input.isStarting
-      ? "2 von 5 Schritten aktiv"
-      : !input.understandingConfirmed
-        ? "3 von 5 Schritten aktiv"
-        : input.workspaceActionMode === "source"
-          ? "4 von 5 Schritten aktiv"
-          : "5 von 5 Schritten vorbereitet";
+      ? "Wird eingeordnet"
+      : analysisFailed
+        ? "Einordnung offen"
+        : !input.understandingConfirmed
+          ? "Deine Entscheidung"
+          : input.workspaceActionMode === "source"
+            ? "Quellen optional"
+            : "Bereit zum Weiterarbeiten";
   const nextStepLabel = !input.hasStarted
     ? "Beitrag prüfen"
     : input.isStarting
-      ? "Analyse abwarten"
-      : input.analysisState === "fetch_failed" || input.analysisState === "ai_failed"
-        ? "Erneut versuchen oder speichern"
+      ? "Einordnung abwarten"
+      : analysisFailed
+        ? "Erneut einordnen oder später fortsetzen"
         : !input.understandingConfirmed
           ? "Themenstruktur bestätigen"
           : input.workspaceActionMode === "source"
@@ -248,9 +254,9 @@ export function deriveCreateDebattenstandModel(
                   ? "Themen gemeinsam weiterführen"
                   : "Aussage schärfen";
   const nextStepDetail = !input.hasStarted
-    ? "Noch kein Debattenstand ohne Startsignal."
-    : input.analysisState === "fetch_failed" || input.analysisState === "ai_failed"
-      ? "Der nächste sinnvolle Schritt bleibt sichtbar, ohne einen Scheinstatus zu erfinden."
+    ? "Schreibe oder sprich dein Anliegen. Beides wird im selben Dialog eingeordnet."
+    : analysisFailed
+      ? "Der Beitrag bleibt als Arbeitsstand erhalten. Nichts wird automatisch veröffentlicht."
       : !input.understandingConfirmed
         ? "Erst danach werden Quellenmodus oder Entwurf sinnvoll."
         : input.workspaceActionMode === "source"
@@ -259,40 +265,44 @@ export function deriveCreateDebattenstandModel(
   const openDecisionLabel = !input.hasStarted
     ? "Offen: Beitrag starten"
     : input.isStarting
-      ? "Offen: Analyse fertigstellen"
-      : input.analysisState === "fetch_failed" || input.analysisState === "ai_failed"
-        ? "Offen: erneute Analyse entscheiden"
+      ? "Offen: Einordnung fertigstellen"
+      : analysisFailed
+        ? "Offen: Einordnung erneut versuchen"
         : !input.understandingConfirmed
           ? "Offen: Themen bestätigen"
           : input.workspaceActionMode === "source"
             ? "Offen: Quellen ergänzen oder ohne Quelle weitergehen"
             : "Offen: nächsten Bearbeitungsschritt wählen";
   const validationStatusLabel = !input.hasStarted
-    ? "Noch kein validierter Stand"
-    : input.analysisState === "fetch_failed" || input.analysisState === "ai_failed"
-      ? "Validierung offen"
+    ? "Noch kein eingeordneter Stand"
+    : analysisFailed
+      ? "Einordnung offen"
       : input.analysisState === "entitlement_required" || input.analysisState === "link_detected"
-        ? "Validierung vorbereitet"
+        ? "Einordnung vorbereitet"
         : input.understandingConfirmed
           ? "Themen bestätigt"
           : "Themen erkannt";
   const validationStatusDetail = !input.hasStarted
-    ? "Semantische Themen erscheinen erst nach einem validierten Lauf."
-    : input.analysisState === "fetch_failed" || input.analysisState === "ai_failed"
-      ? "Der Debattenstand zeigt ehrlich, dass noch keine bestätigte Themenlage vorliegt."
+    ? "Semantische Themen erscheinen erst nach einem belastbaren Lauf."
+    : analysisFailed
+      ? "Noch keine belastbare Themenstruktur. Dein Beitrag bleibt erhalten."
       : input.understandingConfirmed
         ? "Die Themenstruktur wurde bewusst bestätigt."
-        : "Die Analyse hat Themen erkannt, wartet aber noch auf deine Bestätigung.";
+        : "Die Einordnung hat Themen erkannt und wartet auf deine Bestätigung.";
   const topicSummaryLabel =
     totalTopicCount === 0
-      ? "Noch keine validierten Themen"
+      ? analysisFailed
+        ? "Themen werden noch eingeordnet"
+        : "Noch keine eingeordneten Themen"
       : totalTopicCount === 1
         ? "1 Thema erkannt"
         : `${totalTopicCount} Themen erkannt`;
   const compactPreviewCount = Math.min(compactTopicCount, totalTopicCount);
   const topicPreviewLabel =
     totalTopicCount === 0
-      ? "Keine Themenvorschau vor validierter Analyse."
+      ? analysisFailed
+        ? "Noch keine Themenvorschau – dein Beitrag bleibt erhalten."
+        : "Keine Themenvorschau vor der Einordnung."
       : hiddenTopicCount > 0
         ? `${compactPreviewCount} von ${totalTopicCount} Themen sind sichtbar.`
         : `Alle ${totalTopicCount} Themen sind sichtbar.`;

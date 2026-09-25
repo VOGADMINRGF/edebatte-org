@@ -34,7 +34,7 @@ describe("marketing campaign control contract", () => {
     const model = buildMarketingCampaignControlReadModel();
 
     expect(snapshots).toEqual([]);
-    expect(model.summary.campaigns).toBe(13);
+    expect(model.summary.campaigns).toBe(getMarketingRegistry().campaigns.length);
     expect(model.summary.contentItems).toBe(2);
     expect(model.summary.scheduledItems).toBe(0);
     expect(model.summary.publishedItems).toBe(0);

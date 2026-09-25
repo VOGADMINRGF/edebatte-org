@@ -18,6 +18,33 @@ Die Architektur von eDebatte muss gleichzeitig:
 - einen sicheren und wirtschaftlichen Betrieb ermöglichen,
 - und langfristig erweiterbar sowie interoperabel bleiben.
 
+## Primärer Produktbezug und Bürgerkern
+
+Der primäre Adressat der öffentlichen eDebatte-/VoiceOpenGov-Produkterscheinung ist der einzelne Bürger beziehungsweise die einzelne Bürgerin mit einem konkreten Anliegen, einer Frage, einer Beobachtung, einer Position, einem Vorschlag oder einer Quelle. Organisationen, Verbände, Parteien, Verwaltungen, Kommunen, Medien, Initiativen und weitere institutionelle Akteure bleiben wichtige Nutzer, Auswerter, Empfänger und Spezialpfade derselben Plattform. Sie bilden jedoch keinen konkurrierenden primären Produktkern.
+
+Der bürgerseitige Wirkpfad lautet:
+
+```text
+Anliegen
+→ Region / Zuständigkeit
+→ Strukturierung / Qualifizierung
+→ gemeinsames Lagebild
+→ Debatte / Priorisierung / Evidenz
+→ Mandat / Handlung
+→ Umsetzung / Impact
+```
+
+Dieser Wirkpfad ersetzt nicht den bestehenden fachlichen Kernfluss `Signal → Anlassraum → Dossier → Runde → Mandat → Umsetzung → Impact`, sondern ist dessen bürgerverständliche Projektion:
+
+- ein Anliegen kann ein direktes Signal oder einen reviewpflichtigen Signalkandidaten erzeugen;
+- Region und Zuständigkeit werden über bestehende Place-, Registry- und Jurisdiction-Verträge aufgelöst;
+- Strukturierung und Qualifizierung nutzen den vorhandenen Intake-/Create-Pfad;
+- Anlassraum und Dossier bilden gemeinsam Kontext und nachvollziehbares Lagebild;
+- Dossier, Runde und Beteiligung tragen Evidenz, Debatte und Priorisierung;
+- Mandat, Umsetzung und Impact bleiben die nachgelagerten Wirkungsschichten.
+
+Keine dieser Zuordnungen erlaubt eine automatische Veröffentlichung, Zusammenführung, Dossier-/Rundenerzeugung oder Mandatsbehauptung. Mehrdeutigkeit, geringe Konfidenz und hohe Wirkung führen weiterhin zu Review oder menschlicher Entscheidung.
+
 ## Die fünf Plattformebenen
 
 ### 1. Core Platform
@@ -31,6 +58,10 @@ Sie bleibt die fachliche Quelle der Wahrheit. KI-Ausgaben, Kommunikationskanäle
 Voxy unterstützt Recherche, Strukturierung, Übersetzung, Einordnung, Zusammenfassung und Vorbereitung. Ergebnisse müssen Quellenbezug, Unsicherheit, Sprache, Modell- oder Prozesskontext und verantwortliche Freigabe nachvollziehbar machen.
 
 Voxy darf keine autonome Wahrheitsinstanz werden.
+
+Für öffentliche und dialogische Nutzerinteraktion gilt **Voxy-First**: Voxy ist die primäre sichtbare KI-Schnittstelle, versteht die Nutzerabsicht, hält den erlaubten Kontext, erklärt Ergebnisse und Quellen verständlich und stellt nur Fragen, deren Antwort den nächsten fachlichen Schritt tatsächlich verändert. Spezialisierte Agenten werden intern delegiert und bleiben im Normalfall verborgen. Ausgenommen sind ausdrücklich vorgesehene Admin-, Operator-, Debug-, Governance- und Mission-Control-Flächen.
+
+Voxy-First bedeutet keine eigene Voxy-Daten-, Fakten-, Graph- oder Governance-Wahrheit. Voxy projiziert die kanonische Core-, Knowledge-, Evidence- und Runtime-Wahrheit und legt relevante Unsicherheit sowie menschliche Entscheidungsgrenzen offen.
 
 ### 3. Unified Communication Platform
 
@@ -68,6 +99,8 @@ Jede betriebliche Fähigkeit beantwortet:
 
 Agenten arbeiten innerhalb klarer Rollen, Policies und Berechtigungen.
 
+Die Agent Fleet bleibt fachlich spezialisiert. Engineering, Architecture, Review, QA, SRE, Security, Research, Source Discovery, Evidence, Fact Checking, Dossier/Synthesis, Legal/Compliance, Moderation, Growth/Marketing, Membership/Community und Funding dürfen als getrennte Rollen oder Capability-Gruppen geführt werden. Spezialisierung ist eine interne Verantwortungs- und Qualitätsgrenze, keine Auswahlpflicht für normale Nutzer.
+
 Kanonischer Fluss:
 
 ```text
@@ -80,6 +113,8 @@ Agent
 ```
 
 Agenten dürfen keine nicht dokumentierten Governance-, Produkt-, Preis-, Rollen- oder Veröffentlichungsentscheidungen treffen.
+
+Alpha2 ist der organisationsweite Control- und Orchestration-Layer der Agent Platform. Bis zur belegten Produktionsreife arbeitet Alpha2 im Build-/Completion-Modus auf der kanonischen OpenTasks-SSOT. Erst nach dem dafür definierten End-to-End-, Recovery- und Human-Gate-Nachweis darf Alpha2 als autonomer Regelbetrieb bezeichnet oder aktiviert werden. Der konkretisierende Vertrag liegt in `docs/foundation/ALPHA_FOXTROTT_2_AGENTIC_ORG_RUNTIME.md`.
 
 ## Die acht Domänen
 
