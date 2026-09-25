@@ -20,7 +20,10 @@ function hasUnsafeRawRedirectCharacter(value: string): boolean {
   return false;
 }
 
-function hasUnsafeRedirectRepresentation(value: string): boolean {
+export function hasUnsafeNavigationTargetRepresentation(value: unknown): boolean {
+  if (typeof value !== "string") return true;
+  if (value !== value.trim()) return true;
+
   let current = value;
 
   for (let depth = 0; depth <= MAX_REDIRECT_DECODE_DEPTH; depth += 1) {
@@ -46,7 +49,7 @@ function hasUnsafeRedirectRepresentation(value: string): boolean {
 
 export function normalizeInternalRedirectPath(value: unknown): InternalRedirectPath | null {
   if (typeof value !== "string") return null;
-  if (hasUnsafeRedirectRepresentation(value)) return null;
+  if (hasUnsafeNavigationTargetRepresentation(value)) return null;
 
   const trimmed = trimString(value);
   if (!trimmed) return null;
