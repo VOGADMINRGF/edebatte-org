@@ -70,8 +70,49 @@ type DirectoryWorkbookRow = {
   administrativeUnitType: AdministrativeUnitType;
 };
 
-let cachedOfficialDirectoryImport: OfficialDirectoryImport | null = null;
-let cachedRegionRegistryImport: RegionRegistryImport | null = null;
+const DIRECTORY_FAILURE_RETRY_AFTER_MS = 5_000;
+
+type RecoverableImportCacheEntry<T> = {
+  value: T;
+  cachedAt: number;
+};
+
+const officialDirectoryImportCache = new Map<
+  string,
+  RecoverableImportCacheEntry<OfficialDirectoryImport>
+>();
+const regionRegistryImportCache = new Map<
+  string,
+  RecoverableImportCacheEntry<RegionRegistryImport>
+>();
+
+function readRecoverableImportCache<T extends { status: DirectorySourceStatus }>(
+  cache: Map<string, RecoverableImportCacheEntry<T>>,
+  key: string | null,
+  now: number,
+  failureRetryAfterMs: number,
+): T | null {
+  if (!key) return null;
+  const cached = cache.get(key);
+  if (!cached) return null;
+  if (
+    cached.value.status.status === "ready" ||
+    now - cached.cachedAt < failureRetryAfterMs
+  ) {
+    return cached.value;
+  }
+  return null;
+}
+
+function writeRecoverableImportCache<T>(
+  cache: Map<string, RecoverableImportCacheEntry<T>>,
+  key: string | null,
+  value: T,
+  cachedAt: number,
+): T {
+  if (key) cache.set(key, { value, cachedAt });
+  return value;
+}
 
 function trimOrNull(value: unknown): string | null {
   const normalized = String(value ?? "").trim();
@@ -175,7 +216,10 @@ function parseWorkbookRows(rows: Array<Array<string | number>>): DirectoryWorkbo
 }
 
 function readWorkbookRowsFromFile(filePath: string): DirectoryWorkbookRow[] {
-  const workbook = XLSX.readFile(filePath, { cellDates: false });
+  const workbook = XLSX.read(fs.readFileSync(filePath), {
+    type: "buffer",
+    cellDates: false,
+  });
   const sheet = workbook.Sheets[OFFICIAL_DIRECTORY_SHEET];
   if (!sheet) {
     throw new Error(`official_directory_sheet_missing:${OFFICIAL_DIRECTORY_SHEET}`);
@@ -278,6 +322,35 @@ function buildDirectorySummary(rows: DirectoryWorkbookRow[]): Array<{
     .sort((left, right) => right.count - left.count);
 }
 
+function officialRegionSlugSuffix(region: Region): string {
+  return (
+    region.officialDirectoryEntry?.ags ??
+    region.officialDirectoryEntry?.ars ??
+    region.id.replace(/^region-(?:official|land)-/, "")
+  );
+}
+
+function ensureUniqueOfficialRegionSlugs(regions: Region[]): Region[] {
+  const slugCounts = new Map<string, number>();
+  for (const region of regions) {
+    slugCounts.set(region.slug, (slugCounts.get(region.slug) ?? 0) + 1);
+  }
+
+  const usedSlugs = new Set<string>();
+  return regions.map((region) => {
+    const baseSlug = region.slug;
+    let slug =
+      (slugCounts.get(baseSlug) ?? 0) > 1
+        ? `${baseSlug}-${slugify(officialRegionSlugSuffix(region))}`
+        : baseSlug;
+    if (usedSlugs.has(slug)) {
+      slug = `${baseSlug}-${slugify(region.id)}`;
+    }
+    usedSlugs.add(slug);
+    return slug === region.slug ? region : { ...region, slug };
+  });
+}
+
 function buildOfficialRegionsFromEntries(
   entries: OfficialDirectoryEntry[],
   rows: DirectoryWorkbookRow[],
@@ -297,7 +370,7 @@ function buildOfficialRegionsFromEntries(
     if (!regions.has(landRegionId)) {
       regions.set(landRegionId, {
         id: landRegionId,
-        slug: `${slugify(entry.municipalityName.split(",")[0] || entry.municipalityName)}-${landCode}`,
+        slug: `${slugify(landName)}-${landCode}`,
         name: landName,
         type: "land",
         administrativeUnitType: "land",
@@ -336,7 +409,7 @@ function buildOfficialRegionsFromEntries(
     });
   }
 
-  return Array.from(regions.values());
+  return ensureUniqueOfficialRegionSlugs(Array.from(regions.values()));
 }
 
 function buildOfficialActorsFromEntries(entries: OfficialDirectoryEntry[]): RegionalActor[] {
@@ -396,9 +469,26 @@ function parseRegionRegistryItems(items: unknown[]): Region[] {
 export function importOfficialDirectoryFromXlsx(options: {
   filePath?: string | null;
   rawRows?: Array<Array<string | number>>;
+  cacheKey?: string;
+  now?: number;
+  failureRetryAfterMs?: number;
 } = {}): OfficialDirectoryImport {
   const useDefaultSource = !options.filePath && !options.rawRows;
-  if (useDefaultSource && cachedOfficialDirectoryImport) return cachedOfficialDirectoryImport;
+  const cacheKey = options.rawRows
+    ? null
+    : options.cacheKey?.trim() || (useDefaultSource ? "default" : null);
+  const now = options.now ?? Date.now();
+  const failureRetryAfterMs = Math.max(
+    0,
+    options.failureRetryAfterMs ?? DIRECTORY_FAILURE_RETRY_AFTER_MS,
+  );
+  const cached = readRecoverableImportCache(
+    officialDirectoryImportCache,
+    cacheKey,
+    now,
+    failureRetryAfterMs,
+  );
+  if (cached) return cached;
 
   const requestedPath = options.filePath ? decodeURIComponent(options.filePath) : null;
   const sourcePath = options.rawRows
@@ -425,8 +515,12 @@ export function importOfficialDirectoryFromXlsx(options: {
       derivedRegions: [],
       derivedActors: [],
     } satisfies OfficialDirectoryImport;
-    if (useDefaultSource) cachedOfficialDirectoryImport = missing;
-    return missing;
+    return writeRecoverableImportCache(
+      officialDirectoryImportCache,
+      cacheKey,
+      missing,
+      now,
+    );
   }
 
   try {
@@ -451,8 +545,12 @@ export function importOfficialDirectoryFromXlsx(options: {
       derivedRegions,
       derivedActors,
     } satisfies OfficialDirectoryImport;
-    if (useDefaultSource) cachedOfficialDirectoryImport = result;
-    return result;
+    return writeRecoverableImportCache(
+      officialDirectoryImportCache,
+      cacheKey,
+      result,
+      now,
+    );
   } catch (error) {
     const failed = {
       status: createDirectorySourceStatus({
@@ -470,17 +568,38 @@ export function importOfficialDirectoryFromXlsx(options: {
       derivedRegions: [],
       derivedActors: [],
     } satisfies OfficialDirectoryImport;
-    if (useDefaultSource) cachedOfficialDirectoryImport = failed;
-    return failed;
+    return writeRecoverableImportCache(
+      officialDirectoryImportCache,
+      cacheKey,
+      failed,
+      now,
+    );
   }
 }
 
 export function importRegionRegistrySnapshot(options: {
   filePath?: string | null;
   snapshot?: unknown;
+  cacheKey?: string;
+  now?: number;
+  failureRetryAfterMs?: number;
 } = {}): RegionRegistryImport {
   const useDefaultSource = !options.filePath && options.snapshot === undefined;
-  if (useDefaultSource && cachedRegionRegistryImport) return cachedRegionRegistryImport;
+  const cacheKey = options.snapshot === undefined
+    ? options.cacheKey?.trim() || (useDefaultSource ? "default" : null)
+    : null;
+  const now = options.now ?? Date.now();
+  const failureRetryAfterMs = Math.max(
+    0,
+    options.failureRetryAfterMs ?? DIRECTORY_FAILURE_RETRY_AFTER_MS,
+  );
+  const cached = readRecoverableImportCache(
+    regionRegistryImportCache,
+    cacheKey,
+    now,
+    failureRetryAfterMs,
+  );
+  if (cached) return cached;
 
   const requestedPath = options.filePath ? decodeURIComponent(options.filePath) : null;
   const sourcePath = options.snapshot !== undefined
@@ -503,8 +622,12 @@ export function importRegionRegistrySnapshot(options: {
       }),
       regions: [],
     } satisfies RegionRegistryImport;
-    if (useDefaultSource) cachedRegionRegistryImport = missing;
-    return missing;
+    return writeRecoverableImportCache(
+      regionRegistryImportCache,
+      cacheKey,
+      missing,
+      now,
+    );
   }
 
   try {
@@ -531,8 +654,12 @@ export function importRegionRegistrySnapshot(options: {
       }),
       regions,
     } satisfies RegionRegistryImport;
-    if (useDefaultSource) cachedRegionRegistryImport = result;
-    return result;
+    return writeRecoverableImportCache(
+      regionRegistryImportCache,
+      cacheKey,
+      result,
+      now,
+    );
   } catch (error) {
     const failed = {
       status: createDirectorySourceStatus({
@@ -546,8 +673,12 @@ export function importRegionRegistrySnapshot(options: {
       }),
       regions: [],
     } satisfies RegionRegistryImport;
-    if (useDefaultSource) cachedRegionRegistryImport = failed;
-    return failed;
+    return writeRecoverableImportCache(
+      regionRegistryImportCache,
+      cacheKey,
+      failed,
+      now,
+    );
   }
 }
 
