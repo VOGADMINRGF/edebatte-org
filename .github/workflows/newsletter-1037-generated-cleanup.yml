@@ -1,0 +1,35 @@
+name: Newsletter PR 1037 generated cleanup
+
+on:
+  push:
+    branches:
+      - fix/newsletter-delivery-closeout-delta-02
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/newsletter-delivery-closeout-delta-02
+      - name: Restore generated files to current main and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'VOGADMINRGF'
+          git config user.email 'rgf@voiceopengov.de'
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "14f2350dd53317088014ccd45ee3687cb117b111"
+          git checkout origin/main -- \
+            packages/db-web/src/generated/edge.js \
+            packages/db-web/src/generated/index.js \
+            packages/db-web/src/generated/wasm.js
+          git rm .github/workflows/newsletter-1037-generated-cleanup.yml
+          git diff --check
+          git add -A
+          git commit -m 'chore(newsletter): drop generated scope leak'
+          git push origin HEAD:fix/newsletter-delivery-closeout-delta-02
