@@ -1,10 +1,13 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
 import {
   VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS,
 } from "../src/features/voxyVideo/localCompositionRuntimeService";
 import { writeVoxyWorkerHeartbeat } from "../src/features/voxyVideo/localCompositionOperations";
+
+const HEARTBEAT_REFRESH_MS = 60_000;
+const MAX_CAPTURE_BYTES = 1024 * 1024;
 
 function argument(name: string): string | null {
   const prefix = `--${name}=`;
@@ -19,6 +22,11 @@ function positiveInteger(value: string | null, fallback: number, max: number) {
 
 function safeLog(event: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ event, ...data }));
+}
+
+function appendBounded(current: string, chunk: Buffer | string) {
+  const next = current + chunk.toString();
+  return next.length <= MAX_CAPTURE_BYTES ? next : next.slice(-MAX_CAPTURE_BYTES);
 }
 
 async function main() {
@@ -48,22 +56,59 @@ async function main() {
   });
 
   const forwarded = process.argv.slice(2);
-  const result = spawnSync(
+  const child = spawn(
     "pnpm",
     ["exec", "tsx", "scripts/run-voxy-local-composition-worker.ts", ...forwarded],
     {
       cwd: webRoot,
-      encoding: "utf8",
       shell: false,
-      timeout: 14_400_000,
-      maxBuffer: 16 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
 
+  let stdout = "";
+  let childError: Error | null = null;
+  child.stdout.on("data", (chunk) => {
+    stdout = appendBounded(stdout, chunk);
+  });
+  // stderr is deliberately not copied to the supervisor log because it may
+  // contain implementation details. The underlying worker already emits only
+  // safe error messages at its own boundary.
+  child.stderr.on("data", () => undefined);
+  child.on("error", (error) => {
+    childError = error;
+  });
+
+  let heartbeatWriteInFlight = false;
+  const timer = setInterval(() => {
+    if (heartbeatWriteInFlight) return;
+    heartbeatWriteInFlight = true;
+    void writeVoxyWorkerHeartbeat({
+      workerId,
+      state: "running",
+      cycleStartedAt,
+      now: new Date().toISOString(),
+      recoveryOrphanAfterMs,
+    })
+      .catch(() => {
+        safeLog("voxy_worker_heartbeat_refresh_failed", {
+          safeErrorCode: "heartbeat_persistence_failed",
+        });
+      })
+      .finally(() => {
+        heartbeatWriteInFlight = false;
+      });
+  }, HEARTBEAT_REFRESH_MS);
+
+  const exitCode = await new Promise<number | null>((resolveExit) => {
+    child.on("close", (code) => resolveExit(code));
+  });
+  clearInterval(timer);
+
   const cycleCompletedAt = new Date().toISOString();
   let processedCount = 0;
-  if (!result.error && result.status === 0) {
-    const lastLine = result.stdout
+  if (!childError && exitCode === 0) {
+    const lastLine = stdout
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -97,6 +142,7 @@ async function main() {
     return;
   }
 
+  const failureCode = childError ? "worker_spawn_failed" : "worker_process_exit_nonzero";
   await writeVoxyWorkerHeartbeat({
     workerId,
     state: "failed",
@@ -105,17 +151,17 @@ async function main() {
     cycleCompletedAt,
     processedCount,
     recoveryOrphanAfterMs,
-    lastSafeErrorCode: result.error ? "worker_spawn_failed" : "worker_process_exit_nonzero",
+    lastSafeErrorCode: failureCode,
   });
   safeLog("voxy_worker_cycle_failed", {
     workerId,
     cycleStartedAt,
     cycleCompletedAt,
     status: "failed",
-    safeErrorCode: result.error ? "worker_spawn_failed" : "worker_process_exit_nonzero",
-    exitCode: result.status ?? null,
+    safeErrorCode: failureCode,
+    exitCode,
   });
-  process.exitCode = result.status && result.status > 0 ? result.status : 1;
+  process.exitCode = exitCode && exitCode > 0 ? exitCode : 1;
 }
 
 main().catch(async (error: unknown) => {
