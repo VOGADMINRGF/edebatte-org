@@ -63,6 +63,13 @@ jobs:
           tests/newsletter-delivery-lease.test.ts
           tests/newsletter-n8-n9-acceptance.test.ts
 
+      - name: Focused mandate runtime feed contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/mandate-runtime-feed.contract.test.ts
+          tests/mandate-contract.test.ts
+          tests/mandat-detail-page.contract.test.ts
+
       - name: Focused organization registry contracts
         run: >-
           pnpm -C apps/web exec vitest run
