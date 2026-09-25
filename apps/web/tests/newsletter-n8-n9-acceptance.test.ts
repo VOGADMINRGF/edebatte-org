@@ -216,7 +216,7 @@ describe("N9 production red-team source contracts", () => {
     expect(runtime).toContain("expectedDigestKey");
     expect(runtime).toContain("expectedCandidateIds");
     expect(production).toContain("expectedDigestKey: freshPreview.digestKey");
-    expect(runtime).toContain("externalAttemptBoundaryAt: now");
+    expect(runtime).toContain("externalAttemptBoundaryAt: input.now");
     expect(runtime).toContain("externalAttemptId: crypto.randomUUID()");
     expect(runtime).toContain('existing?.status === "sending"');
     expect(runtime).not.toContain('existing?.status === "sending" && now.getTime() - existing.updatedAt.getTime()');
