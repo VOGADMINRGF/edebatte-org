@@ -93,6 +93,7 @@ describe("Voxy editorial language variant revision contract", () => {
     expect(variant.autoRender).toBe(false);
     expect(variant.autoPublish).toBe(false);
     expect(variant.languageVariant.translationHash).toMatch(/^[0-9a-f]{64}$/);
+    // Pinned independently so a self-consistent but incorrect SHA implementation cannot pass silently.
     expect(variant.languageVariant.translationHash).toBe(
       "2c833d7e87d8facb6d5a143d054c96a518b2f8248ccba87bb439897807acef53",
     );
@@ -126,7 +127,7 @@ describe("Voxy editorial language variant revision contract", () => {
   it("marks master or evidence drift and non-approved translation fail-closed", () => {
     const variant = frenchVariant();
     const stale = evaluateVoxyEditorialLanguageVariantFreshness({
-      plan: { ...variant, languageVariant: { ...variant.languageVariant, translationStatus: "needs_review" } },
+      plan: { ...variant, languageVariant: { ...variant.languageVariant, translationStatus: "needs_review" as const } },
       masterStoryPlanId: "story-master-1",
       masterStoryPlanRevision: 5,
       evidenceSourcePackId: "source-pack-new",
