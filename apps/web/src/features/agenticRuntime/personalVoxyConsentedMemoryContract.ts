@@ -202,20 +202,21 @@ function normalizeMemoryValue(
   }
 
   if (key === "topic_interests") {
-    if (!Array.isArray(value)) return null;
-    const topics = Array.from(
-      new Set(
-        value.filter(
-          (entry): entry is TopicKey =>
-            typeof entry === "string" && TOPIC_KEYS.has(entry as TopicKey),
-        ),
-      ),
-    );
-    if (topics.length === 0 || topics.length > TOPIC_KEYS.size) return null;
-    return topics;
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every(
+      (entry) => typeof entry === "string" && TOPIC_KEYS.has(entry as TopicKey),
+    )
+  ) {
+    return null;
   }
+  const topics = Array.from(new Set(value as TopicKey[]));
+  if (topics.length > TOPIC_KEYS.size) return null;
+  return topics;
+}
 
-  if (key === "relevance_depth") {
+if (key === "relevance_depth") {
     return typeof value === "string" && RELEVANCE_DEPTHS.has(value)
       ? (value as PersonalVoxyRelevanceDepth)
       : null;
@@ -325,7 +326,11 @@ function normalizeProvenance(
   ) {
     return null;
   }
-  const confirmedAt = request.confirmedAt ? nowIso(request.confirmedAt) : null;
+  const confirmedAt =
+  typeof request.confirmedAt === "string" &&
+  !Number.isNaN(new Date(request.confirmedAt).getTime())
+    ? new Date(request.confirmedAt).toISOString()
+    : null;
   if (!confirmedAt) return null;
 
   return {
@@ -359,7 +364,7 @@ function buildMemorySafeTrace(input: {
     surface: "/account",
     userSafeLabel: input.accepted
       ? `Personal-Voxy-Speicheraktion '${input.action}' wurde ohne Rohinhalt im Trace verarbeitet.`
-      : `Personal-Voxy-Speicheraktion '${input.action}' blieb fail-closed.` ,
+      : `Personal-Voxy-Speicheraktion '${input.action}' blieb fail-closed.`,
     status: input.accepted ? "completed" : "blocked",
     confidenceLabel: input.accepted
       ? AGENT_SAFE_TRACE_CONFIDENCE_LABELS[2]

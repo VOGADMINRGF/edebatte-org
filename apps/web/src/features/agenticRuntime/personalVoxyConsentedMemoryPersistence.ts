@@ -1,3 +1,4 @@
+import type { Collection } from "mongodb";
 import { assertStoreConfigured, getCol, ObjectId } from "@core/db/triMongo";
 import {
   applyPersonalVoxyMemoryClearDoNotRemember,
@@ -25,7 +26,7 @@ type PersonalVoxyMemoryUserDoc = {
 
 type LoadedMemoryOwner = {
   oid: ObjectId;
-  users: Awaited<ReturnType<typeof getCol<PersonalVoxyMemoryUserDoc>>>;
+  users: Collection<PersonalVoxyMemoryUserDoc>;
   state: PersonalVoxyMemoryState;
 };
 
