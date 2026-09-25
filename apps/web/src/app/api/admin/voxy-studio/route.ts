@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { SUPPORTED_LOCALES } from "@/config/locales";
@@ -124,7 +125,7 @@ export async function GET(req: NextRequest) {
         await audioRepository.listForBinding({
           artifactId: draft.draftId,
           briefingId: draft.briefingId,
-          scriptVersion: `story-r${draft.storyPlan.revision}`,
+          scriptVersion: buildVoxyEditorialScriptVersion(draft.storyPlan),
           locale: draft.storyPlan.outputLanguage.toLowerCase(),
           limit: 20,
         }),

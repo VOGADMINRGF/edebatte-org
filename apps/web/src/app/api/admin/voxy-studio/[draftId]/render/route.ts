@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -107,7 +108,7 @@ export async function GET(
 
   const audioRepository = getVoxyLocalCompositionAudioInputRepository();
   const runtimeRepository = getVoxyLocalCompositionRepository();
-  const scriptVersion = `story-r${draft.storyPlan.revision}`;
+  const scriptVersion = buildVoxyEditorialScriptVersion(draft.storyPlan);
   const audioInputs = await audioRepository.listForBinding({
     artifactId: draft.draftId,
     briefingId: draft.briefingId,
