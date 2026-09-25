@@ -1,3 +1,5 @@
+import type { ClientSession } from "mongodb";
+
 import { getDb } from "@core/db/triMongo";
 import { dossierRevisionsCol, dossiersCol } from "./db";
 import { makeDossierEntityId } from "./ids";
@@ -17,6 +19,13 @@ export type RevisionInput = {
   byUserId?: string;
 };
 
+export type DossierRevisionMutationInput = Omit<RevisionInput, "dossierId">;
+
+export type DossierRevisionMutationResult<T> = {
+  result: T;
+  revision: DossierRevisionMutationInput | null;
+};
+
 class DossierRevisionCasConflictError extends Error {
   constructor(dossierId: string) {
     super(`[dossier] revision head changed concurrently for ${dossierId}`);
@@ -28,42 +37,86 @@ function isDossierRevisionCasConflict(error: unknown): error is DossierRevisionC
   return error instanceof DossierRevisionCasConflictError;
 }
 
-export async function logDossierRevision(input: RevisionInput) {
-  const col = await dossierRevisionsCol();
-  const dossierCol = await dossiersCol();
-  const timestamp = new Date();
-  const revId = makeDossierEntityId("rev");
-
-  if (DISABLE_HASH_CHAIN) {
-    const doc = {
-      revId,
-      dossierId: input.dossierId,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      action: input.action,
-      diffSummary: input.diffSummary,
-      byRole: input.byRole,
-      byUserId: input.byUserId,
-      timestamp,
-    };
-    await col.insertOne(doc as any);
-    return doc;
-  }
-
+async function getTransactionClient() {
   const db = await getDb("core");
   const client = (db as any)?.client;
   if (!client?.startSession) {
     throw new Error("[dossier] Mongo transaction session unavailable for revision write");
   }
+  return client;
+}
 
+function buildRevisionDoc(input: {
+  dossierId: string;
+  revision: DossierRevisionMutationInput;
+  revId: string;
+  timestamp: Date;
+  prevHash?: string;
+  hash?: string;
+}) {
+  return {
+    revId: input.revId,
+    dossierId: input.dossierId,
+    entityType: input.revision.entityType,
+    entityId: input.revision.entityId,
+    action: input.revision.action,
+    diffSummary: input.revision.diffSummary,
+    byRole: input.revision.byRole,
+    byUserId: input.revision.byUserId,
+    timestamp: input.timestamp,
+    ...(input.prevHash ? { prevHash: input.prevHash } : {}),
+    ...(input.hash ? { hash: input.hash, hashAlgo: REVISION_HASH_ALGO } : {}),
+  };
+}
+
+/**
+ * Canonical atomic dossier mutation boundary.
+ *
+ * The caller's domain mutation, dossier revision-head CAS and revision insert all
+ * execute in the same Mongo transaction. A CAS conflict retries the complete
+ * mutation from a clean transaction; any other failure aborts without leaving an
+ * unrevised domain change behind.
+ */
+export async function mutateDossierWithRevision<T>(input: {
+  dossierId: string;
+  mutate: (session: ClientSession) => Promise<DossierRevisionMutationResult<T>>;
+}) {
+  const revisionCol = await dossierRevisionsCol();
+  const dossierCol = await dossiersCol();
+  const client = await getTransactionClient();
+  const timestamp = new Date();
+  const revId = makeDossierEntityId("rev");
   let lastConflict: DossierRevisionCasConflictError | null = null;
 
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt += 1) {
-    const session = client.startSession();
-    let committedDoc: Record<string, unknown> | null = null;
+    const session: ClientSession = client.startSession();
+    let committed:
+      | {
+          result: T;
+          revision: Record<string, unknown> | null;
+        }
+      | null = null;
 
     try {
       await session.withTransaction(async () => {
+        const mutation = await input.mutate(session);
+        if (!mutation.revision) {
+          committed = { result: mutation.result, revision: null };
+          return;
+        }
+
+        if (DISABLE_HASH_CHAIN) {
+          const doc = buildRevisionDoc({
+            dossierId: input.dossierId,
+            revision: mutation.revision,
+            revId,
+            timestamp,
+          });
+          await revisionCol.insertOne(doc as any, { session });
+          committed = { result: mutation.result, revision: doc };
+          return;
+        }
+
         const dossier = await dossierCol.findOne(
           { dossierId: input.dossierId },
           { projection: { lastRevisionHash: 1 }, session },
@@ -75,7 +128,7 @@ export async function logDossierRevision(input: RevisionInput) {
         const headHash = dossier.lastRevisionHash ?? undefined;
         let prevHash = headHash;
         if (!prevHash) {
-          const last = await col
+          const last = await revisionCol
             .find({ dossierId: input.dossierId }, { session })
             .sort({ timestamp: -1, _id: -1 })
             .limit(1)
@@ -86,12 +139,12 @@ export async function logDossierRevision(input: RevisionInput) {
         const hash = computeRevisionHash({
           prevHash,
           dossierId: input.dossierId,
-          entityType: input.entityType,
-          entityId: input.entityId,
-          action: input.action,
-          diffSummary: input.diffSummary,
-          byRole: input.byRole,
-          byUserId: input.byUserId,
+          entityType: mutation.revision.entityType,
+          entityId: mutation.revision.entityId,
+          action: mutation.revision.action,
+          diffSummary: mutation.revision.diffSummary,
+          byRole: mutation.revision.byRole,
+          byUserId: mutation.revision.byUserId,
           timestamp,
         });
 
@@ -107,29 +160,22 @@ export async function logDossierRevision(input: RevisionInput) {
           throw new DossierRevisionCasConflictError(input.dossierId);
         }
 
-        const doc = {
-          revId,
+        const doc = buildRevisionDoc({
           dossierId: input.dossierId,
-          entityType: input.entityType,
-          entityId: input.entityId,
-          action: input.action,
-          diffSummary: input.diffSummary,
-          byRole: input.byRole,
-          byUserId: input.byUserId,
+          revision: mutation.revision,
+          revId,
           timestamp,
-          ...(prevHash ? { prevHash } : {}),
+          prevHash,
           hash,
-          hashAlgo: REVISION_HASH_ALGO,
-        };
-
-        await col.insertOne(doc as any, { session });
-        committedDoc = doc;
+        });
+        await revisionCol.insertOne(doc as any, { session });
+        committed = { result: mutation.result, revision: doc };
       });
 
-      if (!committedDoc) {
-        throw new Error("[dossier] revision transaction completed without durable revision entry");
+      if (!committed) {
+        throw new Error("[dossier] revision transaction completed without durable mutation result");
       }
-      return committedDoc;
+      return committed;
     } catch (error) {
       if (!isDossierRevisionCasConflict(error)) throw error;
       lastConflict = error;
@@ -140,4 +186,26 @@ export async function logDossierRevision(input: RevisionInput) {
   }
 
   throw lastConflict ?? new Error(`[dossier] revision head CAS exhausted for ${input.dossierId}`);
+}
+
+export async function logDossierRevision(input: RevisionInput) {
+  const { revision } = await mutateDossierWithRevision({
+    dossierId: input.dossierId,
+    mutate: async () => ({
+      result: null,
+      revision: {
+        entityType: input.entityType,
+        entityId: input.entityId,
+        action: input.action,
+        diffSummary: input.diffSummary,
+        byRole: input.byRole,
+        byUserId: input.byUserId,
+      },
+    }),
+  });
+
+  if (!revision) {
+    throw new Error("[dossier] revision write completed without revision entry");
+  }
+  return revision;
 }
