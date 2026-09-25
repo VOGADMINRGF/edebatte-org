@@ -132,9 +132,17 @@ export async function GET(req: NextRequest) {
     ),
   ]);
   const audioInputsByDraftId = Object.fromEntries(audioEntries);
+  const approvalCurrentByDraftId = Object.fromEntries(
+    items.map((item) => [
+      item.draft.draftId,
+      item.evidenceReview?.approved === true &&
+        item.draft.renderApproval?.decisionGateId === item.decisionGateId,
+    ]),
+  );
   const localeReviewMatrices = buildVoxyStudioLocaleReviewMatrices({
     drafts,
     audioInputsByDraftId,
+    approvalCurrentByDraftId,
   });
 
   return NextResponse.json({
