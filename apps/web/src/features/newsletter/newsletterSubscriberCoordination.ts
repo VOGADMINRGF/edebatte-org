@@ -148,7 +148,10 @@ export async function acquireNewsletterSubscriberCoordination(input: {
   const token = crypto.randomUUID();
 
   while (true) {
-    const now = input.now ?? new Date();
+    const now =
+      input.purpose === "send"
+        ? new Date(Math.max(Date.now(), input.now?.getTime() ?? 0))
+        : input.now ?? new Date();
     const expiresAt = new Date(now.getTime() + lockMs);
     const result = await store.tryAcquire({
       email,
