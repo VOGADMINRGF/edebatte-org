@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { type UseCaseId } from "@/components/analyze/AnalyzeWorkspace";
-import type { AccountOverview } from "@features/account/types";
+import type { CreateAccountContext } from "@features/account/types";
 import type { CreateEntitlements } from "@/lib/server/entitlements/createEntitlements";
 import type { CreateMode } from "@/features/create/intents";
 import { useLocale } from "@/context/LocaleContext";
@@ -129,7 +129,7 @@ import {
 
 export type CreateClientProps = {
   initialEntitlements: CreateEntitlements;
-  overview: AccountOverview;
+  overview: CreateAccountContext;
   dossierId?: string | null;
   initialAnlassraumId?: string | null;
   initialMode?: CreateMode;

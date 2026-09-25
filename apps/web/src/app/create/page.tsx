@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getDraft } from "@/server/draftStore";
 import { getCreateContributionDraftForResume } from "@/server/createContributionDrafts";
@@ -7,8 +6,7 @@ import { ObjectId } from "@core/db/triMongo";
 import { readManualAnlassraumServerDraftForCurrentUser } from "@/features/surfaces/runden/manualAnlassraumServerDraft";
 import { buildManualAnlassraumPrefill } from "@/features/surfaces/runden/manualAnlassraumSetup";
 import CreateClient from "./CreateClient";
-import { getCreateEntitlementsForRequest } from "@/lib/server/entitlements/createEntitlements";
-import { getAccountOverview } from "@features/account/service";
+import { getCreatePageBootstrapForRequest } from "@/lib/server/entitlements/createEntitlements";
 import { parseCreateMode, type CreateMode } from "@/features/create/intents";
 import {
   parseCreateEntryIntent,
@@ -147,19 +145,15 @@ export default async function CreatePage({
   searchParams?: SearchParamsShape;
 }) {
   const pageLocale = resolveOperatorLocale(await detectPageLocale());
-  const entitlements = await getCreateEntitlementsForRequest();
-  if (!entitlements.isAuthenticated || !entitlements.userId) {
+  const { entitlements, accountContext: overview } =
+    await getCreatePageBootstrapForRequest();
+  if (!entitlements.isAuthenticated || !entitlements.userId || !overview) {
     return <GuestCreateEphemeralClient locale={pageLocale} />;
   }
 
   const resolved = searchParams ? await searchParams : {};
   const query = toQueryString(resolved);
   const createText = getOperatorCreateTexts(pageLocale);
-
-  const overview = await getAccountOverview(entitlements.userId);
-  if (!overview) {
-    redirect(`/login?next=${encodeURIComponent(query ? `/create?${query}` : "/create")}`);
-  }
 
   const nextAction = readParam(resolved.nextAction) ?? null;
   if (nextAction === "guest-adoption-resume") {

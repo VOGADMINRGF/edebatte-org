@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getCol, ObjectId } from "@core/db/triMongo";
-import { getAccountOverview } from "@features/account/service";
+import { getAccountOverview, getCreateAccountContext } from "@features/account/service";
+import type { CreateAccountContext } from "@features/account/types";
 import {
   getAccessTierConfigForUser,
   getUserAccessTier,
@@ -95,11 +96,10 @@ async function countMonthlyContributions(userId: string) {
   });
 }
 
-export async function getCreateEntitlementsForRequest(
-  req?: NextRequest,
+async function buildCreateEntitlements(
+  userId: string | null,
+  overview: CreateAccountContext | null,
 ): Promise<CreateEntitlements> {
-  const userId = await resolveUserId(req);
-  const overview = userId ? await getAccountOverview(userId).catch(() => null) : null;
   const roles = normalizeRoleList(overview?.roles);
   const isAuthenticated = Boolean(userId && overview);
   const tier = overview ? getUserAccessTier(overview) : ("public" as AccessTier);
@@ -163,4 +163,24 @@ export async function getCreateEntitlementsForRequest(
     reasons,
     serverTimeIso: new Date().toISOString(),
   };
+}
+
+export async function getCreateEntitlementsForRequest(
+  req?: NextRequest,
+): Promise<CreateEntitlements> {
+  const userId = await resolveUserId(req);
+  const overview = userId ? await getAccountOverview(userId).catch(() => null) : null;
+  return buildCreateEntitlements(userId, overview);
+}
+
+export async function getCreatePageBootstrapForRequest(req?: NextRequest): Promise<{
+  entitlements: CreateEntitlements;
+  accountContext: CreateAccountContext | null;
+}> {
+  const userId = await resolveUserId(req);
+  const accountContext = userId
+    ? await getCreateAccountContext(userId).catch(() => null)
+    : null;
+  const entitlements = await buildCreateEntitlements(userId, accountContext);
+  return { entitlements, accountContext };
 }
