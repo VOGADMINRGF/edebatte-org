@@ -43,15 +43,15 @@ jobs:
           set -euo pipefail
           git switch -c fix/voxy-studio-review-consistency-c-01
 
-      - name: Wire critical Voxy contracts into existing runtime CI
+      - name: Wire critical Voxy contracts and repair stale locale test oracle
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          path = Path(".github/workflows/voxy-local-composition-runtime.yml")
-          text = path.read_text(encoding="utf-8")
+          workflow = Path(".github/workflows/voxy-local-composition-runtime.yml")
+          text = workflow.read_text(encoding="utf-8")
 
           replacements = [
               (
@@ -88,8 +88,17 @@ jobs:
           new_cmd = '          pnpm -C apps/web exec vitest run tests/voxy-editorial-audio-motion.contract.test.ts tests/voxy-editorial-composition-html.contract.test.ts tests/voxy-editorial-evidence-window.contract.test.ts tests/voxy-editorial-story-plan.contract.test.ts tests/voxy-studio-admin-auth.contract.test.ts tests/voxy-studio-audio-motion-preview.contract.test.ts tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-evidence-review.contract.test.ts tests/voxy-studio-frame-preview.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-layout-approval.contract.test.ts tests/voxy-studio-layout-safety.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-studio-persistence-boundary.contract.test.ts tests/voxy-studio-preview-review.contract.test.ts tests/voxy-studio-production-context.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts'
           if text.count(old_cmd) != 1:
               raise SystemExit("contract command anchor drift")
-          text = text.replace(old_cmd, new_cmd, 1)
-          path.write_text(text, encoding="utf-8")
+          workflow.write_text(text.replace(old_cmd, new_cmd, 1), encoding="utf-8")
+
+          test = Path("apps/web/tests/voxy-editorial-story-plan.contract.test.ts")
+          test_text = test.read_text(encoding="utf-8")
+          stale = '''    expect(VOXY_EDITORIAL_SUPPORTED_LOCALES).toEqual([\n      "de",\n      "en",\n      "fr",\n      "pl",\n      "es",\n      "it",\n      "tr",\n      "ar",\n      "ru",\n      "zh",\n      "nl",\n      "pt",\n      "fi",\n      "sv",\n      "no",\n      "cs",\n      "hi",\n      "ro",\n      "el",\n      "uk",\n    ]);\n'''
+          if test_text.count(stale) != 1:
+              raise SystemExit("stale 20-locale oracle not found exactly once")
+          test_text = test_text.replace(stale, "", 1)
+          if 'expect(VOXY_EDITORIAL_SUPPORTED_LOCALES).toEqual(SUPPORTED_LOCALES);' not in test_text:
+              raise SystemExit("canonical locale SSOT assertion missing")
+          test.write_text(test_text, encoding="utf-8")
           PY
           git diff --check
 
@@ -112,6 +121,8 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/voxy-local-composition-runtime.yml
+          git add \
+            .github/workflows/voxy-local-composition-runtime.yml \
+            apps/web/tests/voxy-editorial-story-plan.contract.test.ts
           git commit -m "ci(voxy): cover critical review contracts"
           git push origin HEAD:fix/voxy-studio-review-consistency-c-01
