@@ -21,4 +21,24 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run bounded single writer
-        run: node scripts/ci/ctgn-p1-ssot-single-writer.mjs
+        shell: bash
+        run: |
+          set +e
+          node scripts/ci/ctgn-p1-ssot-single-writer.mjs > /tmp/ctgn-writer.log 2>&1
+          code=$?
+          echo "$code" > /tmp/ctgn-writer.exit
+          cat /tmp/ctgn-writer.log
+          exit 0
+      - name: Upload writer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctgn-p1-writer-diagnostics
+          path: |
+            /tmp/ctgn-writer.log
+            /tmp/ctgn-writer.exit
+          if-no-files-found: error
+      - name: Enforce writer result
+        if: always()
+        shell: bash
+        run: test "$(cat /tmp/ctgn-writer.exit)" = "0"
