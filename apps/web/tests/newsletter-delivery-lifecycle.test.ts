@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildNewsletterListUnsubscribeHeaders,
   newsletterDeliveryRetentionUntil,
+  newsletterFailureProvenBeforeExternalHandoff,
   resolveNewsletterRetryDecision,
   shouldSuppressNewsletterRecipient,
 } from "@features/notifications/newsletterDeliveryLifecycle";
@@ -37,6 +38,32 @@ describe("newsletter delivery lifecycle", () => {
     });
     expect(allowed.allowed).toBe(true);
     expect(allowed.reason).toBe("retry_allowed");
+  });
+
+  it("only classifies deterministic local/configuration failures as proven pre-handoff", () => {
+    for (const category of [
+      "recipient_invalid",
+      "recipient_placeholder_domain",
+      "recipient_test_domain_blocked",
+      "recipient_domain_not_allowed",
+      "mail_content_invalid",
+      "sender_configuration_invalid",
+      "smtp_unconfigured",
+    ] as const) {
+      expect(newsletterFailureProvenBeforeExternalHandoff(category)).toBe(true);
+    }
+
+    for (const category of [
+      "smtp_auth_error",
+      "smtp_connection_error",
+      "smtp_timeout",
+      "smtp_response_error",
+      "smtp_unknown_error",
+    ] as const) {
+      expect(newsletterFailureProvenBeforeExternalHandoff(category)).toBe(false);
+    }
+    expect(newsletterFailureProvenBeforeExternalHandoff(null)).toBe(false);
+    expect(newsletterFailureProvenBeforeExternalHandoff("unknown_future_failure")).toBe(false);
   });
 
   it("suppresses only deterministic recipient-policy hard failures", () => {
