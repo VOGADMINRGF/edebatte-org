@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildVoxyOperationsAgentAdvisories,
   buildVoxyOperationsSnapshot,
-  VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS,
   VOXY_OPERATIONS_ADVISORY_ROLE_IDS,
   type VoxyWorkerHeartbeat,
 } from "@/features/voxyVideo/localCompositionOperations";
+import { VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS } from "@/features/voxyVideo/localCompositionRuntimeService";
 
 type Status = "queued" | "rendering" | "rendered" | "failed" | "review_ready";
 
