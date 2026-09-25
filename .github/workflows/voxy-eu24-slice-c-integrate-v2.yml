@@ -28,19 +28,22 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Verify exact-main task preflight
+      - name: Verify exact-main task preflight and converge branch
         shell: bash
         run: |
           set -euo pipefail
           BRANCH_SHA="$(git rev-parse HEAD)"
           git fetch origin main
           git checkout -B main origin/main
-          test "$(git rev-parse HEAD)" = "1a96b2fe23a3d78684f3ddd18426910afbfbd121"
+          test "$(git rev-parse HEAD)" = "19432c64120b874a4e0b8a5d2ddc52fedeacea8c"
           node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | tee /tmp/preflight.json
           grep -q '"status": "codex_ready"' /tmp/preflight.json
           grep -q '"executable": true' /tmp/preflight.json
           grep -q '"branchCreationAllowed": true' /tmp/preflight.json
           git checkout -B feat/voxy-eu24-semantic-guard-03 "$BRANCH_SHA"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-edit origin/main
 
       - name: Integrate semantic guard with existing Voxy contracts
         shell: bash
