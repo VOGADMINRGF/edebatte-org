@@ -1,0 +1,54 @@
+name: Voxy EU24 Slice B TypeScript fix
+
+on:
+  push:
+    branches:
+      - feat/voxy-eu24-language-variant-02
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/voxy-eu24-language-variant-02
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+      - name: Apply narrow inference fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/features/voxyVideo/editorialLanguageVariant.ts')
+          text = path.read_text(encoding='utf-8')
+          old = '  const hash = [...SHA256_INITIAL];\n'
+          new = '  const hash: number[] = [...SHA256_INITIAL];\n'
+          assert text.count(old) == 1
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          git diff --check
+      - name: Verify hash contract and typecheck
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec vitest run tests/voxy-editorial-language-variant.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+      - name: Commit and self-delete
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src/features/voxyVideo/editorialLanguageVariant.ts
+          git rm .github/workflows/voxy-eu24-slice-b-ts-fix.yml
+          git commit -m 'fix(voxy): type SHA-256 working state explicitly'
+          git push origin HEAD:feat/voxy-eu24-language-variant-02
