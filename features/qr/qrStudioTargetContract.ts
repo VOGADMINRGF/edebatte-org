@@ -1,4 +1,7 @@
-import { normalizeInternalRedirectPath } from "@/features/create/finalizeRedirect";
+import {
+  hasUnsafeNavigationTargetRepresentation,
+  normalizeInternalRedirectPath,
+} from "@/features/create/finalizeRedirect";
 import { BRAND } from "@/lib/brand";
 
 export const QR_STUDIO_CALLER_INVENTORY = {
@@ -62,12 +65,12 @@ export function resolveQrStudioTarget(input: {
     return { status: "empty", caller };
   }
 
-  if (/[\u0000-\u001f\u007f]/.test(rawTarget)) {
-    return { status: "blocked", caller, reason: "invalid_url" };
-  }
-
   if (rawTarget.startsWith("//")) {
     return { status: "blocked", caller, reason: "network_path_not_allowed" };
+  }
+
+  if (hasUnsafeNavigationTargetRepresentation(inputTarget)) {
+    return { status: "blocked", caller, reason: "invalid_url" };
   }
 
   const baseOrigin = normalizeBaseOrigin(input.publicOrigin);
