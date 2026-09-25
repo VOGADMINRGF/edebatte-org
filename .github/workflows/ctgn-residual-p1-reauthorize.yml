@@ -1,4 +1,4 @@
-name: CTGN residual P1 reauthorization
+name: CTGN residual P1 diagnostic
 
 on:
   push:
@@ -9,58 +9,28 @@ permissions:
   contents: write
 
 jobs:
-  reconcile:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: docs/ctgn-residual-p1-reauthorization-01
-      - name: Reauthorize existing residual P1 repair IDs
+      - name: Capture current repair rows and preflights
         shell: bash
         run: |
-          set -euo pipefail
-          EXPECTED_MAIN='14f2350dd53317088014ccd45ee3687cb117b111'
-          git fetch origin main
-          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
-          python <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path('docs/E150/OpenTasks.md')
-          text = path.read_text()
-          targets = [
-              'NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01',
-              'DOSSIER-REVISION-ATOMIC-WRITER-01',
-          ]
-          for task_id in targets:
-              pattern = re.compile(rf'^(\| {re.escape(task_id)} \| )review( \|.*)$', re.M)
-              matches = list(pattern.finditer(text))
-              if len(matches) != 1:
-                  raise SystemExit(f'{task_id}: expected exactly one review row, found {len(matches)}')
-              text, count = pattern.subn(r'\1codex_ready\2', text, count=1)
-              if count != 1:
-                  raise SystemExit(f'{task_id}: replacement failed')
-          path.write_text(text)
-          PY
-          git diff --check
-          test "$(git diff --numstat -- docs/E150/OpenTasks.md | awk '{print $1+$2}')" -eq 4
-          node scripts/codex-task-preflight.mjs NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 > /tmp/newsletter-preflight.json
-          node scripts/codex-task-preflight.mjs DOSSIER-REVISION-ATOMIC-WRITER-01 > /tmp/dossier-preflight.json
-          node - <<'NODE'
-          const fs = require('fs');
-          for (const file of ['/tmp/newsletter-preflight.json', '/tmp/dossier-preflight.json']) {
-            const result = JSON.parse(fs.readFileSync(file, 'utf8'));
-            if (result.status !== 'codex_ready' || result.executable !== true || result.branchCreationAllowed !== true) {
-              console.error(result);
-              process.exit(1);
-            }
-          }
-          NODE
-          git rm .github/workflows/ctgn-residual-p1-reauthorize.yml
-          test "$(git diff --name-only "$EXPECTED_MAIN"...HEAD | wc -l)" -eq 1 || true
+          set -u
+          OUT=ctgn-residual-p1-diagnostic.txt
+          : > "$OUT"
+          printf 'main=%s\n' "$(git rev-parse origin/main 2>/dev/null || true)" >> "$OUT"
+          grep -n '^| NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 |' docs/E150/OpenTasks.md >> "$OUT" || true
+          grep -n '^| DOSSIER-REVISION-ATOMIC-WRITER-01 |' docs/E150/OpenTasks.md >> "$OUT" || true
+          printf '\nnewsletter preflight:\n' >> "$OUT"
+          node scripts/codex-task-preflight.mjs NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 >> "$OUT" 2>&1 || true
+          printf '\ndossier preflight:\n' >> "$OUT"
+          node scripts/codex-task-preflight.mjs DOSSIER-REVISION-ATOMIC-WRITER-01 >> "$OUT" 2>&1 || true
           git config user.name 'VOGADMINRGF'
           git config user.email 'rgf@voiceopengov.de'
-          git add docs/E150/OpenTasks.md .github/workflows/ctgn-residual-p1-reauthorize.yml
-          git commit -m 'docs(e150): reauthorize residual CTGN P1 repairs'
+          git add "$OUT"
+          git commit -m 'chore(governance): capture residual P1 diagnostic'
           git push origin HEAD:docs/ctgn-residual-p1-reauthorization-01
