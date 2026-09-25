@@ -1,3 +1,7 @@
+import {
+  hasUnsafeNavigationTargetRepresentation,
+  normalizeInternalRedirectPath,
+} from "@/features/create/finalizeRedirect";
 import { BRAND } from "@/lib/brand";
 
 export const QR_STUDIO_CALLER_INVENTORY = {
@@ -55,24 +59,32 @@ export function resolveQrStudioTarget(input: {
   publicOrigin?: string | null | undefined;
 }): QrStudioTargetResolution {
   const caller = parseQrStudioCaller(input.caller);
-  const rawTarget = String(input.target ?? "").trim();
+  const inputTarget = String(input.target ?? "");
+  const rawTarget = inputTarget.trim();
   if (!rawTarget) {
     return { status: "empty", caller };
-  }
-
-  if (/[\u0000-\u001f\u007f]/.test(rawTarget)) {
-    return { status: "blocked", caller, reason: "invalid_url" };
   }
 
   if (rawTarget.startsWith("//")) {
     return { status: "blocked", caller, reason: "network_path_not_allowed" };
   }
 
+  if (hasUnsafeNavigationTargetRepresentation(inputTarget)) {
+    return { status: "blocked", caller, reason: "invalid_url" };
+  }
+
   const baseOrigin = normalizeBaseOrigin(input.publicOrigin);
   if (rawTarget.startsWith("/")) {
+    const normalizedTarget = normalizeInternalRedirectPath(inputTarget);
+    if (!normalizedTarget) {
+      return { status: "blocked", caller, reason: "invalid_url" };
+    }
+
     try {
-      const url = new URL(rawTarget, baseOrigin);
-      const normalizedTarget = `${url.pathname}${url.search}${url.hash}`;
+      const url = new URL(normalizedTarget, baseOrigin);
+      if (url.origin !== baseOrigin) {
+        return { status: "blocked", caller, reason: "host_not_allowed" };
+      }
       return {
         status: "ready",
         caller,

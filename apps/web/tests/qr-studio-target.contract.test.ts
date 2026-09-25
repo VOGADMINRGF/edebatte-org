@@ -44,6 +44,17 @@ describe("qr studio target contract", () => {
       normalizedTarget: "https://www.edebatte.org/topic/schule",
       absoluteHref: "https://www.edebatte.org/topic/schule",
     });
+
+    expect(
+      resolveQrStudioTarget({
+        target: "https://www.edebatte.org/search?q=100%25",
+        publicOrigin: "https://www.edebatte.org",
+      }),
+    ).toMatchObject({
+      status: "ready",
+      targetKind: "allowed_https",
+      absoluteHref: "https://www.edebatte.org/search?q=100%25",
+    });
   });
 
   it("blocks unsafe or foreign targets fail-closed", () => {
@@ -75,6 +86,74 @@ describe("qr studio target contract", () => {
         caller: "legacy_qrcodegenerator",
       }),
     ).toBe("/qr-studio?caller=legacy_qrcodegenerator&targetState=blocked");
+  });
+
+  it("blocks unsafe target representations before trimming or absolute URL parsing", () => {
+    const targets = [
+      " https://www.edebatte.org/topic/schule ",
+      "\thttps://www.edebatte.org/topic/schule",
+      "https://www.edebatte.org/path\\segment",
+      "https://www.edebatte.org/%5cadmin",
+      "https://www.edebatte.org/%255cadmin",
+      "https://www.edebatte.org/%0aadmin",
+      "https://www.edebatte.org/%250aadmin",
+    ];
+
+    for (const target of targets) {
+      expect(
+        resolveQrStudioTarget({
+          target,
+          publicOrigin: "https://www.edebatte.org",
+        }),
+      ).toMatchObject({ status: "blocked" });
+    }
+  });
+
+  it("blocks internal-origin escapes through raw or encoded separators", () => {
+    const attacks = [
+      "/\\audit-attacker.example/path",
+      "/\\\\audit-attacker.example/path",
+      "/%5c%5caudit-attacker.example/path",
+      "/%255c%255caudit-attacker.example/path",
+      "/%2f%2faudit-attacker.example/path",
+      "/%252f%252faudit-attacker.example/path",
+    ];
+
+    for (const target of attacks) {
+      const resolved = resolveQrStudioTarget({
+        target,
+        caller: "qr_studio",
+        publicOrigin: "https://www.edebatte.org",
+      });
+      expect(resolved.status).toBe("blocked");
+      expect(
+        buildQrStudioHref({
+          target,
+          caller: "qr_studio",
+          publicOrigin: "https://www.edebatte.org",
+        }),
+      ).toBe("/qr-studio?targetState=blocked");
+    }
+  });
+
+  it("never returns an internal target whose absolute URL leaves the public origin", () => {
+    const targets = [
+      "/dossier/demo-1?view=public#sources",
+      "/search?q=region%20berlin",
+      "/search?q=100%25",
+      "/\\audit-attacker.example/path",
+      "/%5c%5caudit-attacker.example/path",
+      "/%255c%255caudit-attacker.example/path",
+    ];
+
+    for (const target of targets) {
+      const resolved = resolveQrStudioTarget({
+        target,
+        publicOrigin: "https://www.edebatte.org",
+      });
+      if (resolved.status !== "ready" || resolved.targetKind !== "internal") continue;
+      expect(new URL(resolved.absoluteHref).origin).toBe("https://www.edebatte.org");
+    }
   });
 
   it("keeps a small caller inventory for known qr entry sources", () => {
