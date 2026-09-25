@@ -1,6 +1,10 @@
 export type InternalRedirectPath = `/${string}`;
 
 const INTERNAL_REDIRECT_ORIGIN = "https://internal-redirect.invalid";
+const ENCODED_OCTET_RE = /%[0-9a-f]{2}/i;
+const ENCODED_UNSAFE_ASCII_RE = /%(?:5c|0[0-9a-f]|1[0-9a-f]|7f)/i;
+const ENCODED_NETWORK_PATH_RE = /^\/(?:%2f){2}/i;
+const MAX_REDIRECT_DECODE_DEPTH = 2;
 
 function trimString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -16,9 +20,36 @@ function hasUnsafeRawRedirectCharacter(value: string): boolean {
   return false;
 }
 
+export function hasUnsafeNavigationTargetRepresentation(value: unknown): boolean {
+  if (typeof value !== "string") return true;
+  if (value !== value.trim()) return true;
+
+  let current = value;
+
+  for (let depth = 0; depth <= MAX_REDIRECT_DECODE_DEPTH; depth += 1) {
+    if (hasUnsafeRawRedirectCharacter(current) || current.startsWith("//")) return true;
+
+    if (depth === MAX_REDIRECT_DECODE_DEPTH) {
+      return ENCODED_UNSAFE_ASCII_RE.test(current) || ENCODED_NETWORK_PATH_RE.test(current);
+    }
+
+    if (!ENCODED_OCTET_RE.test(current)) return false;
+
+    try {
+      const decoded = decodeURIComponent(current);
+      if (decoded === current) return false;
+      current = decoded;
+    } catch {
+      return true;
+    }
+  }
+
+  return true;
+}
+
 export function normalizeInternalRedirectPath(value: unknown): InternalRedirectPath | null {
   if (typeof value !== "string") return null;
-  if (hasUnsafeRawRedirectCharacter(value)) return null;
+  if (hasUnsafeNavigationTargetRepresentation(value)) return null;
 
   const trimmed = trimString(value);
   if (!trimmed) return null;
