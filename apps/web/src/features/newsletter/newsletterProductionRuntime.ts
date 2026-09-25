@@ -39,7 +39,6 @@ function digest(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-
 function deliveryId(email: string, digestKey: string) {
   return digest(`${email.trim().toLowerCase()}|${digestKey}`).slice(0, 48);
 }
