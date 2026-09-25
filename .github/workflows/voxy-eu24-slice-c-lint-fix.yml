@@ -1,0 +1,62 @@
+name: Voxy EU24 Slice C lint-only fix
+
+on:
+  push:
+    branches:
+      - feat/voxy-eu24-semantic-guard-03-final
+    paths:
+      - .github/workflows/voxy-eu24-slice-c-lint-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Apply exact lint-only fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts")
+          text = p.read_text()
+          old = r"(?:['’\-]\p{L}+)?"
+          new = r"(?:['’-]\p{L}+)?"
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one lint anchor, got {text.count(old)}")
+          p.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prove lint fix
+        run: |
+          pnpm -C apps/web exec eslint --config eslint.config.js src/features/voxyVideo/editorialTranslationSemanticGuard.ts
+          pnpm -C apps/web exec vitest run tests/voxy-editorial-language-variant.contract.test.ts tests/voxy-editorial-translation-semantic-guard.contract.test.ts tests/multilingual-evidence-trust.contract.test.ts tests/canonical-source-pack.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+
+      - name: Commit only semantic guard source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts
+          test "$(git diff --cached --name-only)" = "apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts"
+          git commit -m "fix(voxy): satisfy semantic guard lint"
+          git push origin HEAD:feat/voxy-eu24-semantic-guard-03-final
