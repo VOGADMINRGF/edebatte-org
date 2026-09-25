@@ -1,0 +1,115 @@
+name: Voxy review consistency Slice B product writer
+
+on:
+  push:
+    branches:
+      - ops/voxy-review-consistency-b-preflight-01
+
+permissions:
+  contents: write
+
+jobs:
+  preflight-and-build-slice-b:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+
+      - name: Exact task preflight on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs VOXY-STUDIO-REVIEW-CONSISTENCY-01 | tee /tmp/preflight.json
+          grep -q '"status": "codex_ready"' /tmp/preflight.json
+          grep -q '"executable": true' /tmp/preflight.json
+          grep -q '"branchCreationAllowed": true' /tmp/preflight.json
+
+      - name: Create bounded Slice B product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -c fix/voxy-studio-review-consistency-b-01
+
+      - name: Apply current-Evidence locale approval projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          matrix = Path("apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts")
+          text = matrix.read_text(encoding="utf-8")
+          old = '''export function buildVoxyStudioLocaleReviewMatrices(input: {\n  drafts: readonly VoxyStudioDraft[];\n  audioInputsByDraftId?: Readonly<Record<string, readonly VoxyLocalCompositionAudioInputRecord[]>>;\n}): VoxyStudioLocaleReviewMatrix[] {'''
+          new = '''export function buildVoxyStudioLocaleReviewMatrices(input: {\n  drafts: readonly VoxyStudioDraft[];\n  audioInputsByDraftId?: Readonly<Record<string, readonly VoxyLocalCompositionAudioInputRecord[]>>;\n  approvalCurrentByDraftId: Readonly<Record<string, boolean>>;\n}): VoxyStudioLocaleReviewMatrix[] {'''
+          if text.count(old) != 1:
+              raise SystemExit("matrix signature drift")
+          text = text.replace(old, new, 1)
+          old = "        const localeApproved = approved(draft);"
+          new = "        const localeApproved =\n          approved(draft) && input.approvalCurrentByDraftId[draft.draftId] === true;"
+          if text.count(old) != 1:
+              raise SystemExit("matrix approval projection drift")
+          matrix.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          route = Path("apps/web/src/app/api/admin/voxy-studio/route.ts")
+          text = route.read_text(encoding="utf-8")
+          old = '''  const audioInputsByDraftId = Object.fromEntries(audioEntries);\n  const localeReviewMatrices = buildVoxyStudioLocaleReviewMatrices({\n    drafts,\n    audioInputsByDraftId,\n  });'''
+          new = '''  const audioInputsByDraftId = Object.fromEntries(audioEntries);\n  const approvalCurrentByDraftId = Object.fromEntries(\n    items.map((item) => [\n      item.draft.draftId,\n      item.evidenceReview?.approved === true &&\n        item.draft.renderApproval?.decisionGateId === item.decisionGateId,\n    ]),\n  );\n  const localeReviewMatrices = buildVoxyStudioLocaleReviewMatrices({\n    drafts,\n    audioInputsByDraftId,\n    approvalCurrentByDraftId,\n  });'''
+          if text.count(old) != 1:
+              raise SystemExit("route locale matrix call drift")
+          route.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          tests = Path("apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts")
+          text = tests.read_text(encoding="utf-8")
+          old = '''      audioInputsByDraftId: {\n        [de.draftId]: [audio(de)],\n        [ar.draftId]: [],\n      },\n    });'''
+          new = '''      audioInputsByDraftId: {\n        [de.draftId]: [audio(de)],\n        [ar.draftId]: [],\n      },\n      approvalCurrentByDraftId: {\n        [de.draftId]: true,\n        [ar.draftId]: false,\n      },\n    });'''
+          if text.count(old) != 1:
+              raise SystemExit("primary matrix test drift")
+          text = text.replace(old, new, 1)
+          old = '''    const matrix = buildVoxyStudioLocaleReviewMatrices({ drafts: [de] })[0]!;'''
+          new = '''    const matrix = buildVoxyStudioLocaleReviewMatrices({\n      drafts: [de],\n      approvalCurrentByDraftId: { [de.draftId]: false },\n    })[0]!;'''
+          if text.count(old) != 1:
+              raise SystemExit("format matrix test drift")
+          text = text.replace(old, new, 1)
+          marker = '''  it("reports all three canonical format safety states for a prepared locale", () => {'''
+          insertion = '''  it("fails closed when an approved RTL locale is stale against current Evidence", () => {\n    const ar = draft({\n      id: "draft-ar",\n      locale: "ar",\n      status: "approved_for_render",\n      approved: true,\n    });\n    const matrix = buildVoxyStudioLocaleReviewMatrices({\n      drafts: [ar],\n      approvalCurrentByDraftId: { [ar.draftId]: false },\n    })[0]!;\n    const arabic = matrix.locales.find((entry) => entry.locale === "ar")!;\n\n    expect(matrix.approvedLocales).toBe(0);\n    expect(arabic).toMatchObject({\n      draftStatus: "approved_for_render",\n      exactLocaleApprovalPresent: false,\n      translationStatus: "needs_review",\n      rtlReviewRequired: true,\n      rtlReviewSatisfiedByExplicitLocaleApproval: false,\n    });\n  });\n\n  it("keeps rendered history visible without counting stale approval as current", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "rendered", approved: true });\n    const matrix = buildVoxyStudioLocaleReviewMatrices({\n      drafts: [de],\n      approvalCurrentByDraftId: { [de.draftId]: false },\n    })[0]!;\n    const german = matrix.locales.find((entry) => entry.locale === "de")!;\n\n    expect(matrix.approvedLocales).toBe(0);\n    expect(german).toMatchObject({\n      draftStatus: "rendered",\n      exactLocaleApprovalPresent: false,\n      translationStatus: "not_needed",\n    });\n  });\n\n'''
+          if text.count(marker) != 1:
+              raise SystemExit("test insertion marker drift")
+          tests.write_text(text.replace(marker, insertion + marker, 1), encoding="utf-8")
+          PY
+
+          git diff --check
+
+      - name: Install and verify bounded Slice B
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec vitest run tests/voxy-studio-locale-review-matrix.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+
+      - name: Commit and push product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts \
+            apps/web/src/app/api/admin/voxy-studio/route.ts \
+            apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts
+          git commit -m "fix(voxy): bind locale approvals to current evidence"
+          git push origin HEAD:fix/voxy-studio-review-consistency-b-01
