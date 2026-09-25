@@ -1,0 +1,114 @@
+name: OpenTasks shared conversation closeout
+
+on:
+  push:
+    branches:
+      - docs/shared-conversation-closeout-01
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  close:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/shared-conversation-closeout-01
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+
+      - name: Verify exact source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "a5c4e7c5c74d33b04cf92a49ca295f3ecc832c92"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+          test "$(git diff --name-only origin/main..HEAD)" = ".github/workflows/opentasks-shared-conversation-closeout.yml"
+          test "$(git rev-parse 'HEAD:docs/E150/OpenTasks.md')" = "b78df09b828ff9f1439d057318e2a6158ee0c8cb"
+          test -z "$(git status --porcelain)"
+
+      - name: Serialize consumed conversation authorization fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text(encoding='utf-8')
+          start_marker = '## Kanonischer Operativteil'
+          end_marker = '## Historischer Katalog und Evidenz'
+          target = 'SHARED-CONVERSATION-CONTRACT-01'
+
+          assert text.count(start_marker) == 1, f'operative_marker_count={text.count(start_marker)}'
+          assert text.count(end_marker) == 1, f'historical_marker_count={text.count(end_marker)}'
+          start = text.index(start_marker)
+          end = text.index(end_marker)
+          assert start < end
+
+          history = text[end:]
+          historical_hash = hashlib.sha256(history.encode('utf-8')).hexdigest()
+          lines = text[start:end].splitlines(keepends=True)
+          indexes = [i for i, line in enumerate(lines) if target in line]
+          assert len(indexes) == 1, f'operative_target_count={len(indexes)}'
+          idx = indexes[0]
+          old_line = lines[idx]
+          assert '| codex_ready |' in old_line, 'target_not_codex_ready'
+          assert 'Issue `#604`' in old_line, 'parent_issue_missing'
+          assert 'kein Auto-Handoff oder Auto-Publish' in old_line, 'guardrail_missing'
+
+          new_line = old_line.replace('| codex_ready |', '| review |', 1)
+          assert new_line != old_line
+          assert new_line.replace('| review |', '| codex_ready |', 1) == old_line, 'non_status_mutation_detected'
+          lines[idx] = new_line
+          new_operative = ''.join(lines)
+          new_text = text[:start] + new_operative + text[end:]
+          new_end = start + len(new_operative)
+          assert hashlib.sha256(new_text[new_end:].encode('utf-8')).hexdigest() == historical_hash, 'historical_tail_mutated'
+          path.write_text(new_text, encoding='utf-8')
+          print('OLD_ROW=' + old_line.rstrip('\n'))
+          print('NEW_ROW=' + new_line.rstrip('\n'))
+          print('historical_tail_sha256=' + historical_hash)
+          PY
+
+          git diff --check
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+          set +e
+          node scripts/codex-task-preflight.mjs SHARED-CONVERSATION-CONTRACT-01 > /tmp/preflight.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/preflight.txt
+          test "$rc" -eq 1
+          grep -F '"status": "review"' /tmp/preflight.txt
+          grep -F '"executable": false' /tmp/preflight.txt
+          grep -F '"reason": "task_status_not_executable:review"' /tmp/preflight.txt
+          if grep -F 'branchCreationAllowed' /tmp/preflight.txt; then
+            echo 'branchCreationAllowed unexpectedly present' >&2
+            exit 1
+          fi
+
+      - name: Commit canonical SSOT delta and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/opentasks-shared-conversation-closeout.yml
+          git add docs/E150/OpenTasks.md
+          test "$(git diff --cached --name-only | sort)" = $'.github/workflows/opentasks-shared-conversation-closeout.yml\ndocs/E150/OpenTasks.md'
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(e150): close shared conversation authorization'
+          git push origin HEAD:docs/shared-conversation-closeout-01
