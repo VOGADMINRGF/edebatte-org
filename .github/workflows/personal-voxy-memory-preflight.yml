@@ -1,0 +1,27 @@
+name: Personal Voxy memory task preflight
+
+on:
+  push:
+    branches:
+      - chore/personal-voxy-memory-preflight-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check current canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B main origin/main
+          echo "main_sha=$(git rev-parse HEAD)"
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs PERSONAL-VOXY-CONSENTED-MEMORY-RUNTIME-01
