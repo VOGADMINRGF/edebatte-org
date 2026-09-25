@@ -96,14 +96,23 @@ jobs:
           git commit -m 'docs(e150): authorize Voxy EU24 Slice B'
           test -z "$(git status --porcelain)"
 
-      - name: Run executable preflight on clean committed SSOT
+      - name: Verify branch gate is the only preflight blocker
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | tee /tmp/preflight.txt
+          set +e
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/preflight.txt
+          test "$rc" -eq 1
           grep -F '"status": "codex_ready"' /tmp/preflight.txt
-          grep -F '"executable": true' /tmp/preflight.txt
-          grep -F '"branchCreationAllowed": true' /tmp/preflight.txt
+          grep -F '"executable": false' /tmp/preflight.txt
+          grep -F '"reason": "branch_not_main:docs/voxy-eu24-slice-b-authorize-01"' /tmp/preflight.txt
+          if grep -F 'branchCreationAllowed' /tmp/preflight.txt; then
+            echo 'branchCreationAllowed unexpectedly present before main merge' >&2
+            exit 1
+          fi
           test -z "$(git status --porcelain)"
 
       - name: Self-delete writer and push canonical SSOT delta
