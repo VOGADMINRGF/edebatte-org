@@ -77,6 +77,53 @@ describe("qr studio target contract", () => {
     ).toBe("/qr-studio?caller=legacy_qrcodegenerator&targetState=blocked");
   });
 
+  it("blocks internal-origin escapes through raw or encoded separators", () => {
+    const attacks = [
+      "/\\audit-attacker.example/path",
+      "/\\\\audit-attacker.example/path",
+      "/%5c%5caudit-attacker.example/path",
+      "/%255c%255caudit-attacker.example/path",
+      "/%2f%2faudit-attacker.example/path",
+      "/%252f%252faudit-attacker.example/path",
+    ];
+
+    for (const target of attacks) {
+      const resolved = resolveQrStudioTarget({
+        target,
+        caller: "qr_studio",
+        publicOrigin: "https://www.edebatte.org",
+      });
+      expect(resolved.status).toBe("blocked");
+      expect(
+        buildQrStudioHref({
+          target,
+          caller: "qr_studio",
+          publicOrigin: "https://www.edebatte.org",
+        }),
+      ).toBe("/qr-studio?targetState=blocked");
+    }
+  });
+
+  it("never returns an internal target whose absolute URL leaves the public origin", () => {
+    const targets = [
+      "/dossier/demo-1?view=public#sources",
+      "/search?q=region%20berlin",
+      "/search?q=100%25",
+      "/\\audit-attacker.example/path",
+      "/%5c%5caudit-attacker.example/path",
+      "/%255c%255caudit-attacker.example/path",
+    ];
+
+    for (const target of targets) {
+      const resolved = resolveQrStudioTarget({
+        target,
+        publicOrigin: "https://www.edebatte.org",
+      });
+      if (resolved.status !== "ready" || resolved.targetKind !== "internal") continue;
+      expect(new URL(resolved.absoluteHref).origin).toBe("https://www.edebatte.org");
+    }
+  });
+
   it("keeps a small caller inventory for known qr entry sources", () => {
     expect(QR_STUDIO_CALLER_INVENTORY).toMatchObject({
       content_release_workbench: "Review-to-Publish Workspace",
