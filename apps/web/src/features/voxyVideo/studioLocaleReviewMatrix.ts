@@ -104,6 +104,7 @@ function newestDraft(left: VoxyStudioDraft, right: VoxyStudioDraft) {
 export function buildVoxyStudioLocaleReviewMatrices(input: {
   drafts: readonly VoxyStudioDraft[];
   audioInputsByDraftId?: Readonly<Record<string, readonly VoxyLocalCompositionAudioInputRecord[]>>;
+  approvalCurrentByDraftId: Readonly<Record<string, boolean>>;
 }): VoxyStudioLocaleReviewMatrix[] {
   const byBriefing = new Map<string, VoxyStudioDraft[]>();
   for (const draft of input.drafts) {
@@ -151,7 +152,8 @@ export function buildVoxyStudioLocaleReviewMatrices(input: {
           };
         }
 
-        const localeApproved = approved(draft);
+        const localeApproved =
+          approved(draft) && input.approvalCurrentByDraftId[draft.draftId] === true;
         const audioInputs = input.audioInputsByDraftId?.[draft.draftId] ?? [];
         const audio = audioInputs.find(
           (record) =>

@@ -130,6 +130,10 @@ describe("Voxy Studio canonical locale review matrix", () => {
         [de.draftId]: [audio(de)],
         [ar.draftId]: [],
       },
+      approvalCurrentByDraftId: {
+        [de.draftId]: true,
+        [ar.draftId]: false,
+      },
     });
 
     expect(matrices).toHaveLength(1);
@@ -175,9 +179,51 @@ describe("Voxy Studio canonical locale review matrix", () => {
     });
   });
 
+  it("fails closed when an approved RTL locale is stale against current Evidence", () => {
+    const ar = draft({
+      id: "draft-ar",
+      locale: "ar",
+      status: "approved_for_render",
+      approved: true,
+    });
+    const matrix = buildVoxyStudioLocaleReviewMatrices({
+      drafts: [ar],
+      approvalCurrentByDraftId: { [ar.draftId]: false },
+    })[0]!;
+    const arabic = matrix.locales.find((entry) => entry.locale === "ar")!;
+
+    expect(matrix.approvedLocales).toBe(0);
+    expect(arabic).toMatchObject({
+      draftStatus: "approved_for_render",
+      exactLocaleApprovalPresent: false,
+      translationStatus: "needs_review",
+      rtlReviewRequired: true,
+      rtlReviewSatisfiedByExplicitLocaleApproval: false,
+    });
+  });
+
+  it("keeps rendered history visible without counting stale approval as current", () => {
+    const de = draft({ id: "draft-de", locale: "de", status: "rendered", approved: true });
+    const matrix = buildVoxyStudioLocaleReviewMatrices({
+      drafts: [de],
+      approvalCurrentByDraftId: { [de.draftId]: false },
+    })[0]!;
+    const german = matrix.locales.find((entry) => entry.locale === "de")!;
+
+    expect(matrix.approvedLocales).toBe(0);
+    expect(german).toMatchObject({
+      draftStatus: "rendered",
+      exactLocaleApprovalPresent: false,
+      translationStatus: "not_needed",
+    });
+  });
+
   it("reports all three canonical format safety states for a prepared locale", () => {
     const de = draft({ id: "draft-de", locale: "de", status: "needs_review" });
-    const matrix = buildVoxyStudioLocaleReviewMatrices({ drafts: [de] })[0]!;
+    const matrix = buildVoxyStudioLocaleReviewMatrices({
+      drafts: [de],
+      approvalCurrentByDraftId: { [de.draftId]: false },
+    })[0]!;
     const german = matrix.locales.find((entry) => entry.locale === "de")!;
 
     expect(Object.keys(german.formatSafety).sort()).toEqual(["16:9", "1:1", "9:16"].sort());
