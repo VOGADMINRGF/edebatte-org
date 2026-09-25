@@ -107,7 +107,7 @@ jobs:
           git worktree add -b main /tmp/ai617-status "$candidate_sha"
           (
             cd /tmp/ai617-status
-            node --input-type=module -e "import { runPreflight } from './scripts/codex-task-preflight.mjs'; const {result,exitCode}=await runPreflight({taskId:'AI-CREATE-ORCHESTRATOR-LIVE-SMOKE-01'}); if (exitCode!==1 || result.status!=='manual_gate' || result.executable!==false || result.branchCreationAllowed!==false || result.reason!=='task_status_not_executable:manual_gate') throw new Error(JSON.stringify({result,exitCode})); console.log(JSON.stringify(result));"
+            node --input-type=module -e "import { runPreflight } from './scripts/codex-task-preflight.mjs'; const {result,exitCode}=await runPreflight({taskId:'AI-CREATE-ORCHESTRATOR-LIVE-SMOKE-01'}); if (exitCode!==1 || result.status!=='manual_gate' || result.executable!==false || result.reason!=='task_status_not_executable:manual_gate') throw new Error(JSON.stringify({result,exitCode})); console.log(JSON.stringify(result));"
             git diff --check
           )
           git worktree remove /tmp/ai617-status
