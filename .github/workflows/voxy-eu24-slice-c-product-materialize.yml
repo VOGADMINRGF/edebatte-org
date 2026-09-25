@@ -1,0 +1,227 @@
+name: Voxy EU24 Slice C product materialize
+
+on:
+  push:
+    branches:
+      - feat/voxy-eu24-semantic-guard-03-final
+    paths:
+      - .github/workflows/voxy-eu24-slice-c-product-materialize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact final branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Reprove exact-main authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH_SHA="$(git rev-parse HEAD)"
+          git fetch origin main feat/voxy-eu24-semantic-guard-03
+          git checkout -B main origin/main
+          test "$(git rev-parse HEAD)" = "19432c64120b874a4e0b8a5d2ddc52fedeacea8c"
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | tee /tmp/preflight.json
+          grep -q '"status": "codex_ready"' /tmp/preflight.json
+          grep -q '"executable": true' /tmp/preflight.json
+          grep -q '"branchCreationAllowed": true' /tmp/preflight.json
+          git checkout -B feat/voxy-eu24-semantic-guard-03-final "$BRANCH_SHA"
+
+      - name: Materialize validated semantic guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/feat/voxy-eu24-semantic-guard-03:apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts > apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts
+          git show origin/feat/voxy-eu24-semantic-guard-03:apps/web/tests/voxy-editorial-translation-semantic-guard.contract.test.ts > apps/web/tests/voxy-editorial-translation-semantic-guard.contract.test.ts
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected exactly one match in {path}, got {count}: {old[:90]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          semantic = Path("apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts")
+          text = semantic.read_text()
+          replacements = [
+              (
+                  """function unitTokens(value: string): string[] {\n  const raw = value.toLocaleLowerCase().match(/[a-z°%]+(?:\\/[a-z]+)?/g) ?? [];\n  return raw.filter((token) => UNIT_TOKENS.has(token)).sort();\n}\n""",
+                  """function unitTokens(value: string): string[] {\n  const normalized = value.toLocaleLowerCase();\n  const matches = normalized.matchAll(\n    /[-+]?\\d(?:[\\d\\s.,'’]*\\d)?\\s*(km\\/h|m\\/s|kwh|mwh|gwh|kw|mw|gw|wh|kg|mg|ppm|ppb|km|cm|mm|ml|ha|°c|°f|m|g|t|l|w)\\b/gu,\n  );\n  return Array.from(matches, (match) => match[1] ?? \"\").filter(Boolean).sort();\n}\n""",
+              ),
+              (
+                  """function acronymTokens(value: string): string[] {\n  const raw = value.match(/\\p{Lu}[\\p{Lu}\\p{N}&.-]{1,14}/gu) ?? [];\n""",
+                  """function acronymTokens(value: string): string[] {\n  const raw = value.match(/\\p{Lu}{2,}(?:[-&.]\\p{Lu}{2,})*/gu) ?? [];\n""",
+              ),
+              (
+                  """  if (sourceNegation !== targetNegation) {\n    input.reviewFlags.push(`semantic_guard_negation_risk:${input.path}`);\n  }\n""",
+                  """  if ((sourceNegation > 0) !== (targetNegation > 0)) {\n    input.reviewFlags.push(`semantic_guard_negation_risk:${input.path}`);\n  }\n""",
+              ),
+              (
+                  """  if (sourceUncertainty !== targetUncertainty) {\n    input.reviewFlags.push(`semantic_guard_modality_uncertainty_risk:${input.path}`);\n  }\n""",
+                  """  if ((sourceUncertainty > 0) !== (targetUncertainty > 0)) {\n    input.reviewFlags.push(`semantic_guard_modality_uncertainty_risk:${input.path}`);\n  }\n""",
+              ),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f"semantic detector anchor mismatch: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+          semantic.write_text(text)
+
+          path = "apps/web/src/features/voxyVideo/editorialLanguageVariant.ts"
+          replace_once(
+              path,
+              'import type { VoxyEditorialStoryPlan } from "./editorialStoryPlan";\n',
+              'import type { VoxyEditorialStoryPlan } from "./editorialStoryPlan";\n'
+              'import {\n'
+              '  evaluateVoxyEditorialTranslationSemanticGuard,\n'
+              '  VOXY_EDITORIAL_TRANSLATION_SEMANTIC_GUARD_VERSION,\n'
+              '  type VoxyEditorialTranslationSemanticGuardSnapshot,\n'
+              '} from "./editorialTranslationSemanticGuard";\n',
+          )
+          replace_once(
+              path,
+              '  translationStatus: VoxyEditorialTranslationStatus;\n  reviewRequired: true;\n',
+              '  translationStatus: VoxyEditorialTranslationStatus;\n'
+              '  semanticGuard?: VoxyEditorialTranslationSemanticGuardSnapshot;\n'
+              '  reviewRequired: true;\n',
+          )
+          replace_once(
+              path,
+              '  const translationStatus = input.translationStatus ?? "needs_review";\n'
+              '  if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(translationStatus)) {\n'
+              '    throw new Error("voxy_language_variant_translation_status_invalid");\n'
+              '  }\n',
+              '  const semanticGuard = evaluateVoxyEditorialTranslationSemanticGuard({\n'
+              '    masterPlan: input.masterPlan,\n'
+              '    translatedPlan: input.translatedPlan,\n'
+              '  });\n'
+              '  if (semanticGuard.hardBlockers.length > 0) {\n'
+              '    throw new Error(\n'
+              '      `voxy_language_variant_semantic_invariant_failed:${semanticGuard.hardBlockers.join(",")}`,\n'
+              '    );\n'
+              '  }\n\n'
+              '  const requestedTranslationStatus = input.translationStatus ?? "needs_review";\n'
+              '  if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(requestedTranslationStatus)) {\n'
+              '    throw new Error("voxy_language_variant_translation_status_invalid");\n'
+              '  }\n'
+              '  const translationStatus =\n'
+              '    requestedTranslationStatus === "approved" && semanticGuard.reviewFlags.length > 0\n'
+              '      ? "uncertain"\n'
+              '      : requestedTranslationStatus;\n',
+          )
+          replace_once(
+              path,
+              '      translationHash: computeVoxyEditorialTranslationHash(input.translatedPlan),\n'
+              '      translationStatus,\n'
+              '      reviewRequired: true,\n',
+              '      translationHash: computeVoxyEditorialTranslationHash(input.translatedPlan),\n'
+              '      translationStatus,\n'
+              '      semanticGuard: {\n'
+              '        version: semanticGuard.version,\n'
+              '        reviewFlags: semanticGuard.reviewFlags,\n'
+              '        reviewRequired: true,\n'
+              '        autoApprove: false,\n'
+              '      },\n'
+              '      reviewRequired: true,\n',
+          )
+          replace_once(
+              path,
+              '  if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(binding.translationStatus)) {\n'
+              '    errors.push("language_variant_translation_status_invalid");\n'
+              '  }\n'
+              '  if (\n',
+              '  if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(binding.translationStatus)) {\n'
+              '    errors.push("language_variant_translation_status_invalid");\n'
+              '  }\n'
+              '  if (binding.semanticGuard) {\n'
+              '    if (binding.semanticGuard.version !== VOXY_EDITORIAL_TRANSLATION_SEMANTIC_GUARD_VERSION) {\n'
+              '      errors.push("language_variant_semantic_guard_version_invalid");\n'
+              '    }\n'
+              '    if (\n'
+              '      binding.semanticGuard.reviewRequired !== true ||\n'
+              '      binding.semanticGuard.autoApprove !== false\n'
+              '    ) {\n'
+              '      errors.push("language_variant_semantic_guard_guardrails_broken");\n'
+              '    }\n'
+              '    if (\n'
+              '      binding.semanticGuard.reviewFlags.length > 0 &&\n'
+              '      binding.translationStatus === "approved"\n'
+              '    ) {\n'
+              '      errors.push("language_variant_semantic_guard_requires_review");\n'
+              '    }\n'
+              '  }\n'
+              '  if (\n',
+          )
+
+          path = "apps/web/src/features/voxyVideo/editorialStoryPlan.ts"
+          replace_once(
+              path,
+              'import type { CanonicalSourcePack } from "@/features/create/canonicalSourcePackContract";\n',
+              'import type { CanonicalSourcePack } from "@/features/create/canonicalSourcePackContract";\n'
+              'import { evaluateVoxyEditorialTranslationEvidenceTrust } from "./editorialTranslationSemanticGuard";\n',
+          )
+          replace_once(
+              path,
+              '    if (languageVariant.evidenceSourcePackId !== context.sourcePack.sourcePackId) {\n'
+              '      pushUnique(result.approvalBlockers, "language_variant_evidence_fingerprint_changed");\n'
+              '    }\n'
+              '  }\n',
+              '    if (languageVariant.evidenceSourcePackId !== context.sourcePack.sourcePackId) {\n'
+              '      pushUnique(result.approvalBlockers, "language_variant_evidence_fingerprint_changed");\n'
+              '    }\n'
+              '    for (const blocker of evaluateVoxyEditorialTranslationEvidenceTrust({\n'
+              '      sourcePack: context.sourcePack,\n'
+              '      targetLanguage: plan.outputLanguage,\n'
+              '    })) {\n'
+              '      pushUnique(result.approvalBlockers, blocker);\n'
+              '    }\n'
+              '  }\n',
+          )
+          PY
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prove product delta
+        run: |
+          pnpm -C apps/web exec vitest run \
+            tests/voxy-editorial-language-variant.contract.test.ts \
+            tests/voxy-editorial-translation-semantic-guard.contract.test.ts \
+            tests/multilingual-evidence-trust.contract.test.ts \
+            tests/canonical-source-pack.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+
+      - name: Commit only non-workflow product files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/web/src/features/voxyVideo/editorialLanguageVariant.ts \
+            apps/web/src/features/voxyVideo/editorialStoryPlan.ts \
+            apps/web/src/features/voxyVideo/editorialTranslationSemanticGuard.ts \
+            apps/web/tests/voxy-editorial-translation-semantic-guard.contract.test.ts
+          git diff --cached --name-only | tee /tmp/staged-files.txt
+          test "$(wc -l < /tmp/staged-files.txt | tr -d ' ')" = "4"
+          git commit -m "feat(voxy): enforce EU24 semantic translation guard"
+          git push origin HEAD:feat/voxy-eu24-semantic-guard-03-final
