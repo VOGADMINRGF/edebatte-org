@@ -74,6 +74,11 @@ jobs:
           pnpm -C apps/web exec vitest run
           tests/shared-conversation-contract.contract.test.ts
 
+      - name: Focused Voxy tool capability contract
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/voxy-tool-capability-adapters.contract.test.ts
+
       - name: Focused Voxy self-hosted motion contracts
         run: >-
           pnpm -C apps/web exec vitest run
