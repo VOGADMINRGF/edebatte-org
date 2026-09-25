@@ -17,6 +17,8 @@ import {
 } from "@/features/voxyVideo/localCompositionRuntime";
 import type { VoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
 
+export const VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS = 5 * 60 * 60 * 1_000;
+
 export type VoxyLocalCompositionApprovalAuthority = {
   resolveApproval(input: {
     requestedByUserId: string;
@@ -278,6 +280,97 @@ export async function executeVoxyLocalComposition(input: {
     }
     return latest;
   }
+}
+
+export async function recoverInterruptedVoxyLocalComposition(input: {
+  jobId: string;
+  repository: VoxyLocalCompositionRepository;
+  now?: string;
+  orphanAfterMs?: number;
+}): Promise<VoxyLocalCompositionJob> {
+  const current = await input.repository.getJob(input.jobId);
+  if (!current) throw new Error("voxy_local_composition_job_missing");
+  if (current.status === "review_ready" || current.status === "queued" || current.status === "failed") {
+    return current;
+  }
+
+  const recoveredAt = input.now ?? new Date().toISOString();
+
+  if (current.status === "rendered") {
+    const output = await input.repository.getOutput(current.outputId);
+    const outputErrors = output
+      ? validateVoxyLocalCompositionOutput({ job: current, output })
+      : ["output_missing"];
+    if (outputErrors.length > 0) {
+      const failure = safeVoxyLocalCompositionFailure(
+        new Error(`voxy_local_composition_recovery_output_invalid:${outputErrors.join(",")}`),
+      );
+      const failed: VoxyLocalCompositionJob = {
+        ...current,
+        status: "failed",
+        updatedAt: recoveredAt,
+        completedAt: recoveredAt,
+        safeErrorCode: failure.code,
+        safeErrorMessage: failure.message,
+      };
+      const markedFailed = await input.repository.transitionJob({
+        jobId: current.jobId,
+        expectedStatus: "rendered",
+        next: failed,
+      });
+      return markedFailed
+        ? failed
+        : ((await input.repository.getJob(current.jobId)) ?? current);
+    }
+
+    const reviewReady: VoxyLocalCompositionJob = {
+      ...current,
+      status: "review_ready",
+      updatedAt: recoveredAt,
+      safeErrorCode: null,
+      safeErrorMessage: null,
+    };
+    const markedReviewReady = await input.repository.transitionJob({
+      jobId: current.jobId,
+      expectedStatus: "rendered",
+      next: reviewReady,
+    });
+    return markedReviewReady
+      ? reviewReady
+      : ((await input.repository.getJob(current.jobId)) ?? current);
+  }
+
+  const nowMs = Date.parse(recoveredAt);
+  const lastUpdateMs = Date.parse(current.updatedAt);
+  const orphanAfterMs = Math.max(
+    1,
+    Math.trunc(input.orphanAfterMs ?? VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS),
+  );
+  if (
+    !Number.isFinite(nowMs) ||
+    !Number.isFinite(lastUpdateMs) ||
+    nowMs < lastUpdateMs ||
+    nowMs - lastUpdateMs < orphanAfterMs
+  ) {
+    return current;
+  }
+
+  const queued: VoxyLocalCompositionJob = {
+    ...current,
+    status: "queued",
+    attempt: current.attempt + 1,
+    updatedAt: recoveredAt,
+    startedAt: null,
+    completedAt: null,
+    safeErrorCode: null,
+    safeErrorMessage: null,
+  };
+  const recovered = await input.repository.transitionJob({
+    jobId: current.jobId,
+    expectedStatus: "rendering",
+    next: queued,
+  });
+  return recovered ? queued : ((await input.repository.getJob(current.jobId)) ?? current);
 }
 
 export async function retryVoxyLocalComposition(input: {
