@@ -11,6 +11,8 @@ import {
 import { createVoxyLocalCompositionProcessExecutor } from "../src/features/voxyVideo/localCompositionProcessExecutor";
 import {
   executeVoxyLocalComposition,
+  recoverInterruptedVoxyLocalComposition,
+  VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS,
   type VoxyLocalCompositionRuntimeDependencies,
 } from "../src/features/voxyVideo/localCompositionRuntimeService";
 import { getVoxyLocalCompositionRepository } from "../src/features/voxyVideo/localCompositionRuntimeStore";
@@ -58,6 +60,11 @@ async function main() {
   const outputRoot =
     argument("output-root") ?? process.env.VOXY_LOCAL_COMPOSITION_OUTPUT_ROOT?.trim() ?? null;
   const limit = positiveInteger(argument("limit"), 1, 10);
+  const recoveryOrphanAfterMs = positiveInteger(
+    argument("recovery-orphan-after-ms"),
+    VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS,
+    24 * 60 * 60 * 1_000,
+  );
   if (!audioRoot) throw new Error("voxy_local_composition_worker_audio_root_required");
   if (!outputRoot) throw new Error("voxy_local_composition_worker_output_root_required");
 
@@ -99,8 +106,47 @@ async function main() {
     }),
   };
 
-  const queued = await repository.listJobsByStatus("queued", limit);
   const results: Array<Record<string, unknown>> = [];
+
+  const rendered = await repository.listJobsByStatus("rendered", limit);
+  for (const job of rendered) {
+    const recovered = await recoverInterruptedVoxyLocalComposition({
+      jobId: job.jobId,
+      repository,
+      orphanAfterMs: recoveryOrphanAfterMs,
+    });
+    results.push({
+      jobId: recovered.jobId,
+      outputId: recovered.outputId,
+      renderProfile: recovered.renderProfile,
+      durationMs: recovered.durationMs ?? null,
+      status: recovered.status,
+      safeErrorCode: recovered.safeErrorCode,
+      recovery: "rendered_finalize",
+    });
+  }
+
+  const rendering = await repository.listJobsByStatus("rendering", limit);
+  for (const job of rendering) {
+    const recovered = await recoverInterruptedVoxyLocalComposition({
+      jobId: job.jobId,
+      repository,
+      orphanAfterMs: recoveryOrphanAfterMs,
+    });
+    if (recovered.status !== "queued") {
+      results.push({
+        jobId: recovered.jobId,
+        outputId: recovered.outputId,
+        renderProfile: recovered.renderProfile,
+        durationMs: recovered.durationMs ?? null,
+        status: recovered.status,
+        safeErrorCode: recovered.safeErrorCode,
+        recovery: recovered.status === "rendering" ? "active_lease_preserved" : "recovery_terminal",
+      });
+    }
+  }
+
+  const queued = await repository.listJobsByStatus("queued", limit);
   for (const job of queued) {
     const request = await repository.getRequestSnapshot(job.jobId);
     if (!request) {
@@ -160,6 +206,9 @@ async function main() {
       ok: true,
       processed: results.length,
       queuedAtStart: queued.length,
+      renderingInspected: rendering.length,
+      renderedInspected: rendered.length,
+      recoveryOrphanAfterMs,
       persistence,
       audioPersistence,
       results,
