@@ -115,15 +115,17 @@ async function main() {
       repository,
       orphanAfterMs: recoveryOrphanAfterMs,
     });
-    results.push({
-      jobId: recovered.jobId,
-      outputId: recovered.outputId,
-      renderProfile: recovered.renderProfile,
-      durationMs: recovered.durationMs ?? null,
-      status: recovered.status,
-      safeErrorCode: recovered.safeErrorCode,
-      recovery: "rendered_finalize",
-    });
+    if (recovered.status !== "queued") {
+      results.push({
+        jobId: recovered.jobId,
+        outputId: recovered.outputId,
+        renderProfile: recovered.renderProfile,
+        durationMs: recovered.durationMs ?? null,
+        status: recovered.status,
+        safeErrorCode: recovered.safeErrorCode,
+        recovery: "rendered_terminal",
+      });
+    }
   }
 
   const rendering = await repository.listJobsByStatus("rendering", limit);
