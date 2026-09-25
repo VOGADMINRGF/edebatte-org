@@ -1,32 +1,31 @@
-name: Newsletter closeout preflight diagnostic
+name: Newsletter closeout preflight witness
 
 on:
   push:
     branches:
       - fix/newsletter-closeout-handoff-safety-02
 
-permissions:
-  contents: write
-
 jobs:
-  diagnose:
+  preflight:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: fix/newsletter-closeout-handoff-safety-02
-      - name: Capture clean preflight result
+          ref: main
+      - name: Verify exact main and executable task
         shell: bash
         run: |
-          set -u
-          OUT=newsletter-closeout-preflight-diagnostic.txt
-          : > "$OUT"
-          printf 'main=%s\n' "$(git rev-parse origin/main 2>/dev/null || true)" >> "$OUT"
-          printf 'status_before=%s\n' "$(git status --porcelain | wc -l)" >> "$OUT"
-          node scripts/codex-task-preflight.mjs NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 >> "$OUT" 2>&1 || true
-          git config user.name 'VOGADMINRGF'
-          git config user.email 'rgf@voiceopengov.de'
-          git add "$OUT"
-          git commit -m 'chore(newsletter): capture closeout preflight diagnostic'
-          git push origin HEAD:fix/newsletter-closeout-handoff-safety-02
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "14f2350dd53317088014ccd45ee3687cb117b111"
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 > /tmp/preflight.json
+          cat /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('/tmp/preflight.json', 'utf8'));
+          if (p.status !== 'codex_ready' || p.executable !== true || p.branchCreationAllowed !== true) {
+            console.error(p);
+            process.exit(1);
+          }
+          NODE
