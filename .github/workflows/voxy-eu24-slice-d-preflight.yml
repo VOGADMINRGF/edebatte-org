@@ -1,0 +1,30 @@
+name: Voxy EU24 Slice D Preflight
+
+on:
+  push:
+    branches:
+      - docs/voxy-eu24-slice-d-authorization
+    paths:
+      - .github/workflows/voxy-eu24-slice-d-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Assert exact main and run task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "74b388c8a34fe977fa6346f94242af7bce7ac706"
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01
