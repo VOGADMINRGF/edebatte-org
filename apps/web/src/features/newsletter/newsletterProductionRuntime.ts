@@ -26,7 +26,7 @@ type SubscriberDoc = Parameters<typeof buildNewsletterDigestPreviewForSubscriber
 
 type DeliveryDoc = {
   _id: string;
-  status: "attempting" | "sending" | "sent" | "failed" | "skipped";
+  status: "sending" | "sent" | "failed" | "skipped";
   attemptCount: number;
   retryable?: boolean | null;
   updatedAt: Date;
@@ -39,9 +39,6 @@ function digest(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function recipientHash(email: string) {
-  return digest(email.trim().toLowerCase()).slice(0, 32);
-}
 
 function deliveryId(email: string, digestKey: string) {
   return digest(`${email.trim().toLowerCase()}|${digestKey}`).slice(0, 48);
@@ -57,7 +54,7 @@ function deliveryBlock(existing: DeliveryDoc | null, now: Date) {
   if (existing.status === "sent") {
     return { ok: true as const, status: "skipped" as const, reason: "already_sent" as const };
   }
-  if (existing.status === "attempting" || existing.status === "sending") {
+  if (existing.status === "sending") {
     return { ok: true as const, status: "skipped" as const, reason: "ambiguous_previous_attempt" as const };
   }
   if (existing.status !== "failed") return null;
@@ -92,11 +89,8 @@ export async function cleanupNewsletterDeliveryLedger(now = new Date()) {
   const retentionMs = retentionUntil.getTime() - now.getTime();
   const cutoff = new Date(now.getTime() - retentionMs);
   const result = await ledger.deleteMany({
+    status: { $in: ["sent", "failed", "skipped"] },
     updatedAt: { $lt: cutoff },
-    $or: [
-      { status: { $in: ["sent", "skipped"] } },
-      { status: "failed", externalAttemptBoundaryAt: { $exists: false } },
-    ],
   } as never);
   return { deleted: result.deletedCount ?? 0, cutoff };
 }
@@ -223,40 +217,6 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
     const leasedBlock = deliveryBlock(await ledger.findOne({ _id: id }), now);
     if (leasedBlock) return leasedBlock;
 
-    const boundaryAt = new Date();
-    const externalAttemptId = crypto.randomUUID();
-    try {
-      await ledger.updateOne(
-        { _id: id },
-        {
-          $setOnInsert: {
-            _id: id,
-            recipientHash: recipientHash(freshPreview.email),
-            userId: freshSubscriber.userId ?? null,
-            digestKey: freshPreview.digestKey,
-            candidateIds: freshPreview.candidateIds,
-            audienceTier: freshPreview.audienceTier,
-            frequency: freshPreview.frequency,
-            attemptCount: 0,
-            createdAt: boundaryAt,
-          },
-          $set: {
-            status: "attempting",
-            externalAttemptBoundaryAt: boundaryAt,
-            externalAttemptId,
-            updatedAt: boundaryAt,
-          },
-          $unset: {
-            failureCategory: "",
-            retryable: "",
-          },
-        } as never,
-        { upsert: true },
-      );
-    } catch {
-      return { ok: false as const, status: "blocked" as const, reason: "delivery_attempt_boundary_unavailable" as const };
-    }
-
     try {
       const result = await sendNewsletterDigestForSubscriber(freshSubscriber, { now, candidates });
       if (result.status === "failed" && "delivery" in result) {
@@ -264,8 +224,8 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
       }
       return result;
     } catch {
-      // Once the durable boundary exists, an exception cannot prove that SMTP/provider
-      // handoff did not happen. Keep the marker and require reconciliation instead of resend.
+      // The canonical sender persists the durable `sending` boundary before SMTP.
+      // Any exception here is therefore reconciled conservatively and never auto-replayed.
       return { ok: false as const, status: "blocked" as const, reason: "ambiguous_delivery_state" as const };
     }
   } finally {
@@ -336,7 +296,7 @@ export async function getNewsletterLifecycleSnapshot(now = new Date()) {
     ledger.countDocuments({
       updatedAt: { $gte: since },
       $or: [
-        { status: { $in: ["attempting", "sending"] } },
+        { status: "sending" },
         {
           status: "failed",
           failureCategory: {
