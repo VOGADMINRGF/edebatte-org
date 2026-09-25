@@ -1,0 +1,93 @@
+name: Voxy EU24 Slice E closeout
+
+on:
+  push:
+    branches:
+      - docs/voxy-eu24-slice-e-closeout
+    paths:
+      - .github/workflows/voxy-eu24-slice-e-closeout.yml
+
+permissions:
+  contents: write
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify exact main and OpenTasks blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "20a58fd748ccb44d40afdfca41b26e952fdde435"
+          test "$(git rev-parse HEAD^)" = "20a58fd748ccb44d40afdfca41b26e952fdde435"
+          test "$(git rev-parse '20a58fd748ccb44d40afdfca41b26e952fdde435:docs/E150/OpenTasks.md')" = "b9b3890a242f4194b9e8b8191846ab7bd0e8c95d"
+
+      - name: Consume Slice E authorization losslessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          p = Path("docs/E150/OpenTasks.md")
+          text = p.read_text()
+          marker = "## Historischer Katalog und Evidenz"
+          if text.count(marker) != 1:
+              raise SystemExit(f"historical marker count={text.count(marker)}")
+          before_tail = text[text.index(marker):]
+          before_hash = hashlib.sha256(before_tail.encode()).hexdigest()
+
+          old = '''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; Intake #969; Slices A–D abgeschlossen, Slice D via #1039 / Merge `e683a746236a5a53dea182511f7b862b39bf2905` | **Slice E only — Multilingual Editorial E2E:** auf den bestehenden Dossier-/Evidence-/Story-Plan-/Language-Variant-/Semantic-Guard-/Voice-/Caption-/#568-Local-Composition-/Preview-Review-Verträgen mehrere echte Cross-Language-Ketten revisionsgebunden nachweisen; mindestens Ketten der Form `Quelle PL → Dossier DE → Video FR`, `Quelle ET + EN + DE → gemeinsames Dossier → Video IT` und `Master DE → geprüfte Variante BG → Voice/Captions → 9:16 / 16:9 / 1:1`; Claims/Sources/Findings/Evidence/Open-Question-IDs bleiben über alle Sprachfassungen identisch referenziert, nur zulässige Darstellungsfelder variieren; Master-/Evidence-/Translation-Drift muss bestehende Sprach-/Voice-/Caption-/Renderfreigaben fail-closed stale machen | Kein neuer i18n-/Translation-/Story-/Evidence-/Review-/Voice-/Caption-/Render-/Media-Store; kein neuer Renderer und keine Provider-Aktivierung; Übersetzung bleibt Lesefassung und keine Evidence; `uncertain`/`needs_review`/`voice_unavailable`/stale Bindings bleiben render-/publish-blockierend; dieselbe Final-Canon-/Review-Wahrheit für alle Locales; fokussierte mehrsprachige E2E-Contracts + bestehender Voice-Caption-/Voxy Runtime/Final-Canon/Visual-QA/Web-CI + Typecheck/Lint/Build/`git diff --check`; keine externe Veröffentlichung, kein Upload, Scheduling oder Auto-Publish |'''
+          new = '''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | done | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; Intake #969; Slices A–E abgeschlossen; Slice E via #1042 / Merge `20a58fd748ccb44d40afdfca41b26e952fdde435` | **Abgeschlossen — Multilingual Editorial E2E:** bestehende Dossier-/Evidence-/Story-Plan-/Language-Variant-/Semantic-Guard-/Voice-/Caption-/#568-Local-Composition-/Preview-Review-Verträge decken die revisionsgebundenen Cross-Language-Ketten `Quelle PL → Dossier DE → Video FR`, `Quelle ET + EN + DE → gemeinsames Dossier → Video IT` und `Master DE → geprüfte Variante BG → Voice/Captions → 9:16 / 16:9 / 1:1` ab; Claims/Sources/Findings/Evidence/Open-Question-IDs bleiben sprachübergreifend identisch referenziert; Master-/Evidence-/Translation-Drift invalidiert Sprach-/Voice-/Caption-/Renderfreigaben fail-closed | Kein neuer i18n-/Translation-/Story-/Evidence-/Review-/Voice-/Caption-/Render-/Media-Store; kein neuer Renderer und keine Provider-Aktivierung; Übersetzung bleibt Lesefassung und keine Evidence; `uncertain`/`needs_review`/`voice_unavailable`/stale Bindings bleiben render-/publish-blockierend; Final Canon und Review-Wahrheit gelten für alle Locales; Slice-E-Evidence über #1042 Exact-Head Final Canon, Voice/Caption und Web CI grün; keine weitere #969-Slice-Autorisierung offen |'''
+
+          if text.count(old) != 1:
+              raise SystemExit(f"expected exactly one Slice E row, got {text.count(old)}")
+          updated = text.replace(old, new, 1)
+          if updated.count("| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 |") != 1:
+              raise SystemExit("#969 operative row not unique after update")
+          after_tail = updated[updated.index(marker):]
+          after_hash = hashlib.sha256(after_tail.encode()).hexdigest()
+          if before_hash != after_hash:
+              raise SystemExit("historical tail changed")
+          p.write_text(updated)
+          PY
+
+      - name: Verify fail-closed post-closeout preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.json || true
+          cat /tmp/preflight.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open('/tmp/preflight.json'))
+          assert data.get('status') == 'done', data
+          assert data.get('executable') is False, data
+          assert data.get('branchCreationAllowed') is not True, data
+          PY
+          git diff --check
+
+      - name: Commit lossless closeout and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git rm .github/workflows/voxy-eu24-slice-e-closeout.yml
+          mapfile -t files < <(git diff --cached --name-only)
+          test "${#files[@]}" -eq 2
+          printf '%s\n' "${files[@]}" | grep -Fx 'docs/E150/OpenTasks.md'
+          printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-eu24-slice-e-closeout.yml'
+          git commit -m "docs(e150): close Voxy EU24 Slice E"
+          git push origin HEAD:docs/voxy-eu24-slice-e-closeout
