@@ -1,4 +1,9 @@
 import type { VoxyEditorialStoryPlan } from "./editorialStoryPlan";
+import {
+  evaluateVoxyEditorialTranslationSemanticGuard,
+  VOXY_EDITORIAL_TRANSLATION_SEMANTIC_GUARD_VERSION,
+  type VoxyEditorialTranslationSemanticGuardSnapshot,
+} from "./editorialTranslationSemanticGuard";
 
 export const VOXY_EDITORIAL_LANGUAGE_VARIANT_VERSION =
   "voxy-editorial-language-variant-v1" as const;
@@ -23,6 +28,7 @@ export type VoxyEditorialLanguageVariantBinding = {
   translationRevision: number;
   translationHash: string;
   translationStatus: VoxyEditorialTranslationStatus;
+  semanticGuard?: VoxyEditorialTranslationSemanticGuardSnapshot;
   reviewRequired: true;
   autoRender: false;
   autoPublish: false;
@@ -230,10 +236,24 @@ export function bindVoxyEditorialLanguageVariant(input: {
     throw new Error("voxy_language_variant_locale_binding_mismatch");
   }
 
-  const translationStatus = input.translationStatus ?? "needs_review";
-  if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(translationStatus)) {
+  const semanticGuard = evaluateVoxyEditorialTranslationSemanticGuard({
+    masterPlan: input.masterPlan,
+    translatedPlan: input.translatedPlan,
+  });
+  if (semanticGuard.hardBlockers.length > 0) {
+    throw new Error(
+      `voxy_language_variant_semantic_invariant_failed:${semanticGuard.hardBlockers.join(",")}`,
+    );
+  }
+
+  const requestedTranslationStatus = input.translationStatus ?? "needs_review";
+  if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(requestedTranslationStatus)) {
     throw new Error("voxy_language_variant_translation_status_invalid");
   }
+  const translationStatus =
+    requestedTranslationStatus === "approved" && semanticGuard.reviewFlags.length > 0
+      ? "uncertain"
+      : requestedTranslationStatus;
 
   return {
     ...input.translatedPlan,
@@ -247,6 +267,12 @@ export function bindVoxyEditorialLanguageVariant(input: {
       translationRevision: input.translationRevision,
       translationHash: computeVoxyEditorialTranslationHash(input.translatedPlan),
       translationStatus,
+      semanticGuard: {
+        version: semanticGuard.version,
+        reviewFlags: semanticGuard.reviewFlags,
+        reviewRequired: true,
+        autoApprove: false,
+      },
       reviewRequired: true,
       autoRender: false,
       autoPublish: false,
@@ -287,6 +313,23 @@ export function validateVoxyEditorialLanguageVariantBinding(
   }
   if (!VOXY_EDITORIAL_TRANSLATION_STATUSES.includes(binding.translationStatus)) {
     errors.push("language_variant_translation_status_invalid");
+  }
+  if (binding.semanticGuard) {
+    if (binding.semanticGuard.version !== VOXY_EDITORIAL_TRANSLATION_SEMANTIC_GUARD_VERSION) {
+      errors.push("language_variant_semantic_guard_version_invalid");
+    }
+    if (
+      binding.semanticGuard.reviewRequired !== true ||
+      binding.semanticGuard.autoApprove !== false
+    ) {
+      errors.push("language_variant_semantic_guard_guardrails_broken");
+    }
+    if (
+      binding.semanticGuard.reviewFlags.length > 0 &&
+      binding.translationStatus === "approved"
+    ) {
+      errors.push("language_variant_semantic_guard_requires_review");
+    }
   }
   if (
     binding.reviewRequired !== true ||

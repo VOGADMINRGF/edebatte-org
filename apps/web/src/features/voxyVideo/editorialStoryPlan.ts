@@ -3,6 +3,7 @@ import {
   type SupportedLocale,
 } from "@/config/locales";
 import type { CanonicalSourcePack } from "@/features/create/canonicalSourcePackContract";
+import { evaluateVoxyEditorialTranslationEvidenceTrust } from "./editorialTranslationSemanticGuard";
 import type {
   DossierClaimDoc,
   DossierFindingDoc,
@@ -460,6 +461,12 @@ export function validateVoxyEditorialStoryPlan(
     }
     if (languageVariant.evidenceSourcePackId !== context.sourcePack.sourcePackId) {
       pushUnique(result.approvalBlockers, "language_variant_evidence_fingerprint_changed");
+    }
+    for (const blocker of evaluateVoxyEditorialTranslationEvidenceTrust({
+      sourcePack: context.sourcePack,
+      targetLanguage: plan.outputLanguage,
+    })) {
+      pushUnique(result.approvalBlockers, blocker);
     }
   }
   if (plan.chapters.length === 0) pushUnique(result.errors, "story_chapters_missing");
