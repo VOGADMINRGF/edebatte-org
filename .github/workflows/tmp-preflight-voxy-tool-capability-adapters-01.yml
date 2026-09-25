@@ -1,0 +1,29 @@
+name: Temporary Voxy tool capability preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-voxy-tool-capability-adapters-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Pin exact main
+        shell: bash
+        env:
+          EXPECTED_MAIN: a64d19adf00f0506b01eecb4ba8a5e61e53fe25f
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "main"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN" || { echo "main_drift:$(git rev-parse HEAD)"; exit 41; }
+          test -z "$(git status --porcelain)" || { git status --porcelain; exit 42; }
+      - name: Canonical task preflight
+        run: node scripts/codex-task-preflight.mjs VOXY-TOOL-CAPABILITY-ADAPTERS-01
