@@ -89,6 +89,9 @@ describe("Voxy editorial language variant revision contract", () => {
       autoRender: false,
       autoPublish: false,
     });
+    expect(variant.reviewRequired).toBe(true);
+    expect(variant.autoRender).toBe(false);
+    expect(variant.autoPublish).toBe(false);
     expect(variant.languageVariant.translationHash).toMatch(/^[0-9a-f]{64}$/);
     expect(variant.languageVariant.translationHash).toBe(computeVoxyEditorialTranslationHash(variant));
     expect(validateVoxyEditorialLanguageVariantBinding(variant)).toEqual([]);
