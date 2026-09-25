@@ -76,6 +76,15 @@ jobs:
           tests/voxy-self-hosted-motion-strategy.contract.test.ts
           tests/voxy-character-motion-fixture.contract.test.ts
 
+      - name: Focused Swipe and privacy contracts
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/swipes-human-question-contract.contract.test.ts
+          tests/swipe-auth-gate.contract.test.tsx
+          tests/privacy-gate-dialog.contract.test.tsx
+          tests/privacy-gate-consent-recovery.contract.test.tsx
+          tests/swipe-vote-privacy.route.test.ts
+
       - name: Focused Create runtime contracts
         run: >-
           pnpm -C apps/web exec vitest run
