@@ -1,0 +1,31 @@
+name: Newsletter PR 1037 final main sync
+
+on:
+  push:
+    branches:
+      - fix/newsletter-delivery-closeout-delta-02
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/newsletter-delivery-closeout-delta-02
+      - name: Merge collision-free current main and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'VOGADMINRGF'
+          git config user.email 'rgf@voiceopengov.de'
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "d7f3884455958d65db0e03bc1bf2e0c78e70dd81"
+          git merge --no-edit origin/main
+          git rm .github/workflows/newsletter-1037-final-main-sync.yml
+          git diff --check
+          git commit -m 'chore(newsletter): sync PR 1037 with current main'
+          git push origin HEAD:fix/newsletter-delivery-closeout-delta-02
