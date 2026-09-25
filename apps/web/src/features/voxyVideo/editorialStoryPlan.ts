@@ -10,6 +10,11 @@ import type {
 } from "@features/dossier/schemas";
 import type { VoxyRigMotionState } from "./animatableMasterAsset";
 import type { VoxyVideoFormat } from "./modernCharacterContracts";
+import {
+  getVoxyEditorialLanguageVariantBinding,
+  validateVoxyEditorialLanguageVariantBinding,
+  type VoxyEditorialLanguageVariantBinding,
+} from "./editorialLanguageVariant";
 
 export const VOXY_EDITORIAL_STORY_PLAN_VERSION =
   "voxy-editorial-story-plan-v1" as const;
@@ -152,6 +157,7 @@ export type VoxyEditorialStoryPlan = {
   chapters: VoxyEditorialStoryChapter[];
   derivedFromStoryPlanId: string | null;
   derivedFromRevision: number | null;
+  languageVariant?: VoxyEditorialLanguageVariantBinding | null;
   reviewRequired: true;
   autoRender: false;
   autoPublish: false;
@@ -440,6 +446,21 @@ export function validateVoxyEditorialStoryPlan(
   }
   if (plan.reviewRequired !== true || plan.autoRender !== false || plan.autoPublish !== false) {
     pushUnique(result.errors, "review_first_guardrails_broken");
+  }
+  const languageVariant = getVoxyEditorialLanguageVariantBinding(plan);
+  for (const error of validateVoxyEditorialLanguageVariantBinding(plan)) {
+    pushUnique(result.errors, error);
+  }
+  if (languageVariant) {
+    if (languageVariant.translationStatus !== "approved") {
+      pushUnique(
+        result.approvalBlockers,
+        `language_variant_translation_not_approved:${languageVariant.translationStatus}`,
+      );
+    }
+    if (languageVariant.evidenceSourcePackId !== context.sourcePack.sourcePackId) {
+      pushUnique(result.approvalBlockers, "language_variant_evidence_fingerprint_changed");
+    }
   }
   if (plan.chapters.length === 0) pushUnique(result.errors, "story_chapters_missing");
 

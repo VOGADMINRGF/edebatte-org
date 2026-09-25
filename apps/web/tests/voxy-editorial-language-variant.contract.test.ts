@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { VoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
+import { validateVoxyEditorialStoryPlan, type VoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
 import {
   bindVoxyEditorialLanguageVariant,
   buildVoxyEditorialScriptVersion,
@@ -148,6 +148,28 @@ describe("Voxy editorial language variant revision contract", () => {
       })),
     };
     expect(computeVoxyEditorialTranslationHash(evidenceOnlyChange)).toBe(presentationHash);
+  });
+
+  it("blocks editorial approval when translation review or evidence binding is stale", () => {
+    const variant = frenchVariant();
+    const pending = {
+      ...variant,
+      languageVariant: { ...variant.languageVariant, translationStatus: "needs_review" as const },
+    };
+    const context = {
+      sourcePack: { sourcePackId: "source-pack-new", sources: [], openGaps: [], reviewRequired: true, autoPublish: false },
+      claims: [],
+      findings: [],
+      openQuestions: [],
+    } as any;
+    const validation = validateVoxyEditorialStoryPlan(pending, context);
+    expect(validation.approvalBlockers).toEqual(
+      expect.arrayContaining([
+        "language_variant_translation_not_approved:needs_review",
+        "language_variant_evidence_fingerprint_changed",
+      ]),
+    );
+    expect(validation.renderEligible).toBe(false);
   });
 
   it("preserves the legacy script version for non-translated master plans", () => {
