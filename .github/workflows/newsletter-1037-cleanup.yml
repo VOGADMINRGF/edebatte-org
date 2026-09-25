@@ -1,0 +1,51 @@
+name: Newsletter PR 1037 convergence cleanup
+
+on:
+  push:
+    branches:
+      - fix/newsletter-delivery-closeout-delta-02
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/newsletter-delivery-closeout-delta-02
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Merge current main, remove temporary workflows, validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'VOGADMINRGF'
+          git config user.email 'rgf@voiceopengov.de'
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "14f2350dd53317088014ccd45ee3687cb117b111"
+          git merge --no-edit origin/main
+          rm -f \
+            .github/workflows/newsletter-closeout-delta-02.yml \
+            .github/workflows/newsletter-closeout-product-runner.yml \
+            .github/workflows/newsletter-closeout-workflow-patcher.yml \
+            .github/workflows/newsletter-1037-cleanup.yml
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec vitest run \
+            tests/newsletter-account-subscription-adapter.test.ts \
+            tests/newsletter-closeout-handoff.contract.test.ts \
+            tests/newsletter-n8-n9-acceptance.test.ts \
+            tests/newsletter-subscription-reconciliation.test.ts \
+            tests/newsletter-delivery-lifecycle.test.ts \
+            tests/newsletter-delivery-lease.test.ts
+          pnpm -C apps/web run typecheck
+          pnpm lint
+          git diff --check
+          git add -A
+          git commit -m 'chore(newsletter): converge PR 1037 on current main'
+          git push origin HEAD:fix/newsletter-delivery-closeout-delta-02
