@@ -1,0 +1,84 @@
+name: Voxy review consistency Slice C single writer
+
+on:
+  push:
+    branches:
+      - docs/voxy-review-consistency-c-authorize-01
+
+permissions:
+  contents: write
+
+jobs:
+  authorize-slice-c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+
+      - name: Verify exact source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "6d8faf300f44f5a721ebfff5e6120d48e5cafdb7"
+          test "$(git hash-object docs/E150/OpenTasks.md)" = "10fbef41c9a3076f8749c8971b93f5992831ee55"
+
+      - name: Consume Slice B and serialize Slice C authorization atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/E150/OpenTasks.md")
+          text = path.read_text(encoding="utf-8")
+          prefix = "| VOXY-STUDIO-REVIEW-CONSISTENCY-01 |"
+          lines = text.splitlines()
+          matches = [i for i, line in enumerate(lines) if line.startswith(prefix)]
+          if len(matches) != 1:
+              raise SystemExit(f"expected exactly one operative row, found {len(matches)}")
+
+          old = lines[matches[0]]
+          required = [
+              "| codex_ready | P1 |",
+              "**Slice B only:**",
+              "**Slice C bleibt nicht autorisiert**",
+          ]
+          for token in required:
+              if token not in old:
+                  raise SystemExit(f"unexpected existing row; missing {token!r}")
+
+          lines[matches[0]] = (
+              "| VOXY-STUDIO-REVIEW-CONSISTENCY-01 | codex_ready | P1 | "
+              "Issue `#977`; Slice A via PR `#1001` abgeschlossen; Slice B via PR `#1011` / Merge `6d8faf300f44f5a721ebfff5e6120d48e5cafdb7` abgeschlossen; bestehende Voxy Local Composition Runtime und Web CI | "
+              "**Slice C only:** vorhandene kritische Review-/Evidence-/Story-Contract-Suiten in den bestehenden `.github/workflows/voxy-local-composition-runtime.yml` integrieren und die zugehörigen Produktions-/Test-Pfade in dessen `pull_request.paths` ergänzen; keine zweite CI-Pipeline | "
+              "Bestehende `voxy-studio-preview-review`, `voxy-studio-evidence-review`, `voxy-editorial-story-plan` und `voxy-editorial-evidence-window` Contract-Suiten laufen im bestehenden Runtime-Gate; Änderungen an `studioPreviewReview.ts`, `studioEvidenceReview.ts`, `editorialEvidenceWindow.ts` und den vier Tests triggern denselben Gate-Pfad; vorhandene Real-Render-/Canon-Smokes bleiben unverändert; Workflow-Syntax + fokussierte Contracts + Typecheck + `git diff --check`; keine Produkt-, Provider-, Render-, Publish- oder Deployment-Side-Effects |"
+          )
+          path.write_text("\n".join(lines) + ("\n" if text.endswith("\n") else ""), encoding="utf-8")
+          PY
+
+          node --input-type=module <<'NODE'
+          import fs from "node:fs/promises";
+          import { extractOperativeHead, parseOperativeTaskStatuses } from "./scripts/codex-task-preflight.mjs";
+          const text = await fs.readFile("docs/E150/OpenTasks.md", "utf8");
+          const statuses = parseOperativeTaskStatuses(extractOperativeHead(text));
+          if (statuses.get("VOXY-STUDIO-REVIEW-CONSISTENCY-01") !== "codex_ready") {
+            throw new Error("slice_c_status_not_codex_ready");
+          }
+          NODE
+          git diff --check
+
+      - name: Commit canonical SSOT delta and remove writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/voxy-review-consistency-c-single-writer.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md .github/workflows/voxy-review-consistency-c-single-writer.yml
+          git commit -m "docs(e150): authorize Voxy review consistency Slice C"
+          git push origin HEAD:docs/voxy-review-consistency-c-authorize-01
