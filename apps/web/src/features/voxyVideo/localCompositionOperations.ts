@@ -193,7 +193,6 @@ export async function writeVoxyWorkerHeartbeat(input: {
     { _id: HEARTBEAT_ID },
     {
       $set: {
-        _id: HEARTBEAT_ID,
         kind: "worker_heartbeat",
         record: clone(heartbeat),
         heartbeatAt: heartbeat.heartbeatAt,
