@@ -1,0 +1,65 @@
+name: Voxy EU24 Slice D authorization
+
+on:
+  push:
+    branches:
+      - docs/voxy-eu24-slice-d-authorization
+    paths:
+      - .github/workflows/voxy-eu24-slice-d-authorize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Atomically authorize Slice D
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('docs/E150/OpenTasks.md')
+          text = path.read_text()
+          lines = text.splitlines()
+          prefix = '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 |'
+          matches = [i for i, line in enumerate(lines) if line.startswith(prefix)]
+          if len(matches) != 1:
+              raise SystemExit(f'expected exactly one operative #969 row, got {len(matches)}')
+
+          i = matches[0]
+          old = lines[i]
+          required = [
+              '| codex_ready | P0 |',
+              'Slice C only — Semantic Translation Guard',
+              'Slices D–E bleiben nicht autorisiert',
+          ]
+          for marker in required:
+              if marker not in old:
+                  raise SystemExit(f'missing expected Slice C anchor: {marker}')
+
+          lines[i] = '| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; Intake #969; Slices A–C abgeschlossen, Slice C via #1030 / Merge `864366d7cc06410c0f6f601fe4f05e72e382341e` | **Slice D only — Voice/Caption EU-24 Readiness:** bestehenden Locale-/`voiceLocaleMatrix`-/Story-Plan-/Language-Variant-/Voice-/Caption-/#568-Local-Composition-Stack für alle 24 EU-Amtssprachen plus bestehende Zusatzlocales readiness-seitig schließen; pro Output-Locale nur explizit freigegebenes `voiceProfileId`, kein stiller Locale-/Voice-Fallback; fehlende geeignete Stimme bleibt sichtbar `voice_unavailable` und render-blockierend, während Text-/Caption-Arbeit fortgesetzt werden darf; Voice, Caption-Timeline, Language Variant und Story Plan müssen dieselbe Target-Locale und Revision tragen; Translation-Revision-Drift invalidiert Audio-/Caption-/Renderbindung; Caption-/Layout-/Unicode-/Timing-Contracts decken insbesondere `bg/da/et/ga/hr/hu/lv/lt/mt/sk/sl`, vorhandenes `ar`/RTL, lange europäische Texte, diakritische/griechische/kyrillische Zeichen sowie `16:9`, `9:16`, `1:1` ab | Keine Provider-Aktivierung oder Auswahl neuer TTS-/Translation-Provider; kein neuer Voice-/Caption-/Render-/Translation-Store; kein Fallback; fehlende Voice darf niemals still grün werden; Final Canon und bestehende Review-/Evidence-Wahrheit bleiben unverändert; fokussierte Readiness-/No-Fallback-/Staleness-/Caption-/Layout-/Unicode-/Timing-Contracts + bestehender Voxy Runtime/Final-Canon/Visual-QA/Web-CI + Typecheck/Lint/Build/`git diff --check`; **Slice E bleibt nicht autorisiert** |'
+
+          path.write_text('\n'.join(lines) + ('\n' if text.endswith('\n') else ''))
+          PY
+
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+          git diff -- docs/E150/OpenTasks.md
+
+      - name: Commit single-writer delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          test "$(git diff --cached --name-only)" = "docs/E150/OpenTasks.md"
+          git commit -m "docs(e150): authorize Voxy EU24 Slice D"
+          git push origin HEAD:docs/voxy-eu24-slice-d-authorization
