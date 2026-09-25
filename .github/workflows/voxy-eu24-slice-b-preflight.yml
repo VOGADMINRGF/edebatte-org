@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "56b9ef51b84b65048deb5665235b932a865c48ce"
+          test "$(git rev-parse HEAD)" = "54f1dc9bba6f0052481b3e40360d858355e93102"
           test "$(git branch --show-current)" = "main"
           test -z "$(git status --porcelain)"
           node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | tee /tmp/preflight.txt
