@@ -20,29 +20,49 @@ function run(args, options = {}) {
     stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
     cwd: options.cwd ?? process.cwd(),
     env: process.env,
+    maxBuffer: 64 * 1024 * 1024,
   }).trim();
 }
 
-function hash(value) {
+function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function esc(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function statusMap(region) {
-  const rx = /\|\s*([A-Z0-9][A-Z0-9_.:/-]+)\s*\|\s*(blocked|codex_ready|in_progress|review|manual_gate|done)\s*\|/g;
   const map = new Map();
   for (const line of region.split(/\r?\n/)) {
-    rx.lastIndex = 0;
-    const m = rx.exec(line);
-    if (!m) continue;
-    const list = map.get(m[1]) ?? [];
-    list.push(m[2]);
-    map.set(m[1], list);
+    const match = line.match(/\|\s*([A-Z0-9][A-Z0-9_.:/-]+)\s*\|\s*(blocked|codex_ready|in_progress|review|manual_gate|done)\s*\|/);
+    if (!match) continue;
+    const values = map.get(match[1]) ?? [];
+    values.push(match[2]);
+    map.set(match[1], values);
   }
   return map;
 }
 
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function removeLocalMainBranch() {
+  try {
+    run(["git", "branch", "-D", "main"]);
+  } catch {
+    // main may not exist locally on the writer checkout.
+  }
+}
+
+function withMainWorktree(ref, callback) {
+  removeLocalMainBranch();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctgn-main-"));
+  run(["git", "worktree", "add", "--detach", dir, ref]);
+  try {
+    run(["git", "checkout", "-b", "main"], { cwd: dir });
+    callback(dir);
+  } finally {
+    run(["git", "worktree", "remove", "--force", dir]);
+    removeLocalMainBranch();
+  }
 }
 
 run(["git", "config", "user.name", "github-actions[bot]"]);
@@ -56,7 +76,7 @@ if (mergeBase !== EXPECTED_MAIN) throw new Error(`unexpected_merge_base:${mergeB
 
 const changedBefore = run(["git", "diff", "--name-only", "origin/main...HEAD"])
   .split(/\r?\n/)
-  .map((v) => v.trim())
+  .map((value) => value.trim())
   .filter(Boolean)
   .sort();
 const expectedBefore = [WORKFLOW, SCRIPT].sort();
@@ -64,21 +84,10 @@ if (JSON.stringify(changedBefore) !== JSON.stringify(expectedBefore)) {
   throw new Error(`unexpected_pre_writer_diff:${JSON.stringify(changedBefore)}`);
 }
 
-const mainOpenTasks = run(["git", "show", `origin/main:${OPEN_TASKS}`]);
-const text = fs.readFileSync(OPEN_TASKS, "utf8");
-if (text !== mainOpenTasks + "\n" && text !== mainOpenTasks) throw new Error("opentasks_branch_not_identical_to_main");
-if ((text.match(new RegExp(OPERATIVE, "g")) ?? []).length !== 1) throw new Error("operative_marker_not_unique");
-if ((text.match(new RegExp(HISTORY, "g")) ?? []).length !== 1) throw new Error("history_marker_not_unique");
-const opStart = text.indexOf(OPERATIVE);
-const histStart = text.indexOf(HISTORY);
-if (opStart < 0 || histStart <= opStart) throw new Error("open_tasks_structure_unclear");
-
-const operative = text.slice(opStart, histStart);
-const historical = text.slice(histStart);
-const historicalHash = hash(historical);
-const before = statusMap(operative);
-for (const [id, statuses] of before) {
-  if (statuses.length !== 1) throw new Error(`duplicate_task_before:${id}:${statuses.join(",")}`);
+const branchOpenTasksBlob = run(["git", "rev-parse", `HEAD:${OPEN_TASKS}`]);
+const mainOpenTasksBlob = run(["git", "rev-parse", `origin/main:${OPEN_TASKS}`]);
+if (branchOpenTasksBlob !== mainOpenTasksBlob) {
+  throw new Error(`opentasks_blob_drift:${branchOpenTasksBlob}:${mainOpenTasksBlob}`);
 }
 
 const transitions = new Map([
@@ -90,10 +99,35 @@ const newIds = [
   "NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01",
   "DOSSIER-REVISION-ATOMIC-WRITER-01",
 ];
+
+withMainWorktree("origin/main", (dir) => {
+  for (const id of transitions.keys()) {
+    const output = run(["node", "scripts/codex-task-preflight.mjs", id], { cwd: dir });
+    const result = JSON.parse(output);
+    if (result.status !== "codex_ready" || result.executable !== true || result.branchCreationAllowed !== true) {
+      throw new Error(`unexpected_before_preflight:${id}:${output}`);
+    }
+    console.log(output);
+  }
+});
+
+const text = fs.readFileSync(OPEN_TASKS, "utf8");
+if ((text.match(new RegExp(OPERATIVE, "g")) ?? []).length !== 1) throw new Error("operative_marker_not_unique");
+if ((text.match(new RegExp(HISTORY, "g")) ?? []).length !== 1) throw new Error("history_marker_not_unique");
+const opStart = text.indexOf(OPERATIVE);
+const histStart = text.indexOf(HISTORY);
+if (opStart < 0 || histStart <= opStart) throw new Error("open_tasks_structure_unclear");
+
+const operative = text.slice(opStart, histStart);
+const historical = text.slice(histStart);
+const historicalHash = sha256(historical);
+const before = statusMap(operative);
+for (const [id, statuses] of before) {
+  if (statuses.length !== 1) throw new Error(`duplicate_task_before:${id}:${statuses.join(",")}`);
+}
 for (const [id, [from]] of transitions) {
-  const actual = before.get(id);
-  if (JSON.stringify(actual) !== JSON.stringify([from])) {
-    throw new Error(`unexpected_before_status:${id}:${JSON.stringify(actual)}`);
+  if (JSON.stringify(before.get(id)) !== JSON.stringify([from])) {
+    throw new Error(`unexpected_before_status:${id}:${JSON.stringify(before.get(id))}`);
   }
 }
 for (const id of newIds) {
@@ -102,9 +136,9 @@ for (const id of newIds) {
 
 let next = text;
 for (const [id, [from, to]] of transitions) {
-  const rx = new RegExp(`^(\\|\\s*${escapeRegex(id)}\\s*\\|\\s*)${from}(\\s*\\|.*)$`, "gm");
+  const regex = new RegExp(`^(\\|\\s*${esc(id)}\\s*\\|\\s*)${from}(\\s*\\|.*)$`, "gm");
   let count = 0;
-  next = next.replace(rx, (_whole, prefix, suffix) => {
+  next = next.replace(regex, (_whole, prefix, suffix) => {
     count += 1;
     return `${prefix}${to}${suffix}`;
   });
@@ -129,7 +163,7 @@ next = next.slice(0, insertAt) + block + next.slice(insertAt);
 const nextHistStart = next.indexOf(HISTORY);
 const newOperative = next.slice(next.indexOf(OPERATIVE), nextHistStart);
 const newHistorical = next.slice(nextHistStart);
-if (newHistorical !== historical || hash(newHistorical) !== historicalHash) throw new Error("historical_tail_changed");
+if (newHistorical !== historical || sha256(newHistorical) !== historicalHash) throw new Error("historical_tail_changed");
 const after = statusMap(newOperative);
 for (const [id, statuses] of after) {
   if (statuses.length !== 1) throw new Error(`duplicate_task_after:${id}:${statuses.join(",")}`);
@@ -156,7 +190,9 @@ const staged = run(["git", "diff", "--cached", "--name-only"])
   .filter(Boolean)
   .sort();
 const expectedStaged = [OPEN_TASKS, WORKFLOW, SCRIPT].sort();
-if (JSON.stringify(staged) !== JSON.stringify(expectedStaged)) throw new Error(`unexpected_staged:${JSON.stringify(staged)}`);
+if (JSON.stringify(staged) !== JSON.stringify(expectedStaged)) {
+  throw new Error(`unexpected_staged:${JSON.stringify(staged)}`);
+}
 run(["git", "commit", "-m", "docs(e150): serialize CTGN P1 repair authorizations"]);
 
 const candidate = run(["git", "rev-parse", "HEAD"]);
@@ -164,35 +200,39 @@ if (run(["git", "status", "--porcelain"]) !== "") throw new Error("dirty_candida
 const finalChanged = run(["git", "diff", "--name-only", "origin/main...HEAD"])
   .split(/\r?\n/)
   .filter(Boolean);
-if (JSON.stringify(finalChanged) !== JSON.stringify([OPEN_TASKS])) throw new Error(`unexpected_final_diff:${JSON.stringify(finalChanged)}`);
+if (JSON.stringify(finalChanged) !== JSON.stringify([OPEN_TASKS])) {
+  throw new Error(`unexpected_final_diff:${JSON.stringify(finalChanged)}`);
+}
 
-try { run(["git", "branch", "-D", "main"]); } catch {}
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ctgn-preflight-"));
-run(["git", "worktree", "add", "-b", "main", tmp, candidate]);
-try {
+withMainWorktree(candidate, (dir) => {
   for (const id of newIds) {
-    const output = run(["node", "scripts/codex-task-preflight.mjs", id], { cwd: tmp });
+    const output = run(["node", "scripts/codex-task-preflight.mjs", id], { cwd: dir });
     const result = JSON.parse(output);
     if (result.status !== "codex_ready" || result.executable !== true || result.branchCreationAllowed !== true) {
       throw new Error(`new_task_preflight_failed:${id}:${output}`);
     }
     console.log(output);
   }
-  const candidateText = fs.readFileSync(path.join(tmp, OPEN_TASKS), "utf8");
-  const candidateOp = candidateText.slice(candidateText.indexOf(OPERATIVE), candidateText.indexOf(HISTORY));
-  const candidateStatuses = statusMap(candidateOp);
+  const candidateText = fs.readFileSync(path.join(dir, OPEN_TASKS), "utf8");
+  const candidateHead = candidateText.slice(candidateText.indexOf(OPERATIVE), candidateText.indexOf(HISTORY));
+  const candidateStatuses = statusMap(candidateHead);
   const expected = new Map([
     ["QR-INTERNAL-REDIRECT-HARDENING-01", "review"],
     ["CREATE-OPERATOR-NOTIFICATIONS-01", "manual_gate"],
     ["CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01", "review"],
   ]);
   for (const [id, status] of expected) {
-    if (JSON.stringify(candidateStatuses.get(id)) !== JSON.stringify([status])) throw new Error(`post_status_failed:${id}`);
+    if (JSON.stringify(candidateStatuses.get(id)) !== JSON.stringify([status])) {
+      throw new Error(`post_status_failed:${id}:${JSON.stringify(candidateStatuses.get(id))}`);
+    }
   }
-  run(["git", "diff", "--check"], { cwd: tmp });
-} finally {
-  run(["git", "worktree", "remove", "--force", tmp]);
-}
+  run(["git", "diff", "--check"], { cwd: dir });
+});
 
 run(["git", "push", "origin", `HEAD:${BRANCH}`], { stdio: "inherit" });
-console.log(JSON.stringify({ candidate, historicalHash, added: newIds, transitions: Object.fromEntries(transitions) }, null, 2));
+console.log(JSON.stringify({
+  candidate,
+  historicalHash,
+  added: newIds,
+  transitions: Object.fromEntries(transitions),
+}, null, 2));
