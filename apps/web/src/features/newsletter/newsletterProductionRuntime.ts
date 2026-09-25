@@ -4,6 +4,7 @@ import { coreCol } from "@core/db/triMongo";
 import { resolveNewsletterDeliveryActivation } from "@features/notifications/newsletterDeliveryActivation";
 import {
   newsletterDeliveryRetentionUntil,
+  newsletterFailureProvenBeforeExternalHandoff,
   resolveNewsletterRetryDecision,
   shouldSuppressNewsletterRecipient,
 } from "@features/notifications/newsletterDeliveryLifecycle";
@@ -25,15 +26,21 @@ type SubscriberDoc = Parameters<typeof buildNewsletterDigestPreviewForSubscriber
 
 type DeliveryDoc = {
   _id: string;
-  status: "sending" | "sent" | "failed" | "skipped";
+  status: "attempting" | "sending" | "sent" | "failed" | "skipped";
   attemptCount: number;
   retryable?: boolean | null;
   updatedAt: Date;
   failureCategory?: string | null;
+  externalAttemptBoundaryAt?: Date | null;
+  externalAttemptId?: string | null;
 };
 
 function digest(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function recipientHash(email: string) {
+  return digest(email.trim().toLowerCase()).slice(0, 32);
 }
 
 function deliveryId(email: string, digestKey: string) {
@@ -45,6 +52,37 @@ function configuredNumber(name: string, fallback: number, min: number, max: numb
   return Math.max(min, Math.min(max, Number.isFinite(raw) ? Math.floor(raw) : fallback));
 }
 
+function deliveryBlock(existing: DeliveryDoc | null, now: Date) {
+  if (!existing) return null;
+  if (existing.status === "sent") {
+    return { ok: true as const, status: "skipped" as const, reason: "already_sent" as const };
+  }
+  if (existing.status === "attempting" || existing.status === "sending") {
+    return { ok: true as const, status: "skipped" as const, reason: "ambiguous_previous_attempt" as const };
+  }
+  if (existing.status !== "failed") return null;
+
+  if (!newsletterFailureProvenBeforeExternalHandoff(existing.failureCategory)) {
+    return { ok: true as const, status: "skipped" as const, reason: "ambiguous_previous_attempt" as const };
+  }
+
+  const retry = resolveNewsletterRetryDecision({
+    attemptCount: existing.attemptCount,
+    retryable: existing.retryable,
+    lastAttemptAt: existing.updatedAt,
+    now,
+    maxAttempts: configuredNumber("NEWSLETTER_MAX_ATTEMPTS", 4, 1, 10),
+    baseBackoffMinutes: configuredNumber("NEWSLETTER_RETRY_BASE_MINUTES", 15, 5, 120),
+  });
+  if (retry.allowed) return null;
+  return {
+    ok: true as const,
+    status: "skipped" as const,
+    reason: retry.reason,
+    nextAttemptAt: retry.nextAttemptAt?.toISOString() ?? null,
+  };
+}
+
 export async function cleanupNewsletterDeliveryLedger(now = new Date()) {
   const ledger = await coreCol<DeliveryDoc>(DELIVERY_COLLECTION);
   const retentionUntil = newsletterDeliveryRetentionUntil({
@@ -54,8 +92,11 @@ export async function cleanupNewsletterDeliveryLedger(now = new Date()) {
   const retentionMs = retentionUntil.getTime() - now.getTime();
   const cutoff = new Date(now.getTime() - retentionMs);
   const result = await ledger.deleteMany({
-    status: { $in: ["sent", "failed", "skipped"] },
     updatedAt: { $lt: cutoff },
+    $or: [
+      { status: { $in: ["sent", "skipped"] } },
+      { status: "failed", externalAttemptBoundaryAt: { $exists: false } },
+    ],
   } as never);
   return { deleted: result.deletedCount ?? 0, cutoff };
 }
@@ -132,29 +173,10 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
 
   const ledger = await coreCol<DeliveryDoc>(DELIVERY_COLLECTION);
   const id = deliveryId(preview.email, preview.digestKey);
-  const existing = await ledger.findOne({ _id: id });
+  const initialBlock = deliveryBlock(await ledger.findOne({ _id: id }), now);
+  if (initialBlock) return initialBlock;
 
-  if (existing?.status === "failed") {
-    const retry = resolveNewsletterRetryDecision({
-      attemptCount: existing.attemptCount,
-      retryable: existing.retryable,
-      lastAttemptAt: existing.updatedAt,
-      now,
-      maxAttempts: configuredNumber("NEWSLETTER_MAX_ATTEMPTS", 4, 1, 10),
-      baseBackoffMinutes: configuredNumber("NEWSLETTER_RETRY_BASE_MINUTES", 15, 5, 120),
-    });
-    if (!retry.allowed) {
-      return {
-        ok: true as const,
-        status: "skipped" as const,
-        reason: retry.reason,
-        nextAttemptAt: retry.nextAttemptAt?.toISOString() ?? null,
-      };
-    }
-  }
-
-  // A deterministic digest lease closes the read→write race in the inner ledger.
-  // Only the production runtime can reach SMTP while holding this lease.
+  // A deterministic digest lease closes concurrent workers around the send boundary.
   const lease = await acquireNewsletterDeliveryLease({ id, now });
   if (!lease.acquired) {
     return {
@@ -165,11 +187,87 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
   }
 
   try {
-    const result = await sendNewsletterDigestForSubscriber(subscriber, { now, candidates });
-    if (result.status === "failed" && "delivery" in result) {
-      await maybeSuppressHardFailure(subscriber, result.delivery.category);
+    // Consent/status/preferences are re-read only after the lease is held. The batch
+    // selection snapshot never authorizes an external handoff on its own.
+    let freshSubscriber: SubscriberDoc | null;
+    try {
+      const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
+      freshSubscriber = await subscribers.findOne({ email: preview.email.trim().toLowerCase() });
+    } catch {
+      return { ok: false as const, status: "blocked" as const, reason: "subscriber_state_unavailable" as const };
     }
-    return result;
+    if (!freshSubscriber) {
+      return { ok: false as const, status: "blocked" as const, reason: "subscriber_not_found" as const };
+    }
+
+    const freshPreview = await buildNewsletterDigestPreviewForSubscriber(freshSubscriber, { now, candidates });
+    if (!freshPreview.deliveryAllowed || !freshPreview.digestKey) {
+      return { ok: true as const, status: "skipped" as const, reason: freshPreview.deliveryReason };
+    }
+    if (
+      freshPreview.email !== preview.email ||
+      freshPreview.digestKey !== preview.digestKey ||
+      freshPreview.candidateIds.join("|") !== preview.candidateIds.join("|")
+    ) {
+      return { ok: true as const, status: "skipped" as const, reason: "subscriber_state_changed" as const };
+    }
+
+    // Missing unsubscribe configuration is a known local block and must be detected
+    // before the durable external-attempt boundary is crossed.
+    if (!String(process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? "").trim()) {
+      return { ok: false as const, status: "blocked" as const, reason: "unsubscribe_secret_missing" as const };
+    }
+
+    // Re-check under the lease in case another historical/manual writer completed or
+    // exposed an ambiguous attempt between the first ledger read and lease acquisition.
+    const leasedBlock = deliveryBlock(await ledger.findOne({ _id: id }), now);
+    if (leasedBlock) return leasedBlock;
+
+    const boundaryAt = new Date();
+    const externalAttemptId = crypto.randomUUID();
+    try {
+      await ledger.updateOne(
+        { _id: id },
+        {
+          $setOnInsert: {
+            _id: id,
+            recipientHash: recipientHash(freshPreview.email),
+            userId: freshSubscriber.userId ?? null,
+            digestKey: freshPreview.digestKey,
+            candidateIds: freshPreview.candidateIds,
+            audienceTier: freshPreview.audienceTier,
+            frequency: freshPreview.frequency,
+            attemptCount: 0,
+            createdAt: boundaryAt,
+          },
+          $set: {
+            status: "attempting",
+            externalAttemptBoundaryAt: boundaryAt,
+            externalAttemptId,
+            updatedAt: boundaryAt,
+          },
+          $unset: {
+            failureCategory: "",
+            retryable: "",
+          },
+        } as never,
+        { upsert: true },
+      );
+    } catch {
+      return { ok: false as const, status: "blocked" as const, reason: "delivery_attempt_boundary_unavailable" as const };
+    }
+
+    try {
+      const result = await sendNewsletterDigestForSubscriber(freshSubscriber, { now, candidates });
+      if (result.status === "failed" && "delivery" in result) {
+        await maybeSuppressHardFailure(freshSubscriber, result.delivery.category);
+      }
+      return result;
+    } catch {
+      // Once the durable boundary exists, an exception cannot prove that SMTP/provider
+      // handoff did not happen. Keep the marker and require reconciliation instead of resend.
+      return { ok: false as const, status: "blocked" as const, reason: "ambiguous_delivery_state" as const };
+    }
   } finally {
     await lease.release();
   }
@@ -232,9 +330,29 @@ export async function runNewsletterProductionBatch(options: { now?: Date; limit?
 export async function getNewsletterLifecycleSnapshot(now = new Date()) {
   const ledger = await coreCol<DeliveryDoc>(DELIVERY_COLLECTION);
   const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const [failed, sending, exhaustedCandidates] = await Promise.all([
+  const [failed, sending, ambiguous, exhaustedCandidates] = await Promise.all([
     ledger.countDocuments({ status: "failed", updatedAt: { $gte: since } } as never),
     ledger.countDocuments({ status: "sending", updatedAt: { $gte: new Date(now.getTime() - 15 * 60 * 1000) } } as never),
+    ledger.countDocuments({
+      updatedAt: { $gte: since },
+      $or: [
+        { status: { $in: ["attempting", "sending"] } },
+        {
+          status: "failed",
+          failureCategory: {
+            $nin: [
+              "recipient_invalid",
+              "recipient_placeholder_domain",
+              "recipient_test_domain_blocked",
+              "recipient_domain_not_allowed",
+              "mail_content_invalid",
+              "sender_configuration_invalid",
+              "smtp_unconfigured",
+            ],
+          },
+        },
+      ],
+    } as never),
     ledger.find({ status: "failed", retryable: true, updatedAt: { $gte: since } } as never).limit(200).toArray(),
   ]);
   const maxAttempts = configuredNumber("NEWSLETTER_MAX_ATTEMPTS", 4, 1, 10);
@@ -242,6 +360,7 @@ export async function getNewsletterLifecycleSnapshot(now = new Date()) {
     deliveryActivation: resolveNewsletterDeliveryActivation(process.env.NEWSLETTER_DELIVERY_ENABLED),
     failed7d: failed,
     inProgress: sending,
+    ambiguous7d: ambiguous,
     retryExhausted7d: exhaustedCandidates.filter((entry) => entry.attemptCount >= maxAttempts).length,
     maxAttempts,
     retryBaseMinutes: configuredNumber("NEWSLETTER_RETRY_BASE_MINUTES", 15, 5, 120),
