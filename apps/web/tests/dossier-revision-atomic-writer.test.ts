@@ -17,13 +17,17 @@ vi.mock("@features/dossier/db", () => ({
   dossiersCol: (...args: unknown[]) => mocks.dossiersCol(...args),
 }));
 
-import { logDossierRevision } from "@features/dossier/revisions";
+import {
+  logDossierRevision,
+  mutateDossierWithRevision,
+} from "@features/dossier/revisions";
 
 type RevisionDoc = Record<string, any>;
 
 type HarnessState = {
   head: { dossierId: string; lastRevisionHash?: string; revisionSeq?: number; lastRevisionAt?: Date };
   revisions: RevisionDoc[];
+  domainValue: string;
   casConflictsRemaining: number;
   failInsert: boolean;
   missingDossier: boolean;
@@ -35,6 +39,7 @@ function buildHarness() {
   const state: HarnessState = {
     head: { dossierId: "dossier-1" },
     revisions: [],
+    domainValue: "before",
     casConflictsRemaining: 0,
     failInsert: false,
     missingDossier: false,
@@ -91,11 +96,13 @@ function buildHarness() {
         withTransaction: async (callback: () => Promise<unknown>) => {
           const headBefore = { ...state.head };
           const revisionsBefore = state.revisions.map((revision) => ({ ...revision }));
+          const domainBefore = state.domainValue;
           try {
             return await callback();
           } catch (error) {
             state.head = headBefore;
             state.revisions.splice(0, state.revisions.length, ...revisionsBefore);
+            state.domainValue = domainBefore;
             throw error;
           }
         },
@@ -120,6 +127,17 @@ const baseInput = {
   byRole: "editor" as const,
   byUserId: "editor-1",
 };
+
+function mutationRevision() {
+  return {
+    entityType: baseInput.entityType,
+    entityId: baseInput.entityId,
+    action: baseInput.action,
+    diffSummary: baseInput.diffSummary,
+    byRole: baseInput.byRole,
+    byUserId: baseInput.byUserId,
+  };
+}
 
 describe("dossier revision atomic writer", () => {
   beforeEach(() => {
@@ -150,29 +168,70 @@ describe("dossier revision atomic writer", () => {
     expect(state.revisions).toHaveLength(0);
   });
 
-  it("hard-fails after bounded CAS exhaustion without persisting an unchained revision", async () => {
+  it("rolls back the caller domain mutation when revision insertion fails", async () => {
+    const { state } = buildHarness();
+    state.failInsert = true;
+
+    await expect(
+      mutateDossierWithRevision({
+        dossierId: baseInput.dossierId,
+        mutate: async () => {
+          state.domainValue = "changed";
+          return { result: "changed", revision: mutationRevision() };
+        },
+      }),
+    ).rejects.toThrow("revision insert failed");
+
+    expect(state.domainValue).toBe("before");
+    expect(state.head.lastRevisionHash).toBeUndefined();
+    expect(state.revisions).toHaveLength(0);
+  });
+
+  it("hard-fails after bounded CAS exhaustion without persisting domain or revision drift", async () => {
     const { state } = buildHarness();
     state.casConflictsRemaining = 5;
+    let mutationAttempts = 0;
 
-    await expect(logDossierRevision(baseInput)).rejects.toThrow("revision head changed concurrently");
+    await expect(
+      mutateDossierWithRevision({
+        dossierId: baseInput.dossierId,
+        mutate: async () => {
+          mutationAttempts += 1;
+          state.domainValue = `attempt-${mutationAttempts}`;
+          return { result: state.domainValue, revision: mutationRevision() };
+        },
+      }),
+    ).rejects.toThrow("revision head changed concurrently");
 
+    expect(mutationAttempts).toBe(5);
     expect(state.updateCalls).toBe(5);
     expect(state.sessionsStarted).toBe(5);
+    expect(state.domainValue).toBe("before");
     expect(state.revisions).toHaveLength(0);
     expect(state.head.lastRevisionHash).toBeUndefined();
   });
 
-  it("retries a concurrent CAS loser and persists exactly one stable operation", async () => {
+  it("retries a CAS loser as one atomic operation and commits domain data exactly once", async () => {
     const { state } = buildHarness();
     state.casConflictsRemaining = 1;
+    let mutationAttempts = 0;
 
-    const revision = await logDossierRevision(baseInput);
+    const committed = await mutateDossierWithRevision({
+      dossierId: baseInput.dossierId,
+      mutate: async () => {
+        mutationAttempts += 1;
+        state.domainValue = "changed";
+        return { result: { value: state.domainValue }, revision: mutationRevision() };
+      },
+    });
 
+    expect(mutationAttempts).toBe(2);
     expect(state.sessionsStarted).toBe(2);
+    expect(state.domainValue).toBe("changed");
     expect(state.revisions).toHaveLength(1);
-    expect(state.revisions[0]?.revId).toBe(revision.revId);
-    expect(state.revisions[0]?.timestamp).toEqual(revision.timestamp);
-    expect(state.head.lastRevisionHash).toBe(revision.hash);
+    expect(committed.result).toEqual({ value: "changed" });
+    expect(committed.revision?.revId).toBe(state.revisions[0]?.revId);
+    expect(state.head.lastRevisionHash).toBe(state.revisions[0]?.hash);
   });
 
   it("chains successive writers instead of treating them as independent evidence history", async () => {
@@ -191,22 +250,42 @@ describe("dossier revision atomic writer", () => {
     expect(state.head.revisionSeq).toBe(2);
   });
 
-  it("fails closed for a missing dossier instead of creating an orphan revision", async () => {
+  it("fails closed for a missing dossier instead of leaving the caller mutation or orphan revision", async () => {
     const { state } = buildHarness();
     state.missingDossier = true;
 
-    await expect(logDossierRevision(baseInput)).rejects.toThrow("cannot append revision for missing dossier");
+    await expect(
+      mutateDossierWithRevision({
+        dossierId: baseInput.dossierId,
+        mutate: async () => {
+          state.domainValue = "changed";
+          return { result: null, revision: mutationRevision() };
+        },
+      }),
+    ).rejects.toThrow("cannot append revision for missing dossier");
 
+    expect(state.domainValue).toBe("before");
     expect(state.revisions).toHaveLength(0);
   });
 
-  it("keeps db.ts as a delegate instead of a second hash-chain writer", () => {
+  it("keeps all audited write paths on the single canonical transaction boundary", () => {
     const dbSource = readFileSync(path.resolve(process.cwd(), "../../features/dossier/db.ts"), "utf8");
+    const claimRoute = readFileSync(
+      path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/claims/upsert/route.ts"),
+      "utf8",
+    );
 
     expect(dbSource).not.toContain("computeRevisionHash");
     expect(dbSource).not.toContain("REVISION_HASH_ALGO");
     expect(dbSource).not.toContain("DISABLE_HASH_CHAIN");
-    expect(dbSource).toContain('const { logDossierRevision } = await import("./revisions")');
-    expect(dbSource).toContain("return logDossierRevision(input)");
+    expect(dbSource).toContain('const { mutateDossierWithRevision } = await import("./revisions")');
+    expect(dbSource).toContain("return mutateDossierWithRevision({ dossierId, mutate })");
+    expect(dbSource).toContain("includeResultMetadata: true, session");
+    expect(dbSource).toContain("{ session },");
+
+    expect(claimRoute).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
+    expect(claimRoute).toContain("const transaction = await mutateDossierWithRevision({");
+    expect(claimRoute).toContain("includeResultMetadata: true, session");
+    expect(claimRoute).not.toContain("await logDossierRevision(");
   });
 });

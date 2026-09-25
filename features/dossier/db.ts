@@ -1,3 +1,5 @@
+import type { ClientSession } from "mongodb";
+
 import { coreCol } from "@core/db/triMongo";
 import type {
   DossierDoc,
@@ -11,7 +13,7 @@ import type {
   DossierSuggestionDoc,
   DossierCounts,
 } from "./schemas";
-import type { RevisionInput } from "./revisions";
+import type { DossierRevisionMutationResult } from "./revisions";
 import { selectEffectiveFindings } from "./effective";
 
 const DOSSIERS_COLLECTION = "dossiers";
@@ -32,9 +34,12 @@ const DEFAULT_COUNTS: DossierCounts = {
   openQuestions: 0,
 };
 
-async function appendRevision(input: RevisionInput) {
-  const { logDossierRevision } = await import("./revisions");
-  return logDossierRevision(input);
+async function mutateWithRevision<T>(
+  dossierId: string,
+  mutate: (session: ClientSession) => Promise<DossierRevisionMutationResult<T>>,
+) {
+  const { mutateDossierWithRevision } = await import("./revisions");
+  return mutateDossierWithRevision({ dossierId, mutate });
 }
 
 const ensured = {
@@ -183,6 +188,7 @@ export async function ensureDossierForStatement(
     $or: [{ statementId: { $in: ids } }, { dossierId: { $in: ids } }],
   } as any);
   if (existing) return existing;
+
   const update: Record<string, any> = {
     $setOnInsert: {
       dossierId,
@@ -192,42 +198,46 @@ export async function ensureDossierForStatement(
       createdAt: now,
     },
   };
-
   if (seed?.title) {
     update.$set = { title: seed.title, updatedAt: now };
   }
 
-  const res = await col.findOneAndUpdate(
-    { statementId },
-    update,
-    { upsert: true, returnDocument: "before", includeResultMetadata: true },
-  );
-
-  const created = !res.value;
-  const dossier = await col.findOne({ statementId });
-  if (dossier) {
-    if (created) {
-      await appendRevision({
-        dossierId: dossier.dossierId,
-        entityType: "dossier",
-        entityId: dossier.dossierId,
-        action: "create",
-        diffSummary: "Dossier erstellt.",
-        byRole: "system",
-      });
-    } else if (seed?.title && res.value?.title !== seed.title) {
-      await appendRevision({
-        dossierId: dossier.dossierId,
-        entityType: "dossier",
-        entityId: dossier.dossierId,
-        action: "update",
-        diffSummary: "Dossier aktualisiert.",
-        byRole: "system",
-      });
+  const transaction = await mutateWithRevision(dossierId, async (session) => {
+    const res = await col.findOneAndUpdate(
+      { statementId },
+      update,
+      { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+    );
+    const created = !res.value;
+    const dossier = await col.findOne({ statementId }, { session });
+    if (!dossier) {
+      throw new Error(`[dossier] failed to load dossier ${dossierId} inside creation transaction`);
     }
-  }
 
-  return dossier ?? null;
+    const changedTitle = Boolean(!created && seed?.title && res.value?.title !== seed.title);
+    return {
+      result: dossier,
+      revision: created
+        ? {
+            entityType: "dossier",
+            entityId: dossier.dossierId,
+            action: "create",
+            diffSummary: "Dossier erstellt.",
+            byRole: "system",
+          }
+        : changedTitle
+          ? {
+              entityType: "dossier",
+              entityId: dossier.dossierId,
+              action: "update",
+              diffSummary: "Dossier aktualisiert.",
+              byRole: "system",
+            }
+          : null,
+    };
+  });
+
+  return transaction.result;
 }
 
 export async function computeDossierCounts(dossierId: string) {
@@ -253,34 +263,43 @@ export async function computeDossierCounts(dossierId: string) {
 
 export async function updateDossierCounts(dossierId: string, reason = "Dossier-Zaehler aktualisiert.") {
   const dossierCol = await dossiersCol();
-  const existing = await dossierCol.findOne({ dossierId });
   const counts = await computeDossierCounts(dossierId);
 
-  if (!existing) return counts;
+  const transaction = await mutateWithRevision(dossierId, async (session) => {
+    const existing = await dossierCol.findOne({ dossierId }, { session });
+    if (!existing) {
+      return { result: counts, revision: null };
+    }
 
-  const changed =
-    existing.counts?.claims !== counts.claims ||
-    existing.counts?.sources !== counts.sources ||
-    existing.counts?.findings !== counts.findings ||
-    existing.counts?.edges !== counts.edges ||
-    existing.counts?.openQuestions !== counts.openQuestions;
+    const changed =
+      existing.counts?.claims !== counts.claims ||
+      existing.counts?.sources !== counts.sources ||
+      existing.counts?.findings !== counts.findings ||
+      existing.counts?.edges !== counts.edges ||
+      existing.counts?.openQuestions !== counts.openQuestions;
 
-  if (changed) {
+    if (!changed) {
+      return { result: counts, revision: null };
+    }
+
     await dossierCol.updateOne(
       { dossierId },
       { $set: { counts, updatedAt: new Date() } },
+      { session },
     );
-    await appendRevision({
-      dossierId,
-      entityType: "dossier",
-      entityId: dossierId,
-      action: "system_update",
-      diffSummary: reason,
-      byRole: "system",
-    });
-  }
+    return {
+      result: counts,
+      revision: {
+        entityType: "dossier",
+        entityId: dossierId,
+        action: "system_update",
+        diffSummary: reason,
+        byRole: "system",
+      },
+    };
+  });
 
-  return counts;
+  return transaction.result;
 }
 
 // Backwards-compat alias: prefer updateDossierCounts in write paths only.

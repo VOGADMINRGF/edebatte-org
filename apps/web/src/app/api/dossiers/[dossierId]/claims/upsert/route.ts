@@ -10,7 +10,7 @@ import {
   EvidenceIndicatorSchema,
 } from "@features/dossier/schemas";
 import { makeDossierEntityId } from "@features/dossier/ids";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { requireDossierEditor } from "@/lib/server/auth/dossier";
 
 export const runtime = "nodejs";
@@ -53,40 +53,47 @@ export async function POST(
     const claimId = item.claimId ?? makeDossierEntityId("claim");
     const insertAuthorRef = item.authorRef ?? { userId: auth.userId };
 
-    const res = await col.findOneAndUpdate(
-      { dossierId, claimId },
-      {
-        $set: {
-          text: item.text,
-          kind: item.kind ?? "fact",
-          status: item.status ?? "open",
-          uncertaintyNotes: item.uncertaintyNotes ?? [],
-          evidenceIndicator: item.evidenceIndicator ?? undefined,
-          updatedAt: now,
-        },
-        $setOnInsert: {
-          dossierId,
-          claimId,
-          createdByRole: auth.actorRole,
-          authorRef: insertAuthorRef,
-          createdAt: now,
-        },
-      },
-      { upsert: true, returnDocument: "before", includeResultMetadata: true },
-    );
-
-    const created = !res.value;
-    await logDossierRevision({
+    const transaction = await mutateDossierWithRevision({
       dossierId,
-      entityType: "claim",
-      entityId: claimId,
-      action: created ? "create" : "update",
-      diffSummary: created ? "Claim erstellt." : "Claim aktualisiert.",
-      byRole: auth.actorRole,
-      byUserId: auth.userId,
+      mutate: async (session) => {
+        const res = await col.findOneAndUpdate(
+          { dossierId, claimId },
+          {
+            $set: {
+              text: item.text,
+              kind: item.kind ?? "fact",
+              status: item.status ?? "open",
+              uncertaintyNotes: item.uncertaintyNotes ?? [],
+              evidenceIndicator: item.evidenceIndicator ?? undefined,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              dossierId,
+              claimId,
+              createdByRole: auth.actorRole,
+              authorRef: insertAuthorRef,
+              createdAt: now,
+            },
+          },
+          { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+        );
+
+        const created = !res.value;
+        return {
+          result: { claimId, created },
+          revision: {
+            entityType: "claim",
+            entityId: claimId,
+            action: created ? "create" : "update",
+            diffSummary: created ? "Claim erstellt." : "Claim aktualisiert.",
+            byRole: auth.actorRole,
+            byUserId: auth.userId,
+          },
+        };
+      },
     });
 
-    results.push({ claimId, created });
+    results.push(transaction.result);
   }
 
   const counts = await updateDossierCounts(dossierId, "Claim-Update");
