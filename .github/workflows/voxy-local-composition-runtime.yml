@@ -17,6 +17,7 @@ on:
       - "apps/web/src/features/voxyVideo/editorialAutonomyStore.ts"
       - "apps/web/src/features/voxyVideo/editorialCompositionAssets.server.ts"
       - "apps/web/src/features/voxyVideo/editorialCompositionHtml.ts"
+      - "apps/web/src/features/voxyVideo/editorialEvidenceWindow.ts"
       - "apps/web/src/features/voxyVideo/editorialRenderEvidence.ts"
       - "apps/web/src/features/voxyVideo/editorialStoryPlan.ts"
       - "apps/web/src/features/voxyVideo/finalCanon.ts"
@@ -33,11 +34,13 @@ on:
       - "apps/web/src/features/voxyVideo/studioDraftStore.ts"
       - "apps/web/src/features/voxyVideo/studioDossierAutoIntake.ts"
       - "apps/web/src/features/voxyVideo/studioDossierEvidenceAuthority.ts"
+      - "apps/web/src/features/voxyVideo/studioEvidenceReview.ts"
       - "apps/web/src/features/voxyVideo/studioLayoutSafety.ts"
       - "apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts"
       - "apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts"
       - "apps/web/src/features/voxyVideo/studioOperatorEdit.ts"
       - "apps/web/src/features/voxyVideo/studioProductionContext.ts"
+      - "apps/web/src/features/voxyVideo/studioPreviewReview.ts"
       - "apps/web/src/features/voxyVideo/studioRenderBindingGuard.ts"
       - "apps/web/src/features/voxyVideo/studioRenderHandoff.ts"
       - "apps/web/src/features/voxyVideo/studioStoryPlanBuilder.ts"
@@ -47,12 +50,15 @@ on:
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
       - "apps/web/tests/voxy-editorial-audio-motion.contract.test.ts"
       - "apps/web/tests/voxy-editorial-composition-html.contract.test.ts"
+      - "apps/web/tests/voxy-editorial-evidence-window.contract.test.ts"
+      - "apps/web/tests/voxy-editorial-story-plan.contract.test.ts"
       - "apps/web/tests/voxy-editorial-agent-council.contract.test.ts"
       - "apps/web/tests/voxy-editorial-agent-learning.contract.test.ts"
       - "apps/web/tests/voxy-studio-admin-auth.contract.test.ts"
       - "apps/web/tests/voxy-studio-audio-motion-preview.contract.test.ts"
       - "apps/web/tests/voxy-studio-dossier-auto-intake.contract.test.ts"
       - "apps/web/tests/voxy-studio-draft-service.contract.test.ts"
+      - "apps/web/tests/voxy-studio-evidence-review.contract.test.ts"
       - "apps/web/tests/voxy-studio-frame-preview.contract.test.ts"
       - "apps/web/tests/voxy-studio-immutable-render-binding.contract.test.ts"
       - "apps/web/tests/voxy-studio-layout-approval.contract.test.ts"
@@ -60,6 +66,7 @@ on:
       - "apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts"
       - "apps/web/tests/voxy-studio-operator-edit.contract.test.ts"
       - "apps/web/tests/voxy-studio-persistence-boundary.contract.test.ts"
+      - "apps/web/tests/voxy-studio-preview-review.contract.test.ts"
       - "apps/web/tests/voxy-studio-production-context.contract.test.ts"
       - "apps/web/tests/voxy-studio-render-handoff.contract.test.ts"
       - "docs/E150/VOXY-LOCAL-COMPOSITION-RUNTIME-01_2026-09-21.md"
@@ -99,7 +106,7 @@ jobs:
         run: |
           pnpm -C apps/web run test:voxy-local-composition-runtime
           pnpm -C apps/web exec vitest run tests/voxy-local-composition-freshness.contract.test.ts
-          pnpm -C apps/web exec vitest run tests/voxy-editorial-audio-motion.contract.test.ts tests/voxy-editorial-composition-html.contract.test.ts tests/voxy-studio-admin-auth.contract.test.ts tests/voxy-studio-audio-motion-preview.contract.test.ts tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-frame-preview.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-layout-approval.contract.test.ts tests/voxy-studio-layout-safety.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-studio-persistence-boundary.contract.test.ts tests/voxy-studio-production-context.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
+          pnpm -C apps/web exec vitest run tests/voxy-editorial-audio-motion.contract.test.ts tests/voxy-editorial-composition-html.contract.test.ts tests/voxy-editorial-evidence-window.contract.test.ts tests/voxy-editorial-story-plan.contract.test.ts tests/voxy-studio-admin-auth.contract.test.ts tests/voxy-studio-audio-motion-preview.contract.test.ts tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-evidence-review.contract.test.ts tests/voxy-studio-frame-preview.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-layout-approval.contract.test.ts tests/voxy-studio-layout-safety.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-studio-persistence-boundary.contract.test.ts tests/voxy-studio-preview-review.contract.test.ts tests/voxy-studio-production-context.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
 
       - name: Typecheck and diff guard
         run: |
