@@ -13,6 +13,7 @@ const WORKFLOW = ".github/workflows/ctgn-p1-single-writer.yml";
 const SCRIPT = "scripts/ci/ctgn-p1-ssot-single-writer.mjs";
 const OPERATIVE = "## Kanonischer Operativteil";
 const HISTORY = "## Historischer Katalog und Evidenz";
+const C10_ID = "CREATE-OPERATOR-NOTIFICATIONS-01";
 
 function run(args, options = {}) {
   return execFileSync(args[0], args.slice(1), {
@@ -92,7 +93,6 @@ if (branchOpenTasksBlob !== mainOpenTasksBlob) {
 
 const transitions = new Map([
   ["QR-INTERNAL-REDIRECT-HARDENING-01", ["codex_ready", "review"]],
-  ["CREATE-OPERATOR-NOTIFICATIONS-01", ["codex_ready", "manual_gate"]],
   ["CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01", ["codex_ready", "review"]],
 ]);
 const newIds = [
@@ -109,6 +109,16 @@ withMainWorktree("origin/main", (dir) => {
     }
     console.log(output);
   }
+
+  let c10Missing = false;
+  try {
+    run(["node", "scripts/codex-task-preflight.mjs", C10_ID], { cwd: dir });
+  } catch (error) {
+    const stderr = String(error?.stderr ?? "");
+    const parsed = stderr ? JSON.parse(stderr) : null;
+    c10Missing = parsed?.status === "missing" && parsed?.reason === "task_not_found";
+  }
+  if (!c10Missing) throw new Error("c10_expected_non_dispatchable_matrix_entry");
 });
 
 const text = fs.readFileSync(OPEN_TASKS, "utf8");
@@ -134,6 +144,10 @@ for (const id of newIds) {
   if (before.has(id)) throw new Error(`target_already_present:${id}`);
 }
 
+const c10BeforeRegex = /^\| C10 \| `CREATE-OPERATOR-NOTIFICATIONS-01` — `codex_ready`(.*)$/gm;
+const c10BeforeMatches = [...operative.matchAll(c10BeforeRegex)];
+if (c10BeforeMatches.length !== 1) throw new Error(`c10_matrix_count:${c10BeforeMatches.length}`);
+
 let next = text;
 for (const [id, [from, to]] of transitions) {
   const regex = new RegExp(`^(\\|\\s*${esc(id)}\\s*\\|\\s*)${from}(\\s*\\|.*)$`, "gm");
@@ -144,6 +158,14 @@ for (const [id, [from, to]] of transitions) {
   });
   if (count !== 1) throw new Error(`transition_count:${id}:${count}`);
 }
+
+const c10Regex = /^(\| C10 \| `CREATE-OPERATOR-NOTIFICATIONS-01` — `)codex_ready(`.*)$/gm;
+let c10Count = 0;
+next = next.replace(c10Regex, (_whole, prefix, suffix) => {
+  c10Count += 1;
+  return `${prefix}manual_gate${suffix}`;
+});
+if (c10Count !== 1) throw new Error(`c10_transition_count:${c10Count}`);
 
 const block = `### C/T/G/N P1 Audit-Repairs — 2026-09-25
 
@@ -177,6 +199,9 @@ for (const [id, [, to]] of transitions) {
 }
 for (const id of newIds) {
   if (JSON.stringify(after.get(id)) !== JSON.stringify(["codex_ready"])) throw new Error(`new_task_bad_status:${id}`);
+}
+if (![...newOperative.matchAll(/^\| C10 \| `CREATE-OPERATOR-NOTIFICATIONS-01` — `manual_gate`(.*)$/gm)].length) {
+  throw new Error("c10_manual_gate_not_serialized");
 }
 
 fs.writeFileSync(OPEN_TASKS, next);
@@ -213,18 +238,22 @@ withMainWorktree(candidate, (dir) => {
     }
     console.log(output);
   }
+  for (const [id, [, status]] of transitions) {
+    let result = null;
+    try {
+      run(["node", "scripts/codex-task-preflight.mjs", id], { cwd: dir });
+    } catch (error) {
+      const stderr = String(error?.stderr ?? "");
+      result = stderr ? JSON.parse(stderr) : null;
+    }
+    if (result?.status !== status || result?.executable !== false) {
+      throw new Error(`consumed_task_not_closed:${id}:${JSON.stringify(result)}`);
+    }
+  }
   const candidateText = fs.readFileSync(path.join(dir, OPEN_TASKS), "utf8");
   const candidateHead = candidateText.slice(candidateText.indexOf(OPERATIVE), candidateText.indexOf(HISTORY));
-  const candidateStatuses = statusMap(candidateHead);
-  const expected = new Map([
-    ["QR-INTERNAL-REDIRECT-HARDENING-01", "review"],
-    ["CREATE-OPERATOR-NOTIFICATIONS-01", "manual_gate"],
-    ["CROSS-LINGUAL-MEDIA-EVENT-RESEARCH-INTAKE-01", "review"],
-  ]);
-  for (const [id, status] of expected) {
-    if (JSON.stringify(candidateStatuses.get(id)) !== JSON.stringify([status])) {
-      throw new Error(`post_status_failed:${id}:${JSON.stringify(candidateStatuses.get(id))}`);
-    }
+  if (![...candidateHead.matchAll(/^\| C10 \| `CREATE-OPERATOR-NOTIFICATIONS-01` — `manual_gate`(.*)$/gm)].length) {
+    throw new Error("c10_post_status_failed");
   }
   run(["git", "diff", "--check"], { cwd: dir });
 });
@@ -235,4 +264,5 @@ console.log(JSON.stringify({
   historicalHash,
   added: newIds,
   transitions: Object.fromEntries(transitions),
+  matrixTransition: { [C10_ID]: ["codex_ready", "manual_gate"] },
 }, null, 2));
