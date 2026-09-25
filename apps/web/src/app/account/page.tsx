@@ -7,6 +7,7 @@ import { PRODUCTION_ENTRY_COPY } from "@/features/access/productionEntryContract
 import { buildAgenticCivicE2EAccountHint } from "@/features/agenticRuntime/agenticCivicE2EPilotContract";
 import { buildPersonalAccountSegmentHint } from "@/features/agenticRuntime/segmentedAgentExperienceContract";
 import { buildVoxyExperienceShellHint } from "@/features/voxy/voxyExperienceShellContract";
+import { getNewsletterPreferenceStateForUser } from "@/features/newsletter/newsletterRuntime";
 import {
   getCreateSupportTicketForUser,
   listCreateSupportNotificationsForUser,
@@ -42,10 +43,17 @@ export default async function AccountPage({ searchParams }: Props) {
     redirect(`/login?next=${encodeURIComponent("/account")}`);
   }
 
-  const overview = await getAccountOverview(userId);
+  const [overview, newsletterState] = await Promise.all([
+    getAccountOverview(userId),
+    getNewsletterPreferenceStateForUser(userId),
+  ]);
   if (!overview) {
     redirect(`/login?next=${encodeURIComponent("/account")}`);
   }
+  const canonicalOverview = {
+    ...overview,
+    newsletterOptIn: newsletterState?.status === "active",
+  };
 
   const membershipNotice = readParam(params, "membership") === "thanks";
   const preorderNotice = readParam(params, "preorder") === "thanks";
@@ -66,7 +74,7 @@ export default async function AccountPage({ searchParams }: Props) {
       load: () => listCreateSupportNotificationsForUser(userId),
     }),
   ]);
-  const supportLocale = overview.uiLocale === "en" ? "en" : "de";
+  const supportLocale = canonicalOverview.uiLocale === "en" ? "en" : "de";
 
   return (
     <main className="min-h-screen bg-[rgb(var(--bg))] py-5 md:py-8">
@@ -101,7 +109,7 @@ export default async function AccountPage({ searchParams }: Props) {
         ) : null}
 
         <AccountClient
-          initialData={overview}
+          initialData={canonicalOverview}
           membershipNotice={membershipNotice}
           preorderNotice={preorderNotice}
           welcomeNotice={welcomeNotice}

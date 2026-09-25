@@ -14,6 +14,10 @@ import {
   sendNewsletterDigestForSubscriber,
 } from "./newsletterRuntime";
 import { acquireNewsletterDeliveryLease } from "./newsletterDeliveryLease";
+import {
+  acquireNewsletterSubscriberCoordination,
+  newsletterCandidateSnapshotMatches,
+} from "./newsletterSubscriberCoordination";
 
 const SUBSCRIBERS_COLLECTION = "public_updates_subscribers";
 const DELIVERY_COLLECTION = "newsletter_delivery_ledger";
@@ -121,41 +125,57 @@ export async function setNewsletterOperatorSuppression(input: {
 }) {
   const email = input.email.trim().toLowerCase();
   if (!email || !email.includes("@")) return { ok: false as const, error: "invalid_email" };
-  const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
-  const existing = await subscribers.findOne({ email });
-  if (!existing) return { ok: false as const, error: "subscriber_not_found" };
-  const now = new Date();
 
-  if (input.suppressed) {
-    await subscribers.updateOne(
-      { email },
-      {
-        $set: {
-          status: "suppressed",
-          suppressedAt: now,
-          suppressionReason: input.reason?.trim() || "operator",
-          updatedAt: now,
-        },
-      } as never,
-    );
-  } else {
-    if (existing.status !== "suppressed") return { ok: true as const, changed: false };
-    await subscribers.updateOne(
-      { email, status: "suppressed" } as never,
-      {
-        $set: {
-          status: "unsubscribed",
-          updatedAt: now,
-        },
-        $unset: {
-          suppressedAt: "",
-          suppressionReason: "",
-        },
-      } as never,
-    );
+  const coordination = await acquireNewsletterSubscriberCoordination({
+    email,
+    purpose: "mutation",
+  });
+  if (!coordination.acquired) {
+    if (coordination.reason === "subscriber_not_found") {
+      return { ok: false as const, error: "subscriber_not_found" };
+    }
+    return { ok: false as const, error: "subscriber_coordination_busy" };
   }
 
-  return { ok: true as const, changed: true };
+  try {
+    const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
+    const existing = await subscribers.findOne({ email });
+    if (!existing) return { ok: false as const, error: "subscriber_not_found" };
+    const now = new Date();
+
+    if (input.suppressed) {
+      await subscribers.updateOne(
+        { email },
+        {
+          $set: {
+            status: "suppressed",
+            suppressedAt: now,
+            suppressionReason: input.reason?.trim() || "operator",
+            updatedAt: now,
+          },
+        } as never,
+      );
+    } else {
+      if (existing.status !== "suppressed") return { ok: true as const, changed: false };
+      await subscribers.updateOne(
+        { email, status: "suppressed" } as never,
+        {
+          $set: {
+            status: "unsubscribed",
+            updatedAt: now,
+          },
+          $unset: {
+            suppressedAt: "",
+            suppressionReason: "",
+          },
+        } as never,
+      );
+    }
+
+    return { ok: true as const, changed: true };
+  } finally {
+    await coordination.release();
+  }
 }
 
 async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnType<typeof loadNewsletterCandidates>>, now: Date) {
@@ -180,58 +200,96 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
   }
 
   try {
-    // Consent/status/preferences are re-read only after the lease is held. The batch
-    // selection snapshot never authorizes an external handoff on its own.
-    let freshSubscriber: SubscriberDoc | null;
-    try {
-      const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
-      freshSubscriber = await subscribers.findOne({ email: preview.email.trim().toLowerCase() });
-    } catch {
-      return { ok: false as const, status: "blocked" as const, reason: "subscriber_state_unavailable" as const };
+    // The subscriber-level coordination lock is shared with unsubscribe, account
+    // preference and operator-suppression mutations. A mutation can therefore not
+    // report completion while this external send boundary is in flight.
+    const sendBoundary = await acquireNewsletterSubscriberCoordination({
+      email: preview.email,
+      purpose: "send",
+      requiredConsentVersion: REQUIRED_CONSENT_VERSION,
+      now,
+    });
+    if (!sendBoundary.acquired) {
+      return {
+        ok: true as const,
+        status: "skipped" as const,
+        reason: sendBoundary.reason,
+      };
     }
-    if (!freshSubscriber) {
-      return { ok: false as const, status: "blocked" as const, reason: "subscriber_not_found" as const };
-    }
-
-    const freshPreview = await buildNewsletterDigestPreviewForSubscriber(freshSubscriber, { now, candidates });
-    if (!freshPreview.deliveryAllowed || !freshPreview.digestKey) {
-      return { ok: true as const, status: "skipped" as const, reason: freshPreview.deliveryReason };
-    }
-    if (
-      freshPreview.email !== preview.email ||
-      freshPreview.digestKey !== preview.digestKey ||
-      freshPreview.candidateIds.join("|") !== preview.candidateIds.join("|")
-    ) {
-      return { ok: true as const, status: "skipped" as const, reason: "subscriber_state_changed" as const };
-    }
-
-    // Missing unsubscribe configuration is a known local block and must be detected
-    // before the durable external-attempt boundary is crossed.
-    if (!String(process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? "").trim()) {
-      return { ok: false as const, status: "blocked" as const, reason: "unsubscribe_secret_missing" as const };
-    }
-
-    // Re-check under the lease in case another historical/manual writer completed or
-    // exposed an ambiguous attempt between the first ledger read and lease acquisition.
-    const leasedBlock = deliveryBlock(await ledger.findOne({ _id: id }), now);
-    if (leasedBlock) return leasedBlock;
 
     try {
-      const result = await sendNewsletterDigestForSubscriber(freshSubscriber, {
-        now,
-        candidates,
-        expectedEmail: freshPreview.email,
-        expectedDigestKey: freshPreview.digestKey,
-        expectedCandidateIds: freshPreview.candidateIds,
-      });
-      if (result.status === "failed" && "delivery" in result) {
-        await maybeSuppressHardFailure(freshSubscriber, result.delivery.category);
+      // Consent/status/preferences are re-read only after both the digest lease and
+      // subscriber send boundary are held. The batch snapshot never authorizes an
+      // external handoff on its own.
+      let freshSubscriber: SubscriberDoc | null;
+      try {
+        const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
+        freshSubscriber = await subscribers.findOne({ email: preview.email.trim().toLowerCase() });
+      } catch {
+        return { ok: false as const, status: "blocked" as const, reason: "subscriber_state_unavailable" as const };
       }
-      return result;
-    } catch {
-      // The canonical sender persists the durable `sending` boundary before SMTP.
-      // Any exception here is therefore reconciled conservatively and never auto-replayed.
-      return { ok: false as const, status: "blocked" as const, reason: "ambiguous_delivery_state" as const };
+      if (!freshSubscriber) {
+        return { ok: false as const, status: "blocked" as const, reason: "subscriber_not_found" as const };
+      }
+
+      const freshPreview = await buildNewsletterDigestPreviewForSubscriber(freshSubscriber, { now, candidates });
+      if (!freshPreview.deliveryAllowed || !freshPreview.digestKey) {
+        return { ok: true as const, status: "skipped" as const, reason: freshPreview.deliveryReason };
+      }
+      if (
+        freshPreview.email !== preview.email ||
+        freshPreview.digestKey !== preview.digestKey ||
+        freshPreview.candidateIds.join("|") !== preview.candidateIds.join("|")
+      ) {
+        return { ok: true as const, status: "skipped" as const, reason: "subscriber_state_changed" as const };
+      }
+
+      // Missing unsubscribe configuration is a known local block and must be detected
+      // before the durable external-attempt boundary is crossed.
+      if (!String(process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? "").trim()) {
+        return { ok: false as const, status: "blocked" as const, reason: "unsubscribe_secret_missing" as const };
+      }
+
+      // Re-check under both leases in case another historical/manual writer completed
+      // or exposed an ambiguous attempt between the first ledger read and lease acquisition.
+      const leasedBlock = deliveryBlock(await ledger.findOne({ _id: id }), now);
+      if (leasedBlock) return leasedBlock;
+
+      // Content approval is a live canonical state, not a batch-time promise. Reload the
+      // current candidate projection immediately before the external boundary and require
+      // the exact selected content revisions to remain present and unchanged.
+      let currentCandidates: Awaited<ReturnType<typeof loadNewsletterCandidates>>;
+      try {
+        currentCandidates = await loadNewsletterCandidates(new Date());
+      } catch {
+        return { ok: false as const, status: "blocked" as const, reason: "candidate_state_unavailable" as const };
+      }
+      const selectedIds = new Set(freshPreview.candidateIds);
+      const expectedSelected = candidates.filter((candidate) => selectedIds.has(candidate.id));
+      const currentSelected = currentCandidates.filter((candidate) => selectedIds.has(candidate.id));
+      if (!newsletterCandidateSnapshotMatches(expectedSelected, currentSelected)) {
+        return { ok: true as const, status: "skipped" as const, reason: "candidate_state_changed" as const };
+      }
+
+      try {
+        const result = await sendNewsletterDigestForSubscriber(freshSubscriber, {
+          now,
+          candidates: currentCandidates,
+          expectedEmail: freshPreview.email,
+          expectedDigestKey: freshPreview.digestKey,
+          expectedCandidateIds: freshPreview.candidateIds,
+        });
+        if (result.status === "failed" && "delivery" in result) {
+          await maybeSuppressHardFailure(freshSubscriber, result.delivery.category);
+        }
+        return result;
+      } catch {
+        // The canonical sender persists the durable `sending` boundary before SMTP.
+        // Any exception here is therefore reconciled conservatively and never auto-replayed.
+        return { ok: false as const, status: "blocked" as const, reason: "ambiguous_delivery_state" as const };
+      }
+    } finally {
+      await sendBoundary.release();
     }
   } finally {
     await lease.release();
