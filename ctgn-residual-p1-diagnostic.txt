@@ -1,0 +1,19 @@
+main=14f2350dd53317088014ccd45ee3687cb117b111
+645:| NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01 | codex_ready | P1 | Issue `#865`; `docs/E150/CTGN_P1_REPAIR_INTAKE_2026-09-25.md`; bestehende N1–N9 Runtime, `public_updates_subscribers`, `newsletter_delivery_ledger`, bestehender Delivery-Lease; Authorization `preflight_only` | Closeout-Delta F3/F1/F4 im bestehenden Newsletter-Owner schließen: Account-`newsletterOptIn=false` als Adapter an `public_updates_subscribers` binden, ohne Re-Opt-in/Double-opt-in zu umgehen; Consent/Suppression/Preferences unmittelbar vor External-Handoff fail-closed aus dem kanonischen Subscriber-SSOT revalidieren; ausgewählte Newsletter-Kandidaten an den aktuellen kanonischen Social-Post-/Freigabezustand binden und gesperrte, zurückgezogene oder materiell geänderte Inhalte vor Provider-Handoff ausschließen; bestehende External-Attempt-/Ambiguous-Replay-Grenze unverändert erhalten | Pflichtregressionen für Account-Abwahl gegen aktive Subscription, Re-Opt-in ohne Consent-Bypass, Abmeldung/Suppression/Preference-Änderung nach früherem Subscriber-Reload, Subscriber-Read-Failure an der finalen Handoff-Grenze sowie Content `approved→blocked`/withdrawn/geändert nach Candidate-Selection; kein zweiter Subscriber-/Delivery-/Content-Store, keine neue Queue, kein Provider-/Secret-/Production-Enablement; `NEWSLETTER_DELIVERY_ENABLED=false` bleibt Default |
+646:| DOSSIER-REVISION-ATOMIC-WRITER-01 | codex_ready | P1 | Issue `#787`; `docs/E150/CTGN_P1_REPAIR_INTAKE_2026-09-25.md`; bestehende Dossier-Owner `features/dossier/revisions.ts` + `features/dossier/db.ts`; bestehende Mongo-Transaction-Capability bestätigt; Authorization `preflight_only` | Closeout-Delta F2 im bestehenden Dossier-Owner schließen: die kanonische Revisionstransaktion so bis zu den aufrufenden Fachmutationen erweitern, dass Claim-/Dossier-Mutation, Dossier-Head und `dossier_revisions` gemeinsam committen oder gemeinsam zurückrollen; mindestens `claims/upsert`, `ensureDossier` und `updateDossierCounts` auf dieselbe atomare/recoverbare Grenze ziehen, ohne neuen Writer oder Store | Pflichtregressionen: Claim-Mutation + Revisionsfehler rollt vollständig zurück; `ensureDossier` und `updateDossierCounts` hinterlassen bei Revisions-/Transaktionsfehler keine unrevidierte Fachänderung; bestehende Concurrent-Writer-, CAS-Exhaustion-, Insert-Rollback-, Retry-/Idempotenz- und Hash-Chain-Verträge bleiben grün; kein zweiter Dossier-/Revision-Store, keine T3–T9-/Graph-/Truth-/Publish-Autorität |
+
+newsletter preflight:
+{
+  "taskId": "NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01",
+  "status": "codex_ready",
+  "executable": false,
+  "reason": "dirty_worktree"
+}
+
+dossier preflight:
+{
+  "taskId": "DOSSIER-REVISION-ATOMIC-WRITER-01",
+  "status": "codex_ready",
+  "executable": false,
+  "reason": "dirty_worktree"
+}
