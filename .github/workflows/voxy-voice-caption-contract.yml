@@ -5,11 +5,16 @@ on:
     paths:
       - "core/locale/locales.ts"
       - "apps/web/src/config/locales.ts"
+      - "apps/web/src/features/voxyVideo/editorialLanguageVariant.ts"
+      - "apps/web/src/features/voxyVideo/localCompositionAudioAssetStore.ts"
+      - "apps/web/src/features/voxyVideo/studioLayoutSafety.ts"
       - "apps/web/src/features/voxyVideo/voiceCaptionFixture.ts"
+      - "apps/web/src/features/voxyVideo/voiceCaptionReadiness.ts"
       - "apps/web/src/features/voxyVideo/voiceLocaleMatrix.ts"
       - "apps/web/scripts/generate-voxy-voice-caption-evidence.ts"
       - "apps/web/tests/locale-eu24-coverage.contract.test.ts"
       - "apps/web/tests/voxy-voice-caption-fixture.contract.test.ts"
+      - "apps/web/tests/voxy-voice-caption-readiness.contract.test.ts"
       - "apps/web/tests/voxy-voice-locale-matrix.contract.test.ts"
       - "apps/web/public/brands/voxy/fixtures/voice-caption-*"
       - "docs/E150/VOXY-VOICE-AND-CAPTION-FIXTURE-01_2026-08-05.md"
@@ -55,8 +60,10 @@ jobs:
         run: |
           pnpm -C apps/web exec vitest run \
             tests/locale-eu24-coverage.contract.test.ts \
+            tests/voxy-editorial-language-variant.contract.test.ts \
             tests/voxy-voice-caption-fixture.contract.test.ts \
-            tests/voxy-voice-locale-matrix.contract.test.ts
+            tests/voxy-voice-locale-matrix.contract.test.ts \
+            tests/voxy-voice-caption-readiness.contract.test.ts
       - name: Generate real local DE and EN source speech fixtures
         run: |
           mkdir -p artifacts/voxy-voice-caption/de artifacts/voxy-voice-caption/en
