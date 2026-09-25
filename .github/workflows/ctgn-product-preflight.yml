@@ -1,0 +1,36 @@
+name: CTGN product preflight
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and product eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          test "$(git branch --show-current)" = "main"
+          test "$(git status --short)" = ""
+          OUT1=$(node scripts/codex-task-preflight.mjs NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01)
+          OUT2=$(node scripts/codex-task-preflight.mjs DOSSIER-REVISION-ATOMIC-WRITER-01)
+          printf '%s\n' "$OUT1"
+          printf '%s\n' "$OUT2"
+          printf '%s' "$OUT1" | grep -q '"status": "codex_ready"'
+          printf '%s' "$OUT1" | grep -q '"executable": true'
+          printf '%s' "$OUT1" | grep -q '"branchCreationAllowed": true'
+          printf '%s' "$OUT2" | grep -q '"status": "codex_ready"'
+          printf '%s' "$OUT2" | grep -q '"executable": true'
+          printf '%s' "$OUT2" | grep -q '"branchCreationAllowed": true'
