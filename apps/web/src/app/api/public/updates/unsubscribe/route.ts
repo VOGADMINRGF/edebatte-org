@@ -3,6 +3,7 @@ import type { Collection } from "mongodb";
 
 import { coreCol } from "@core/db/triMongo";
 import { verifyNewsletterUnsubscribeToken } from "@features/notifications/newsletterUnsubscribeToken";
+import { acquireNewsletterSubscriberCoordination } from "@/features/newsletter/newsletterSubscriberCoordination";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,6 +79,10 @@ async function tokenFromPost(req: NextRequest) {
  * - JSON `{ token }` from the human confirmation surface.
  * - RFC 8058 one-click POST with the signed token in the URL and
  *   `List-Unsubscribe=One-Click` form body from supporting mail clients.
+ *
+ * The mutation shares the subscriber coordination lock with the final send
+ * boundary. A successful response therefore cannot race a simultaneously
+ * in-flight external handoff and falsely claim that the opt-out already won.
  */
 export async function POST(req: NextRequest) {
   if (!unsubscribeSecret()) {
@@ -96,22 +101,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const now = new Date();
-  const subscriptions = (await coreCol("public_updates_subscribers")) as Collection<SubscriberDoc>;
+  const email = result.payload.email.trim().toLowerCase();
+  const coordination = await acquireNewsletterSubscriberCoordination({
+    email,
+    purpose: "mutation",
+  });
+  if (!coordination.acquired) {
+    if (coordination.reason === "subscriber_not_found") {
+      return NextResponse.json({ ok: true, status: "unsubscribed" });
+    }
+    return NextResponse.json(
+      { ok: false, error: "newsletter_delivery_in_progress" },
+      { status: 503, headers: { "Retry-After": "1" } },
+    );
+  }
 
-  await subscriptions.updateOne(
-    {
-      email: result.payload.email,
-      status: { $ne: "suppressed" },
-    },
-    {
-      $set: {
-        status: "unsubscribed",
-        unsubscribedAt: now,
-        updatedAt: now,
+  try {
+    const now = new Date();
+    const subscriptions = (await coreCol("public_updates_subscribers")) as Collection<SubscriberDoc>;
+
+    await subscriptions.updateOne(
+      {
+        email,
+        status: { $ne: "suppressed" },
       },
-    },
-  );
+      {
+        $set: {
+          status: "unsubscribed",
+          unsubscribedAt: now,
+          updatedAt: now,
+        },
+      },
+    );
 
-  return NextResponse.json({ ok: true, status: "unsubscribed" });
+    return NextResponse.json({ ok: true, status: "unsubscribed" });
+  } finally {
+    await coordination.release();
+  }
 }
