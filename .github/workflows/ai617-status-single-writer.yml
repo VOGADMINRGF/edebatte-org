@@ -1,0 +1,116 @@
+name: AI617 status single writer
+
+on:
+  push:
+    branches:
+      - docs/ai617-live-smoke-manual-gate-sync
+    paths:
+      - .github/workflows/ai617-status-single-writer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: docs/ai617-live-smoke-manual-gate-sync
+
+      - name: Reconcile AI617 to manual gate
+        shell: bash
+        env:
+          EXPECTED_MAIN: 19432c64120b874a4e0b8a5d2ddc52fedeacea8c
+          WORKFLOW_PATH: .github/workflows/ai617-status-single-writer.yml
+        run: |
+          set -euo pipefail
+
+          git config user.name "VOGADMINRGF"
+          git config user.email "rgf@voiceopengov.de"
+          git fetch origin main
+
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git merge-base origin/main HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$(git rev-parse origin/main:docs/E150/OpenTasks.md)"
+
+          changed_before="$(git diff --name-only "$EXPECTED_MAIN"...HEAD | sed '/^$/d')"
+          test "$changed_before" = "$WORKFLOW_PATH"
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const path = 'docs/E150/OpenTasks.md';
+          const operativeMarker = '## Kanonischer Operativteil';
+          const historyMarker = '## Historischer Katalog und Evidenz';
+          const target = 'AI-CREATE-ORCHESTRATOR-LIVE-SMOKE-01';
+          const text = fs.readFileSync(path, 'utf8');
+          const operativeIndex = text.indexOf(operativeMarker);
+          const historyIndex = text.indexOf(historyMarker);
+          if (operativeIndex < 0 || historyIndex <= operativeIndex) throw new Error('open_tasks_structure_unclear');
+          if (text.indexOf(operativeMarker, operativeIndex + operativeMarker.length) !== -1) throw new Error('duplicate_operative_marker');
+          if (text.indexOf(historyMarker, historyIndex + historyMarker.length) !== -1) throw new Error('duplicate_history_marker');
+
+          const prefix = text.slice(0, operativeIndex);
+          const operative = text.slice(operativeIndex, historyIndex);
+          const historical = text.slice(historyIndex);
+          const historicalHash = crypto.createHash('sha256').update(historical).digest('hex');
+
+          const escapeRe = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const fromRe = new RegExp(`^(\\|\\s*${escapeRe(target)}\\s*\\|\\s*)codex_ready(\\s*\\|.*)$`, 'gm');
+          let replacements = 0;
+          const nextOperative = operative.replace(fromRe, (_whole, before, after) => {
+            replacements += 1;
+            return `${before}manual_gate${after}`;
+          });
+          if (replacements !== 1) throw new Error(`unexpected_target_count:${replacements}`);
+
+          const staleRe = new RegExp(`^\\|\\s*${escapeRe(target)}\\s*\\|\\s*codex_ready\\s*\\|`, 'gm');
+          const manualRe = new RegExp(`^\\|\\s*${escapeRe(target)}\\s*\\|\\s*manual_gate\\s*\\|`, 'gm');
+          if ((nextOperative.match(staleRe) ?? []).length !== 0) throw new Error('stale_codex_ready_survived');
+          if ((nextOperative.match(manualRe) ?? []).length !== 1) throw new Error('manual_gate_not_unique');
+
+          for (const [id, status] of [
+            ['AI-SPECIALIST-ORCHESTRATION-COMPOSITION-01', 'review'],
+            ['YOUTUBE-SERVERLESS-SOURCE-RUNTIME-01', 'manual_gate'],
+            ['NEWSLETTER-DELIVERY-SEND-TIME-SAFETY-01', 'review'],
+            ['DOSSIER-REVISION-ATOMIC-WRITER-01', 'review'],
+          ]) {
+            const re = new RegExp(`^\\|\\s*${escapeRe(id)}\\s*\\|\\s*${escapeRe(status)}\\s*\\|`, 'gm');
+            if ((nextOperative.match(re) ?? []).length !== 1) throw new Error(`invariant_failed:${id}:${status}`);
+          }
+
+          const next = prefix + nextOperative + historical;
+          const nextHistoryIndex = next.indexOf(historyMarker);
+          const nextHistorical = next.slice(nextHistoryIndex);
+          const nextHistoricalHash = crypto.createHash('sha256').update(nextHistorical).digest('hex');
+          if (nextHistorical !== historical || nextHistoricalHash !== historicalHash) throw new Error('historical_tail_changed');
+          fs.writeFileSync(path, next);
+          console.log(JSON.stringify({ target, from: 'codex_ready', to: 'manual_gate', historicalHash }, null, 2));
+          NODE
+
+          git diff --check
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+
+          rm "$WORKFLOW_PATH"
+          git add docs/E150/OpenTasks.md "$WORKFLOW_PATH"
+          git commit -m "docs(e150): gate AI create live smoke on human preview"
+
+          candidate_sha="$(git rev-parse HEAD)"
+          test "$(git status --porcelain)" = ""
+          changed_after="$(git diff --name-only "$EXPECTED_MAIN"...HEAD | sed '/^$/d')"
+          test "$changed_after" = "docs/E150/OpenTasks.md"
+          test "$(git diff --numstat "$EXPECTED_MAIN"...HEAD -- docs/E150/OpenTasks.md)" = $'1\t1\tdocs/E150/OpenTasks.md'
+
+          git branch -D main 2>/dev/null || true
+          git worktree add -b main /tmp/ai617-status "$candidate_sha"
+          (
+            cd /tmp/ai617-status
+            node --input-type=module -e "import { runPreflight } from './scripts/codex-task-preflight.mjs'; const {result,exitCode}=await runPreflight({taskId:'AI-CREATE-ORCHESTRATOR-LIVE-SMOKE-01'}); if (exitCode!==1 || result.status!=='manual_gate' || result.executable!==false || result.branchCreationAllowed!==false || result.reason!=='task_status_not_executable:manual_gate') throw new Error(JSON.stringify({result,exitCode})); console.log(JSON.stringify(result));"
+            git diff --check
+          )
+          git worktree remove /tmp/ai617-status
+          git branch -D main
+
+          git push origin HEAD:docs/ai617-live-smoke-manual-gate-sync
