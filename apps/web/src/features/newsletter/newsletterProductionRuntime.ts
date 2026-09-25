@@ -218,7 +218,13 @@ async function deliverOne(subscriber: SubscriberDoc, candidates: Awaited<ReturnT
     if (leasedBlock) return leasedBlock;
 
     try {
-      const result = await sendNewsletterDigestForSubscriber(freshSubscriber, { now, candidates });
+      const result = await sendNewsletterDigestForSubscriber(freshSubscriber, {
+        now,
+        candidates,
+        expectedEmail: freshPreview.email,
+        expectedDigestKey: freshPreview.digestKey,
+        expectedCandidateIds: freshPreview.candidateIds,
+      });
       if (result.status === "failed" && "delivery" in result) {
         await maybeSuppressHardFailure(freshSubscriber, result.delivery.category);
       }

@@ -657,7 +657,13 @@ function mailResultFailure(result: SendMailResult) {
 
 export async function sendNewsletterDigestForSubscriber(
   subscriber: SubscriberDoc,
-  options: { now?: Date; candidates?: NewsletterDigestCandidate[] } = {},
+  options: {
+    now?: Date;
+    candidates?: NewsletterDigestCandidate[];
+    expectedEmail?: string;
+    expectedDigestKey?: string;
+    expectedCandidateIds?: string[];
+  } = {},
 ) {
   const now = options.now ?? new Date();
   let currentSubscriber: SubscriberDoc | null;
@@ -675,6 +681,15 @@ export async function sendNewsletterDigestForSubscriber(
   });
   if (!preview.deliveryAllowed || !preview.digestKey || !preview.subject || !preview.html || !preview.text) {
     return { ok: true as const, status: "skipped" as const, reason: preview.deliveryReason, preview };
+  }
+  const expectedEmail = options.expectedEmail?.trim().toLowerCase();
+  if (
+    (expectedEmail && preview.email !== expectedEmail) ||
+    (options.expectedDigestKey && preview.digestKey !== options.expectedDigestKey) ||
+    (options.expectedCandidateIds &&
+      preview.candidateIds.join("|") !== options.expectedCandidateIds.join("|"))
+  ) {
+    return { ok: true as const, status: "skipped" as const, reason: "subscriber_state_changed", preview };
   }
   if (!String(process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? "").trim()) {
     return { ok: false as const, status: "blocked" as const, reason: "unsubscribe_secret_missing", preview };

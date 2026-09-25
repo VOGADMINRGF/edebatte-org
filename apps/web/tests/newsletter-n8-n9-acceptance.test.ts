@@ -213,6 +213,9 @@ describe("N9 production red-team source contracts", () => {
     expect(production).toContain('reason: "subscriber_state_unavailable"');
     expect(production).toContain('reason: "subscriber_state_changed"');
     expect(runtime).toContain("reloadCanonicalSubscriberForSend");
+    expect(runtime).toContain("expectedDigestKey");
+    expect(runtime).toContain("expectedCandidateIds");
+    expect(production).toContain("expectedDigestKey: freshPreview.digestKey");
     expect(runtime).toContain("externalAttemptBoundaryAt: now");
     expect(runtime).toContain("externalAttemptId: crypto.randomUUID()");
     expect(runtime).toContain('existing?.status === "sending"');
