@@ -59,15 +59,25 @@ jobs:
           assert oi < hi
           operative = text[oi:hi]
           history = text[hi:]
-          assert target not in operative
+
+          def task_id_of(line: str):
+              if not line.startswith('| '):
+                  return None
+              cells = [cell.strip() for cell in line.split('|')]
+              return cells[1] if len(cells) > 2 else None
+
+          def rows_for(region: str, task_id: str):
+              return [line for line in region.splitlines() if task_id_of(line) == task_id]
+
+          assert len(rows_for(operative, target)) == 0
 
           existing_rows = [
               line for line in operative.splitlines()
-              if line.startswith('| ') and not line.startswith('| ---') and ' ID |' not in line
+              if line.startswith('| ') and not line.startswith('| ---') and task_id_of(line) != 'ID'
           ]
 
-          def unique_row(task_id: str) -> str:
-              rows = [line for line in operative.splitlines() if task_id in line]
+          def unique_row(region: str, task_id: str) -> str:
+              rows = rows_for(region, task_id)
               assert len(rows) == 1, (task_id, len(rows))
               return rows[0]
 
@@ -80,7 +90,7 @@ jobs:
               'VOXY-200PCT-VISUAL-QA-CHECKPOINT-01': 'done',
           }
           for task_id, status in preserve.items():
-              row = unique_row(task_id)
+              row = unique_row(operative, task_id)
               assert f'| {status} |' in row, row
 
           block_lines = [
@@ -103,15 +113,14 @@ jobs:
           history2 = text2[hi2:]
           assert history2 == history
           assert hashlib.sha256(history2.encode()).hexdigest() == hashlib.sha256(history.encode()).hexdigest()
-          assert operative2.count(target) == 1
-          expected_row = [line for line in operative2.splitlines() if target in line]
-          assert len(expected_row) == 1 and '| codex_ready | P2 |' in expected_row[0]
+          target_rows = rows_for(operative2, target)
+          assert len(target_rows) == 1 and '| codex_ready | P2 |' in target_rows[0]
 
           for row in existing_rows:
               assert operative2.splitlines().count(row) == operative.splitlines().count(row), row
           for task_id, status in preserve.items():
-              rows = [line for line in operative2.splitlines() if task_id in line]
-              assert len(rows) == 1 and f'| {status} |' in rows[0], rows
+              row = unique_row(operative2, task_id)
+              assert f'| {status} |' in row, row
           PY
           git diff --check
           test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
