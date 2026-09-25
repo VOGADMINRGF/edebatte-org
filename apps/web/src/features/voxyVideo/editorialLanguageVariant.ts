@@ -120,7 +120,7 @@ function browserSafeSha256(value: string): string {
   view.setUint32(paddedLength - 8, high, false);
   view.setUint32(paddedLength - 4, low, false);
 
-  const hash = [...SHA256_INITIAL];
+  const hash: number[] = [...SHA256_INITIAL];
   const words = new Uint32Array(64);
 
   for (let offset = 0; offset < paddedLength; offset += 64) {
