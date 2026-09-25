@@ -6,6 +6,7 @@ import VoxyStudioFineTunePanel from "./VoxyStudioFineTunePanel";
 import VoxyStudioFramePreviewPanel from "./VoxyStudioFramePreviewPanel";
 import VoxyStudioLocaleReviewMatrixPanel from "./VoxyStudioLocaleReviewMatrixPanel";
 import VoxyStudioOperator from "./VoxyStudioOperator";
+import VoxyStudioOperationsPanel from "./VoxyStudioOperationsPanel";
 import VoxyStudioPreviewReviewPanel from "./VoxyStudioPreviewReviewPanel";
 import VoxyStudioProductionContextPanel from "./VoxyStudioProductionContextPanel";
 import VoxyStudioRenderQueuePanel from "./VoxyStudioRenderQueuePanel";
@@ -24,6 +25,7 @@ export default function VoxyStudioReviewPage() {
       <h1 className="sr-only">Admin Video Studio</h1>
       <VoxyStudioOperator />
       <VoxyStudioProductionContextPanel />
+      <VoxyStudioOperationsPanel />
       <VoxyStudioLocaleReviewMatrixPanel />
       <VoxyStudioAutonomyPanel />
       <VoxyStudioAgentReviewPanel />
