@@ -20,6 +20,10 @@ const UNSAFE_REDIRECT_CASES = [
   ["protocol-relative URL", "//evil.example/account"],
   ["single backslash before host", "/\\evil.example"],
   ["double backslash before host", "/\\\\evil.example"],
+  ["encoded backslash origin escape", "/%5c%5cevil.example/account"],
+  ["double-encoded backslash origin escape", "/%255c%255cevil.example/account"],
+  ["encoded network path origin escape", "/%2f%2fevil.example/account"],
+  ["double-encoded network path origin escape", "/%252f%252fevil.example/account"],
   ["leading backslash", "\\evil.example"],
   ["backslash in internal path", "/account\\security"],
   ["tab before second slash", "/\t/evil.example"],
@@ -39,6 +43,7 @@ const SAFE_REDIRECT_CASES = [
   ["/account?tab=security#sessions", "/account?tab=security#sessions"],
   ["/admin/marketing#review", "/admin/marketing#review"],
   ["/search?q=region%20berlin#results", "/search?q=region%20berlin#results"],
+  ["/search?q=100%25#results", "/search?q=100%25#results"],
 ] as const;
 
 describe("auth shared redirect contract", () => {
