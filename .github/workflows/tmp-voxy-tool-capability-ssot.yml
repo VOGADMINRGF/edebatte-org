@@ -1,0 +1,63 @@
+name: tmp voxy tool capability ssot
+
+on:
+  push:
+    branches:
+      - docs/voxy-tool-capability-adapters-01-ssot
+
+permissions:
+  contents: write
+
+jobs:
+  serialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: docs/voxy-tool-capability-adapters-01-ssot
+      - name: Pin canonical main and OpenTasks blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          expected_main='d7f3884455958d65db0e03bc1bf2e0c78e70dd81'
+          actual_main="$(git rev-parse origin/main)"
+          test "$actual_main" = "$expected_main" || { echo "main moved: $actual_main"; exit 1; }
+          expected_blob='b9b3890a242f4194b9e8b8191846ab7bd0e8c95d'
+          actual_blob="$(git rev-parse origin/main:docs/E150/OpenTasks.md)"
+          test "$actual_blob" = "$expected_blob" || { echo "OpenTasks blob moved: $actual_blob"; exit 1; }
+      - name: Serialize exactly one AAA tool task
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('docs/E150/OpenTasks.md')
+          data = p.read_text(encoding='utf-8')
+          target = 'VOXY-TOOL-CAPABILITY-ADAPTERS-01'
+          anchor = 'PERSONAL-VOXY-CONSENTED-MEMORY-RUNTIME-01'
+          if target in data:
+              raise SystemExit(f'{target} already present')
+          lines = data.splitlines(keepends=True)
+          idx = [i for i, line in enumerate(lines) if line.startswith('| ') and anchor in line]
+          if len(idx) != 1:
+              raise SystemExit(f'expected exactly one operative anchor, got {len(idx)}')
+          row = "| VOXY-TOOL-CAPABILITY-ADAPTERS-01 | codex_ready | P0 | Issue `#1027`; `PERSONAL-VOXY-CONSENTED-MEMORY-RUNTIME-01` implemented via PR `#1043`; `SHARED-CONVERSATION-CONTRACT-01`; Alpha2 Risk/Action Gate, Fleet Tool Permissions, Execution Fence/Idempotency; Single-Writer `#447` | Provider- und app-neutralen typed Tool-Capability-Vertrag auf bestehende Alpha2- und Domain-Owner setzen: stabile Capability-ID/Version, Schema-/Owner-Referenz, Action-Klasse, Permission-/Consent-/Connection-Kontext, Preview/Dry-Run, Reversibility/Idempotency, Timeout/Retry und sichere Result-/Trace-Metadaten; kein zweiter Orchestrator oder Action-Owner | Start nur nach positivem taskbezogenen Preflight; erster Pilot ausschließlich bestehende interne eDebatte-Fähigkeiten; unbekannte/stale Capability oder Permission fail-closed; Human-only Actions wie `notify_external`, `merge_code`, `deploy`, `spend_money`, `enter_contract`, Rights/Entitlements, destructive Infra sowie Secret/Security bleiben human-only und nicht herunterstufbar; keine dynamischen Endpoints, keine direkte DB/Provider-Ausführung aus Voxy, keine politische Vote-/Persuasion-Aktion, keine externe App-Autonomie, kein Auto-Publish |\n"
+          lines.insert(idx[0] + 1, row)
+          p.write_text(''.join(lines), encoding='utf-8')
+          after = p.read_text(encoding='utf-8')
+          if after.count(target) != 1:
+              raise SystemExit('target count invariant failed')
+      - name: Verify bounded diff and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-voxy-tool-capability-ssot.yml
+          git diff --check
+          changed="$(git diff --name-only origin/main...HEAD; git diff --name-only)"
+          echo "$changed"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md .github/workflows/tmp-voxy-tool-capability-ssot.yml
+          git commit -m 'docs(e150): authorize Voxy tool capability preflight'
+          git push origin HEAD:docs/voxy-tool-capability-adapters-01-ssot
