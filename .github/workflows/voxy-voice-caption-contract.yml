@@ -13,6 +13,8 @@ on:
       - "apps/web/src/features/voxyVideo/voiceLocaleMatrix.ts"
       - "apps/web/scripts/generate-voxy-voice-caption-evidence.ts"
       - "apps/web/tests/locale-eu24-coverage.contract.test.ts"
+      - "apps/web/tests/voxy-editorial-language-variant.contract.test.ts"
+      - "apps/web/tests/voxy-multilingual-editorial-e2e.contract.test.ts"
       - "apps/web/tests/voxy-voice-caption-fixture.contract.test.ts"
       - "apps/web/tests/voxy-voice-caption-readiness.contract.test.ts"
       - "apps/web/tests/voxy-voice-locale-matrix.contract.test.ts"
@@ -61,6 +63,7 @@ jobs:
           pnpm -C apps/web exec vitest run \
             tests/locale-eu24-coverage.contract.test.ts \
             tests/voxy-editorial-language-variant.contract.test.ts \
+            tests/voxy-multilingual-editorial-e2e.contract.test.ts \
             tests/voxy-voice-caption-fixture.contract.test.ts \
             tests/voxy-voice-locale-matrix.contract.test.ts \
             tests/voxy-voice-caption-readiness.contract.test.ts
