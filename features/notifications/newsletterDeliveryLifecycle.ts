@@ -23,6 +23,16 @@ export type NewsletterRetryDecision = {
   nextAttemptAt: Date | null;
 };
 
+const NEWSLETTER_PROVEN_PRE_HANDOFF_FAILURE_CATEGORIES = new Set<NewsletterMailFailureCategory>([
+  "recipient_invalid",
+  "recipient_placeholder_domain",
+  "recipient_test_domain_blocked",
+  "recipient_domain_not_allowed",
+  "mail_content_invalid",
+  "sender_configuration_invalid",
+  "smtp_unconfigured",
+]);
+
 function safeDate(value?: Date | string | null) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -63,6 +73,15 @@ export function resolveNewsletterRetryDecision(input: {
   }
 
   return { allowed: true, reason: "retry_allowed", nextAttemptAt };
+}
+
+export function newsletterFailureProvenBeforeExternalHandoff(
+  category: NewsletterMailFailureCategory | string | null | undefined,
+) {
+  return Boolean(
+    category &&
+      NEWSLETTER_PROVEN_PRE_HANDOFF_FAILURE_CATEGORIES.has(category as NewsletterMailFailureCategory),
+  );
 }
 
 export function shouldSuppressNewsletterRecipient(category: NewsletterMailFailureCategory) {

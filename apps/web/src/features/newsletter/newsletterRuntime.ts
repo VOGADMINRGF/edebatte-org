@@ -31,6 +31,7 @@ import {
   type RankedNewsletterCandidate,
 } from "@features/notifications/newsletterBriefingPolicy";
 import { resolveNewsletterDeliveryPolicy } from "@features/notifications/newsletterDeliveryPolicy";
+import { newsletterFailureProvenBeforeExternalHandoff } from "@features/notifications/newsletterDeliveryLifecycle";
 import { createNewsletterUnsubscribeToken } from "@features/notifications/newsletterUnsubscribeToken";
 import { sendMail, type SendMailResult } from "@/utils/mailer";
 import { publicOrigin } from "@/utils/publicOrigin";
@@ -167,6 +168,8 @@ type DeliveryDoc = {
   messageId?: string | null;
   failureCategory?: string | null;
   retryable?: boolean | null;
+  externalAttemptBoundaryAt?: Date | null;
+  externalAttemptId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   sentAt?: Date | null;
@@ -268,6 +271,16 @@ async function loadUserForSubscriber(subscriber: SubscriberDoc): Promise<UserDoc
     if (user) return user;
   }
   return users.findOne({ email: subscriber.email });
+}
+
+async function reloadCanonicalSubscriberForSend(subscriber: SubscriberDoc): Promise<SubscriberDoc | null> {
+  const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
+  const email = subscriber.email.trim().toLowerCase();
+  if (subscriber.userId) {
+    const byUserId = await subscribers.findOne({ userId: subscriber.userId } as never);
+    if (byUserId) return byUserId;
+  }
+  return subscribers.findOne({ email } as never);
 }
 
 async function loadAnlassraumByDossierIds(dossierIds: string[]) {
@@ -644,15 +657,39 @@ function mailResultFailure(result: SendMailResult) {
 
 export async function sendNewsletterDigestForSubscriber(
   subscriber: SubscriberDoc,
-  options: { now?: Date; candidates?: NewsletterDigestCandidate[] } = {},
+  options: {
+    now?: Date;
+    candidates?: NewsletterDigestCandidate[];
+    expectedEmail?: string;
+    expectedDigestKey?: string;
+    expectedCandidateIds?: string[];
+  } = {},
 ) {
   const now = options.now ?? new Date();
-  const preview = await buildNewsletterDigestPreviewForSubscriber(subscriber, {
+  let currentSubscriber: SubscriberDoc | null;
+  try {
+    currentSubscriber = await reloadCanonicalSubscriberForSend(subscriber);
+  } catch {
+    return { ok: false as const, status: "blocked" as const, reason: "subscriber_state_unavailable" as const };
+  }
+  if (!currentSubscriber) {
+    return { ok: false as const, status: "blocked" as const, reason: "subscriber_not_found" as const };
+  }
+  const preview = await buildNewsletterDigestPreviewForSubscriber(currentSubscriber, {
     now,
     candidates: options.candidates,
   });
   if (!preview.deliveryAllowed || !preview.digestKey || !preview.subject || !preview.html || !preview.text) {
     return { ok: true as const, status: "skipped" as const, reason: preview.deliveryReason, preview };
+  }
+  const expectedEmail = options.expectedEmail?.trim().toLowerCase();
+  if (
+    (expectedEmail && preview.email !== expectedEmail) ||
+    (options.expectedDigestKey && preview.digestKey !== options.expectedDigestKey) ||
+    (options.expectedCandidateIds &&
+      preview.candidateIds.join("|") !== options.expectedCandidateIds.join("|"))
+  ) {
+    return { ok: true as const, status: "skipped" as const, reason: "subscriber_state_changed", preview };
   }
   if (!String(process.env.NEWSLETTER_UNSUBSCRIBE_SECRET ?? "").trim()) {
     return { ok: false as const, status: "blocked" as const, reason: "unsubscribe_secret_missing", preview };
@@ -664,8 +701,8 @@ export async function sendNewsletterDigestForSubscriber(
   if (existing?.status === "sent") {
     return { ok: true as const, status: "skipped" as const, reason: "already_sent", preview };
   }
-  if (existing?.status === "sending" && now.getTime() - existing.updatedAt.getTime() < 15 * 60 * 1000) {
-    return { ok: true as const, status: "skipped" as const, reason: "delivery_in_progress", preview };
+  if (existing?.status === "sending") {
+    return { ok: true as const, status: "skipped" as const, reason: "ambiguous_previous_attempt", preview };
   }
   if (existing?.status === "failed" && existing.retryable === false) {
     return { ok: true as const, status: "skipped" as const, reason: "non_retryable_previous_failure", preview };
@@ -677,14 +714,21 @@ export async function sendNewsletterDigestForSubscriber(
       $setOnInsert: {
         _id: id,
         recipientHash: recipientHash(preview.email),
-        userId: subscriber.userId ?? null,
+        userId: currentSubscriber.userId ?? null,
         digestKey: preview.digestKey,
         candidateIds: preview.candidateIds,
         audienceTier: preview.audienceTier,
         frequency: preview.frequency,
         createdAt: now,
       },
-      $set: { status: "sending", updatedAt: now },
+      $set: {
+        status: "sending",
+        retryable: false,
+        externalAttemptBoundaryAt: now,
+        externalAttemptId: crypto.randomUUID(),
+        updatedAt: now,
+      },
+      $unset: { failureCategory: "" },
       $inc: { attemptCount: 1 },
     },
     { upsert: true },
@@ -695,12 +739,12 @@ export async function sendNewsletterDigestForSubscriber(
     preheader: preview.subject,
     html: preview.html,
     text: preview.text,
-    locale: String(subscriber.locale ?? "de").toLowerCase().startsWith("en") ? "en" as const : "de" as const,
+    locale: String(currentSubscriber.locale ?? "de").toLowerCase().startsWith("en") ? "en" as const : "de" as const,
   };
   // Re-rendered provenance is required by the central mailer; build the final mail again.
   const finalMail = buildNewsletterDigestMail({
-    recipientName: subscriber.name ?? null,
-    locale: subscriber.locale ?? "de",
+    recipientName: currentSubscriber.name ?? null,
+    locale: currentSubscriber.locale ?? "de",
     audienceTier: preview.audienceTier,
     items: preview.items,
     preferenceUrl: preferenceUrl(),
@@ -718,19 +762,29 @@ export async function sendNewsletterDigestForSubscriber(
 
   if (!result.ok) {
     const failure = mailResultFailure(result)!;
+    const provenPreHandoffFailure =
+      result.attemptedCount === 0 &&
+      result.deliveredCount === 0 &&
+      newsletterFailureProvenBeforeExternalHandoff(failure.category);
     await ledger.updateOne(
       { _id: id },
       {
         $set: {
           status: "failed",
           failureCategory: failure.category,
-          retryable: failure.retryable,
+          retryable: provenPreHandoffFailure && failure.retryable,
           messageId: result.messageId,
           updatedAt: new Date(),
         },
       },
     );
-    return { ok: false as const, status: "failed" as const, reason: result.category, preview, delivery: result };
+    return {
+      ok: false as const,
+      status: "failed" as const,
+      reason: provenPreHandoffFailure ? result.category : "ambiguous_delivery_state",
+      preview,
+      delivery: result,
+    };
   }
 
   const sentAt = new Date();
@@ -748,8 +802,8 @@ export async function sendNewsletterDigestForSubscriber(
     },
   );
   const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
-  const previousDigestKeys = [preview.digestKey, ...(subscriber.lastDigestKeys ?? [])].filter(Boolean).slice(0, 24);
-  const previousCandidateIds = [...preview.candidateIds, ...(subscriber.lastCandidateIds ?? [])].filter(Boolean).slice(0, 100);
+  const previousDigestKeys = [preview.digestKey, ...(currentSubscriber.lastDigestKeys ?? [])].filter(Boolean).slice(0, 24);
+  const previousCandidateIds = [...preview.candidateIds, ...(currentSubscriber.lastCandidateIds ?? [])].filter(Boolean).slice(0, 100);
   await subscribers.updateOne(
     { email: preview.email },
     {

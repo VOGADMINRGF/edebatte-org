@@ -207,6 +207,23 @@ describe("N9 production red-team source contracts", () => {
     expect(production).not.toContain("users.newsletterOptIn");
   });
 
+  it("revalidates canonical consent under the lease and never auto-replays ambiguous handoff", () => {
+    expect(production).toContain("const lease = await acquireNewsletterDeliveryLease");
+    expect(production).toContain("freshSubscriber = await subscribers.findOne");
+    expect(production).toContain('reason: "subscriber_state_unavailable"');
+    expect(production).toContain('reason: "subscriber_state_changed"');
+    expect(runtime).toContain("reloadCanonicalSubscriberForSend");
+    expect(runtime).toContain("expectedDigestKey");
+    expect(runtime).toContain("expectedCandidateIds");
+    expect(production).toContain("expectedDigestKey: freshPreview.digestKey");
+    expect(runtime).toContain("externalAttemptBoundaryAt: now");
+    expect(runtime).toContain("externalAttemptId: crypto.randomUUID()");
+    expect(runtime).toContain('existing?.status === "sending"');
+    expect(runtime).not.toContain('existing?.status === "sending" && now.getTime() - existing.updatedAt.getTime()');
+    expect(runtime).toContain("newsletterFailureProvenBeforeExternalHandoff");
+    expect(runtime).toContain('reason: provenPreHandoffFailure ? result.category : "ambiguous_delivery_state"');
+  });
+
   it("supports scanner-safe human unsubscribe and RFC one-click POST", () => {
     expect(unsubscribe).toContain("GET is intentionally read-only");
     expect(unsubscribe).toContain('params.get("List-Unsubscribe") === "One-Click"');
