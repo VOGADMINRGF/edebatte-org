@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isBerlinDigestHour, sendDailyOperatorDigest } from "@/features/operator/operatorNotifications";
 import { buildAutonomousThemenradarReadModel } from "@features/themenradar/autonomousSupply";
 import { syncAutonomousTopicClusters } from "@features/research/topicHandoff";
 
@@ -12,42 +11,34 @@ function authorized(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  if (!isBerlinDigestHour()) return NextResponse.json({ ok: true, skipped: "outside_berlin_18h_window" });
-
-  const digest = await sendDailyOperatorDigest();
-
-  let topicHandoff: Record<string, unknown> = {
-    ok: false,
-    error: "topic_handoff_not_run",
-  };
+  if (!authorized(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
 
   try {
     const radar = await buildAutonomousThemenradarReadModel({
       scope: { adminContext: true },
       limit: 80,
     });
+
     const results = await syncAutonomousTopicClusters(radar.items);
-    topicHandoff = {
+
+    return NextResponse.json({
       ok: true,
+      generatedAt: radar.generatedAt,
       clusterCount: radar.items.length,
       handoffs: results.length,
       dossierDrafts: results.filter((entry) => entry.dossierDraftCreated).length,
       swipes: results.filter((entry) => entry.swipeReady).length,
       reviewRequired: results.filter((entry) => entry.reviewRequired).length,
       aiOrchestratorReviewed: results.filter((entry) => entry.aiOrchestratorReviewed).length,
-    };
+      results,
+    });
   } catch (error) {
-    console.error("[/api/cron/operator-digest] topic handoff failed", error);
-    topicHandoff = {
-      ok: false,
-      error: "topic_handoff_failed",
-    };
+    console.error("[/api/cron/topic-handoff] failed", error);
+    return NextResponse.json(
+      { ok: false, error: "topic_handoff_failed" },
+      { status: 503 },
+    );
   }
-
-  return NextResponse.json({
-    ok: digest.ok && topicHandoff.ok === true,
-    digest,
-    topicHandoff,
-  }, { status: digest.ok && topicHandoff.ok === true ? 200 : 503 });
 }
