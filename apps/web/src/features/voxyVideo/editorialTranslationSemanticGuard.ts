@@ -171,7 +171,7 @@ function sameIds(left: readonly string[], right: readonly string[]): boolean {
 }
 
 function words(value: string): string[] {
-  return value.toLocaleLowerCase().match(/\p{L}+(?:['’\-]\p{L}+)?/gu) ?? [];
+  return value.toLocaleLowerCase().match(/\p{L}+(?:['’-]\p{L}+)?/gu) ?? [];
 }
 
 function markerCount(value: string, markers: readonly string[]): number {
