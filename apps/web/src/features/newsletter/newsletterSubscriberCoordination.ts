@@ -180,16 +180,22 @@ export async function acquireNewsletterSubscriberCoordination(input: {
   }
 }
 
-export function newsletterCandidateRevisionFingerprint(candidate: {
+type NewsletterCandidateRevision = {
   id: string;
   title: string;
   summary: string;
   href: string;
-  updatedAt: Date | string;
+  updatedAt?: Date | string | null;
   verificationLabel?: string | null;
   limitations?: string[] | null;
-}) {
-  const updatedAt = candidate.updatedAt instanceof Date ? candidate.updatedAt.toISOString() : String(candidate.updatedAt);
+};
+
+export function newsletterCandidateRevisionFingerprint(candidate: NewsletterCandidateRevision) {
+  const updatedAt = candidate.updatedAt instanceof Date
+    ? candidate.updatedAt.toISOString()
+    : candidate.updatedAt == null
+      ? null
+      : String(candidate.updatedAt);
   const payload = JSON.stringify({
     id: candidate.id,
     title: candidate.title,
@@ -203,24 +209,8 @@ export function newsletterCandidateRevisionFingerprint(candidate: {
 }
 
 export function newsletterCandidateSnapshotMatches(
-  expected: Array<{
-    id: string;
-    title: string;
-    summary: string;
-    href: string;
-    updatedAt: Date | string;
-    verificationLabel?: string | null;
-    limitations?: string[] | null;
-  }>,
-  current: Array<{
-    id: string;
-    title: string;
-    summary: string;
-    href: string;
-    updatedAt: Date | string;
-    verificationLabel?: string | null;
-    limitations?: string[] | null;
-  }>,
+  expected: NewsletterCandidateRevision[],
+  current: NewsletterCandidateRevision[],
 ) {
   if (expected.length !== current.length) return false;
   const currentById = new Map(current.map((candidate) => [candidate.id, candidate]));
