@@ -1,0 +1,56 @@
+name: Preflight Voxy Local Composition Recovery
+
+on:
+  push:
+    branches:
+      - docs/governance-ssot-sync-05
+    paths:
+      - .github/workflows/preflight-voxy-local-composition-recovery.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/governance-ssot-sync-05
+          fetch-depth: 0
+
+      - name: Run task preflight on exact clean main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main docs/governance-ssot-sync-05
+          test "$(git rev-parse origin/main)" = "1341f14d0700f178fa6fd0a2fc1dbffc1403ae5a"
+          git checkout -B main origin/main
+          test "$(git status --porcelain)" = ""
+          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 > /tmp/preflight.json
+          cat /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('/tmp/preflight.json', 'utf8'));
+          if (p.taskId !== 'VOXY-LOCAL-COMPOSITION-RECOVERY-01') throw new Error('task_id_mismatch');
+          if (p.status !== 'codex_ready') throw new Error(`status_not_codex_ready:${p.status}`);
+          if (p.executable !== true) throw new Error(`not_executable:${p.reason ?? 'unknown'}`);
+          if (p.branchCreationAllowed !== true) throw new Error('branch_creation_not_allowed');
+          NODE
+
+      - name: Self-delete preflight workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin docs/governance-ssot-sync-05
+          git checkout -B docs/governance-ssot-sync-05 origin/docs/governance-ssot-sync-05
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/preflight-voxy-local-composition-recovery.yml
+          git commit -m 'chore(governance): remove #978 preflight workflow'
+          git push origin HEAD:docs/governance-ssot-sync-05
