@@ -1,0 +1,119 @@
+name: Voxy operations readiness authorization single writer
+
+on:
+  push:
+    branches:
+      - docs/agentic-runtime-ops-authorize-01
+
+permissions:
+  contents: write
+
+concurrency:
+  group: governance-ssot-writer
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+
+      - name: Verify stacked source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "b47d84ddad4b6a0cf97eae2a1b251864524378af"
+          test "$(git hash-object docs/E150/OpenTasks.md)" = "499bc219079bdbaa55ce883dec91427f4e36f918"
+
+      - name: Serialize operations-readiness Slice 1 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path("docs/E150/OpenTasks.md")
+          text = path.read_text(encoding="utf-8")
+          start_marker = "## Kanonischer Operativteil"
+          end_marker = "## Historischer Katalog und Evidenz"
+          task_id = "V3-AGENTIC-RUNTIME-ACTIVATION-CLOSURE-01"
+          heading = "### Voxy / Agentic Production Operations Closure — 2026-09-25"
+
+          assert text.count(start_marker) == 1, "operative_marker_count_invalid"
+          assert text.count(end_marker) == 1, "historical_marker_count_invalid"
+          start = text.index(start_marker)
+          end = text.index(end_marker)
+          assert start < end, "operative_marker_order_invalid"
+
+          operative = text[start:end]
+          history = text[end:]
+          history_hash = hashlib.sha256(history.encode("utf-8")).hexdigest()
+          matches = [line for line in operative.splitlines() if task_id in line]
+          assert len(matches) <= 1, f"duplicate_operational_task:{len(matches)}"
+
+          row = (
+              "| V3-AGENTIC-RUNTIME-ACTIVATION-CLOSURE-01 | codex_ready | P0 | "
+              "Issue `#552`; #520 gemergt; #536/#527 bleiben Drafts, werden von diesem Backend-/Voxy-Studio-Ops-Slice nicht berührt; bestehende Alpha2 Registry/Durable Runtime, Voxy Editorial Agent Council und #568 Local Composition Runtime; #977 A–C technisch abgeschlossen | "
+              "**Slice 1 only — Voxy Production Operations Readiness:** deterministischen read-only `VoxyOperationsSnapshot` aus bestehenden Voxy-Persistenz-/Job-/Review-/Council-Zuständen ableiten; lokalen Composition-Worker mit eindeutigem Heartbeat/Lease-Health, sicheren strukturierten Logs sowie kanonischem Start-/Doctor-Vertrag betreibbar machen; Status/Queue-Alter/Backlog/orphan-recovery/Failure-Klassen und Persistence-Wahrheit im bestehenden Admin-Voxy-Studio sichtbar machen; bestehende `sre_support_agent`, `security_agent`, `qa_agent`, `visual_qa_agent`, `risk_governor`, `review_agent` und `voxy_agent` ausschließlich advisory gegen denselben Snapshot anbinden; Operator-Runbook für Start/Stop/Recovery/Incident/Disable/Rollback/Beweissicherung; bestehende Voxy-CI erweitern, keine zweite Pipeline | "
+              "Health bleibt deterministisch und wird niemals durch Agenten hochgestuft; `in_memory_fallback`, fehlender/staler Heartbeat, unbeherrschter Backlog, orphan/recovery-Drift oder wiederholte sichere Fehler verhindern Production-Ready; Agenten dürfen keine automatische Reparatur, Restart, Deploy, Rollback, Reapproval, Evidence-/Truth-Promotion, Renderfreigabe, Veröffentlichung oder externe Nachricht auslösen; Logs/Telemetry ohne Prompt-/Quellvolltext, Secrets oder PII; kein neuer fachlicher SSOT, keine zweite Queue/Renderer-/Review-/Agent-Runtime; vorhandene Mongo-Primary-Wahrheit wiederverwenden; fokussierte Contracts + Voxy Runtime/Final-Canon/Web-CI + Typecheck/Lint/Build/`git diff --check`; allgemeine Alpha2-Production-Aktivierung, Provider-/Modellwahl und nicht gemessene Model-/Kosten-Budgets bleiben außerhalb dieses Slices |"
+          )
+
+          if matches:
+              old = matches[0]
+              assert "| codex_ready |" not in old and "| in_progress |" not in old and "| done |" not in old, "task_already_executable_or_done"
+              lines = operative.splitlines()
+              indexes = [i for i, line in enumerate(lines) if task_id in line]
+              assert len(indexes) == 1
+              lines[indexes[0]] = row
+              new_operative = "\n".join(lines)
+              if operative.endswith("\n"):
+                  new_operative += "\n"
+          else:
+              assert heading not in operative, "ops_heading_already_present_without_task"
+              block = (
+                  f"\n{heading}\n\n"
+                  "| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |\n"
+                  "| --- | --- | --- | --- | --- | --- |\n"
+                  f"{row}\n"
+              )
+              new_operative = operative.rstrip("\n") + block + "\n"
+
+          new_text = text[:start] + new_operative + text[end:]
+          new_end = start + len(new_operative)
+          assert new_text.count(task_id) == 1, "task_not_unique_after_write"
+          assert hashlib.sha256(new_text[new_end:].encode("utf-8")).hexdigest() == history_hash, "historical_tail_mutated"
+          path.write_text(new_text, encoding="utf-8")
+          PY
+
+          node --input-type=module <<'NODE'
+          import fs from "node:fs/promises";
+          import { extractOperativeHead, parseOperativeTaskStatuses } from "./scripts/codex-task-preflight.mjs";
+          const text = await fs.readFile("docs/E150/OpenTasks.md", "utf8");
+          const statuses = parseOperativeTaskStatuses(extractOperativeHead(text));
+          if (statuses.get("V3-AGENTIC-RUNTIME-ACTIVATION-CLOSURE-01") !== "codex_ready") {
+            throw new Error("agentic_ops_slice_not_codex_ready");
+          }
+          NODE
+
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+      - name: Commit canonical SSOT delta and remove writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/agentic-runtime-ops-authorize-single-writer.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md .github/workflows/agentic-runtime-ops-authorize-single-writer.yml
+          git diff --cached --check
+          git commit -m "docs(e150): authorize Voxy production operations readiness"
+          git push origin HEAD:docs/agentic-runtime-ops-authorize-01
