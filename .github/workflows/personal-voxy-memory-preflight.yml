@@ -33,24 +33,16 @@ jobs:
           git checkout -B feat/personal-voxy-consented-memory-runtime-01 origin/feat/personal-voxy-consented-memory-runtime-01
           python - <<'PY'
           from pathlib import Path
+          import re
 
           contract_path = Path("apps/web/src/features/agenticRuntime/personalVoxyConsentedMemoryContract.ts")
           source = contract_path.read_text()
 
-          old = '''  if (key === "topic_interests") {
-            if (!Array.isArray(value)) return null;
-            const topics = Array.from(
-              new Set(
-                value.filter(
-                  (entry): entry is TopicKey =>
-                    typeof entry === "string" && TOPIC_KEYS.has(entry as TopicKey),
-                ),
-              ),
-            );
-            if (topics.length === 0 || topics.length > TOPIC_KEYS.size) return null;
-            return topics;
-          }'''
-          new = '''  if (key === "topic_interests") {
+          pattern = re.compile(
+              r'  if \(key === "topic_interests"\) \{.*?\n  \}\n\n  if \(key === "relevance_depth"\)',
+              re.S,
+          )
+          replacement = '''  if (key === "topic_interests") {
             if (
               !Array.isArray(value) ||
               value.length === 0 ||
@@ -63,9 +55,11 @@ jobs:
             const topics = Array.from(new Set(value as TopicKey[]));
             if (topics.length > TOPIC_KEYS.size) return null;
             return topics;
-          }'''
-          assert source.count(old) == 1, "topic_interests block drifted"
-          source = source.replace(old, new)
+          }
+
+          if (key === "relevance_depth")'''
+          source, count = pattern.subn(replacement, source, count=1)
+          assert count == 1, "topic_interests block not found"
 
           old = '  const confirmedAt = request.confirmedAt ? nowIso(request.confirmedAt) : null;'
           new = '''  const confirmedAt =
