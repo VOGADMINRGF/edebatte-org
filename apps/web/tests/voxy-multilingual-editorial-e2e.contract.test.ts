@@ -140,7 +140,7 @@ function masterPlan(input: {
         chapterId: "evidence",
         role: "source_evidence",
         headline: "Die gemeinsame Evidenz",
-        narration: "Die Sprachfassung ändert keine kanonische Referenz.",
+        narration: "Die Sprachfassung bewahrt die kanonische Referenz.",
         claimBindings: [{ claimId: input.claimId, presentation: "confirmed_fact" }],
         sourceIds: [primarySourceId],
         findingIds: [input.findingId],
