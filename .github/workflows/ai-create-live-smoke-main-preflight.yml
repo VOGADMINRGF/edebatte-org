@@ -1,0 +1,31 @@
+name: AI create live-smoke exact-main preflight
+
+on:
+  push:
+    branches:
+      - docs/youtube-serverless-runtime-serialize-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+      - name: Exact-main task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse HEAD)" = "19432c64120b874a4e0b8a5d2ddc52fedeacea8c"
+          test "$(git rev-parse origin/main)" = "19432c64120b874a4e0b8a5d2ddc52fedeacea8c"
+          test "$(git rev-parse 'HEAD:docs/E150/OpenTasks.md')" = "1ec416ce8ebd4dbef6f2c34e4dba85d8de188c56"
+          test "$(git branch --show-current)" = "main"
+          node scripts/codex-task-preflight.mjs AI-CREATE-ORCHESTRATOR-LIVE-SMOKE-01
