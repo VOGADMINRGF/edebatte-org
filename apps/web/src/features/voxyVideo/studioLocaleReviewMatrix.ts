@@ -1,3 +1,4 @@
+import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
 import {
   SUPPORTED_LOCALES,
   getDir,
@@ -161,7 +162,7 @@ export function buildVoxyStudioLocaleReviewMatrices(input: {
             record.briefingId === draft.briefingId &&
             record.storyPlanId === draft.storyPlan.storyPlanId &&
             record.storyPlanRevision === draft.storyPlan.revision &&
-            record.scriptVersion === `story-r${draft.storyPlan.revision}` &&
+            record.scriptVersion === buildVoxyEditorialScriptVersion(draft.storyPlan) &&
             record.locale.toLowerCase() === locale &&
             record.voiceUsageApproved === true &&
             record.fallbackLocale === null,

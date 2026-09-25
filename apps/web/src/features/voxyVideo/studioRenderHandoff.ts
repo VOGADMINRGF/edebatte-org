@@ -1,3 +1,4 @@
+import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
 import "server-only";
 
 import { stableHash } from "@core/utils/hash";
@@ -86,7 +87,7 @@ function normalized(value: unknown): string {
 }
 
 function expectedScriptVersion(draft: VoxyStudioDraft): string {
-  return `story-r${draft.storyPlan.revision}`;
+  return buildVoxyEditorialScriptVersion(draft.storyPlan);
 }
 
 export function buildVoxyStudioPreviewReviewFlowId(

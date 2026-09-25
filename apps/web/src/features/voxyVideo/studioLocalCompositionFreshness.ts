@@ -1,3 +1,4 @@
+import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
 import "server-only";
 
 import {
@@ -69,8 +70,8 @@ export function validateVoxyStudioLocalCompositionFreshness(input: {
     errors.push("briefing_changed");
   }
   if (
-    input.job.scriptVersion !== `story-r${draft.storyPlan.revision}` ||
-    input.request.scriptVersion !== `story-r${draft.storyPlan.revision}`
+    input.job.scriptVersion !== buildVoxyEditorialScriptVersion(draft.storyPlan) ||
+    input.request.scriptVersion !== buildVoxyEditorialScriptVersion(draft.storyPlan)
   ) {
     errors.push("script_revision_changed");
   }

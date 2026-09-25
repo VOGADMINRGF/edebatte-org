@@ -1,3 +1,4 @@
+import { buildVoxyEditorialScriptVersion, getVoxyEditorialLanguageVariantBinding, validateVoxyEditorialLanguageVariantBinding } from "@/features/voxyVideo/editorialLanguageVariant";
 import { stableHash } from "@core/utils/hash";
 import { getVoxyFixtureDimensions } from "@/features/voxyVideo/characterMotionFixture";
 import { VOXY_FINAL_CANON } from "@/features/voxyVideo/finalCanon";
@@ -320,8 +321,15 @@ function validateEditorialBinding(input: VoxyLocalCompositionRequest, errors: st
   if (plan.outputLanguage.toLowerCase() !== normalized(input.locale).toLowerCase()) {
     errors.push("editorial_locale_binding_mismatch");
   }
-  if (normalized(input.scriptVersion) !== `story-r${plan.revision}`) {
+  if (normalized(input.scriptVersion) !== buildVoxyEditorialScriptVersion(plan)) {
     errors.push("editorial_script_revision_binding_mismatch");
+  }
+  const languageVariant = getVoxyEditorialLanguageVariantBinding(plan);
+  for (const error of validateVoxyEditorialLanguageVariantBinding(plan)) {
+    errors.push(`editorial_${error}`);
+  }
+  if (languageVariant && languageVariant.translationStatus !== "approved") {
+    errors.push("editorial_translation_review_required");
   }
   if (
     timeline.storyPlanId !== plan.storyPlanId ||
@@ -351,6 +359,12 @@ function validateEditorialBinding(input: VoxyLocalCompositionRequest, errors: st
     }
     if (!normalized(binding.evidenceSourcePackId) || normalized(binding.evidenceSourcePackId).length > 320) {
       errors.push("editorial_evidence_source_pack_binding_invalid");
+    }
+    if (
+      languageVariant &&
+      normalized(binding.evidenceSourcePackId) !== languageVariant.evidenceSourcePackId
+    ) {
+      errors.push("editorial_language_variant_evidence_binding_mismatch");
     }
     if (!normalized(binding.evidenceDecisionGateId) || normalized(binding.evidenceDecisionGateId).length > 512) {
       errors.push("editorial_evidence_decision_gate_binding_invalid");

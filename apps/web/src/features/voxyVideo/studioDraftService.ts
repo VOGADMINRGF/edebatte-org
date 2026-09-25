@@ -1,3 +1,4 @@
+import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
 import "server-only";
 
 import { stableHash } from "@core/utils/hash";
@@ -602,7 +603,7 @@ function validateCompositionBinding(input: {
   const { draft, job, output } = input;
   const expectedGate = draft.renderApproval?.decisionGateId ?? null;
   const expectedApprovalRef = draft.renderApproval?.reviewDecisionRecordId ?? null;
-  const expectedScriptVersion = `story-r${draft.storyPlan.revision}`;
+  const expectedScriptVersion = buildVoxyEditorialScriptVersion(draft.storyPlan);
   if (job.status !== "review_ready") errors.push("composition_job_not_review_ready");
   if (!expectedApprovalRef || job.approvalRef !== expectedApprovalRef) {
     errors.push("composition_approval_ref_mismatch");
