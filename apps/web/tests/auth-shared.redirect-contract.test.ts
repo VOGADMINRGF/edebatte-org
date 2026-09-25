@@ -18,6 +18,7 @@ const BROWSER_TEST_ORIGIN = "https://browser.example";
 const UNSAFE_REDIRECT_CASES = [
   ["absolute URL", "https://evil.example/account"],
   ["protocol-relative URL", "//evil.example/account"],
+  ["surrounding whitespace", " /account "],
   ["single backslash before host", "/\\evil.example"],
   ["double backslash before host", "/\\\\evil.example"],
   ["encoded backslash origin escape", "/%5c%5cevil.example/account"],
