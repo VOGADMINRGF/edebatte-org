@@ -61,7 +61,6 @@ jobs:
           history = text[hi:]
           assert target not in operative
 
-          # Preserve all existing operative table rows byte-for-byte.
           existing_rows = [
               line for line in operative.splitlines()
               if line.startswith('| ') and not line.startswith('| ---') and ' ID |' not in line
@@ -84,15 +83,17 @@ jobs:
               row = unique_row(task_id)
               assert f'| {status} |' in row, row
 
-          block = '''### Voxy Local Composition Recovery — 2026-09-25
-
-Dieser additive Block autorisiert ausschließlich den auditbestätigten Recovery-Repair des bestehenden persistenten #568-Job-/Output-Modells. Voraussetzung ist die bereits implementierte #976-Freshness-Invariante; er autorisiert weder eine zweite Queue/einen zweiten Renderer noch #969 B–E, Provider-, Upload-, Scheduling-, Social- oder Auto-Publish-Side-Effects.
-
-| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |
-| --- | --- | --- | --- | --- | --- |
-| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | codex_ready | P2 | Issue `#978`; `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568 + PR #965; `VOXY-RENDER-APPROVAL-FRESHNESS-01` / #976 umgesetzt via PR #995 und operativ `review` | Bestehendes persistentes Local-Composition-Job-/Output-Modell um begrenzte Crash-Recovery härten: ausschließlich verwaiste `rendering`-Jobs kontrolliert claimen; bereits persistiertes `rendered`-Output vollständig gegen Job/Input-/Review-Bindings und Media-Hashes validieren und idempotent zu `review_ready` finalisieren; nur falls echte erneute Renderarbeit nötig ist, #976-Freshness unmittelbar vor Executor erneut anwenden | aktive Ownership verhindert zweite Ausführung; verwaiste Recovery höchstens einmal; valides vorhandenes Output => kein Doppelrender; stale Approval/Evidence/Gate => Executor Invocation Count `0`; bestehende Job-/Output-Identity, Attempt-/Audit- und Review-Bindings bleiben erhalten; keine neue Queue/Store/Renderer-SSOT, keine Reapproval, kein Auto-Publish |
-
-'''
+          block_lines = [
+              '### Voxy Local Composition Recovery — 2026-09-25',
+              '',
+              'Dieser additive Block autorisiert ausschließlich den auditbestätigten Recovery-Repair des bestehenden persistenten #568-Job-/Output-Modells. Voraussetzung ist die bereits implementierte #976-Freshness-Invariante; er autorisiert weder eine zweite Queue/einen zweiten Renderer noch #969 B–E, Provider-, Upload-, Scheduling-, Social- oder Auto-Publish-Side-Effects.',
+              '',
+              '| ID | Status | Priorität | Abhängigkeiten / Evidence | Scope / Ziel | Akzeptanz / Guardrails |',
+              '| --- | --- | --- | --- | --- | --- |',
+              '| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | codex_ready | P2 | Issue `#978`; `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568 + PR #965; `VOXY-RENDER-APPROVAL-FRESHNESS-01` / #976 umgesetzt via PR #995 und operativ `review` | Bestehendes persistentes Local-Composition-Job-/Output-Modell um begrenzte Crash-Recovery härten: ausschließlich verwaiste `rendering`-Jobs kontrolliert claimen; bereits persistiertes `rendered`-Output vollständig gegen Job/Input-/Review-Bindings und Media-Hashes validieren und idempotent zu `review_ready` finalisieren; nur falls echte erneute Renderarbeit nötig ist, #976-Freshness unmittelbar vor Executor erneut anwenden | aktive Ownership verhindert zweite Ausführung; verwaiste Recovery höchstens einmal; valides vorhandenes Output => kein Doppelrender; stale Approval/Evidence/Gate => Executor Invocation Count `0`; bestehende Job-/Output-Identity, Attempt-/Audit- und Review-Bindings bleiben erhalten; keine neue Queue/Store/Renderer-SSOT, keine Reapproval, kein Auto-Publish |',
+              '',
+          ]
+          block = '\n'.join(block_lines) + '\n'
           text2 = text.replace(insert_marker, block + insert_marker, 1)
           path.write_text(text2)
 
