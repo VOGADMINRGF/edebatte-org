@@ -10,6 +10,7 @@ const account = readFileSync(
   "utf8",
 );
 
+// Closeout contract: Work findings F1/F3/F4 share the same canonical newsletter owners.
 describe("newsletter closeout handoff safety", () => {
   it("reserves subscriber, content revisions, and delivery ledger inside one transaction before SMTP", () => {
     expect(runtime).toContain('const db = await getDb("core")');
