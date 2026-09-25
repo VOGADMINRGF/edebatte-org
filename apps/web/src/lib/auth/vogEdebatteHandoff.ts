@@ -1,0 +1,9 @@
+import crypto from "node:crypto";
+
+type VogEdebatteHandoffPayload = { iss: "voiceopengov.org"; aud: "edebatte.org"; sub: string; email: string; name: string; iat: number; exp: number; jti: string };
+function secret() { const value = process.env.VOG_EDB_AUTH_HANDOFF_SECRET?.trim(); if (!value || value.length < 32) throw new Error("VOG_EDB_AUTH_HANDOFF_SECRET must contain at least 32 characters"); return value; }
+function timingSafeEqualText(left: string, right: string) { const a=Buffer.from(left), b=Buffer.from(right); return a.length===b.length && crypto.timingSafeEqual(a,b); }
+function decode(value: string) { return Buffer.from(value,"base64url").toString("utf8"); }
+function verifySignature(body: string, signature: string) { return timingSafeEqualText(crypto.createHmac("sha256",secret()).update(body).digest("base64url"),signature); }
+export function sanitizeVogHandoffNext(raw?: string|null) { if(!raw) return "/"; const value=raw.trim(); if(!value.startsWith("/")||value.startsWith("//")||value.includes("\\")||/[\r\n]/.test(value)) return "/"; return value; }
+export function verifyVogEdebatteHandoff(token: string) { const [body,signature,extra]=token.split("."); if(!body||!signature||extra) throw new Error("invalid_handoff_token"); if(!verifySignature(body,signature)) throw new Error("invalid_handoff_signature"); const payload=JSON.parse(decode(body)) as Partial<VogEdebatteHandoffPayload>; const now=Math.floor(Date.now()/1000); if(payload.iss!=="voiceopengov.org"||payload.aud!=="edebatte.org"||typeof payload.sub!=="string"||!payload.sub||typeof payload.email!=="string"||!payload.email.includes("@")||typeof payload.name!=="string"||typeof payload.iat!=="number"||typeof payload.exp!=="number"||typeof payload.jti!=="string"||!payload.jti) throw new Error("invalid_handoff_claims"); if(payload.exp<=now||payload.iat>now+15||payload.exp-payload.iat>120) throw new Error("expired_handoff_token"); return payload as VogEdebatteHandoffPayload; }

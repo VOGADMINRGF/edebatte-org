@@ -3,13 +3,24 @@ import mongoose from "mongoose";
 let cached = (global as any)._mongoose as Promise<typeof mongoose> | undefined;
 
 function resolveMongoConfig() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI missing");
+  const isProd = process.env.NODE_ENV === "production";
+  const uri =
+    process.env.CORE_MONGODB_URI ||
+    (!isProd ? process.env.MONGODB_URI : undefined);
+  const dbName =
+    process.env.CORE_DB_NAME ||
+    (!isProd ? process.env.MONGODB_DB : undefined) ||
+    (!isProd ? "vog" : undefined);
 
-  return {
-    uri,
-    dbName: process.env.MONGODB_DB || "vog",
-  };
+  if (!uri || !dbName) {
+    throw new Error(
+      isProd
+        ? "CORE_MONGODB_URI and CORE_DB_NAME are required in production; legacy MONGODB_URI/MONGODB_DB fallback is disabled"
+        : "CORE_MONGODB_URI|MONGODB_URI and CORE_DB_NAME|MONGODB_DB missing",
+    );
+  }
+
+  return { uri, dbName };
 }
 
 export async function mongo() {

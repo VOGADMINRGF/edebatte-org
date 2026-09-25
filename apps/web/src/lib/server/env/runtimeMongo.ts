@@ -5,11 +5,23 @@ function readEnv(value: string | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
+function allowLegacyMongoFallback(source: EnvSource): boolean {
+  return source.NODE_ENV !== "production";
+}
+
+function legacyMongoUri(source: EnvSource): string | null {
+  return allowLegacyMongoFallback(source) ? readEnv(source.MONGODB_URI) : null;
+}
+
+function legacyMongoDbName(source: EnvSource): string | null {
+  return allowLegacyMongoFallback(source) ? readEnv(source.MONGODB_DB) : null;
+}
+
 export function resolveCoreMongoRuntimeConfig(source: EnvSource = process.env) {
   const coreUri = readEnv(source.CORE_MONGODB_URI);
   const coreDbName = readEnv(source.CORE_DB_NAME);
-  const legacyUri = readEnv(source.MONGODB_URI);
-  const legacyDbName = readEnv(source.MONGODB_DB);
+  const legacyUri = legacyMongoUri(source);
+  const legacyDbName = legacyMongoDbName(source);
 
   return {
     uri: coreUri ?? legacyUri,
@@ -28,7 +40,7 @@ export function resolveMongoUriForZone(
   zone: "core" | "votes" | "pii",
   source: EnvSource = process.env,
 ): string | null {
-  const legacyUri = readEnv(source.MONGODB_URI);
+  const legacyUri = legacyMongoUri(source);
   if (zone === "core") {
     return readEnv(source.CORE_MONGODB_URI) ?? legacyUri;
   }
@@ -37,4 +49,3 @@ export function resolveMongoUriForZone(
   }
   return readEnv(source.PII_MONGODB_URI) ?? legacyUri;
 }
-

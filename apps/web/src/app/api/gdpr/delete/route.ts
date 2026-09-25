@@ -1,27 +1,33 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
-import { mongo } from "@/db/mongoose";
-import { getServerUser } from "@/lib/auth/getServerUser";
+import { readSession } from "@/utils/session";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * Legacy endpoint retained only to fail closed.
+ * Account deletion must go through /api/account/self-service where the user
+ * re-authenticates with their password and a durable deletion request is recorded.
+ */
 export async function POST() {
-  const user = await getServerUser();
-  if (!user)
+  const session = await readSession();
+  if (!session?.uid) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
 
-  await mongo();
-  const db = mongoose.connection.db;
-
-  // harte Löschung – je nach Compliance ggf. Anonymisierung wählen
-  const byUser = { userId: new mongoose.Types.ObjectId(user.id) };
-  const byId = { _id: new mongoose.Types.ObjectId(user.id) };
-
-  const ops = [
-    (db as any).collection("votes").deleteMany(byUser),
-    (db as any).collection("contributions").deleteMany(byUser),
-    (db as any).collection("userprofiles").deleteOne(byUser),
-    (db as any).collection("users").deleteOne(byId),
-  ];
-  const results = await Promise.allSettled(ops);
-
-  return NextResponse.json({ ok: true, results });
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_endpoint_retired",
+      action: "delete_account",
+      use: "/api/account/self-service",
+    },
+    {
+      status: 410,
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    },
+  );
 }

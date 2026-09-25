@@ -43,6 +43,96 @@ export function shouldUseInMemoryMongoFallback(source: EnvSource = process.env):
   return Boolean(source.VITEST) || isStaticCollectionBuild(source);
 }
 
+function envValue(source: EnvSource, key: string): string | null {
+  const value = source[key]?.trim();
+  return value ? value : null;
+}
+
+function mongoHost(uri: string | null): string | null {
+  if (!uri) return null;
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== "mongodb:" && parsed.protocol !== "mongodb+srv:") return null;
+    return parsed.hostname.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+export function validateProductionMongoTopology(source: EnvSource = process.env): {
+  ok: boolean;
+  errors: string[];
+} {
+  const zones = [
+    {
+      label: "core",
+      uriKey: "CORE_MONGODB_URI",
+      dbKey: "CORE_DB_NAME",
+      uri: envValue(source, "CORE_MONGODB_URI"),
+      db: envValue(source, "CORE_DB_NAME"),
+    },
+    {
+      label: "votes",
+      uriKey: "VOTES_MONGODB_URI",
+      dbKey: "VOTES_DB_NAME",
+      uri: envValue(source, "VOTES_MONGODB_URI"),
+      db: envValue(source, "VOTES_DB_NAME"),
+    },
+    {
+      label: "pii",
+      uriKey: "PII_MONGODB_URI",
+      dbKey: "PII_DB_NAME",
+      uri: envValue(source, "PII_MONGODB_URI"),
+      db: envValue(source, "PII_DB_NAME"),
+    },
+  ] as const;
+
+  const errors: string[] = [];
+  const hosts = new Map<string, string>();
+  const dbNames = new Map<string, string>();
+
+  for (const zone of zones) {
+    if (!zone.uri) errors.push(`Missing production value: ${zone.uriKey}`);
+    if (!zone.db) errors.push(`Missing production value: ${zone.dbKey}`);
+    if (!zone.uri || !zone.db) continue;
+
+    const host = mongoHost(zone.uri);
+    if (!host) {
+      errors.push(`${zone.uriKey} must be a valid mongodb:// or mongodb+srv:// URI with a hostname`);
+      continue;
+    }
+
+    const priorHostZone = hosts.get(host);
+    if (priorHostZone) {
+      errors.push(
+        `${zone.label} and ${priorHostZone} must use different production MongoDB cluster hosts`,
+      );
+    } else {
+      hosts.set(host, zone.label);
+    }
+
+    const normalizedDb = zone.db.toLowerCase();
+    const priorDbZone = dbNames.get(normalizedDb);
+    if (priorDbZone) {
+      errors.push(
+        `${zone.dbKey} must be distinct from the ${priorDbZone} database name in production`,
+      );
+    } else {
+      dbNames.set(normalizedDb, zone.label);
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+export function assertProductionMongoTopology(source: EnvSource = process.env): void {
+  if (source.NODE_ENV !== "production" || isStaticCollectionBuild(source)) return;
+  const result = validateProductionMongoTopology(source);
+  if (!result.ok) {
+    throw new Error(`[triMongo] Unsafe production Mongo topology: ${result.errors.join("; ")}`);
+  }
+}
+
 function buildStaticCollectionCursor<T extends MongoDoc = MongoDoc>() {
   const cursor: Record<string, unknown> = {
     sort: () => cursor,
@@ -110,6 +200,7 @@ function configError(
 }
 
 export function assertStoreConfigured(store: TriStore, context?: string) {
+  assertProductionMongoTopology();
   const cfg = CFG[store];
   if (!cfg?.uri) throw configError(store, "uri", context);
   if (!cfg?.db) throw configError(store, "db", context);
@@ -210,5 +301,6 @@ const triMongo = {
   coreCol, votesCol, piiCol, aiReaderCol,
   coreConn, votesConn, piiConn, aiReaderConn,
   closeAll,
+  validateProductionMongoTopology, assertProductionMongoTopology,
 };
 export default triMongo;
