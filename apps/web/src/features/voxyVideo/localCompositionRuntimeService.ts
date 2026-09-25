@@ -3,6 +3,7 @@ import type {
   VoxyLocalCompositionAudioAsset,
   VoxyLocalCompositionExecutionResult,
   VoxyLocalCompositionJob,
+  VoxyLocalCompositionOutput,
   VoxyLocalCompositionQueueResult,
   VoxyLocalCompositionRequest,
 } from "@/features/voxyVideo/localCompositionRuntime";
@@ -66,6 +67,35 @@ function isExpectedCompositionIdentityConflict(error: unknown): boolean {
     "voxy_local_composition_request_snapshot_immutable_conflict",
     "voxy_local_composition_request_snapshot_binding_mismatch",
   ].includes(error.message);
+}
+
+function outputPersistenceSignature(output: VoxyLocalCompositionOutput): string {
+  return JSON.stringify({
+    outputId: output.outputId,
+    jobId: output.jobId,
+    identityKey: output.identityKey,
+    inputFingerprint: output.inputFingerprint,
+    reviewBindingHash: output.reviewBindingHash,
+    timelineHash: output.timelineHash,
+    format: output.format,
+    renderProfile: output.renderProfile,
+    locale: output.locale,
+    previewReviewFlowId: output.previewReviewFlowId,
+    decisionGateId: output.decisionGateId,
+    dossierRefId: output.dossierRefId,
+    masterMp4: output.masterMp4,
+    previewWebm: output.previewWebm,
+    captionsVtt: output.captionsVtt,
+    captionsSrt: output.captionsSrt,
+    createdAt: output.createdAt,
+    reviewStatus: output.reviewStatus,
+    reviewRequired: output.reviewRequired,
+    publicAsset: output.publicAsset,
+    uploaded: output.uploaded,
+    scheduled: output.scheduled,
+    socialPosted: output.socialPosted,
+    published: output.published,
+  });
 }
 
 export async function queueVoxyLocalComposition(
@@ -229,7 +259,8 @@ export async function executeVoxyLocalComposition(input: {
     if (
       persistedOutput.inputFingerprint !== rendering.inputFingerprint ||
       persistedOutput.reviewBindingHash !== rendering.reviewBindingHash ||
-      persistedOutput.jobId !== rendering.jobId
+      persistedOutput.jobId !== rendering.jobId ||
+      outputPersistenceSignature(persistedOutput) !== outputPersistenceSignature(execution.output)
     ) {
       throw new Error("voxy_local_composition_output_persistence_conflict");
     }
@@ -323,21 +354,22 @@ export async function recoverInterruptedVoxyLocalComposition(input: {
         : ((await input.repository.getJob(current.jobId)) ?? current);
     }
 
-    const reviewReady: VoxyLocalCompositionJob = {
+    const queued: VoxyLocalCompositionJob = {
       ...current,
-      status: "review_ready",
+      status: "queued",
+      attempt: current.attempt + 1,
       updatedAt: recoveredAt,
+      startedAt: null,
+      completedAt: null,
       safeErrorCode: null,
       safeErrorMessage: null,
     };
-    const markedReviewReady = await input.repository.transitionJob({
+    const recovered = await input.repository.transitionJob({
       jobId: current.jobId,
       expectedStatus: "rendered",
-      next: reviewReady,
+      next: queued,
     });
-    return markedReviewReady
-      ? reviewReady
-      : ((await input.repository.getJob(current.jobId)) ?? current);
+    return recovered ? queued : ((await input.repository.getJob(current.jobId)) ?? current);
   }
 
   const nowMs = Date.parse(recoveredAt);
