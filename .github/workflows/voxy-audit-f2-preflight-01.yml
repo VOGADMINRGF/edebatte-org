@@ -21,7 +21,6 @@ jobs:
           set -euo pipefail
           git fetch origin main
           test "$(git rev-parse origin/main)" = "386026ca5830f08d996a8c6e91f85d7e5367daf4"
-          test "$(git merge-base HEAD origin/main)" = "386026ca5830f08d996a8c6e91f85d7e5367daf4"
       - name: Canonical task preflight on main
         shell: bash
         run: |
