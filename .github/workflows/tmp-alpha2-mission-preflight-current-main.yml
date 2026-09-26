@@ -1,0 +1,28 @@
+name: Temporary Alpha2 Mission Control current-main preflight
+
+on:
+  push:
+    branches:
+      - chore/alpha2-mission-control-preflight-current-main-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and task preflight
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "35d5aeba63e9f095665013b90a30953d07084c8b"
+          node scripts/codex-task-preflight.mjs ALPHA2-MISSION-CONTROL-01 | tee /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/preflight.json','utf8'));
+          if (r.status !== 'codex_ready' || r.executable !== true || r.branchCreationAllowed !== true) throw new Error(`unexpected preflight: ${JSON.stringify(r)}`);
+          NODE
