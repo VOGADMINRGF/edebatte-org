@@ -84,6 +84,11 @@ jobs:
           pnpm -C apps/web exec vitest run
           tests/voxy-civic-activity-relevance.contract.test.ts
 
+      - name: Focused Voxy realtime conversation voice contract
+        run: >-
+          pnpm -C apps/web exec vitest run
+          tests/voxy-realtime-conversation-voice.contract.test.ts
+
       - name: Focused Voxy self-hosted motion contracts
         run: >-
           pnpm -C apps/web exec vitest run
