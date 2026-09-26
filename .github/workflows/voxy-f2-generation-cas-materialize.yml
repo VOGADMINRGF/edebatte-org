@@ -1,0 +1,295 @@
+name: Voxy F2 generation CAS materializer
+
+on:
+  push:
+    branches:
+      - fix/voxy-local-composition-recovery-f2-generation-cas
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Verify authorized base and preflight state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "386026ca5830f08d996a8c6e91f85d7e5367daf4"
+          git checkout -B main origin/main
+          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 2>&1 | tee /tmp/preflight.json
+          grep -q '"status": "codex_ready"' /tmp/preflight.json
+          grep -q '"executable": true' /tmp/preflight.json
+          grep -q '"branchCreationAllowed": true' /tmp/preflight.json
+          git checkout -B fix/voxy-local-composition-recovery-f2-generation-cas origin/fix/voxy-local-composition-recovery-f2-generation-cas
+      - name: Apply bounded F2 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p=Path(path); s=p.read_text()
+              n=s.count(old)
+              if n != count:
+                  raise SystemExit(f'{path}: expected {count} occurrence(s), got {n}: {old[:80]!r}')
+              p.write_text(s.replace(old,new,count))
+
+          store='apps/web/src/features/voxyVideo/localCompositionRuntimeStore.ts'
+          replace(store,
+'''  transitionJob(input: {
+    jobId: string;
+    expectedStatus: VoxyLocalCompositionStatus;
+    next: VoxyLocalCompositionJob;
+  }): Promise<boolean>;''',
+'''  transitionJob(input: {
+    jobId: string;
+    expectedStatus: VoxyLocalCompositionStatus;
+    expectedAttempt: number;
+    next: VoxyLocalCompositionJob;
+  }): Promise<boolean>;''')
+          replace(store,
+'''function createMongoRepository(): VoxyLocalCompositionRepository {''',
+'''export function buildVoxyLocalCompositionTransitionCasFilter(input: {
+  jobId: string;
+  expectedStatus: VoxyLocalCompositionStatus;
+  expectedAttempt: number;
+}) {
+  return {
+    _id: input.jobId,
+    "record.status": input.expectedStatus,
+    "record.attempt": input.expectedAttempt,
+  };
+}
+
+function createMongoRepository(): VoxyLocalCompositionRepository {''')
+          replace(store,
+'''        { _id: input.jobId, "record.status": input.expectedStatus },''',
+'''        buildVoxyLocalCompositionTransitionCasFilter(input),''')
+          replace(store,
+'''      if (!current || current.status !== input.expectedStatus) return false;''',
+'''      if (
+        !current ||
+        current.status !== input.expectedStatus ||
+        current.attempt !== input.expectedAttempt
+      ) return false;''')
+
+          service='apps/web/src/features/voxyVideo/localCompositionRuntimeService.ts'
+          pairs=[
+('''    expectedStatus: "queued",
+    next: rendering,''','''    expectedStatus: "queued",
+    expectedAttempt: current.attempt,
+    next: rendering,'''),
+('''      expectedStatus: "rendering",
+      next: rendered,''','''      expectedStatus: "rendering",
+      expectedAttempt: rendering.attempt,
+      next: rendered,'''),
+('''      expectedStatus: "rendered",
+      next: reviewReady,''','''      expectedStatus: "rendered",
+      expectedAttempt: rendered.attempt,
+      next: reviewReady,'''),
+('''        expectedStatus: "rendered",
+        next: failed,''','''        expectedStatus: "rendered",
+        expectedAttempt: current.attempt,
+        next: failed,'''),
+('''      expectedStatus: "rendered",
+      next: queued,''','''      expectedStatus: "rendered",
+      expectedAttempt: current.attempt,
+      next: queued,'''),
+('''    expectedStatus: "rendering",
+    next: queued,''','''    expectedStatus: "rendering",
+    expectedAttempt: current.attempt,
+    next: queued,'''),
+('''    expectedStatus: "failed",
+    next,''','''    expectedStatus: "failed",
+    expectedAttempt: current.attempt,
+    next,'''),
+          ]
+          for old,new in pairs: replace(service,old,new)
+          replace(service,
+'''    if (latest.status === "rendering") {
+      const failed: VoxyLocalCompositionJob = {
+        ...latest,''',
+'''    if (latest.status === "rendering" && latest.attempt === rendering.attempt) {
+      const failed: VoxyLocalCompositionJob = {
+        ...rendering,''')
+          replace(service,
+'''        expectedStatus: "rendering",
+        next: failed,
+      });
+      return failed;''',
+'''        expectedStatus: "rendering",
+        expectedAttempt: rendering.attempt,
+        next: failed,
+      });
+      return (await deps.repository.getJob(rendering.jobId)) ?? failed;''')
+
+          worker='apps/web/scripts/run-voxy-local-composition-worker.ts'
+          replace(worker,
+'''    expectedStatus: "queued",
+    next: failed,''',
+'''    expectedStatus: "queued",
+    expectedAttempt: input.job.attempt,
+    next: failed,''')
+
+          test='apps/web/tests/voxy-local-composition-recovery.contract.test.ts'
+          p=Path(test); s=p.read_text()
+          s=s.replace('''import { createInMemoryVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";''',
+'''import {
+  buildVoxyLocalCompositionTransitionCasFilter,
+  createInMemoryVoxyLocalCompositionRepository,
+} from "@/features/voxyVideo/localCompositionRuntimeStore";''')
+          s=s.replace('''      expectedStatus: "queued",
+      next: rendering,''','''      expectedStatus: "queued",
+      expectedAttempt: queued.job.attempt,
+      next: rendering,''')
+          s=s.replace('''        expectedStatus: "rendering",
+        next: rendered,''','''        expectedStatus: "rendering",
+        expectedAttempt: rendering.attempt,
+        next: rendered,''')
+          anchor='''describe("VOXY-LOCAL-COMPOSITION-RECOVERY-01", () => {\n'''
+          if s.count(anchor)!=1: raise SystemExit('test describe anchor mismatch')
+          additions=r'''describe("VOXY-LOCAL-COMPOSITION-RECOVERY-01", () => {
+  it("binds the Mongo transition selector to status and execution attempt", () => {
+    expect(
+      buildVoxyLocalCompositionTransitionCasFilter({
+        jobId: "job-1",
+        expectedStatus: "rendering",
+        expectedAttempt: 7,
+      }),
+    ).toEqual({
+      _id: "job-1",
+      "record.status": "rendering",
+      "record.attempt": 7,
+    });
+  });
+
+  it("rejects stale recovery and stale completion after a newer attempt is acquired", async () => {
+    const state = runtime();
+    const staleRendering = await queueAndMarkRendering({
+      request: localRequest(),
+      deps: state.deps,
+    });
+
+    const recovered = await recoverInterruptedVoxyLocalComposition({
+      jobId: staleRendering.jobId,
+      repository: state.repository,
+      now: RECOVERY_AT,
+    });
+    expect(recovered.status).toBe("queued");
+    expect(recovered.attempt).toBe(staleRendering.attempt + 1);
+
+    const newerRendering: VoxyLocalCompositionJob = {
+      ...recovered,
+      status: "rendering",
+      startedAt: RECOVERY_AT,
+      updatedAt: RECOVERY_AT,
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: recovered.jobId,
+        expectedStatus: "queued",
+        expectedAttempt: recovered.attempt,
+        next: newerRendering,
+      }),
+    ).toBe(true);
+
+    const staleRecoveryQueued: VoxyLocalCompositionJob = {
+      ...staleRendering,
+      status: "queued",
+      attempt: staleRendering.attempt + 1,
+      startedAt: null,
+      updatedAt: RECOVERY_AT,
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: staleRendering.jobId,
+        expectedStatus: "rendering",
+        expectedAttempt: staleRendering.attempt,
+        next: staleRecoveryQueued,
+      }),
+    ).toBe(false);
+
+    const staleRendered: VoxyLocalCompositionJob = {
+      ...staleRendering,
+      status: "rendered",
+      completedAt: RECOVERY_AT,
+      updatedAt: RECOVERY_AT,
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: staleRendering.jobId,
+        expectedStatus: "rendering",
+        expectedAttempt: staleRendering.attempt,
+        next: staleRendered,
+      }),
+    ).toBe(false);
+
+    const staleFailed: VoxyLocalCompositionJob = {
+      ...staleRendering,
+      status: "failed",
+      completedAt: RECOVERY_AT,
+      updatedAt: RECOVERY_AT,
+      safeErrorCode: "stale_worker",
+      safeErrorMessage: "stale worker must not fence a newer attempt",
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: staleRendering.jobId,
+        expectedStatus: "rendering",
+        expectedAttempt: staleRendering.attempt,
+        next: staleFailed,
+      }),
+    ).toBe(false);
+
+    const current = await state.repository.getJob(staleRendering.jobId);
+    expect(current?.status).toBe("rendering");
+    expect(current?.attempt).toBe(newerRendering.attempt);
+  });
+'''
+          s=s.replace(anchor,additions,1)
+          p.write_text(s)
+
+          # Every transition call in the production service/worker and recovery contract must now carry expectedAttempt.
+          for path in [store, service, worker, test]:
+              text=Path(path).read_text()
+              if path != store and 'transitionJob({' in text:
+                  chunks=text.split('transitionJob({')[1:]
+                  for i,ch in enumerate(chunks,1):
+                      call=ch.split('})',1)[0]
+                      if 'expectedStatus:' in call and 'expectedAttempt:' not in call:
+                          raise SystemExit(f'{path}: transition #{i} missing expectedAttempt')
+          PY
+          git diff --check
+      - name: Install and prove F2
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm -C apps/web exec vitest run tests/voxy-local-composition-recovery.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+      - name: Commit product patch and self-delete materializer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm .github/workflows/voxy-f2-generation-cas-materialize.yml
+          git add apps/web/src/features/voxyVideo/localCompositionRuntimeStore.ts apps/web/src/features/voxyVideo/localCompositionRuntimeService.ts apps/web/scripts/run-voxy-local-composition-worker.ts apps/web/tests/voxy-local-composition-recovery.contract.test.ts .github/workflows/voxy-f2-generation-cas-materialize.yml
+          git diff --cached --check
+          extras="$(git diff --cached --name-only origin/main -- | grep -v -E '^(apps/web/src/features/voxyVideo/localCompositionRuntimeStore\.ts|apps/web/src/features/voxyVideo/localCompositionRuntimeService\.ts|apps/web/scripts/run-voxy-local-composition-worker\.ts|apps/web/tests/voxy-local-composition-recovery\.contract\.test\.ts)$' || true)"
+          test -z "$extras"
+          git commit -m 'fix(voxy): fence recovery transitions by execution attempt'
+          git push origin HEAD
