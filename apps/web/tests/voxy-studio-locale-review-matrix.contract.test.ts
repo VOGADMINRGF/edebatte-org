@@ -11,7 +11,15 @@ import {
   VOXY_STUDIO_DRAFT_VERSION,
   type VoxyStudioDraft,
 } from "@/features/voxyVideo/studioDraft";
-import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";
+import {
+  buildVoxyStudioLocaleReviewMatrices,
+  isVoxyStudioLocaleApprovalCurrent,
+} from "@/features/voxyVideo/studioLocaleReviewMatrix";
+import type {
+  ReviewQueueOperationAuditEvent,
+  ReviewQueueOperationRecord,
+  ReviewQueueOperationalStatus,
+} from "@features/reviewQueueOperations";
 
 function draft(input: {
   id: string;
@@ -117,6 +125,45 @@ function audio(draftRecord: VoxyStudioDraft): VoxyLocalCompositionAudioInputReco
     externalProviderUsed: false,
     autoRender: false,
     autoPublish: false,
+  };
+}
+
+function reviewRecord(
+  status: ReviewQueueOperationalStatus = "ready",
+): ReviewQueueOperationRecord {
+  return {
+    itemId: "review-item-de",
+    operationalStatus: status,
+    assignedToUserId: null,
+    assignedByUserId: null,
+    assignedAt: null,
+    noteCount: 0,
+    latestNote: null,
+    latestNoteAt: null,
+    latestAction: status === "ready" ? "mark_ready" : status === "in_review" ? "mark_in_review" : status === "request_changes" ? "request_changes" : status === "blocked" ? "block" : null,
+    latestActionAt: "2026-09-22T12:00:00.000Z",
+    latestActionByUserId: "admin-1",
+    createdAt: "2026-09-22T11:00:00.000Z",
+    updatedAt: "2026-09-22T12:00:00.000Z",
+  };
+}
+
+function readyAudit(input: {
+  id?: string;
+  actor?: string;
+  at?: string;
+} = {}): ReviewQueueOperationAuditEvent {
+  return {
+    id: input.id ?? "review-de",
+    itemId: "review-item-de",
+    action: "mark_ready",
+    byUserId: input.actor ?? "admin-1",
+    at: input.at ?? "2026-09-22T12:00:00.000Z",
+    note: null,
+    previousOperationalStatus: "in_review",
+    nextOperationalStatus: "ready",
+    previousAssignedToUserId: null,
+    nextAssignedToUserId: null,
   };
 }
 
@@ -228,5 +275,73 @@ describe("Voxy Studio canonical locale review matrix", () => {
 
     expect(Object.keys(german.formatSafety).sort()).toEqual(["16:9", "1:1", "9:16"].sort());
     expect(Object.values(german.formatSafety)).not.toContain("not_prepared");
+  });
+
+  it("requires the current ready audit identity and actor for locale approval", () => {
+    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });
+    expect(
+      isVoxyStudioLocaleApprovalCurrent({
+        draft: de,
+        evidenceAndGateCurrent: true,
+        reviewRecord: reviewRecord(),
+        reviewAuditEvents: [readyAudit()],
+      }),
+    ).toBe(true);
+  });
+
+  it.each(["in_review", "blocked", "request_changes"] as const)(
+    "invalidates historical approval when review state becomes %s",
+    (status) => {
+      const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });
+      expect(
+        isVoxyStudioLocaleApprovalCurrent({
+          draft: de,
+          evidenceAndGateCurrent: true,
+          reviewRecord: reviewRecord(status),
+          reviewAuditEvents: [readyAudit()],
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it("invalidates a persisted approval after a newer ready audit replaces it", () => {
+    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });
+    expect(
+      isVoxyStudioLocaleApprovalCurrent({
+        draft: de,
+        evidenceAndGateCurrent: true,
+        reviewRecord: reviewRecord(),
+        reviewAuditEvents: [
+          readyAudit(),
+          readyAudit({
+            id: "review-replacement",
+            actor: "admin-2",
+            at: "2026-09-22T12:05:00.000Z",
+          }),
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("fails closed on delayed mark-in-review after the historical ready audit", () => {
+    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });
+    const delayedInReview: ReviewQueueOperationAuditEvent = {
+      ...readyAudit(),
+      id: "review-in-review",
+      action: "mark_in_review",
+      byUserId: "admin-2",
+      at: "2026-09-22T12:06:00.000Z",
+      previousOperationalStatus: "ready",
+      nextOperationalStatus: "in_review",
+    };
+
+    expect(
+      isVoxyStudioLocaleApprovalCurrent({
+        draft: de,
+        evidenceAndGateCurrent: true,
+        reviewRecord: reviewRecord("in_review"),
+        reviewAuditEvents: [readyAudit(), delayedInReview],
+      }),
+    ).toBe(false);
   });
 });
