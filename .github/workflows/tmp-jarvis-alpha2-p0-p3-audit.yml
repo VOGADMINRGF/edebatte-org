@@ -1,0 +1,45 @@
+name: Temporary Jarvis Alpha2 P0-P3 audit
+
+on:
+  push:
+    branches:
+      - chore/jarvis-alpha2-p0-p3-audit-20260926
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and inspect canonical OpenTasks
+        env:
+          EXPECTED_MAIN: 386026ca5830f08d996a8c6e91f85d7e5367daf4
+          EXPECTED_OPENTASKS_BLOB: 52751e9cd640390807b0fe250928b2a703be5abe
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          blob="$(git rev-parse HEAD:docs/E150/OpenTasks.md)"
+          test "$blob" = "$EXPECTED_OPENTASKS_BLOB" || { echo "opentasks_drift:$blob"; exit 42; }
+          node <<'NODE'
+          const fs = require('fs');
+          const text = fs.readFileSync('docs/E150/OpenTasks.md','utf8');
+          const lines = text.split(/\r?\n/);
+          const keys = [/ALPHA2/i,/Alpha-Foxtrott/i,/JARVIS/i,/VOXY-AAA-RED-TEAM-ACCEPTANCE-01/i,/agentic runtime/i];
+          const priority = /\bP[0-3]\b/i;
+          console.log('=== MATCHING CANONICAL ROWS/LINES ===');
+          for (let i=0;i<lines.length;i++) {
+            const line=lines[i];
+            if (keys.some(r=>r.test(line)) && (priority.test(line) || /VOXY-AAA-RED-TEAM-ACCEPTANCE-01/.test(line) || /ALPHA2/i.test(line) || /Alpha-Foxtrott/i.test(line) || /JARVIS/i.test(line))) console.log(`${i+1}: ${line}`);
+          }
+          console.log('=== CODEX_READY MATCHES ===');
+          for (let i=0;i<lines.length;i++) {
+            const line=lines[i];
+            if (keys.some(r=>r.test(line)) && /codex_ready/i.test(line)) console.log(`${i+1}: ${line}`);
+          }
+          NODE
