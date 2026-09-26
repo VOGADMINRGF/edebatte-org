@@ -180,16 +180,130 @@ function markerCount(value: string, markers: readonly string[]): number {
   return tokens.filter((token) => markerSet.has(token)).length;
 }
 
-function numericTokens(value: string): string[] {
-  const matches = value.match(/[-+]?\d(?:[\d\s.,'’]*\d)?/g) ?? [];
-  return matches
-    .map((token) => {
-      const sign = token.trim().startsWith("-") ? "-" : "";
-      const digits = token.replace(/\D/g, "");
-      return digits ? `${sign}${digits}` : "";
+type NumericTokenAnalysis = {
+  tokens: string[];
+  ambiguous: boolean;
+};
+
+type NumericLocaleProfile = {
+  locale: string;
+  decimal: string;
+  group: string;
+  primaryGroupSize: number;
+  secondaryGroupSize: number;
+};
+
+function normalizeNumericPunctuation(value: string): string {
+  return value.replace(/’/g, "'").replace(/[\u00a0\u202f\s]+/gu, " ");
+}
+
+function numericLocaleProfile(language: string): NumericLocaleProfile | null {
+  const locale = language.trim().replace(/_/g, "-") || "en";
+  try {
+    const fractionalFormatter = new Intl.NumberFormat(locale, {
+      numberingSystem: "latn",
+      useGrouping: true,
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    const fractionalParts = fractionalFormatter.formatToParts(12345.6);
+    const decimal = normalizeNumericPunctuation(
+      fractionalParts.find((part) => part.type === "decimal")?.value ?? "",
+    );
+    const group = normalizeNumericPunctuation(
+      fractionalParts.find((part) => part.type === "group")?.value ?? "",
+    );
+    if (!decimal || !group || decimal === group) return null;
+
+    const integerParts = new Intl.NumberFormat(locale, {
+      numberingSystem: "latn",
+      useGrouping: true,
+      maximumFractionDigits: 0,
     })
-    .filter(Boolean)
-    .sort();
+      .formatToParts(123456789012345)
+      .filter((part) => part.type === "integer")
+      .map((part) => part.value);
+    const primaryGroupSize = integerParts[integerParts.length - 1]?.length ?? 3;
+    const secondaryGroupSize = integerParts[integerParts.length - 2]?.length ?? primaryGroupSize;
+
+    return { locale, decimal, group, primaryGroupSize, secondaryGroupSize };
+  } catch {
+    return null;
+  }
+}
+
+function ambiguousNumericToken(token: string, language: string): string {
+  return `ambiguous:${languageKey(language)}:${normalizeNumericPunctuation(token.trim())}`;
+}
+
+function canonicalNumericToken(
+  rawToken: string,
+  language: string,
+): { token: string; ambiguous: boolean } {
+  const profile = numericLocaleProfile(language);
+  if (!profile) {
+    return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+  }
+
+  const normalized = normalizeNumericPunctuation(rawToken.trim());
+  const negative = normalized.startsWith("-");
+  const body = normalized.replace(/^[-+]/, "");
+  if (!body || !/^\d[\d.,' ٫٬]*$/u.test(body)) {
+    return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+  }
+
+  const punctuation = Array.from(body).filter((character) => !/\d/.test(character));
+  if (punctuation.some((character) => character !== profile.decimal && character !== profile.group)) {
+    return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+  }
+
+  const decimalParts = body.split(profile.decimal);
+  if (decimalParts.length > 2) {
+    return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+  }
+  const integerPart = decimalParts[0] ?? "";
+  const fractionalPart = decimalParts[1] ?? null;
+  if (fractionalPart !== null && (!/^\d+$/.test(fractionalPart) || fractionalPart.includes(profile.group))) {
+    return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+  }
+
+  const integerGroups = integerPart.split(profile.group);
+  if (integerGroups.some((group) => !/^\d+$/.test(group))) {
+    return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+  }
+  if (integerGroups.length > 1) {
+    const last = integerGroups[integerGroups.length - 1] ?? "";
+    if (last.length !== profile.primaryGroupSize) {
+      return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+    }
+    for (let index = integerGroups.length - 2; index > 0; index -= 1) {
+      if ((integerGroups[index] ?? "").length !== profile.secondaryGroupSize) {
+        return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+      }
+    }
+    const firstLength = (integerGroups[0] ?? "").length;
+    if (firstLength < 1 || firstLength > profile.secondaryGroupSize) {
+      return { token: ambiguousNumericToken(rawToken, language), ambiguous: true };
+    }
+  }
+
+  const integerDigits = integerGroups.join("").replace(/^0+(?=\d)/, "") || "0";
+  const fractionDigits = (fractionalPart ?? "").replace(/0+$/, "");
+  const zero = integerDigits === "0" && !fractionDigits;
+  const sign = negative && !zero ? "-" : "";
+  return {
+    token: `${sign}${integerDigits}${fractionDigits ? `.${fractionDigits}` : ""}`,
+    ambiguous: false,
+  };
+}
+
+function numericTokens(value: string, language: string): NumericTokenAnalysis {
+  const matches = value.match(/[-+]?\d(?:[\d\s.,'’٫٬]*\d)?/gu) ?? [];
+  const normalized = matches.map((token) => canonicalNumericToken(token, language));
+  return {
+    tokens: normalized.map((result) => result.token).filter(Boolean).sort(),
+    ambiguous: normalized.some((result) => result.ambiguous),
+  };
 }
 
 function percentMarkerCount(value: string, language: string): number {
@@ -250,7 +364,12 @@ function compareTextRisk(input: {
   targetLanguage: string;
   reviewFlags: string[];
 }) {
-  compareTokenList(input.reviewFlags, input.path, "number", numericTokens(input.source), numericTokens(input.target));
+  const sourceNumbers = numericTokens(input.source, input.sourceLanguage);
+  const targetNumbers = numericTokens(input.target, input.targetLanguage);
+  compareTokenList(input.reviewFlags, input.path, "number", sourceNumbers.tokens, targetNumbers.tokens);
+  if (sourceNumbers.ambiguous || targetNumbers.ambiguous) {
+    input.reviewFlags.push(`semantic_guard_number_ambiguous:${input.path}`);
+  }
   compareTokenList(input.reviewFlags, input.path, "currency", currencyTokens(input.source), currencyTokens(input.target));
   compareTokenList(input.reviewFlags, input.path, "unit", unitTokens(input.source), unitTokens(input.target));
   compareTokenList(input.reviewFlags, input.path, "acronym", acronymTokens(input.source), acronymTokens(input.target));
