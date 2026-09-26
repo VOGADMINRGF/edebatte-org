@@ -1,0 +1,45 @@
+name: Temporary Alpha2 orchestrator exact-main preflight
+
+on:
+  push:
+    branches: [ diag/alpha2-orchestrator-preflight-01 ]
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diag/alpha2-orchestrator-preflight-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prove exact merged main and preflight
+        env:
+          EXPECTED_MAIN: 71f72c489e2fcf322f83a3db9b80164c1d7244b9
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git branch -m main
+          node scripts/codex-task-preflight.mjs ALPHA2-ORCHESTRATOR-LOOP-01 | tee /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const result = JSON.parse(fs.readFileSync('/tmp/preflight.json','utf8'));
+          if (result.status !== 'codex_ready' || result.executable !== true || result.branchCreationAllowed !== true) {
+            throw new Error(`unexpected preflight: ${JSON.stringify(result)}`);
+          }
+          NODE
+      - name: Self-delete diagnostic workflow
+        run: |
+          set -euo pipefail
+          git branch -m diag/alpha2-orchestrator-preflight-01
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tmp-alpha2-orchestrator-preflight.yml
+          git commit -m "chore(alpha2): remove exact-main preflight workflow"
+          git push origin HEAD:diag/alpha2-orchestrator-preflight-01
