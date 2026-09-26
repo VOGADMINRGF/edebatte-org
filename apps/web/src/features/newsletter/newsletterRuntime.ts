@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { ObjectId } from "mongodb";
 
-import { coreCol, getCol } from "@core/db/triMongo";
+import { coreCol, getCol, getDb } from "@core/db/triMongo";
 import {
   deriveNewsletterAudienceTier,
   mergeNewsletterPreferences,
@@ -64,9 +64,12 @@ export type NewsletterDigestCandidate = NewsletterCandidate & {
   limitations?: string[];
   dossierId?: string | null;
   sourceCreatedByUserId?: string | null;
+  sourceDistributionPostId?: string | null;
+  sourceRevisionHash?: string | null;
 };
 
 type SubscriberDoc = {
+  _id?: ObjectId | string;
   email: string;
   userId?: string | null;
   name?: string | null;
@@ -81,6 +84,7 @@ type SubscriberDoc = {
   lastDigestKey?: string | null;
   lastDigestKeys?: string[] | null;
   lastCandidateIds?: string[] | null;
+  lastDeliveryBoundaryAt?: Date | null;
   updatedAt?: Date | null;
 };
 
@@ -111,6 +115,7 @@ type UserDoc = {
 
 type SocialDistributionPostDoc = {
   _id?: string;
+  lastNewsletterDeliveryBoundaryAt?: Date | null;
   post?: {
     id?: string;
     dossierId?: string | null;
@@ -216,6 +221,77 @@ function safeDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function newsletterSourceRevisionHash(doc: SocialDistributionPostDoc) {
+  const post = doc.post;
+  return digest(
+    JSON.stringify({
+      id: normalize(post?.id) ?? normalize(doc._id),
+      status: normalize(post?.status),
+      publicBrand: normalize(post?.publicBrand),
+      sourceState: normalize(post?.sourceState),
+      title: normalize(post?.title),
+      channels: post?.channels ?? [],
+      newsletterText: normalize(post?.channelTexts?.newsletter_draft),
+      newsletterNote: normalize(post?.channelNotes?.newsletter_draft),
+      newsletterAssets: (post?.assets ?? [])
+        .filter((entry) => entry.kind === "newsletter_draft" || entry.channel === "newsletter_draft")
+        .map((entry) => ({
+          kind: normalize(entry.kind),
+          channel: normalize(entry.channel),
+          href: normalize(entry.href),
+          text: normalize(entry.text),
+          verificationLabel: normalize(entry.verificationLabel),
+        })),
+      approval: post?.approval ?? null,
+      sourceSummary: normalize(post?.sourceSummary),
+      limitations: post?.limitations ?? [],
+      noAutoPublish: post?.noAutoPublish === true,
+      noAutoPublicationApproved: post?.noAutoPublicationApproved === true,
+      postUpdatedAt: safeDate(post?.updatedAt)?.toISOString() ?? null,
+      documentUpdatedAt: safeDate(doc.updatedAt)?.toISOString() ?? null,
+    }),
+  );
+}
+
+function isNewsletterSourceEligible(doc: SocialDistributionPostDoc, now: Date) {
+  const post = doc.post;
+  if (!post) return false;
+  if (!(post.channels ?? []).includes("newsletter_draft")) return false;
+  if (!APPROVED_SOCIAL_STATUSES.has(String(post.status ?? ""))) return false;
+  if (post.publicBrand && post.publicBrand !== "edebatte") return false;
+  if (post.sourceState !== "approved_context") return false;
+  if (post.noAutoPublish !== true || post.noAutoPublicationApproved !== true) return false;
+  if (post.approval?.reviewRequired !== false && !post.approval?.approvedAt) return false;
+  if (!normalize(post.title)) return false;
+  const newsletterAsset = post.assets?.find(
+    (entry) => entry.kind === "newsletter_draft" || entry.channel === "newsletter_draft",
+  );
+  if (!(normalize(post.channelTexts?.newsletter_draft) ?? normalize(newsletterAsset?.text) ?? normalize(post.sourceSummary))) {
+    return false;
+  }
+  const maxAgeDays = Math.max(1, Math.min(90, Number(process.env.NEWSLETTER_CANDIDATE_MAX_AGE_DAYS || 21)));
+  const cutoff = now.getTime() - maxAgeDays * 24 * 60 * 60 * 1000;
+  const updatedAt = safeDate(post.updatedAt) ?? safeDate(doc.updatedAt);
+  return !updatedAt || updatedAt.getTime() >= cutoff;
+}
+
+function subscriberDeliveryFingerprint(subscriber: SubscriberDoc) {
+  return digest(
+    JSON.stringify({
+      email: subscriber.email.trim().toLowerCase(),
+      userId: subscriber.userId ?? null,
+      status: subscriber.status,
+      consentVersion: subscriber.consentVersion,
+      locale: subscriber.locale ?? null,
+      audienceTier: subscriber.audienceTier ?? null,
+      preferences: subscriber.preferences ?? null,
+      preferenceCenter: subscriber.preferenceCenter ?? null,
+      confirmedAt: safeDate(subscriber.confirmedAt)?.toISOString() ?? null,
+      updatedAt: safeDate(subscriber.updatedAt)?.toISOString() ?? null,
+    }),
+  );
+}
+
 function toObjectId(value: unknown) {
   const raw = normalize(value);
   return raw && ObjectId.isValid(raw) ? new ObjectId(raw) : null;
@@ -304,17 +380,7 @@ export async function loadNewsletterCandidates(now = new Date()): Promise<Newsle
   const maxAgeDays = Math.max(1, Math.min(90, Number(process.env.NEWSLETTER_CANDIDATE_MAX_AGE_DAYS || 21)));
   const cutoff = now.getTime() - maxAgeDays * 24 * 60 * 60 * 1000;
 
-  const eligibleDocs = docs.filter((doc) => {
-    const post = doc.post;
-    if (!post) return false;
-    if (!APPROVED_SOCIAL_STATUSES.has(String(post.status ?? ""))) return false;
-    if (post.publicBrand && post.publicBrand !== "edebatte") return false;
-    if (post.sourceState !== "approved_context") return false;
-    if (post.noAutoPublish !== true || post.noAutoPublicationApproved !== true) return false;
-    if (post.approval?.reviewRequired !== false && !post.approval?.approvedAt) return false;
-    const updatedAt = safeDate(post.updatedAt) ?? safeDate(doc.updatedAt);
-    return !updatedAt || updatedAt.getTime() >= cutoff;
-  });
+  const eligibleDocs = docs.filter((doc) => isNewsletterSourceEligible(doc, now));
 
   const dossierIds = unique(eligibleDocs.map((doc) => doc.post?.dossierId ?? null));
   const anlassraumByDossier = await loadAnlassraumByDossierIds(dossierIds);
@@ -365,6 +431,8 @@ export async function loadNewsletterCandidates(now = new Date()): Promise<Newsle
       limitations: (post.limitations ?? []).map((value) => String(value).trim()).filter(Boolean),
       dossierId,
       sourceCreatedByUserId: normalize(post.createdByUserId),
+      sourceDistributionPostId: normalize(doc._id) ?? id,
+      sourceRevisionHash: newsletterSourceRevisionHash(doc),
     } satisfies NewsletterDigestCandidate];
   });
 }
@@ -655,6 +723,150 @@ function mailResultFailure(result: SendMailResult) {
       };
 }
 
+type NewsletterHandoffReservation =
+  | { ok: true; subscriber: SubscriberDoc }
+  | { ok: false; status: "blocked" | "skipped"; reason: string };
+
+class NewsletterHandoffAbort extends Error {
+  constructor(readonly result: Exclude<NewsletterHandoffReservation, { ok: true }>) {
+    super(`newsletter_handoff_abort:${result.reason}`);
+  }
+}
+
+async function reserveNewsletterExternalHandoff(input: {
+  subscriber: SubscriberDoc;
+  subscriberFingerprint: string;
+  candidates: NewsletterDigestCandidate[];
+  candidateIds: string[];
+  ledger: Awaited<ReturnType<typeof ensureDeliveryIndexes>>;
+  deliveryId: string;
+  preview: NewsletterDigestPreview;
+  now: Date;
+}): Promise<NewsletterHandoffReservation> {
+  const selected = input.candidateIds.map((candidateId) =>
+    input.candidates.find((candidate) => candidate.id === candidateId),
+  );
+  if (
+    selected.some(
+      (candidate) =>
+        !candidate?.sourceDistributionPostId || !candidate?.sourceRevisionHash,
+    )
+  ) {
+    return { ok: false, status: "blocked", reason: "candidate_state_unavailable" };
+  }
+
+  const db = await getDb("core");
+  const client = (db as any)?.client;
+  if (!client?.startSession) {
+    return { ok: false, status: "blocked", reason: "handoff_transaction_unavailable" };
+  }
+
+  const session = client.startSession();
+  let reservedSubscriber: SubscriberDoc | null = null;
+  try {
+    await session.withTransaction(async () => {
+      const subscribers = await coreCol<SubscriberDoc>(SUBSCRIBERS_COLLECTION);
+      const sources = await coreCol<SocialDistributionPostDoc>(SOCIAL_POSTS_COLLECTION);
+      const email = input.subscriber.email.trim().toLowerCase();
+      const canonicalSubscriber = input.subscriber.userId
+        ? await subscribers.findOne({ userId: input.subscriber.userId } as never, { session })
+        : await subscribers.findOne({ email } as never, { session });
+      const currentSubscriber =
+        canonicalSubscriber ??
+        (input.subscriber.userId
+          ? await subscribers.findOne({ email } as never, { session })
+          : null);
+      if (!currentSubscriber) {
+        throw new NewsletterHandoffAbort({ ok: false, status: "blocked", reason: "subscriber_not_found" });
+      }
+      if (subscriberDeliveryFingerprint(currentSubscriber) !== input.subscriberFingerprint) {
+        throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "subscriber_state_changed" });
+      }
+
+      const subscriberSelector = currentSubscriber._id
+        ? { _id: currentSubscriber._id }
+        : currentSubscriber.userId
+          ? { userId: currentSubscriber.userId }
+          : { email: currentSubscriber.email.trim().toLowerCase() };
+      const subscriberBoundary = await subscribers.updateOne(
+        subscriberSelector as never,
+        { $set: { lastDeliveryBoundaryAt: input.now } },
+        { session },
+      );
+      if (subscriberBoundary.matchedCount !== 1) {
+        throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "subscriber_state_changed" });
+      }
+
+      for (const candidate of selected) {
+        const sourceId = candidate!.sourceDistributionPostId!;
+        const source = await sources.findOne({ _id: sourceId } as never, { session });
+        if (
+          !source ||
+          !isNewsletterSourceEligible(source, input.now) ||
+          newsletterSourceRevisionHash(source) !== candidate!.sourceRevisionHash
+        ) {
+          throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "candidate_state_changed" });
+        }
+        const sourceBoundary = await sources.updateOne(
+          { _id: sourceId } as never,
+          { $set: { lastNewsletterDeliveryBoundaryAt: input.now } },
+          { session },
+        );
+        if (sourceBoundary.matchedCount !== 1) {
+          throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "candidate_state_changed" });
+        }
+      }
+
+      const existing = await input.ledger.findOne({ _id: input.deliveryId }, { session });
+      if (existing?.status === "sent") {
+        throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "already_sent" });
+      }
+      if (existing?.status === "sending") {
+        throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "ambiguous_previous_attempt" });
+      }
+      if (existing?.status === "failed" && existing.retryable === false) {
+        throw new NewsletterHandoffAbort({ ok: false, status: "skipped", reason: "non_retryable_previous_failure" });
+      }
+
+      await input.ledger.updateOne(
+        { _id: input.deliveryId },
+        {
+          $setOnInsert: {
+            _id: input.deliveryId,
+            recipientHash: recipientHash(input.preview.email),
+            userId: currentSubscriber.userId ?? null,
+            digestKey: input.preview.digestKey!,
+            candidateIds: input.preview.candidateIds,
+            audienceTier: input.preview.audienceTier,
+            frequency: input.preview.frequency,
+            createdAt: input.now,
+          },
+          $set: {
+            status: "sending",
+            retryable: false,
+            externalAttemptBoundaryAt: input.now,
+            externalAttemptId: crypto.randomUUID(),
+            updatedAt: input.now,
+          },
+          $unset: { failureCategory: "" },
+          $inc: { attemptCount: 1 },
+        },
+        { upsert: true, session },
+      );
+      reservedSubscriber = currentSubscriber;
+    });
+  } catch (error) {
+    if (error instanceof NewsletterHandoffAbort) return error.result;
+    return { ok: false, status: "blocked", reason: "handoff_transaction_failed" };
+  } finally {
+    await session.endSession();
+  }
+
+  return reservedSubscriber
+    ? { ok: true, subscriber: reservedSubscriber }
+    : { ok: false, status: "blocked", reason: "handoff_transaction_failed" };
+}
+
 export async function sendNewsletterDigestForSubscriber(
   subscriber: SubscriberDoc,
   options: {
@@ -675,9 +887,10 @@ export async function sendNewsletterDigestForSubscriber(
   if (!currentSubscriber) {
     return { ok: false as const, status: "blocked" as const, reason: "subscriber_not_found" as const };
   }
+  const candidates = options.candidates ?? await loadNewsletterCandidates(now);
   const preview = await buildNewsletterDigestPreviewForSubscriber(currentSubscriber, {
     now,
-    candidates: options.candidates,
+    candidates,
   });
   if (!preview.deliveryAllowed || !preview.digestKey || !preview.subject || !preview.html || !preview.text) {
     return { ok: true as const, status: "skipped" as const, reason: preview.deliveryReason, preview };
@@ -708,31 +921,20 @@ export async function sendNewsletterDigestForSubscriber(
     return { ok: true as const, status: "skipped" as const, reason: "non_retryable_previous_failure", preview };
   }
 
-  await ledger.updateOne(
-    { _id: id },
-    {
-      $setOnInsert: {
-        _id: id,
-        recipientHash: recipientHash(preview.email),
-        userId: currentSubscriber.userId ?? null,
-        digestKey: preview.digestKey,
-        candidateIds: preview.candidateIds,
-        audienceTier: preview.audienceTier,
-        frequency: preview.frequency,
-        createdAt: now,
-      },
-      $set: {
-        status: "sending",
-        retryable: false,
-        externalAttemptBoundaryAt: now,
-        externalAttemptId: crypto.randomUUID(),
-        updatedAt: now,
-      },
-      $unset: { failureCategory: "" },
-      $inc: { attemptCount: 1 },
-    },
-    { upsert: true },
-  );
+  const reservation = await reserveNewsletterExternalHandoff({
+    subscriber: currentSubscriber,
+    subscriberFingerprint: subscriberDeliveryFingerprint(currentSubscriber),
+    candidates,
+    candidateIds: preview.candidateIds,
+    ledger,
+    deliveryId: id,
+    preview,
+    now,
+  });
+  if ("status" in reservation) {
+    return { ok: reservation.status === "skipped", status: reservation.status, reason: reservation.reason, preview };
+  }
+  currentSubscriber = reservation.subscriber;
 
   const mail = {
     subject: preview.subject,

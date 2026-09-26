@@ -30,6 +30,7 @@ import { loadAccountManualAnlassraumServerDrafts } from "./loadAccountManualAnla
 import { loadAccountSavedWorkstates } from "./loadAccountSavedWorkstates";
 import { loadAccountUserScopedRuntimeLinkage } from "./loadAccountUserScopedRuntimeLinkage";
 import { loadOptionalAccountData } from "./optionalAccountData";
+import { applyAccountNewsletterPreference, readCanonicalNewsletterOptIn } from "@features/notifications/newsletterAccountSubscriptionAdapter";
 
 const RESEARCH_XP_AWARD = 25;
 
@@ -211,6 +212,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
     editorialReviewRequests,
     factcheckJobs,
     userScopedRuntimeLinkages,
+    canonicalNewsletterOptIn,
   ] = await Promise.all([
     loadOptionalAccountData({
       source: "payment_profile",
@@ -265,6 +267,11 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
       source: "user_scoped_runtime_linkages",
       fallback: [],
       load: () => loadAccountUserScopedRuntimeLinkage(accountUserId, 8),
+    }),
+    loadOptionalAccountData({
+      source: "canonical_newsletter_subscription",
+      fallback: false,
+      load: () => readCanonicalNewsletterOptIn({ userId: accountUserId, email: doc.email ?? null }),
     }),
   ]);
 
@@ -359,7 +366,7 @@ export async function getAccountOverview(userId: string): Promise<AccountOvervie
     preferredOutputLocales,
     showOriginalByDefault,
     preferredLocale,
-    newsletterOptIn: doc.settings?.newsletterOptIn ?? false,
+    newsletterOptIn: canonicalNewsletterOptIn,
     featureInterests: sanitizeFeatureInterests(doc.settings?.featureInterests ?? []),
     emailVerified: doc.verifiedEmail ?? doc.emailVerified ?? false,
     graphMergeCandidates,
@@ -430,7 +437,17 @@ export async function updateAccountSettings(
     }
   }
   if (typeof patch.newsletterOptIn === "boolean") {
-    setOps["settings.newsletterOptIn"] = patch.newsletterOptIn;
+    const Users = await getCol<UserDoc>("users");
+    const current = await Users.findOne({ _id: oid }, { projection: { email: 1 } });
+    if (!current) return null;
+    const canonical = await applyAccountNewsletterPreference({
+      userId: String(oid),
+      email: current.email ?? null,
+      optIn: patch.newsletterOptIn,
+    });
+    // The legacy settings mirror follows canonical truth. A true toggle may never
+    // reactivate an inactive subscriber without the existing double-opt-in path.
+    setOps["settings.newsletterOptIn"] = canonical.active;
   }
   if (patch.featureInterests !== undefined) {
     const next = sanitizeFeatureInterests(patch.featureInterests);
