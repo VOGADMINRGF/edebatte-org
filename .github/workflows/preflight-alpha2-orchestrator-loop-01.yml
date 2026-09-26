@@ -1,0 +1,24 @@
+name: Alpha2 orchestrator exact-main preflight
+
+on:
+  push:
+    branches: [ chore/preflight-alpha2-orchestrator-loop-01 ]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and canonical task preflight
+        env:
+          EXPECTED_MAIN: 71f72c489e2fcf322f83a3db9b80164c1d7244b9
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          node scripts/codex-task-preflight.mjs ALPHA2-ORCHESTRATOR-LOOP-01
