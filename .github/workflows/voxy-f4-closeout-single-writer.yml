@@ -35,10 +35,10 @@ jobs:
           i=idx[0]
           before=rows[i]
           parts=before.split(' | ')
-          assert parts[1]==target and parts[2]=='codex_ready' and parts[3]=='P2', parts[:4]
-          parts[2]='review'
+          assert parts[0] == f'| {target}' and parts[1]=='codex_ready' and parts[2]=='P2', parts[:4]
+          parts[1]='review'
           evidence='PR #1087 merged as f4abea97e21cdf48f498c68dcb04b36af50fc982; exact-head Web CI, Voxy Local Composition Runtime, AAA red-team, Final Canon and Alpha2 gates green; 0 open review threads'
-          parts[4]=parts[4] + '; ' + evidence
+          parts[3]=parts[3] + '; ' + evidence
           rows[i]=' | '.join(parts)
           after='\n'.join(rows) + ('\n' if text.endswith('\n') else '')
           assert sum(1 for r in rows if r.startswith(f'| {target} |'))==1
