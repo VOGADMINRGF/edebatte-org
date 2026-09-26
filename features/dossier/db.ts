@@ -312,10 +312,27 @@ export async function refreshDossierCounts(dossierId: string) {
 }
 
 export async function touchDossierFactchecked(dossierId: string, at: Date = new Date()) {
-  await (await dossiersCol()).updateOne(
-    { dossierId },
-    { $set: { lastFactcheckedAt: at, updatedAt: new Date() } },
-  );
+  const col = await dossiersCol();
+  await mutateWithRevision(dossierId, async (session) => {
+    const res = await col.updateOne(
+      { dossierId },
+      { $set: { lastFactcheckedAt: at, updatedAt: new Date() } },
+      { session },
+    );
+    return {
+      result: null,
+      revision:
+        res.modifiedCount > 0
+          ? {
+              entityType: "dossier",
+              entityId: dossierId,
+              action: "system_update",
+              diffSummary: "Dossier-Factcheck-Zeitpunkt aktualisiert.",
+              byRole: "system",
+            }
+          : null,
+    };
+  });
 }
 
 export const dossierCollections = {
