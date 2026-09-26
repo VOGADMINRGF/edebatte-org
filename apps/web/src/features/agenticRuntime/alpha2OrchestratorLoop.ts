@@ -133,6 +133,17 @@ function unique(values: string[]) {
   return [...new Set(values)];
 }
 
+function actionGateInput(policy: Alpha2OrchestratorTaskPolicy): Alpha2ActionGateInput {
+  return {
+    actionKind: policy.actionKind,
+    riskClass: policy.riskClass,
+    confidence: policy.confidence,
+    reversible: policy.reversible,
+    explicitPolicyRef: policy.explicitPolicyRef,
+    evidenceRefs: policy.evidenceRefs,
+  };
+}
+
 /**
  * Pure selection step for the organization loop.
  * OpenTasks remains the only task truth; GitHub ownership is evidence, not a second queue.
@@ -185,7 +196,7 @@ export function planAlpha2OrchestratorCycle(
 
     let actionGateDecision: "automatic" | null = null;
     if (policy) {
-      const gate = resolveAlpha2ActionGate(policy);
+      const gate = resolveAlpha2ActionGate(actionGateInput(policy));
       if (gate.decision !== "automatic" || !gate.autoExecutionAllowed) {
         reasons.push(...gate.reasonCodes, `action_gate:${gate.decision}`);
       } else {
