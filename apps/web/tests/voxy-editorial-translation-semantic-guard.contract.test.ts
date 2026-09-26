@@ -90,6 +90,28 @@ function frenchPlan(master: VoxyEditorialStoryPlan, overrides: Partial<VoxyEdito
   });
 }
 
+function englishPlan(master: VoxyEditorialStoryPlan, narration: string) {
+  return frenchPlan(master, {
+    storyPlanId: "story-en-1",
+    locale: "en",
+    outputLanguage: "en",
+    title: "EU investment: 20 % for 10 km",
+    chapters: [
+      {
+        ...master.chapters[0]!,
+        headline: "EU invests 20 %",
+        narration,
+        consequences: [
+          {
+            ...master.chapters[0]!.consequences[0]!,
+            text: "“EU” could start 2 km later.",
+          },
+        ],
+      },
+    ],
+  });
+}
+
 function bind(master: VoxyEditorialStoryPlan, translated: VoxyEditorialStoryPlan) {
   return bindVoxyEditorialLanguageVariant({
     masterPlan: master,
@@ -194,6 +216,84 @@ describe("Voxy editorial translation semantic guard", () => {
         "semantic_guard_quote_mode_changed:chapter:chapter-1:consequence:consequence-1",
       ]),
     );
+  });
+
+  it("detects decimal-comma magnitude drift instead of collapsing 1,5 and 15", () => {
+    const master = masterPlan({
+      chapters: [
+        {
+          ...masterPlan().chapters[0]!,
+          narration: "Die Strecke könnte 1,5 km lang sein.",
+        },
+      ],
+    });
+    const translated = englishPlan(master, "The distance could be 15 km long.");
+
+    const variant = bind(master, translated);
+    expect(variant.languageVariant.translationStatus).toBe("uncertain");
+    expect(variant.languageVariant.semanticGuard?.reviewFlags).toContain(
+      "semantic_guard_number_changed:chapter:chapter-1:narration",
+    );
+  });
+
+  it("accepts equivalent locale decimal and grouping renderings when they are unambiguous", () => {
+    const decimalMaster = masterPlan({
+      chapters: [
+        {
+          ...masterPlan().chapters[0]!,
+          narration: "Die Strecke könnte 1,5 km lang sein.",
+        },
+      ],
+    });
+    const decimalReport = evaluateVoxyEditorialTranslationSemanticGuard({
+      masterPlan: decimalMaster,
+      translatedPlan: englishPlan(decimalMaster, "The distance could be 1.5 km long."),
+    });
+    expect(decimalReport.reviewFlags).not.toContain(
+      "semantic_guard_number_changed:chapter:chapter-1:narration",
+    );
+    expect(decimalReport.reviewFlags).not.toContain(
+      "semantic_guard_number_ambiguous:chapter:chapter-1:narration",
+    );
+
+    const groupedMaster = masterPlan({
+      chapters: [
+        {
+          ...masterPlan().chapters[0]!,
+          narration: "Die Strecke könnte 1.500 km lang sein.",
+        },
+      ],
+    });
+    const groupedReport = evaluateVoxyEditorialTranslationSemanticGuard({
+      masterPlan: groupedMaster,
+      translatedPlan: englishPlan(groupedMaster, "The distance could be 1,500 km long."),
+    });
+    expect(groupedReport.reviewFlags).not.toContain(
+      "semantic_guard_number_changed:chapter:chapter-1:narration",
+    );
+    expect(groupedReport.reviewFlags).not.toContain(
+      "semantic_guard_number_ambiguous:chapter:chapter-1:narration",
+    );
+  });
+
+  it("fails closed on locale-ambiguous numeric separators", () => {
+    const master = masterPlan({
+      chapters: [
+        {
+          ...masterPlan().chapters[0]!,
+          narration: "Die Strecke könnte 1,5 km lang sein.",
+        },
+      ],
+    });
+    const report = evaluateVoxyEditorialTranslationSemanticGuard({
+      masterPlan: master,
+      translatedPlan: englishPlan(master, "The distance could be 1,5 km long."),
+    });
+
+    expect(report.reviewFlags).toContain(
+      "semantic_guard_number_ambiguous:chapter:chapter-1:narration",
+    );
+    expect(report.requiresReview).toBe(true);
   });
 
   it("treats source-pack translation review state as an existing fail-closed trust signal", () => {
