@@ -23,7 +23,7 @@ export async function POST(
   const now = new Date();
 
   const col = await dossierDisputesCol();
-  const transaction = await mutateDossierWithRevision({
+  const transaction = await mutateDossierWithRevision<{ found: boolean }>({
     dossierId,
     mutate: async (session) => {
       const res = await col.findOneAndUpdate(
@@ -41,11 +41,11 @@ export async function POST(
       );
 
       if (!res.value) {
-        return { result: { found: false as const }, revision: null };
+        return { result: { found: false }, revision: null };
       }
 
       return {
-        result: { found: true as const },
+        result: { found: true },
         revision: {
           entityType: "dispute",
           entityId: id,
