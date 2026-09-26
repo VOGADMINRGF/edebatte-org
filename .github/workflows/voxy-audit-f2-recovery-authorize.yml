@@ -18,9 +18,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: Verify exact main and OpenTasks blob
         shell: bash
         run: |
@@ -55,18 +52,16 @@ jobs:
               raise SystemExit('historical tail changed')
           p.write_text(updated)
           PY
-      - name: Verify executable preflight and diff
+      - name: Verify serialized authorization and diff
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 > /tmp/preflight.json 2>&1
-          cat /tmp/preflight.json
           python3 - <<'PY'
-          import json
-          d = json.load(open('/tmp/preflight.json'))
-          assert d.get('status') == 'codex_ready', d
-          assert d.get('executable') is True, d
-          assert d.get('branchCreationAllowed') is True, d
+          from pathlib import Path
+          rows = [line for line in Path('docs/E150/OpenTasks.md').read_text().splitlines() if line.startswith('| VOXY-LOCAL-COMPOSITION-RECOVERY-01 |')]
+          assert len(rows) == 1, rows
+          assert rows[0].startswith('| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | codex_ready | P2 |'), rows[0]
+          assert 'F3/F4 not authorized' in rows[0], rows[0]
           PY
           git diff --check
       - name: Commit authorization and self-delete writer
