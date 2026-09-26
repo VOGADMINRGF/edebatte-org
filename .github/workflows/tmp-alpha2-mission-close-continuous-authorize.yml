@@ -1,0 +1,81 @@
+name: Temporary Alpha2 mission close continuous authorize
+
+on:
+  pull_request:
+  push:
+    branches:
+      - docs/alpha2-mission-close-continuous-authorize-01
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-alpha2-mission-close-continuous-authorize
+  cancel-in-progress: true
+
+jobs:
+  single-writer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/alpha2-mission-close-continuous-authorize-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply exact guarded OpenTasks transition
+        env:
+          EXPECTED_MAIN: 661001ac8a0a3cdc332036cf98c5f9ee89890ef5
+          EXPECTED_BLOB: 14664bb594b4f3288ad64a69c71bd63b3d996380
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path("docs/E150/OpenTasks.md")
+          text = path.read_text()
+          marker = "## Historischer Katalog und Evidenz"
+          if text.count(marker) != 1:
+              raise SystemExit("historical marker uniqueness failed")
+          tail_before = text[text.index(marker):]
+          tail_hash_before = hashlib.sha256(tail_before.encode()).hexdigest()
+
+          old_mission = '''| ALPHA2-MISSION-CONTROL-01 | codex_ready | P0 | `ALPHA2-PERSISTENT-RUN-LEDGER-01`; `ALPHA2-AGENT-REGISTRY-01`; `ALPHA2-LEARNING-EVALS-01`; `ALPHA2-GITHUB-STATE-ADAPTER-01`; bestehender Draft-PR `#640` | Bestehende Admin-/2FA-Grenze um eine read-only Mission-Control-Oberfläche unter `/admin/system/alpha2` erweitern | Run-Ledger, Flotte, Learning und sichere Statusmetadaten ohne Prompts, Secrets oder Chain-of-Thought; fehlende Daten bleiben sichtbar fail-closed; kein Start/Stop/Retry, Providerstart oder externe Mutation; bestehender Branch `feat/alpha2-mission-control-01` wird wiederverwendet |'''
+          new_mission = '''| ALPHA2-MISSION-CONTROL-01 | review | P0 | `ALPHA2-PERSISTENT-RUN-LEDGER-01`; `ALPHA2-AGENT-REGISTRY-01`; `ALPHA2-LEARNING-EVALS-01`; `ALPHA2-GITHUB-STATE-ADAPTER-01`; current-main convergence PR `#1103` / merge `661001ac8a0a3cdc332036cf98c5f9ee89890ef5`; exact-head Web CI, Alpha2 orchestrator/GitHub/OpenTasks and Voxy AAA/runtime gates green | **Implemented — read-only Mission Control:** bestehende Admin-/2FA-Grenze um `/admin/system/alpha2` erweitert; kanonischer `alpha2_runs`-Readmodel, Agent Fleet und validierte Learning/Eval-Metadaten werden fail-closed projiziert; terminale Fehler bleiben von aktiver Arbeit getrennt und scheduled/lease counts werden global aus dem Ledger gelesen | Consumed authorization; keine Prompts, Secrets oder Chain-of-Thought; kein Start/Stop/Retry, Providerstart oder externe Mutation; Legacy-PR `#640` ist superseded/geschlossen. Weitere Implementierung unter diesem Owner erfordert frische Autorisierung |'''
+
+          old_cont = '''| ALPHA2-CONTINUOUS-DISPATCH-01 | blocked | P0 | `ALPHA2-ORCHESTRATOR-LOOP-01`; `ALPHA2-MISSION-CONTROL-01`; bestehender Draft-PR `#647`; Issue `#646` | Einen einmal autorisierten low-risk, reversiblen Arbeitsstrom über berechtigte bounded Folgeslices ohne neuen Chat-Trigger fortsetzen | Vor jedem Child werden dieselbe OpenTasks-Eligibility und derselbe Risk/Action-Gate erneut geprüft; Child wird vor Dispatch im bestehenden Ledger persistiert; Review-/Human-Gates erzeugen keinen „Go?“-Loop; kein Auto-Merge, Deploy, allgemeines Auto-Publish, Spending, Contract, Rights oder Secret/Security-Mutation; bestehender Branch `feat/alpha2-continuous-dispatch-01` wird wiederverwendet |'''
+          new_cont = '''| ALPHA2-CONTINUOUS-DISPATCH-01 | codex_ready | P0 | `ALPHA2-ORCHESTRATOR-LOOP-01`; `ALPHA2-MISSION-CONTROL-01` via #1103; bestehender Legacy-Draft `#647`; Issue `#646` | **Next authorized Alpha2 convergence slice:** einen einmal autorisierten low-risk, reversiblen Arbeitsstrom über berechtigte bounded Folgeslices ohne neuen Chat-Trigger fortsetzen; ausschließlich den bestehenden durable Run-Ledger/BullMQ-, OpenTasks-Eligibility- und Risk/Action-Gate-Stack verwenden | Vor jedem Child dieselbe OpenTasks-Eligibility und derselbe Risk/Action-Gate; Child vor Dispatch im bestehenden Ledger persistieren; Parent/Root/Idempotency/Reconciliation fail-closed; Review-/Human-Gates erzeugen persistenten Human-Gate-Zustand statt „Go?“-Loop; kein Auto-Merge, Deploy, allgemeines Auto-Publish, Spending, Contract, Rights oder Secret/Security-Mutation; Legacy-#647 nur als Evidence, current-main-Konvergenz nach frischem Preflight; `ALPHA2-REPAIR-CONTINUATION-01` bleibt blockiert |'''
+
+          if text.count(old_mission) != 1:
+              raise SystemExit(f"expected one Mission Control row, found {text.count(old_mission)}")
+          if text.count(old_cont) != 1:
+              raise SystemExit(f"expected one Continuous Dispatch row, found {text.count(old_cont)}")
+
+          text = text.replace(old_mission, new_mission, 1).replace(old_cont, new_cont, 1)
+          if text.count(new_mission) != 1 or text.count(new_cont) != 1:
+              raise SystemExit("post-replacement row uniqueness failed")
+          tail_after = text[text.index(marker):]
+          if hashlib.sha256(tail_after.encode()).hexdigest() != tail_hash_before:
+              raise SystemExit("historical tail changed")
+          path.write_text(text)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+      - name: Commit SSOT and self-delete writer
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git commit -m "docs(e150): close Alpha2 Mission Control and authorize Continuous Dispatch"
+          git rm .github/workflows/tmp-alpha2-mission-close-continuous-authorize.yml
+          git commit -m "chore(governance): remove one-shot Alpha2 writer"
+          test "$(git diff --name-only origin/main...HEAD)" = "docs/E150/OpenTasks.md"
+          git diff --check origin/main...HEAD
+          git push origin HEAD:docs/alpha2-mission-close-continuous-authorize-01
