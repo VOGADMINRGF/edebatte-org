@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { coreCol } from "@core/db/triMongo";
 import {
   acquireNewsletterDeliveryLease,
   createInMemoryNewsletterDeliveryLeaseStore,
@@ -9,6 +10,10 @@ import {
   createInMemoryNewsletterSubscriberCoordinationStore,
   newsletterCandidateSnapshotMatches,
 } from "@/features/newsletter/newsletterSubscriberCoordination";
+
+vi.mock("@core/db/triMongo", () => ({
+  coreCol: vi.fn(),
+}));
 
 describe("newsletter delivery lease", () => {
   const now = new Date("2026-09-20T10:00:00.000Z");
@@ -116,6 +121,81 @@ describe("newsletter delivery lease", () => {
     });
     expect(mutationAfterSend.acquired).toBe(true);
     if (mutationAfterSend.acquired) await mutationAfterSend.release();
+  });
+
+  it("keeps the Mongo coordination lock bound to the requested subscriber", async () => {
+    vi.mocked(coreCol).mockReset();
+    const boundaryNow = new Date("2026-09-25T12:00:00.000Z");
+    const lockedSubscriber = {
+      email: "member-a@example.org",
+      userId: "user-a",
+      status: "active",
+      consentVersion: "updates_v1",
+      sendCoordinationLock: {
+        token: "send-a",
+        purpose: "send",
+        acquiredAt: new Date("2026-09-25T11:59:00.000Z"),
+        expiresAt: new Date("2026-09-25T12:01:00.000Z"),
+      },
+    };
+    const otherSubscriber: Record<string, unknown> = {
+      email: "member-b@example.org",
+      userId: "user-b",
+      status: "active",
+      consentVersion: "updates_v1",
+    };
+
+    const findOneAndUpdate = vi.fn(async (filter: any, update: any) => {
+      const clauses = Array.isArray(filter?.$and) ? filter.$and : [];
+      const hasRequestedIdentity = clauses.some(
+        (clause: any) =>
+          Array.isArray(clause?.$or) &&
+          clause.$or.some((entry: any) => entry?.email === "member-a@example.org") &&
+          clause.$or.some((entry: any) => entry?.userId === "user-a"),
+      );
+      const hasLockAvailability = clauses.some(
+        (clause: any) =>
+          Array.isArray(clause?.$or) &&
+          clause.$or.some((entry: any) => entry?.sendCoordinationLock?.$exists === false),
+      );
+
+      if (!hasRequestedIdentity || !hasLockAvailability) {
+        otherSubscriber.sendCoordinationLock = update.$set.sendCoordinationLock;
+        return otherSubscriber;
+      }
+      return null;
+    });
+    const findOne = vi.fn(async (filter: any) => {
+      const matchesRequestedIdentity =
+        Array.isArray(filter?.$or) &&
+        filter.$or.some(
+          (entry: any) =>
+            entry?.email === "member-a@example.org" || entry?.userId === "user-a",
+        );
+      return matchesRequestedIdentity ? lockedSubscriber : null;
+    });
+
+    vi.mocked(coreCol).mockResolvedValue({
+      findOneAndUpdate,
+      findOne,
+      updateOne: vi.fn(),
+    } as any);
+
+    await expect(
+      acquireNewsletterSubscriberCoordination({
+        email: "member-a@example.org",
+        userId: "user-a",
+        purpose: "mutation",
+        now: boundaryNow,
+        waitMs: 0,
+      }),
+    ).resolves.toEqual({
+      acquired: false,
+      reason: "subscriber_coordination_busy",
+    });
+
+    expect(findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(otherSubscriber.sendCoordinationLock).toBeUndefined();
   });
 
   it("fails closed when current consent or subscription status is not sendable", async () => {
