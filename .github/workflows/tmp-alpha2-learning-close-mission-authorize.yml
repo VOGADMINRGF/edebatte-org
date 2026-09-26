@@ -1,0 +1,122 @@
+name: Temporary Alpha2 learning close mission authorize
+
+on:
+  push:
+    branches:
+      - docs/alpha2-learning-close-mission-authorize-01
+
+permissions:
+  contents: write
+
+jobs:
+  single-writer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/alpha2-learning-close-mission-authorize-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply exact guarded OpenTasks transition
+        env:
+          EXPECTED_MAIN: d9f7d4ac41371957903c56155bedad9ecdc24df5
+          EXPECTED_BLOB: e01c21c700e5e30a52c365c1c2e5d373c4e83043
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          marker = '## Historischer Katalog und Evidenz'
+          if text.count(marker) != 1:
+            raise SystemExit('historical marker must occur exactly once')
+          operative, historical = text.split(marker, 1)
+          historical_hash = hashlib.sha256(historical.encode()).hexdigest()
+
+          def mutate_status(body: str, task_id: str, expected: str, target: str, required_fragments: tuple[str, ...]):
+            lines = body.splitlines()
+            matches = [i for i, line in enumerate(lines) if line.startswith(f'| {task_id} |')]
+            if len(matches) != 1:
+              raise SystemExit(f'{task_id}: expected one row, found {len(matches)}')
+            i = matches[0]
+            line = lines[i]
+            for fragment in required_fragments:
+              if fragment not in line:
+                raise SystemExit(f'{task_id}: missing required fragment {fragment!r}')
+            cols = [part.strip() for part in line.strip().strip('|').split('|')]
+            if len(cols) < 3 or cols[0] != task_id:
+              raise SystemExit(f'{task_id}: malformed row')
+            if cols[1] != expected:
+              raise SystemExit(f'{task_id}: expected status {expected}, got {cols[1]}')
+            cols[1] = target
+            lines[i] = '| ' + ' | '.join(cols) + ' |'
+            return '\n'.join(lines) + ('\n' if body.endswith('\n') else '')
+
+          operative = mutate_status(
+            operative,
+            'ALPHA2-LEARNING-EVALS-01',
+            'codex_ready',
+            'review',
+            ('#639',),
+          )
+          operative = mutate_status(
+            operative,
+            'ALPHA2-MISSION-CONTROL-01',
+            'blocked',
+            'codex_ready',
+            ('ALPHA2-LEARNING-EVALS-01', '#640'),
+          )
+
+          # Downstream order remains fail-closed.
+          for task_id in ('ALPHA2-CONTINUOUS-DISPATCH-01', 'ALPHA2-REPAIR-CONTINUATION-01'):
+            rows = [line for line in operative.splitlines() if line.startswith(f'| {task_id} |')]
+            if len(rows) != 1:
+              raise SystemExit(f'{task_id}: expected one row')
+            cols = [part.strip() for part in rows[0].strip().strip('|').split('|')]
+            if cols[1] != 'blocked':
+              raise SystemExit(f'{task_id}: must remain blocked, got {cols[1]}')
+
+          out = operative + marker + historical
+          if hashlib.sha256(out.split(marker,1)[1].encode()).hexdigest() != historical_hash:
+            raise SystemExit('historical tail changed')
+          p.write_text(out)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+      - name: Validate candidate preflights
+        run: |
+          set -euo pipefail
+          set +e
+          node scripts/codex-task-preflight.mjs ALPHA2-LEARNING-EVALS-01 > /tmp/learning.json
+          learning_rc=$?
+          set -e
+          test "$learning_rc" -ne 0
+          node scripts/codex-task-preflight.mjs ALPHA2-MISSION-CONTROL-01 > /tmp/mission.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const learning = JSON.parse(fs.readFileSync('/tmp/learning.json','utf8'));
+          const mission = JSON.parse(fs.readFileSync('/tmp/mission.json','utf8'));
+          if (learning.status !== 'review' || learning.executable !== false) throw new Error(`learning: ${JSON.stringify(learning)}`);
+          if (mission.status !== 'codex_ready' || mission.executable !== true || mission.branchCreationAllowed !== true) throw new Error(`mission: ${JSON.stringify(mission)}`);
+          NODE
+
+      - name: Commit, self-delete and push final candidate
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git commit -m "docs(e150): close Alpha2 learning and authorize mission control"
+          git rm .github/workflows/tmp-alpha2-learning-close-mission-authorize.yml
+          git commit -m "chore(governance): remove one-shot Alpha2 writer"
+          test "$(git diff --name-only origin/main...HEAD)" = "docs/E150/OpenTasks.md"
+          git diff --check origin/main...HEAD
+          git push origin HEAD:docs/alpha2-learning-close-mission-authorize-01
