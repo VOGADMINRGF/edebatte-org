@@ -1,0 +1,75 @@
+name: Temporary close watch and authorize connectors
+
+on:
+  push:
+    branches:
+      - docs/voxy-external-personal-connectors-01-ssot
+
+permissions:
+  contents: write
+
+jobs:
+  serialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: docs/voxy-external-personal-connectors-01-ssot
+      - name: Fail closed and mutate only intended OpenTasks rows
+        env:
+          EXPECTED_MAIN: d4fb2c41c243829984e860d3ab5d90e6954efcd6
+          EXPECTED_BLOB: 8d03bb0de04f4b917e86f4f426e53909ecb18f88
+          WORKFLOW_PATH: .github/workflows/tmp-close-watch-authorize-connectors.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN" || { echo "main_drift:$(git rev-parse origin/main)"; exit 41; }
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB" || { echo "opentasks_blob_drift"; exit 42; }
+          git show origin/main:docs/E150/OpenTasks.md > /tmp/OpenTasks.before
+          cp /tmp/OpenTasks.before docs/E150/OpenTasks.md
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'docs/E150/OpenTasks.md';
+          let text = fs.readFileSync(path, 'utf8');
+          const lines = text.split('\n');
+          const watchPrefix = '| VOXY-PROACTIVE-WATCH-TASKS-01 |';
+          const connectorPrefix = '| VOXY-EXTERNAL-PERSONAL-CONNECTORS-01 |';
+          const watchIndexes = lines.map((line, i) => line.startsWith(watchPrefix) ? i : -1).filter(i => i >= 0);
+          if (watchIndexes.length !== 1) throw new Error(`watch_row_count:${watchIndexes.length}`);
+          if (lines.some(line => line.startsWith(connectorPrefix))) throw new Error('connector_row_already_exists');
+          const i = watchIndexes[0];
+          const parts = lines[i].split('|');
+          if ((parts[2] || '').trim() !== 'codex_ready') throw new Error(`watch_status:${(parts[2] || '').trim()}`);
+          if ((parts[3] || '').trim() !== 'P0') throw new Error('watch_priority_not_p0');
+          parts[2] = ' review ';
+          parts[4] = ` Issue \`#1054\`; PR \`#1065\`; merge \`d4fb2c41c243829984e860d3ab5d90e6954efcd6\`; Web CI \`#3571\` + Voxy canon lock \`#372\` green; ` + (parts[4] || '').trimStart();
+          lines[i] = parts.join('|');
+          const connectorRow = '| VOXY-EXTERNAL-PERSONAL-CONNECTORS-01 | codex_ready | P0 | Issue `#1055`; `VOXY-TOOL-CAPABILITY-ADAPTERS-01` via PR `#1051`; `PERSONAL-VOXY-CONSENTED-MEMORY-RUNTIME-01` via PR `#1043`; `VOXY-PROACTIVE-WATCH-TASKS-01` via PR `#1065`; Shared Conversation; Alpha2 Risk/Human Gate + Execution Fence; existing security/at-rest/secret-handling owners; Single-Writer `#447` | Providerneutrale user-scoped Connection-Registry und Adapter-Grenze fuer Kalender, Mail, Dateien und Browser auf dem bestehenden Voxy-Tool-Bus: stabile Connection-ID, Actor/Provider/Scopes, Status/Lifecycle, opaque Credential-Referenz, sichtbare Scope-Zusammenfassung und Revoke/Reauthorize; kein zweiter Tool-Bus, Orchestrator, Queue- oder Secret-Owner | Start nur nach positivem taskbezogenen Preflight; erster Slice nur typed Contract + Tests ohne Provider/OAuth/Secret/Production-Aktivierung; read-only zuerst; revoked/expired/stale Connection fail-closed; Tokens/Cookies niemals in Conversation/Tool Result/Safe Trace/Run Ledger; Writes/Send/Share/Form-Submit/Purchase/Publish nur ueber bestehende #1027/Alpha2 Human-/Action-Gates; keine politische Profilierung aus verbundenen Konten |';
+          lines.splice(i + 1, 0, connectorRow);
+          fs.writeFileSync(path, lines.join('\n'));
+          NODE
+          python3 - <<'PY'
+          import difflib
+          before=open('/tmp/OpenTasks.before',encoding='utf-8').read().splitlines()
+          after=open('docs/E150/OpenTasks.md',encoding='utf-8').read().splitlines()
+          removed=[]; added=[]
+          for line in difflib.ndiff(before, after):
+              if line.startswith('- '): removed.append(line[2:])
+              elif line.startswith('+ '): added.append(line[2:])
+          assert len(removed)==1, (len(removed), removed[:5])
+          assert len(added)==2, (len(added), added[:5])
+          assert removed[0].startswith('| VOXY-PROACTIVE-WATCH-TASKS-01 | codex_ready | P0 |')
+          assert any(x.startswith('| VOXY-PROACTIVE-WATCH-TASKS-01 | review | P0 |') for x in added)
+          assert any(x.startswith('| VOXY-EXTERNAL-PERSONAL-CONNECTORS-01 | codex_ready | P0 |') for x in added)
+          PY
+          git diff --check
+          git diff -- docs/E150/OpenTasks.md
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/E150/OpenTasks.md
+          git rm "$WORKFLOW_PATH"
+          git commit -m "docs(e150): close proactive watches and authorize connectors"
+          git push origin HEAD:docs/voxy-external-personal-connectors-01-ssot
