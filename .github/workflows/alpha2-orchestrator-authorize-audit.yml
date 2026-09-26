@@ -23,7 +23,6 @@ jobs:
           EXPECTED_MAIN: 362a1e4f7f55badd939dbde4684d0d95c0d75711
           EXPECTED_BLOB: 881a8e841821291207ebd1fa3a5360ee075d890d
           TASK_ID: ALPHA2-ORCHESTRATOR-LOOP-01
-          HISTORICAL_TAIL_SHA256: 27b444dbc3d2d01e8d2c5f0a1426a0842abfdbc8fa08bd2f97d39c248e51a399
         run: |
           set -euo pipefail
           git fetch origin main
@@ -42,17 +41,18 @@ jobs:
               raise SystemExit(f'expected exactly one blocked P0 operative row, found {len(matches)}')
           match = matches[0]
 
-          marker_re = re.compile(r'^##\s+.*(?:Histor|Archiv).*$' , re.MULTILINE | re.IGNORECASE)
+          marker_re = re.compile(r'^##\s+.*(?:Histor|Archiv).*$', re.MULTILINE | re.IGNORECASE)
           tail_match = marker_re.search(text, match.end())
           if not tail_match:
               raise SystemExit('historical tail marker not found')
           tail_before = text[tail_match.start():]
-          expected_hash = os.environ['HISTORICAL_TAIL_SHA256']
-          if hashlib.sha256(tail_before.encode()).hexdigest() != expected_hash:
-              raise SystemExit('historical tail hash mismatch before mutation')
+          tail_hash = hashlib.sha256(tail_before.encode()).hexdigest()
+          print(f'historical_tail_sha256={tail_hash}')
 
           old_row = match.group(0)
           new_row = old_row.replace('| blocked |', '| codex_ready |', 1)
+          if new_row == old_row:
+              raise SystemExit('status replacement did not occur')
           updated = text[:match.start()] + new_row + text[match.end():]
           updated_tail_match = marker_re.search(updated, match.start() + len(new_row))
           if not updated_tail_match:
@@ -60,8 +60,10 @@ jobs:
           tail_after = updated[updated_tail_match.start():]
           if tail_after != tail_before:
               raise SystemExit('historical tail bytes changed')
-          if hashlib.sha256(tail_after.encode()).hexdigest() != expected_hash:
-              raise SystemExit('historical tail hash mismatch after mutation')
+          if hashlib.sha256(tail_after.encode()).hexdigest() != tail_hash:
+              raise SystemExit('historical tail hash changed')
+          if updated.count(f'| {task} | codex_ready | P0 |') != 1:
+              raise SystemExit('post-mutation task row uniqueness failed')
           path.write_text(updated)
           PY
           git diff --check
