@@ -28,5 +28,5 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - name: Run bounded durable orchestrator contracts
-        run: pnpm -C apps/web exec vitest run tests/alpha2-orchestrator-loop.contract.test.ts tests/alpha2-runtime-orchestrator-signals.contract.test.ts
+      - name: Run bounded durable orchestrator and continuous-dispatch contracts
+        run: pnpm -C apps/web exec vitest run tests/alpha2-orchestrator-loop.contract.test.ts tests/alpha2-runtime-orchestrator-signals.contract.test.ts tests/alpha2-continuous-dispatch.contract.test.ts
