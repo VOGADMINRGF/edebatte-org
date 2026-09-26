@@ -268,12 +268,32 @@ describe("dossier revision atomic writer", () => {
     expect(state.revisions).toHaveLength(0);
   });
 
-  it("keeps all audited write paths on the single canonical transaction boundary", () => {
-    const dbSource = readFileSync(path.resolve(process.cwd(), "../../features/dossier/db.ts"), "utf8");
+  it("keeps audited dossier writers on the single canonical transaction boundary", () => {
+    const root = path.resolve(process.cwd(), "../..");
+    const dbSource = readFileSync(path.resolve(root, "features/dossier/db.ts"), "utf8");
     const claimRoute = readFileSync(
       path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/claims/upsert/route.ts"),
       "utf8",
     );
+    const atomicWriterPaths = [
+      "src/app/api/dossiers/[dossierId]/edges/upsert/route.ts",
+      "src/app/api/dossiers/[dossierId]/sources/upsert/route.ts",
+      "src/app/api/dossiers/[dossierId]/open-questions/upsert/route.ts",
+      "src/app/api/dossiers/[dossierId]/findings/upsert/route.ts",
+      "src/app/api/dossiers/[dossierId]/disputes/create/route.ts",
+      "src/app/api/dossiers/[dossierId]/disputes/[id]/resolve/route.ts",
+      "src/app/api/dossiers/[dossierId]/suggestions/create/route.ts",
+      "src/app/api/dossiers/[dossierId]/suggestions/[id]/moderate/route.ts",
+      "src/app/api/finding/upsert/route.ts",
+    ];
+    const atomicWriterSources = atomicWriterPaths.map((relativePath) =>
+      readFileSync(path.resolve(process.cwd(), relativePath), "utf8"),
+    );
+    const seedSource = readFileSync(path.resolve(root, "features/dossier/seed.ts"), "utf8");
+    const maintenanceSources = [
+      readFileSync(path.resolve(root, "scripts/cleanup_stale_edges.ts"), "utf8"),
+      readFileSync(path.resolve(root, "scripts/clamp_existing_sources.ts"), "utf8"),
+    ];
 
     expect(dbSource).not.toContain("computeRevisionHash");
     expect(dbSource).not.toContain("REVISION_HASH_ALGO");
@@ -281,11 +301,26 @@ describe("dossier revision atomic writer", () => {
     expect(dbSource).toContain('const { mutateDossierWithRevision } = await import("./revisions")');
     expect(dbSource).toContain("return mutateDossierWithRevision({ dossierId, mutate })");
     expect(dbSource).toContain("includeResultMetadata: true, session");
-    expect(dbSource).toContain("{ session },");
+    expect(dbSource).toContain("export async function computeDossierCounts(dossierId: string, session?: ClientSession)");
+    expect(dbSource).toContain("const counts = await computeDossierCounts(dossierId, session);");
+    expect(dbSource).toContain("countDocuments({ dossierId }, sessionOptions)");
+    expect(dbSource).toContain("countDocuments({ dossierId, active: { $ne: false } }, sessionOptions)");
+    expect(dbSource).not.toContain("const counts = await computeDossierCounts(dossierId);\n\n  const transaction");
 
     expect(claimRoute).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
     expect(claimRoute).toContain("const transaction = await mutateDossierWithRevision({");
     expect(claimRoute).toContain("includeResultMetadata: true, session");
     expect(claimRoute).not.toContain("await logDossierRevision(");
+
+    for (const routeSource of atomicWriterSources) {
+      expect(routeSource).toContain("mutateDossierWithRevision");
+      expect(routeSource).not.toContain("await logDossierRevision(");
+    }
+    expect(seedSource).toContain("mutateDossierWithRevision");
+    expect(seedSource).not.toContain("await logDossierRevision(");
+    for (const maintenanceSource of maintenanceSources) {
+      expect(maintenanceSource).toContain("mutateDossierWithRevision");
+      expect(maintenanceSource).not.toContain("await logDossierRevision(");
+    }
   });
 });

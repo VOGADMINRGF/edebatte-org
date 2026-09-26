@@ -501,7 +501,7 @@ function createMongoRegionSignalDraftPersistence(): RegionSignalDraftPersistence
     },
 
     async createDossierDraft(input) {
-      const [{ dossiersCol }, { logDossierRevision }, { seedDossierFromAnalysis }] = await Promise.all([
+      const [{ dossiersCol }, { mutateDossierWithRevision }, { seedDossierFromAnalysis }] = await Promise.all([
         import("@features/dossier/db"),
         import("@features/dossier/revisions"),
         import("@features/dossier/seed"),
@@ -512,29 +512,39 @@ function createMongoRegionSignalDraftPersistence(): RegionSignalDraftPersistence
         $or: [{ dossierId: input.draftId }, { statementId: input.statementId }],
       } as any);
       if (!existing) {
-        await dossiers.insertOne({
+        await mutateDossierWithRevision({
           dossierId: input.draftId,
-          statementId: input.statementId,
-          title: input.title,
-          status: "draft",
-          counts: {
-            claims: 0,
-            sources: 0,
-            findings: 0,
-            edges: 0,
-            openQuestions: 0,
+          mutate: async (session) => {
+            await dossiers.insertOne(
+              {
+                dossierId: input.draftId,
+                statementId: input.statementId,
+                title: input.title,
+                status: "draft",
+                counts: {
+                  claims: 0,
+                  sources: 0,
+                  findings: 0,
+                  edges: 0,
+                  openQuestions: 0,
+                },
+                createdAt: now,
+                updatedAt: now,
+              } as any,
+              { session },
+            );
+            return {
+              result: null,
+              revision: {
+                entityType: "dossier",
+                entityId: input.draftId,
+                action: "create",
+                diffSummary: "Dossier-Draft aus Region-Signal erstellt.",
+                byRole: input.createdByRole,
+                byUserId: input.createdByUserId,
+              },
+            };
           },
-          createdAt: now,
-          updatedAt: now,
-        } as any);
-        await logDossierRevision({
-          dossierId: input.draftId,
-          entityType: "dossier",
-          entityId: input.draftId,
-          action: "create",
-          diffSummary: "Dossier-Draft aus Region-Signal erstellt.",
-          byRole: input.createdByRole,
-          byUserId: input.createdByUserId,
         });
       }
 

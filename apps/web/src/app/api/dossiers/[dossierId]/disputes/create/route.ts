@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { dossierDisputesCol } from "@features/dossier/db";
 import { makeDossierEntityId } from "@features/dossier/ids";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { requireDossierMember } from "@/lib/server/auth/dossier";
 
 export const runtime = "nodejs";
@@ -28,26 +28,36 @@ export async function POST(
   const now = new Date();
   const disputeId = makeDossierEntityId("dispute");
 
-  await col.insertOne({
-    disputeId,
+  await mutateDossierWithRevision({
     dossierId,
-    entityType: body.entityType,
-    entityId: body.entityId,
-    reason: body.reason,
-    requestedChange: body.requestedChange,
-    status: "open",
-    createdAt: now,
-    updatedAt: now,
-  } as any);
+    mutate: async (session) => {
+      await col.insertOne(
+        {
+          disputeId,
+          dossierId,
+          entityType: body.entityType,
+          entityId: body.entityId,
+          reason: body.reason,
+          requestedChange: body.requestedChange,
+          status: "open",
+          createdAt: now,
+          updatedAt: now,
+        } as any,
+        { session },
+      );
 
-  await logDossierRevision({
-    dossierId,
-    entityType: "dispute",
-    entityId: disputeId,
-    action: "create",
-    diffSummary: "Einspruch eingereicht.",
-    byRole: auth.actorRole,
-    byUserId: auth.userId,
+      return {
+        result: null,
+        revision: {
+          entityType: "dispute",
+          entityId: disputeId,
+          action: "create",
+          diffSummary: "Einspruch eingereicht.",
+          byRole: auth.actorRole,
+          byUserId: auth.userId,
+        },
+      };
+    },
   });
 
   return NextResponse.json({ ok: true, disputeId, status: "open" });

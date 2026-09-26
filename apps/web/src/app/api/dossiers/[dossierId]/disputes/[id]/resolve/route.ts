@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { dossierDisputesCol } from "@features/dossier/db";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { requireDossierEditor } from "@/lib/server/auth/dossier";
 
 export const runtime = "nodejs";
@@ -23,33 +23,44 @@ export async function POST(
   const now = new Date();
 
   const col = await dossierDisputesCol();
-  const res = await col.findOneAndUpdate(
-    { dossierId, disputeId: id },
-    {
-      $set: {
-        status: body.status,
-        resolutionNote: body.resolutionNote,
-        resolvedBy: auth.userId,
-        resolvedAt: now,
-        updatedAt: now,
-      },
-    },
-    { returnDocument: "after", includeResultMetadata: true },
-  );
+  const transaction = await mutateDossierWithRevision<{ found: boolean }>({
+    dossierId,
+    mutate: async (session) => {
+      const res = await col.findOneAndUpdate(
+        { dossierId, disputeId: id },
+        {
+          $set: {
+            status: body.status,
+            resolutionNote: body.resolutionNote,
+            resolvedBy: auth.userId,
+            resolvedAt: now,
+            updatedAt: now,
+          },
+        },
+        { returnDocument: "after", includeResultMetadata: true, session },
+      );
 
-  if (!res.value) {
+      if (!res.value) {
+        return { result: { found: false }, revision: null };
+      }
+
+      return {
+        result: { found: true },
+        revision: {
+          entityType: "dispute",
+          entityId: id,
+          action: "status_change",
+          diffSummary: `Einspruch ${body.status === "resolved" ? "aufgeloest" : "abgelehnt"}.`,
+          byRole: auth.actorRole,
+          byUserId: auth.userId,
+        },
+      };
+    },
+  });
+
+  if (!transaction.result.found) {
     return NextResponse.json({ ok: false, error: "dispute_not_found" }, { status: 404 });
   }
-
-  await logDossierRevision({
-    dossierId,
-    entityType: "dispute",
-    entityId: id,
-    action: "status_change",
-    diffSummary: `Einspruch ${body.status === "resolved" ? "aufgeloest" : "abgelehnt"}.`,
-    byRole: auth.actorRole,
-    byUserId: auth.userId,
-  });
 
   return NextResponse.json({ ok: true, disputeId: id, status: body.status });
 }

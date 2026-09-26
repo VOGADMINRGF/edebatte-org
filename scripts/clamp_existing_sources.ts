@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { coreCol } from "@core/db/triMongo";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import {
   clampNote,
   clampPublisher,
@@ -72,17 +72,28 @@ async function run() {
     updated += 1;
 
     if (!dryRun) {
-      await col.updateOne(
-        { _id: source._id },
-        { $set: { ...changes, updatedAt: new Date() } },
-      );
-      await logDossierRevision({
+      await mutateDossierWithRevision({
         dossierId: source.dossierId,
-        entityType: "source",
-        entityId: source.sourceId,
-        action: "update",
-        diffSummary: "Quelle gekuerzt (Quote-Safe Clamp).",
-        byRole: "system",
+        mutate: async (session) => {
+          const res = await col.updateOne(
+            { _id: source._id },
+            { $set: { ...changes, updatedAt: new Date() } },
+            { session },
+          );
+          return {
+            result: null,
+            revision:
+              res.modifiedCount > 0
+                ? {
+                    entityType: "source",
+                    entityId: source.sourceId,
+                    action: "update",
+                    diffSummary: "Quelle gekuerzt (Quote-Safe Clamp).",
+                    byRole: "system",
+                  }
+                : null,
+          };
+        },
       });
     }
   }

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { dossierSuggestionsCol } from "@features/dossier/db";
 import { SuggestionTypeSchema } from "@features/dossier/schemas";
 import { makeDossierEntityId } from "@features/dossier/ids";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { DOSSIER_LIMITS } from "@features/dossier/limits";
 import { requireDossierMember } from "@/lib/server/auth/dossier";
 
@@ -73,24 +73,34 @@ export async function POST(
   const now = new Date();
   const suggestionId = makeDossierEntityId("suggestion");
 
-  await col.insertOne({
-    suggestionId,
+  await mutateDossierWithRevision({
     dossierId,
-    type: payloadParsed.type,
-    payload: payloadParsed.payload,
-    status: "pending",
-    createdAt: now,
-    updatedAt: now,
-  } as any);
+    mutate: async (session) => {
+      await col.insertOne(
+        {
+          suggestionId,
+          dossierId,
+          type: payloadParsed.type,
+          payload: payloadParsed.payload,
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+        } as any,
+        { session },
+      );
 
-  await logDossierRevision({
-    dossierId,
-    entityType: "suggestion",
-    entityId: suggestionId,
-    action: "create",
-    diffSummary: "Vorschlag eingereicht.",
-    byRole: auth.actorRole,
-    byUserId: auth.userId,
+      return {
+        result: null,
+        revision: {
+          entityType: "suggestion",
+          entityId: suggestionId,
+          action: "create",
+          diffSummary: "Vorschlag eingereicht.",
+          byRole: auth.actorRole,
+          byUserId: auth.userId,
+        },
+      };
+    },
   });
 
   return NextResponse.json({ ok: true, suggestionId, status: "pending" });

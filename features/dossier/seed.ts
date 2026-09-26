@@ -5,7 +5,7 @@ import {
   openQuestionsCol,
   updateDossierCounts,
 } from "./db";
-import { logDossierRevision } from "./revisions";
+import { mutateDossierWithRevision } from "./revisions";
 
 export function makeDeterministicId(prefix: string, parts: Array<string | number | undefined>) {
   const payload = parts.filter(Boolean).join("|");
@@ -27,34 +27,42 @@ export async function seedDossierFromAnalysis(options: SeedOptions) {
     const col = await dossierClaimsCol();
     for (const [idx, claim] of claims.entries()) {
       const claimId = claim.id?.trim() || makeDeterministicId("claim", [dossierId, claim.text, idx]);
-      const res = await col.findOneAndUpdate(
-        { dossierId, claimId },
-        {
-          $set: {
-            text: claim.text,
-            kind: "fact",
-            status: "open",
-            updatedAt: now,
-          },
-          $setOnInsert: {
-            dossierId,
-            claimId,
-            createdByRole,
-            createdAt: now,
-          },
+      await mutateDossierWithRevision({
+        dossierId,
+        mutate: async (session) => {
+          const res = await col.findOneAndUpdate(
+            { dossierId, claimId },
+            {
+              $set: {
+                text: claim.text,
+                kind: "fact",
+                status: "open",
+                updatedAt: now,
+              },
+              $setOnInsert: {
+                dossierId,
+                claimId,
+                createdByRole,
+                createdAt: now,
+              },
+            },
+            { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+          );
+          const created = !res.value;
+          return {
+            result: null,
+            revision: {
+              entityType: "claim",
+              entityId: claimId,
+              action: created ? "create" : "update",
+              diffSummary: created
+                ? "Claim aus Analyse uebernommen."
+                : "Claim aus Analyse aktualisiert.",
+              byRole: createdByRole,
+            },
+          };
         },
-        { upsert: true, returnDocument: "before", includeResultMetadata: true },
-      );
-      if (!res.value) {
-        await logDossierRevision({
-          dossierId,
-          entityType: "claim",
-          entityId: claimId,
-          action: "create",
-          diffSummary: "Claim aus Analyse uebernommen.",
-          byRole: createdByRole,
-        });
-      }
+      });
     }
   }
 
@@ -62,32 +70,40 @@ export async function seedDossierFromAnalysis(options: SeedOptions) {
     const qCol = await openQuestionsCol();
     for (const [idx, question] of questions.entries()) {
       const questionId = question.id?.trim() || makeDeterministicId("question", [dossierId, question.text, idx]);
-      const res = await qCol.findOneAndUpdate(
-        { dossierId, questionId },
-        {
-          $set: {
-            text: question.text,
-            status: "open",
-            updatedAt: now,
-          },
-          $setOnInsert: {
-            dossierId,
-            questionId,
-            createdAt: now,
-          },
+      await mutateDossierWithRevision({
+        dossierId,
+        mutate: async (session) => {
+          const res = await qCol.findOneAndUpdate(
+            { dossierId, questionId },
+            {
+              $set: {
+                text: question.text,
+                status: "open",
+                updatedAt: now,
+              },
+              $setOnInsert: {
+                dossierId,
+                questionId,
+                createdAt: now,
+              },
+            },
+            { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+          );
+          const created = !res.value;
+          return {
+            result: null,
+            revision: {
+              entityType: "open_question",
+              entityId: questionId,
+              action: created ? "create" : "update",
+              diffSummary: created
+                ? "Offene Frage aus Analyse uebernommen."
+                : "Offene Frage aus Analyse aktualisiert.",
+              byRole: createdByRole,
+            },
+          };
         },
-        { upsert: true, returnDocument: "before", includeResultMetadata: true },
-      );
-      if (!res.value) {
-        await logDossierRevision({
-          dossierId,
-          entityType: "open_question",
-          entityId: questionId,
-          action: "create",
-          diffSummary: "Offene Frage aus Analyse uebernommen.",
-          byRole: createdByRole,
-        });
-      }
+      });
     }
   }
 
