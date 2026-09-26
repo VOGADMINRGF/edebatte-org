@@ -274,6 +274,14 @@ describe("dossier revision atomic writer", () => {
       path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/claims/upsert/route.ts"),
       "utf8",
     );
+    const edgeRoute = readFileSync(
+      path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/edges/upsert/route.ts"),
+      "utf8",
+    );
+    const sourceRoute = readFileSync(
+      path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/sources/upsert/route.ts"),
+      "utf8",
+    );
 
     expect(dbSource).not.toContain("computeRevisionHash");
     expect(dbSource).not.toContain("REVISION_HASH_ALGO");
@@ -281,11 +289,22 @@ describe("dossier revision atomic writer", () => {
     expect(dbSource).toContain('const { mutateDossierWithRevision } = await import("./revisions")');
     expect(dbSource).toContain("return mutateDossierWithRevision({ dossierId, mutate })");
     expect(dbSource).toContain("includeResultMetadata: true, session");
-    expect(dbSource).toContain("{ session },");
+    expect(dbSource).toContain("export async function computeDossierCounts(dossierId: string, session?: ClientSession)");
+    expect(dbSource).toContain("const counts = await computeDossierCounts(dossierId, session);");
+    expect(dbSource).toContain("countDocuments({ dossierId }, sessionOptions)");
+    expect(dbSource).toContain("countDocuments({ dossierId, active: { $ne: false } }, sessionOptions)");
+    expect(dbSource).not.toContain("const counts = await computeDossierCounts(dossierId);\n\n  const transaction");
 
     expect(claimRoute).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
     expect(claimRoute).toContain("const transaction = await mutateDossierWithRevision({");
     expect(claimRoute).toContain("includeResultMetadata: true, session");
     expect(claimRoute).not.toContain("await logDossierRevision(");
+
+    for (const routeSource of [edgeRoute, sourceRoute]) {
+      expect(routeSource).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
+      expect(routeSource).toContain("const transaction = await mutateDossierWithRevision({");
+      expect(routeSource).toContain("includeResultMetadata: true, session");
+      expect(routeSource).not.toContain("await logDossierRevision(");
+    }
   });
 });
