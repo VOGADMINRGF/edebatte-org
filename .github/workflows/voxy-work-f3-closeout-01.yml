@@ -1,0 +1,71 @@
+name: Voxy Work F3 closeout
+
+on:
+  push:
+    branches:
+      - docs/voxy-work-f3-closeout-01
+
+permissions:
+  contents: write
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "5fb13e9c20df4edb03f0a4e691ad310b8ffbffbb"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "0d1c67966f76269bc00e85434ff639ddea8af3a7"
+          test "$(git merge-base HEAD origin/main)" = "5fb13e9c20df4edb03f0a4e691ad310b8ffbffbb"
+      - name: Consume F3 authorization losslessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          lines = text.splitlines()
+          hits = [i for i, line in enumerate(lines) if line.startswith('| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 |')]
+          if len(hits) != 1:
+              raise SystemExit(f'expected one #969 row, got {len(hits)}')
+          i = hits[0]
+          row = lines[i]
+          required = ['| codex_ready | P2 |', 'Audit repair F3 only', '#1074']
+          for token in required:
+              if token not in row:
+                  raise SystemExit(f'unexpected #969 row; missing {token}')
+          row = row.replace('| codex_ready | P2 |', '| done | P2 |', 1)
+          marker = 'F2 closed separately via PR #1074'
+          row = row.replace(marker, marker + '; F3 implemented via PR #1083 / merge `a55ee8f04d45e67ce8074dc0093b54e1891d43a4`', 1)
+          lines[i] = row
+          p.write_text('\n'.join(lines) + ('\n' if text.endswith('\n') else ''))
+          PY
+          git diff --check
+          set +e
+          PREFLIGHT="$(git checkout -B main origin/main >/dev/null 2>&1; git checkout docs/voxy-work-f3-closeout-01 >/dev/null 2>&1; node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 2>&1)"
+          RC=$?
+          set -e
+          printf '%s\n' "$PREFLIGHT"
+          test "$RC" -ne 0
+          printf '%s' "$PREFLIGHT" | grep -q '"status": "done"'
+          printf '%s' "$PREFLIGHT" | grep -q '"executable": false'
+          changed="$(git diff --name-only origin/main -- | sort)"
+          test "$changed" = $'.github/workflows/voxy-work-f3-closeout-01.yml\ndocs/E150/OpenTasks.md'
+          git diff --numstat origin/main -- docs/E150/OpenTasks.md | grep -Eq '^1[[:space:]]+1[[:space:]]+'
+      - name: Commit closeout and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm .github/workflows/voxy-work-f3-closeout-01.yml
+          git add docs/E150/OpenTasks.md .github/workflows/voxy-work-f3-closeout-01.yml
+          git commit -m 'docs(e150): close Voxy Work F3 audit repair'
+          git push origin HEAD
