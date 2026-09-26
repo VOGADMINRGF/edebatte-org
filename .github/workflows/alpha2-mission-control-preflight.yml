@@ -1,0 +1,29 @@
+name: Alpha2 Mission Control preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-alpha2-mission-control-current-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_MAIN: 0c68b861b585196f3fd94e2403962f6e5238eee5
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and run canonical task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs ALPHA2-MISSION-CONTROL-01
