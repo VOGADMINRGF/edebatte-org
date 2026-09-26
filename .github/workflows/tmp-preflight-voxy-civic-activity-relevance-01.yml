@@ -1,0 +1,28 @@
+name: Temporary Voxy civic relevance preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-voxy-civic-activity-relevance-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Verify exact main and run canonical task preflight
+        shell: bash
+        env:
+          EXPECTED_MAIN: d9eb16baac45624f0fd37d187735f07a3bfce125
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs VOXY-CIVIC-ACTIVITY-RELEVANCE-01
