@@ -1,0 +1,38 @@
+name: Voxy audit F1 exact-main preflight
+
+on:
+  push:
+    branches:
+      - docs/voxy-audit-f1-master-freshness-authorize
+    paths:
+      - .github/workflows/voxy-audit-f1-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify exact current main and task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "main"
+          test "$(git rev-parse HEAD)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
+          test -z "$(git status --porcelain)"
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | tee /tmp/preflight.json
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const data = JSON.parse(fs.readFileSync('/tmp/preflight.json','utf8'));
+          if (data.status !== 'codex_ready' || data.executable !== true || data.branchCreationAllowed !== true) {
+            throw new Error(`preflight rejected: ${JSON.stringify(data)}`);
+          }
+          NODE
