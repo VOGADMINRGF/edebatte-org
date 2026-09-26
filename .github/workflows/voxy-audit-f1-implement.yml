@@ -77,7 +77,7 @@ jobs:
             apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts \
             'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts' \
             apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts
-          git rm \
+          git rm -f \
             scripts/tmp-voxy-f1-apply.py \
             scripts/tmp-voxy-f1-fix-patcher.py \
             scripts/tmp-voxy-f1-apply-v2.py
