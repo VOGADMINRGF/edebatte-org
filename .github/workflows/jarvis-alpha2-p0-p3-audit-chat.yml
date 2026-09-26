@@ -1,0 +1,27 @@
+name: Jarvis Alpha2 P0-P3 read-only audit
+
+on:
+  push:
+    branches: [ chore/jarvis-alpha2-p0-p3-audit-chat-01 ]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and print Jarvis/Voxy/Alpha2 operative rows
+        env:
+          EXPECTED_MAIN: 53efe5bb29f81857b1280a74dbc22807ff37d307
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          echo '=== ALPHA2 ==='
+          grep -nE '^\| ALPHA2-' docs/E150/OpenTasks.md || true
+          echo '=== VOXY/JARVIS AAA ==='
+          grep -nE '^\| (VOXY-|PERSONAL-VOXY-|SHARED-CONVERSATION-)' docs/E150/OpenTasks.md || true
