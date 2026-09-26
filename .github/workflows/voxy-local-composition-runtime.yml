@@ -51,6 +51,8 @@ on:
       - "apps/web/src/features/voxyVideo/studioStoryPlanBuilder.ts"
       - "apps/web/src/features/voxyVideo/index.ts"
       - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
+      - "apps/web/tests/voxy-local-composition-recovery.contract.test.ts"
+      - "apps/web/tests/voxy-local-composition-recovery-generation.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-freshness.contract.test.ts"
       - "apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
