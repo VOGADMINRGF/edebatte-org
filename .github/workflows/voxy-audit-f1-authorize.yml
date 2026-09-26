@@ -1,0 +1,86 @@
+name: Voxy audit F1 authorization
+
+on:
+  push:
+    branches:
+      - docs/voxy-audit-f1-master-freshness-authorize
+    paths:
+      - .github/workflows/voxy-audit-f1-authorize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact main and OpenTasks blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "76fccb5f76a28e693a1ba8ecbf3622f40453c055"
+          test "$(git merge-base HEAD origin/main)" = "76fccb5f76a28e693a1ba8ecbf3622f40453c055"
+          test "$(git rev-parse '76fccb5f76a28e693a1ba8ecbf3622f40453c055:docs/E150/OpenTasks.md')" = "b08f394bace16a74d19f50651e03d1d036763a8d"
+
+      - name: Authorize F1 losslessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          p = Path("docs/E150/OpenTasks.md")
+          text = p.read_text()
+          marker = "## Historischer Katalog und Evidenz"
+          if text.count(marker) != 1:
+              raise SystemExit(f"historical marker count={text.count(marker)}")
+          before_tail = text[text.index(marker):]
+          before_hash = hashlib.sha256(before_tail.encode()).hexdigest()
+
+          old = '''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | done | P0 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; Intake #969; Slices A–E abgeschlossen; Slice E via #1042 / Merge `20a58fd748ccb44d40afdfca41b26e952fdde435` | **Abgeschlossen — Multilingual Editorial E2E:** bestehende Dossier-/Evidence-/Story-Plan-/Language-Variant-/Semantic-Guard-/Voice-/Caption-/#568-Local-Composition-/Preview-Review-Verträge decken die revisionsgebundenen Cross-Language-Ketten `Quelle PL → Dossier DE → Video FR`, `Quelle ET + EN + DE → gemeinsames Dossier → Video IT` und `Master DE → geprüfte Variante BG → Voice/Captions → 9:16 / 16:9 / 1:1` ab; Claims/Sources/Findings/Evidence/Open-Question-IDs bleiben sprachübergreifend identisch referenziert; Master-/Evidence-/Translation-Drift invalidiert Sprach-/Voice-/Caption-/Renderfreigaben fail-closed | Kein neuer i18n-/Translation-/Story-/Evidence-/Review-/Voice-/Caption-/Render-/Media-Store; kein neuer Renderer und keine Provider-Aktivierung; Übersetzung bleibt Lesefassung und keine Evidence; `uncertain`/`needs_review`/`voice_unavailable`/stale Bindings bleiben render-/publish-blockierend; Final Canon und Review-Wahrheit gelten für alle Locales; Slice-E-Evidence über #1042 Exact-Head Final Canon, Voice/Caption und Web CI grün; keine weitere #969-Slice-Autorisierung offen |'''
+          new = '''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P1 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; #969 Slices A–E; Work closeout audit `a4293c05cc6ff417609fe52540b8d68e1d048e33`; current main product paths unchanged through `76fccb5f76a28e693a1ba8ecbf3622f40453c055` | **Audit Repair F1 only — Master-revision freshness at render authorization/worker start:** existing language-variant binding/freshness contract must resolve the current master Story Plan for derived variants and apply `evaluateVoxyEditorialLanguageVariantFreshness()` before render authorization and again in `createVoxyStudioLocalCompositionFreshnessAuthority().assertCurrent()`; missing master, changed master ID/revision, stale evidence binding or non-approved translation must fail closed; unchanged master remains renderable | Reuse existing Story-Plan/Draft owner and current language-variant freshness evaluator; no second Story/Translation/Evidence/Review/Render store; regression: approved+enqueued variant bound to master rN, mutate only master to rN+1 => worker executor `0`; unchanged master => allowed; existing multilingual E2E and Voxy Runtime/Final Canon/Web CI remain green; no Provider-/Upload-/Scheduling-/Publish-Side-Effects; F2/F3/F4 are not authorized by this row |'''
+
+          if text.count(old) != 1:
+              raise SystemExit(f"expected exactly one #969 done row, got {text.count(old)}")
+          updated = text.replace(old, new, 1)
+          if updated.count("| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 |") != 1:
+              raise SystemExit("#969 operative row not unique after update")
+          after_tail = updated[updated.index(marker):]
+          if hashlib.sha256(after_tail.encode()).hexdigest() != before_hash:
+              raise SystemExit("historical tail changed")
+          p.write_text(updated)
+          PY
+
+      - name: Verify operative status and diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'NODE'
+          import { getTaskStatus } from './scripts/codex-task-preflight.mjs';
+          const status = await getTaskStatus('VOXY-EU24-MULTILINGUAL-EDITORIAL-01');
+          if (status !== 'codex_ready') throw new Error(`unexpected status: ${status}`);
+          NODE
+          git diff --check
+          git diff --name-only | grep -Fx 'docs/E150/OpenTasks.md'
+          test "$(git diff --name-only | wc -l | tr -d ' ')" = "1"
+
+      - name: Commit authorization and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git rm .github/workflows/voxy-audit-f1-authorize.yml
+          mapfile -t files < <(git diff --cached --name-only)
+          test "${#files[@]}" -eq 2
+          printf '%s\n' "${files[@]}" | grep -Fx 'docs/E150/OpenTasks.md'
+          printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-audit-f1-authorize.yml'
+          git commit -m "docs(e150): authorize Voxy master freshness repair"
+          git push origin HEAD:docs/voxy-audit-f1-master-freshness-authorize
