@@ -42,24 +42,29 @@ jobs:
           v2_path.write_text(v2[:block_start] + v2[block_end:])
           PY
           python3 scripts/tmp-voxy-f1-apply-v2.py
-      - name: Verify focused F1 contracts and expose typecheck diagnostics
+      - name: Verify focused F1 contracts and pinpoint failure
         shell: bash
         run: |
-          set -euo pipefail
-          pnpm install --frozen-lockfile
+          set -u
+          pnpm install --frozen-lockfile || exit $?
           pnpm -C apps/web exec vitest run \
             tests/voxy-language-variant-master-freshness.contract.test.ts \
             tests/voxy-local-composition-freshness.contract.test.ts \
             tests/voxy-editorial-language-variant.contract.test.ts \
-            tests/voxy-local-composition-runtime.contract.test.ts
-          set +e
+            tests/voxy-local-composition-runtime.contract.test.ts || exit $?
           pnpm -C apps/web exec tsc --noEmit -p tsconfig.json --pretty false > /tmp/f1-tsc.log 2>&1
-          code=$?
-          set -e
+          typecheck_code=$?
+          echo "TYPECHECK_CODE=$typecheck_code"
+          echo "TYPECHECK_LOG_BYTES=$(wc -c < /tmp/f1-tsc.log)"
           cat /tmp/f1-tsc.log
-          test "$code" -eq 0
+          if [ "$typecheck_code" -ne 0 ]; then exit "$typecheck_code"; fi
           git diff --check
-          mapfile -t files < <(git diff --name-only | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^scripts/tmp-voxy-f1-apply-v2.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
+          diffcheck_code=$?
+          echo "DIFFCHECK_CODE=$diffcheck_code"
+          git diff --name-only | sort | tee /tmp/f1-diff-files.txt
+          mapfile -t files < <(grep -v '^scripts/tmp-voxy-f1-apply.py$' /tmp/f1-diff-files.txt | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^scripts/tmp-voxy-f1-apply-v2.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
+          echo "PRODUCT_DIFF_COUNT=${#files[@]}"
+          printf 'PRODUCT_FILE=%s\n' "${files[@]}"
           test "${#files[@]}" -eq 4
           printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-local-composition-runtime.yml'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts'
