@@ -275,6 +275,10 @@ describe("dossier revision atomic writer", () => {
       path.resolve(root, "features/contentReleaseWorkbench.ts"),
       "utf8",
     );
+    const dossierRuntimeServerSource = readFileSync(
+      path.resolve(process.cwd(), "src/features/create/dossierRuntimeServer.ts"),
+      "utf8",
+    );
     const claimRoute = readFileSync(
       path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/claims/upsert/route.ts"),
       "utf8",
@@ -333,5 +337,10 @@ describe("dossier revision atomic writer", () => {
     expect(contentReleaseSource).toContain("await sources.insertOne(");
     expect(contentReleaseSource).toContain("{ session },");
     expect(contentReleaseSource).not.toContain("await logDossierRevision(");
+
+    expect(dossierRuntimeServerSource).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
+    expect(dossierRuntimeServerSource).toContain("await mutateDossierWithRevision({");
+    expect(dossierRuntimeServerSource).toContain("{ upsert: true, session },");
+    expect(dossierRuntimeServerSource).not.toContain("await logDossierRevision(");
   });
 });
