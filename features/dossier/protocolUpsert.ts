@@ -3,6 +3,7 @@ import { anlassraumCol } from "@features/anlassraum/db";
 import { canActorAccessAnlassraum } from "@features/anlassraum/governance";
 import type { GovernanceActor } from "@features/trust/types";
 import { dossierSuggestionsCol, dossiersCol, openQuestionsCol } from "./db";
+import { mutateDossierWithRevision } from "./revisions";
 import type { SuggestionType } from "./schemas";
 
 export type ProtocolDossierUpsertLinkStatus =
@@ -346,26 +347,50 @@ async function upsertSuggestionWithStatus(input: {
   status: "pending" | "accepted" | "rejected";
   moderationNote?: string | null;
   now: Date;
+  byUserId?: string | null;
 }) {
   const suggestions = await dossierSuggestionsCol();
-  await suggestions.updateOne(
-    { dossierId: input.dossierRef, suggestionId: input.suggestionId },
-    {
-      $set: {
-        type: input.type,
-        payload: input.payload,
-        status: input.status,
-        moderationNote: input.moderationNote ?? undefined,
-        updatedAt: input.now,
-      },
-      $setOnInsert: {
-        dossierId: input.dossierRef,
-        suggestionId: input.suggestionId,
-        createdAt: input.now,
-      },
+  const transaction = await mutateDossierWithRevision({
+    dossierId: input.dossierRef,
+    mutate: async (session) => {
+      const prev = await suggestions.findOneAndUpdate(
+        { dossierId: input.dossierRef, suggestionId: input.suggestionId },
+        {
+          $set: {
+            type: input.type,
+            payload: input.payload,
+            status: input.status,
+            moderationNote: input.moderationNote ?? undefined,
+            updatedAt: input.now,
+          },
+          $setOnInsert: {
+            dossierId: input.dossierRef,
+            suggestionId: input.suggestionId,
+            createdAt: input.now,
+          },
+        },
+        { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+      );
+      const created = !prev.value;
+      const statusChanged = Boolean(prev.value && prev.value.status !== input.status);
+      return {
+        result: { created, statusChanged },
+        revision: {
+          entityType: "suggestion",
+          entityId: input.suggestionId,
+          action: created ? "create" : statusChanged ? "status_change" : "update",
+          diffSummary: created
+            ? "Protokoll-Vorschlag erstellt."
+            : statusChanged
+              ? `Protokoll-Vorschlag auf ${input.status} gesetzt.`
+              : "Protokoll-Vorschlag aktualisiert.",
+          byRole: "system",
+          byUserId: input.byUserId ?? undefined,
+        },
+      };
     },
-    { upsert: true },
-  );
+  });
+  return transaction.result;
 }
 
 async function upsertPendingSuggestion(input: {
@@ -374,26 +399,58 @@ async function upsertPendingSuggestion(input: {
   type: SuggestionType;
   payload: Record<string, unknown>;
   now: Date;
+  byUserId?: string | null;
+}) {
+  const result = await upsertSuggestionWithStatus({
+    ...input,
+    status: "pending",
+  });
+  return result.created;
+}
+
+async function rejectPendingSuggestion(input: {
+  dossierRef: string;
+  suggestionId: string;
+  moderationNote: string;
+  now: Date;
+  byUserId?: string | null;
 }) {
   const suggestions = await dossierSuggestionsCol();
-  const prev = await suggestions.findOneAndUpdate(
-    { dossierId: input.dossierRef, suggestionId: input.suggestionId },
-    {
-      $set: {
-        type: input.type,
-        payload: input.payload,
-        status: "pending",
-        updatedAt: input.now,
-      },
-      $setOnInsert: {
-        dossierId: input.dossierRef,
-        suggestionId: input.suggestionId,
-        createdAt: input.now,
-      },
+  const transaction = await mutateDossierWithRevision({
+    dossierId: input.dossierRef,
+    mutate: async (session) => {
+      const prev = await suggestions.findOneAndUpdate(
+        {
+          dossierId: input.dossierRef,
+          suggestionId: input.suggestionId,
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "rejected",
+            moderationNote: input.moderationNote,
+            updatedAt: input.now,
+          },
+        },
+        { returnDocument: "before", includeResultMetadata: true, session },
+      );
+      if (!prev.value) {
+        return { result: false, revision: null };
+      }
+      return {
+        result: true,
+        revision: {
+          entityType: "suggestion",
+          entityId: input.suggestionId,
+          action: "status_change",
+          diffSummary: "Protokoll-Vorschlag abgelehnt.",
+          byRole: "system",
+          byUserId: input.byUserId ?? undefined,
+        },
+      };
     },
-    { upsert: true, returnDocument: "before", includeResultMetadata: true },
-  );
-  return !prev.value;
+  });
+  return transaction.result;
 }
 
 function buildSuggestionIds(contract: ProtocolDossierUpsertContractDoc) {
@@ -458,6 +515,7 @@ async function upsertDossierSuggestions(input: {
   tags: string[];
   provenance: Record<string, unknown>;
   now: Date;
+  byUserId?: string | null;
 }) {
   let created = 0;
   const prefix = input.protocolEntryId.slice(-10);
@@ -475,6 +533,7 @@ async function upsertDossierSuggestions(input: {
         provenance: input.provenance,
       },
       now: input.now,
+      byUserId: input.byUserId,
     });
     if (createdNow) created += 1;
   }
@@ -491,6 +550,7 @@ async function upsertDossierSuggestions(input: {
         provenance: input.provenance,
       },
       now: input.now,
+      byUserId: input.byUserId,
     });
     if (createdNow) created += 1;
   }
@@ -507,6 +567,7 @@ async function upsertDossierSuggestions(input: {
         provenance: input.provenance,
       },
       now: input.now,
+      byUserId: input.byUserId,
     });
     if (createdNow) created += 1;
   }
@@ -523,6 +584,7 @@ async function upsertDossierSuggestions(input: {
         provenance: input.provenance,
       },
       now: input.now,
+      byUserId: input.byUserId,
     });
     if (createdNow) created += 1;
   }
@@ -615,6 +677,7 @@ export async function createProtocolDossierUpsertContract(
       tags,
       provenance,
       now,
+      byUserId: provenance.actorId,
     });
   }
 
@@ -825,6 +888,7 @@ export async function applyDossierUpsertContractAuthorized(input: ApplyDossierUp
       status: "accepted",
       moderationNote: "Applied from protocol dossier-upsert contract",
       now,
+      byUserId: input.actor.userId,
     });
   }
 
@@ -845,29 +909,48 @@ export async function applyDossierUpsertContractAuthorized(input: ApplyDossierUp
       status: "accepted",
       moderationNote: "Applied from protocol dossier-upsert contract",
       now,
+      byUserId: input.actor.userId,
     });
 
-    await (await openQuestionsCol()).updateOne(
-      {
-        dossierId: resolvedDossier.targetDossierRef,
-        questionId,
-      },
-      {
-        $setOnInsert: {
-          dossierId: resolvedDossier.targetDossierRef,
-          questionId,
-          text: questionText,
-          status: "in_review",
-          links: {
-            sourceIds: [],
-            claimIds: [],
-            findingIds: [],
+    const questions = await openQuestionsCol();
+    await mutateDossierWithRevision({
+      dossierId: resolvedDossier.targetDossierRef,
+      mutate: async (session) => {
+        const prev = await questions.findOneAndUpdate(
+          {
+            dossierId: resolvedDossier.targetDossierRef,
+            questionId,
           },
-          createdAt: now,
-        },
+          {
+            $setOnInsert: {
+              dossierId: resolvedDossier.targetDossierRef,
+              questionId,
+              text: questionText,
+              status: "in_review",
+              links: {
+                sourceIds: [],
+                claimIds: [],
+                findingIds: [],
+              },
+              createdAt: now,
+            },
+          },
+          { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+        );
+        if (prev.value) return { result: null, revision: null };
+        return {
+          result: null,
+          revision: {
+            entityType: "open_question",
+            entityId: questionId,
+            action: "create",
+            diffSummary: "Offene Frage aus Protokollvertrag übernommen.",
+            byRole: "system",
+            byUserId: input.actor.userId,
+          },
+        };
       },
-      { upsert: true },
-    );
+    });
   }
 
   for (const index of selection.decisionIndexes) {
@@ -887,6 +970,7 @@ export async function applyDossierUpsertContractAuthorized(input: ApplyDossierUp
       status: "accepted",
       moderationNote: "Applied from protocol dossier-upsert contract",
       now,
+      byUserId: input.actor.userId,
     });
   }
 
@@ -907,6 +991,7 @@ export async function applyDossierUpsertContractAuthorized(input: ApplyDossierUp
       status: "accepted",
       moderationNote: "Applied from protocol dossier-upsert contract",
       now,
+      byUserId: input.actor.userId,
     });
   }
 
@@ -1031,23 +1116,19 @@ export async function rejectDossierUpsertContractAuthorized(input: RejectDossier
 
   let rejectedPendingCount = 0;
   if (contract.targetDossierRef && allSuggestionIds.length > 0) {
-    const result = await (await dossierSuggestionsCol()).updateMany(
-      {
-        dossierId: contract.targetDossierRef,
-        suggestionId: { $in: allSuggestionIds },
-        status: "pending",
-      },
-      {
-        $set: {
-          status: "rejected",
-          moderationNote: input.reason
-            ? String(input.reason).slice(0, 400)
-            : "Rejected via protocol dossier-upsert contract",
-          updatedAt: now,
-        },
-      },
-    );
-    rejectedPendingCount = result.modifiedCount;
+    const moderationNote = input.reason
+      ? String(input.reason).slice(0, 400)
+      : "Rejected via protocol dossier-upsert contract";
+    for (const suggestionId of allSuggestionIds) {
+      const rejected = await rejectPendingSuggestion({
+        dossierRef: contract.targetDossierRef,
+        suggestionId,
+        moderationNote,
+        now,
+        byUserId: input.actor.userId,
+      });
+      if (rejected) rejectedPendingCount += 1;
+    }
   }
 
   const auditEntry: ProtocolContractAuditEntry = {
