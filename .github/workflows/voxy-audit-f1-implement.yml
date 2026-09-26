@@ -20,13 +20,17 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - name: Verify base and apply F1 only
+      - name: Verify current main, converge branch and apply F1 only
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main
-          test "$(git rev-parse origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
+          test "$(git rev-parse origin/main)" = "2e2bfb084f0588b87f8926d58fa279e089a2b29f"
           test "$(git merge-base HEAD origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-edit origin/main
+          test "$(git merge-base HEAD origin/main)" = "2e2bfb084f0588b87f8926d58fa279e089a2b29f"
           python3 - <<'PY'
           from pathlib import Path
           v1 = Path("scripts/tmp-voxy-f1-apply.py").read_text()
