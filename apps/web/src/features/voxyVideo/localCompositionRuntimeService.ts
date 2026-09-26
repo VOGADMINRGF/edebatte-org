@@ -292,24 +292,21 @@ export async function executeVoxyLocalComposition(input: {
     return reviewReady;
   } catch (error) {
     const failure = safeVoxyLocalCompositionFailure(error);
-    const latest = (await deps.repository.getJob(rendering.jobId)) ?? rendering;
-    if (latest.status === "rendering") {
-      const failed: VoxyLocalCompositionJob = {
-        ...latest,
-        status: "failed",
-        updatedAt: now(deps),
-        completedAt: now(deps),
-        safeErrorCode: failure.code,
-        safeErrorMessage: failure.message,
-      };
-      await deps.repository.transitionJob({
-        jobId: latest.jobId,
-        expectedStatus: "rendering",
-        next: failed,
-      });
-      return failed;
-    }
-    return latest;
+    const failed: VoxyLocalCompositionJob = {
+      ...rendering,
+      status: "failed",
+      updatedAt: now(deps),
+      completedAt: now(deps),
+      safeErrorCode: failure.code,
+      safeErrorMessage: failure.message,
+    };
+    const markedFailed = await deps.repository.transitionJob({
+      jobId: rendering.jobId,
+      expectedStatus: "rendering",
+      next: failed,
+    });
+    if (markedFailed) return failed;
+    return (await deps.repository.getJob(rendering.jobId)) ?? rendering;
   }
 }
 
