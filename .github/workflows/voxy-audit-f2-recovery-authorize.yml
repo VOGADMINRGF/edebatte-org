@@ -1,0 +1,84 @@
+name: Voxy audit F2 recovery authorization
+
+on:
+  push:
+    branches:
+      - docs/voxy-audit-f2-recovery-generation-authorize-v2
+    paths:
+      - .github/workflows/voxy-audit-f2-recovery-authorize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify exact main and OpenTasks blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "8ccf47ef4c8d9ff52ae3e379ab463111ab4fd617"
+          test "$(git merge-base HEAD origin/main)" = "8ccf47ef4c8d9ff52ae3e379ab463111ab4fd617"
+          test "$(git rev-parse '8ccf47ef4c8d9ff52ae3e379ab463111ab4fd617:docs/E150/OpenTasks.md')" = "7a72568b7cd025cfab868394a3c0a38786f304db"
+      - name: Authorize exactly F2 losslessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          marker = '## Historischer Katalog und Evidenz'
+          if text.count(marker) != 1:
+              raise SystemExit(f'historical marker count={text.count(marker)}')
+          tail_hash = hashlib.sha256(text[text.index(marker):].encode()).hexdigest()
+          prefix = '| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | review | P2 |'
+          rows = [line for line in text.splitlines() if line.startswith('| VOXY-LOCAL-COMPOSITION-RECOVERY-01 |')]
+          if len(rows) != 1 or not rows[0].startswith(prefix):
+              raise SystemExit(f'unexpected #978 row: {rows}')
+          old = rows[0]
+          new = '| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | codex_ready | P2 | Issue `#978`; Work closeout audit F2 on `main@a4293c05cc6ff417609fe52540b8d68e1d048e33`; existing `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568 + PR #965; prior recovery via #1006/#1007; F1 already closed via #1062 | **Audit repair F2 only — execution generation CAS:** bind every queued→rendering claim, recovery transition and rendering/rendered completion transition to the exact execution generation/attempt read by the caller, so a delayed orphan recovery or stale worker can never overwrite a newly acquired execution; apply the same generation guard in Mongo and in-memory repositories; preserve deterministic job/output identity and existing recovery/freshness authority | Deterministic interleaving must prove: Recovery A reads stale rendering attempt, Recovery B requeues and Worker B reacquires, then A cannot requeue; stale worker success/failure completion cannot mutate the newer attempt; Memory + Mongo-CAS coverage; existing real render/recovery gate, typecheck, diff guard; no second queue/store/renderer, no provider/upload/scheduling/social/auto-publish; F3/F4 not authorized |'
+          updated = text.replace(old, new, 1)
+          if updated.count('| VOXY-LOCAL-COMPOSITION-RECOVERY-01 |') != 1:
+              raise SystemExit('#978 row not unique after update')
+          if hashlib.sha256(updated[updated.index(marker):].encode()).hexdigest() != tail_hash:
+              raise SystemExit('historical tail changed')
+          p.write_text(updated)
+          PY
+      - name: Verify executable preflight and diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 > /tmp/preflight.json 2>&1
+          cat /tmp/preflight.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('/tmp/preflight.json'))
+          assert d.get('status') == 'codex_ready', d
+          assert d.get('executable') is True, d
+          assert d.get('branchCreationAllowed') is True, d
+          PY
+          git diff --check
+      - name: Commit authorization and self-delete writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md
+          git rm .github/workflows/voxy-audit-f2-recovery-authorize.yml
+          mapfile -t files < <(git diff --cached --name-only)
+          test "${#files[@]}" -eq 2
+          printf '%s\n' "${files[@]}" | grep -Fx 'docs/E150/OpenTasks.md'
+          printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-audit-f2-recovery-authorize.yml'
+          git commit -m 'docs(e150): authorize Voxy recovery generation audit repair'
+          git push origin HEAD:docs/voxy-audit-f2-recovery-generation-authorize-v2
