@@ -1,0 +1,116 @@
+name: Voxy Work F4 implement
+
+on:
+  push:
+    branches:
+      - fix/voxy-review-consistency-f4-projection-01
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+      - name: Verify exact authorized base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "53efe5bb29f81857b1280a74dbc22807ff37d307"
+          test "$(git merge-base HEAD origin/main)" = "53efe5bb29f81857b1280a74dbc22807ff37d307"
+      - name: Apply F4 projection repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          matrix = Path('apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts')
+          text = matrix.read_text()
+          old = '''import type { VoxyLocalCompositionAudioInputRecord } from "./localCompositionAudioAssetStore";\nimport type { VoxyVideoFormat } from "./modernCharacterContracts";'''
+          new = '''import type {\n  ReviewQueueOperationAuditEvent,\n  ReviewQueueOperationRecord,\n} from "@features/reviewQueueOperations";\nimport type { VoxyLocalCompositionAudioInputRecord } from "./localCompositionAudioAssetStore";\nimport type { VoxyVideoFormat } from "./modernCharacterContracts";'''
+          if text.count(old) != 1:
+              raise SystemExit('matrix import anchor mismatch')
+          text = text.replace(old, new, 1)
+
+          anchor = '''function approved(draft: VoxyStudioDraft) {\n  return (\n    ["approved_for_render", "rendered", "approved_for_publish"].includes(draft.status) &&\n    draft.renderApproval?.studioDraftRevision === draft.revision &&\n    draft.renderApproval.storyPlanRevision === draft.storyPlan.revision\n  );\n}\n'''
+          helper = anchor + '''\nexport function isVoxyStudioLocaleApprovalCurrent(input: {\n  draft: VoxyStudioDraft;\n  evidenceApproved: boolean;\n  decisionGateId: string;\n  reviewItemId: string;\n  reviewRecord: ReviewQueueOperationRecord | null;\n  latestReadyAudit: ReviewQueueOperationAuditEvent | null;\n}): boolean {\n  const approval = input.draft.renderApproval;\n  const record = input.reviewRecord;\n  const readyAudit = input.latestReadyAudit;\n  if (!approved(input.draft) || !approval || input.evidenceApproved !== true) return false;\n  if (approval.decisionGateId !== input.decisionGateId) return false;\n  if (record?.itemId !== input.reviewItemId || record.operationalStatus !== "ready") return false;\n  if (\n    !readyAudit ||\n    readyAudit.itemId !== input.reviewItemId ||\n    readyAudit.action !== "mark_ready" ||\n    readyAudit.nextOperationalStatus !== "ready"\n  ) return false;\n  return (\n    readyAudit.id === approval.reviewDecisionRecordId &&\n    readyAudit.byUserId === approval.approvedByUserId &&\n    readyAudit.at === approval.approvedAt\n  );\n}\n'''
+          if text.count(anchor) != 1:
+              raise SystemExit('matrix approved anchor mismatch')
+          text = text.replace(anchor, helper, 1)
+          matrix.write_text(text)
+
+          route = Path('apps/web/src/app/api/admin/voxy-studio/route.ts')
+          text = route.read_text()
+          old = '''import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";'''
+          new = '''import {\n  buildVoxyStudioLocaleReviewMatrices,\n  isVoxyStudioLocaleApprovalCurrent,\n} from "@/features/voxyVideo/studioLocaleReviewMatrix";'''
+          if text.count(old) != 1:
+              raise SystemExit('route import anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''        const [reviewRecord, reviewAuditEvents] = await Promise.all([\n          reviewRepository.getRecord(reviewItemId),\n          reviewRepository.listAuditEvents(reviewItemId),\n        ]);\n        return {'''
+          new = '''        const [reviewRecord, reviewAuditEvents] = await Promise.all([\n          reviewRepository.getRecord(reviewItemId),\n          reviewRepository.listAuditEvents(reviewItemId),\n        ]);\n        const latestReadyAudit =\n          reviewAuditEvents.find(\n            (event) =>\n              event.itemId === reviewItemId &&\n              event.action === "mark_ready" &&\n              event.nextOperationalStatus === "ready",\n          ) ?? null;\n        return {'''
+          if text.count(old) != 1:
+              raise SystemExit('route review load anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''          reviewRecord,\n          reviewAuditEvents: reviewAuditEvents.slice(0, 10),\n        };'''
+          new = '''          reviewRecord,\n          latestReadyAudit,\n          reviewAuditEvents: reviewAuditEvents.slice(0, 10),\n        };'''
+          if text.count(old) != 1:
+              raise SystemExit('route item anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''  const approvalCurrentByDraftId = Object.fromEntries(\n    items.map((item) => [\n      item.draft.draftId,\n      item.evidenceReview?.approved === true &&\n        item.draft.renderApproval?.decisionGateId === item.decisionGateId,\n    ]),\n  );'''
+          new = '''  const approvalCurrentByDraftId = Object.fromEntries(\n    items.map((item) => [\n      item.draft.draftId,\n      isVoxyStudioLocaleApprovalCurrent({\n        draft: item.draft,\n        evidenceApproved: item.evidenceReview?.approved === true,\n        decisionGateId: item.decisionGateId,\n        reviewItemId: item.reviewItemId,\n        reviewRecord: item.reviewRecord,\n        latestReadyAudit: item.latestReadyAudit,\n      }),\n    ]),\n  );'''
+          if text.count(old) != 1:
+              raise SystemExit('route approval projection anchor mismatch')
+          text = text.replace(old, new, 1)
+          route.write_text(text)
+
+          test = Path('apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts')
+          text = test.read_text()
+          old = '''import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";'''
+          new = '''import {\n  buildVoxyStudioLocaleReviewMatrices,\n  isVoxyStudioLocaleApprovalCurrent,\n} from "@/features/voxyVideo/studioLocaleReviewMatrix";\nimport type {\n  ReviewQueueOperationAuditEvent,\n  ReviewQueueOperationRecord,\n  ReviewQueueOperationalStatus,\n} from "@features/reviewQueueOperations";'''
+          if text.count(old) != 1:
+              raise SystemExit('test import anchor mismatch')
+          text = text.replace(old, new, 1)
+          anchor = '''function audio(draftRecord: VoxyStudioDraft): VoxyLocalCompositionAudioInputRecord {'''
+          helpers = '''function reviewRecord(\n  itemId: string,\n  operationalStatus: ReviewQueueOperationalStatus = "ready",\n): ReviewQueueOperationRecord {\n  return {\n    itemId,\n    operationalStatus,\n    assignedToUserId: null,\n    assignedByUserId: null,\n    assignedAt: null,\n    noteCount: 0,\n    latestNote: null,\n    latestNoteAt: null,\n    latestAction: operationalStatus === "ready" ? "mark_ready" : "mark_in_review",\n    latestActionAt: "2026-09-22T12:00:00.000Z",\n    latestActionByUserId: "admin-1",\n    createdAt: "2026-09-22T11:00:00.000Z",\n    updatedAt: "2026-09-22T12:00:00.000Z",\n  };\n}\n\nfunction readyAudit(input?: {\n  id?: string;\n  itemId?: string;\n  byUserId?: string;\n  at?: string;\n}): ReviewQueueOperationAuditEvent {\n  return {\n    id: input?.id ?? "review-de",\n    itemId: input?.itemId ?? "review-item-de",\n    action: "mark_ready",\n    byUserId: input?.byUserId ?? "admin-1",\n    at: input?.at ?? "2026-09-22T12:00:00.000Z",\n    note: null,\n    previousOperationalStatus: "in_review",\n    nextOperationalStatus: "ready",\n    previousAssignedToUserId: null,\n    nextAssignedToUserId: null,\n  };\n}\n\nfunction approvalCurrent(input: {\n  draft: VoxyStudioDraft;\n  status?: ReviewQueueOperationalStatus;\n  audit?: ReviewQueueOperationAuditEvent | null;\n  evidenceApproved?: boolean;\n  decisionGateId?: string;\n}) {\n  const reviewItemId = `review-item-${input.draft.storyPlan.outputLanguage}`;\n  return isVoxyStudioLocaleApprovalCurrent({\n    draft: input.draft,\n    evidenceApproved: input.evidenceApproved ?? true,\n    decisionGateId: input.decisionGateId ?? `gate-${input.draft.storyPlan.outputLanguage}`,\n    reviewItemId,\n    reviewRecord: reviewRecord(reviewItemId, input.status ?? "ready"),\n    latestReadyAudit: input.audit === undefined\n      ? readyAudit({\n          id: `review-${input.draft.storyPlan.outputLanguage}`,\n          itemId: reviewItemId,\n        })\n      : input.audit,\n  });\n}\n\n'''
+          if text.count(anchor) != 1:
+              raise SystemExit('test helper anchor mismatch')
+          text = text.replace(anchor, helpers + anchor, 1)
+          end_anchor = '''  it("reports all three canonical format safety states for a prepared locale", () => {'''
+          cases = '''  it("requires the current ready review record and exact ready-audit binding", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });\n    expect(approvalCurrent({ draft: de })).toBe(true);\n    for (const status of ["in_review", "blocked", "request_changes"] as const) {\n      expect(approvalCurrent({ draft: de, status })).toBe(false);\n    }\n    expect(\n      approvalCurrent({\n        draft: de,\n        audit: readyAudit({ id: "review-de-replaced", itemId: "review-item-de" }),\n      }),\n    ).toBe(false);\n    expect(\n      approvalCurrent({\n        draft: de,\n        audit: readyAudit({ itemId: "review-item-de", byUserId: "admin-2" }),\n      }),\n    ).toBe(false);\n    expect(\n      approvalCurrent({\n        draft: de,\n        audit: readyAudit({ itemId: "review-item-de", at: "2026-09-22T12:01:00.000Z" }),\n      }),\n    ).toBe(false);\n  });\n\n  it("fails the locale projection after a delayed mark-in-review overtakes historical approval", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });\n    const current = approvalCurrent({ draft: de, status: "in_review" });\n    expect(current).toBe(false);\n\n    const matrix = buildVoxyStudioLocaleReviewMatrices({\n      drafts: [de],\n      approvalCurrentByDraftId: { [de.draftId]: current },\n    })[0]!;\n    const german = matrix.locales.find((entry) => entry.locale === "de")!;\n    expect(matrix.approvedLocales).toBe(0);\n    expect(german.exactLocaleApprovalPresent).toBe(false);\n  });\n\n'''
+          if text.count(end_anchor) != 1:
+              raise SystemExit('test insertion anchor mismatch')
+          text = text.replace(end_anchor, cases + end_anchor, 1)
+          test.write_text(text)
+          PY
+          git diff --check
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Focused F4 contracts and typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -C apps/web exec vitest run tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-preview-review.contract.test.ts tests/voxy-studio-evidence-review.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+      - name: Verify narrow diff and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only origin/main -- | sort)"
+          printf '%s\n' "$changed"
+          test "$changed" = $'.github/workflows/voxy-work-f4-implement-01.yml\napps/web/src/app/api/admin/voxy-studio/route.ts\napps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts\napps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src/app/api/admin/voxy-studio/route.ts apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts
+          git commit -m 'fix(voxy): align locale approval with current review truth'
+          git push origin HEAD
