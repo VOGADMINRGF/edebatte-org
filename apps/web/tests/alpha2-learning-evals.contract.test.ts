@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertAlpha2EvalReplayIdentity,
   buildAlpha2EvalRecord,
   selectAlpha2ProviderByEvals,
   summarizeAlpha2ProviderPerformance,
 } from "@/features/agenticRuntime/alpha2EvalContract";
 import {
+  assertAlpha2LessonCreationIdentity,
   decideAlpha2Lesson,
   isAlpha2LessonOperationallyReusable,
   moveAlpha2LessonToIndependentCheck,
@@ -39,6 +41,7 @@ function evalRecord(input: {
     policyViolationCount: input.policyViolationCount ?? 0,
     latencyMs: input.latencyMs ?? 1_000,
     humanInterventions: 0,
+    evidenceRefs: [`evidence:${input.evalId}`],
     createdAt: "2026-08-23T21:00:00.000Z",
   });
 }
@@ -120,6 +123,32 @@ describe("Alpha-Foxtrott 2 learning and evaluations", () => {
     expect(selected.reason).toBe("insufficient_samples");
   });
 
+  it("rejects evidence-free evals and conflicting replay under the same eval id", () => {
+    expect(() =>
+      buildAlpha2EvalRecord({
+        evalId: "evidence-free",
+        runId: "run-evidence-free",
+        taskId: "task-evidence-free",
+        capability: "engineering",
+        roleId: "engineering_agent",
+        providerId: "codex",
+        outcome: "success",
+        taskSuccess: true,
+        evidenceFidelity: 1,
+        policyCompliance: 1,
+        latencyMs: 500,
+        evidenceRefs: [],
+        createdAt: "2026-08-23T21:00:00.000Z",
+      }),
+    ).toThrow();
+
+    const original = evalRecord({ evalId: "stable-eval", providerId: "codex", taskSuccess: true });
+    expect(() => assertAlpha2EvalReplayIdentity(original, original)).not.toThrow();
+    expect(() =>
+      assertAlpha2EvalReplayIdentity(original, { ...original, latencyMs: original.latencyMs + 1 }),
+    ).toThrow("alpha2_eval_idempotency_conflict");
+  });
+
   it("requires independent evidence review before a lesson becomes shared memory", () => {
     const candidate = proposeAlpha2Lesson({
       lessonId: "lesson-1",
@@ -164,5 +193,13 @@ describe("Alpha-Foxtrott 2 learning and evaluations", () => {
     expect(
       selectReusableAlpha2Lessons({ lessons: [candidate, accepted], scopeKeys: ["ci"] }),
     ).toEqual([accepted]);
+
+    expect(() => assertAlpha2LessonCreationIdentity(accepted, candidate)).not.toThrow();
+    expect(() =>
+      assertAlpha2LessonCreationIdentity(accepted, {
+        ...candidate,
+        statement: "Conflicting replay must not be accepted.",
+      }),
+    ).toThrow("alpha2_lesson_idempotency_conflict");
   });
 });
