@@ -1,0 +1,67 @@
+name: Temporary Alpha2 Mission Control wiring
+
+on:
+  push:
+    branches:
+      - feat/alpha2-mission-control-01-current-main
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/alpha2-mission-control-01-current-main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Wire current admin hub and critical guardrail
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          pkg = Path('apps/web/package.json')
+          text = pkg.read_text()
+          old = 'tests/alpha2-learning-evals.contract.test.ts tests/alpha2-review-auth-boundary.contract.test.ts'
+          new = 'tests/alpha2-learning-evals.contract.test.ts tests/alpha2-mission-control.contract.test.ts tests/alpha2-review-auth-boundary.contract.test.ts'
+          if text.count(old) != 1:
+            raise SystemExit(f'package guardrail anchor count={text.count(old)}')
+          pkg.write_text(text.replace(old, new, 1))
+
+          hub = Path('apps/web/src/app/admin/system/page.tsx')
+          text = hub.read_text()
+          old = '''    items: [
+      {
+        title: "Telemetry Hub",
+        description: "AI Usage, Health, Logs",
+        href: "/admin/telemetry",
+      },'''
+          new = '''    items: [
+      {
+        title: "Alpha2 Mission Control",
+        description: "Durable Runs, Human Gates und validiertes Learning – read-only",
+        href: "/admin/system/alpha2",
+      },
+      {
+        title: "Telemetry Hub",
+        description: "AI Usage, Health, Logs",
+        href: "/admin/telemetry",
+      },'''
+          if text.count(old) != 1:
+            raise SystemExit(f'admin hub anchor count={text.count(old)}')
+          hub.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+      - name: Commit wiring and self-delete
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/package.json apps/web/src/app/admin/system/page.tsx
+          git commit -m "feat(alpha2): wire Mission Control into current admin hub"
+          git rm .github/workflows/tmp-alpha2-mission-control-wire.yml
+          git commit -m "chore(alpha2): remove one-shot Mission Control writer"
+          git push origin HEAD:feat/alpha2-mission-control-01-current-main
