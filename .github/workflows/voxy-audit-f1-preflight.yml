@@ -23,7 +23,7 @@ jobs:
           set -euo pipefail
           git fetch origin main
           test "$(git rev-parse origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
-          git checkout --detach origin/main
+          git checkout -B main origin/main
           node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.json 2>&1 || true
           cat /tmp/preflight.json
           node - <<'NODE'
