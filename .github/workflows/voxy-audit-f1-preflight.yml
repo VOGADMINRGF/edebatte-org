@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - docs/voxy-audit-f1-master-freshness-authorize
-    paths:
-      - .github/workflows/voxy-audit-f1-preflight.yml
 
 permissions:
   contents: read
