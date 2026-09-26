@@ -1,0 +1,60 @@
+name: Voxy Work AAA2 authorize
+
+on:
+  push:
+    branches:
+      - docs/voxy-work-aaa2-unicode-minus-authorize-01
+
+permissions:
+  contents: write
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact main and OpenTasks blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "0c68b861b585196f3fd94e2403962f6e5238eee5"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "14664bb594b4f3288ad64a69c71bd63b3d996380"
+          test "$(git merge-base HEAD origin/main)" = "0c68b861b585196f3fd94e2403962f6e5238eee5"
+      - name: Authorize AAA2 losslessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/E150/OpenTasks.md')
+          text=p.read_text()
+          old='''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P1 | Issue `#969`; EU24 Slices A–E completed; prior immediate-parent freshness via PR #1062; numeric semantic repair via PR #1083; holistic Work AAA closeout finding `AAA-1` reproduced on audited `main@4e0854a7d1bca7250800cb1e4b9d9b33c2b02e0e` and still present on current `main@35d5aeba63e9f095665013b90a30953d07084c8b` | **AAA-1 only — transitive language-variant ancestor freshness:** extend the existing `resolveVoxyStudioLanguageVariantFreshness()` path to validate the complete existing master/translation dependency chain, not only the immediate parent; missing, ambiguous, stale or cyclic ancestors must fail closed at the same release/worker freshness boundary; reuse existing draft repository + language-variant binding/freshness contracts, no new graph/store/translation truth | Regression must prove `de -> fr -> it`, then only `de` revision changes => both descendants stale and worker Executor Count `0`; unchanged chain remains current; missing parent, ambiguous parent and cycle block deterministically; focused contracts + current Web typecheck/build + existing Voxy runtime/canon/AAA gates. `AAA-2` Unicode-minus and `AAA-3` Realtime-session findings are explicitly not authorized by this row |'''
+          new='''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P2 | Issue `#969`; EU24 Slices A–E completed; immediate-parent freshness via #1062; numeric magnitude repair via #1083; Work AAA-1 transitive ancestor freshness completed via PR #1102 / merge `0c68b861b585196f3fd94e2403962f6e5238eee5`; holistic Work finding `AAA-2` reproduced on audited `main@4e0854a7d1bca7250800cb1e4b9d9b33c2b02e0e` | **AAA-2 only — Unicode numeric sign preservation:** harden the existing `editorialTranslationSemanticGuard.ts` numeric normalization/tokenization so supported Unicode minus U+2212 is normalized before tokenization and cannot disappear from semantic number comparison; reuse the existing locale-aware numeric canonicalization and review-flag contract, no second parser/translation truth | Regression must prove source `−1,5 km` -> target `1,5 km` requires semantic review; source U+2212 `−1,5` -> equivalent ASCII `-1.5` remains numerically equivalent; existing `1,5 -> 15`, locale decimal/grouping and ambiguous-number tests remain green; current Web lint/typecheck/build + AAA red-team and relevant Voxy gates. `AAA-3` Realtime-session finding is explicitly not authorized by this row |'''
+          if text.count(old)!=1: raise SystemExit(f'expected AAA1 row once, got {text.count(old)}')
+          p.write_text(text.replace(old,new,1))
+          PY
+          git diff --check
+          git diff --numstat origin/main -- docs/E150/OpenTasks.md | grep -Eq '^1[[:space:]]+1[[:space:]]+'
+      - name: Commit, prove preflight and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md
+          git commit -m 'docs(e150): authorize Voxy AAA2 unicode-minus repair'
+          git checkout -B main HEAD
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.json 2>&1
+          cat /tmp/preflight.json
+          grep -q '"status": "codex_ready"' /tmp/preflight.json
+          grep -q '"executable": true' /tmp/preflight.json
+          grep -q '"branchCreationAllowed": true' /tmp/preflight.json
+          rm .github/workflows/voxy-work-aaa2-authorize-01.yml
+          git add .github/workflows/voxy-work-aaa2-authorize-01.yml
+          git commit -m 'chore(governance): remove AAA2 authorization writer'
+          test "$(git diff --name-only origin/main...HEAD | wc -l | tr -d ' ')" = "1"
+          test "$(git diff --name-only origin/main...HEAD)" = "docs/E150/OpenTasks.md"
+          git push origin HEAD:docs/voxy-work-aaa2-unicode-minus-authorize-01
