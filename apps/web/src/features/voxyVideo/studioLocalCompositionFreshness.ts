@@ -1,4 +1,9 @@
-import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";
+import {
+  buildVoxyEditorialScriptVersion,
+  evaluateVoxyEditorialLanguageVariantFreshness,
+  getVoxyEditorialLanguageVariantBinding,
+  type VoxyEditorialLanguageVariantFreshness,
+} from "@/features/voxyVideo/editorialLanguageVariant";
 import "server-only";
 
 import {
@@ -40,6 +45,46 @@ export type VoxyStudioLocalCompositionFreshnessSnapshot = {
   latestReadyAuditId: string | null;
   latestReadyAuditByUserId: string | null;
 };
+
+export async function resolveVoxyStudioLanguageVariantFreshness(input: {
+  draft: VoxyStudioDraft;
+  evidenceSourcePackId: string;
+  draftRepository?: VoxyStudioDraftRepository;
+}): Promise<VoxyEditorialLanguageVariantFreshness> {
+  const binding = getVoxyEditorialLanguageVariantBinding(input.draft.storyPlan);
+  if (!binding) return { current: true, blockers: [] };
+
+  const repository = input.draftRepository ?? getVoxyStudioDraftRepository();
+  const briefingDrafts = await repository.listDrafts({
+    briefingId: input.draft.briefingId,
+    dossierId: input.draft.dossierId,
+    limit: 100,
+  });
+  const masterCandidates = briefingDrafts.filter(
+    (candidate) =>
+      candidate.draftId !== input.draft.draftId &&
+      candidate.dossierId === input.draft.dossierId &&
+      candidate.storyPlan.storyPlanId === binding.translatedFromStoryPlanId,
+  );
+  if (masterCandidates.length !== 1) {
+    return {
+      current: false,
+      blockers: [
+        masterCandidates.length === 0
+          ? "language_variant_master_story_missing"
+          : "language_variant_master_story_ambiguous",
+      ],
+    };
+  }
+
+  const master = masterCandidates[0]!;
+  return evaluateVoxyEditorialLanguageVariantFreshness({
+    plan: input.draft.storyPlan,
+    masterStoryPlanId: master.storyPlan.storyPlanId,
+    masterStoryPlanRevision: master.storyPlan.revision,
+    evidenceSourcePackId: input.evidenceSourcePackId,
+  });
+}
 
 export function validateVoxyStudioLocalCompositionFreshness(input: {
   job: VoxyLocalCompositionJob;
@@ -176,6 +221,17 @@ export function createVoxyStudioLocalCompositionFreshnessAuthority(input?: {
           `voxy-studio-dossier:${draft.dossierId}:${evidenceReview.snapshot.fingerprint.slice(0, 40)}`;
         if (evidence.sourcePack.sourcePackId !== expectedSourcePackId) {
           throw new Error("voxy_local_composition_freshness_stale:evidence_snapshot_race");
+        }
+
+        const languageVariantFreshness = await resolveVoxyStudioLanguageVariantFreshness({
+          draft,
+          draftRepository,
+          evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+        });
+        if (!languageVariantFreshness.current) {
+          throw new Error(
+            `voxy_local_composition_freshness_stale:${languageVariantFreshness.blockers.join(",")}`,
+          );
         }
 
         const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft, evidence.sourcePack.sourcePackId);
