@@ -1,0 +1,73 @@
+name: Temporary Jarvis Alpha2 P0-P3 readiness audit
+on:
+  push:
+    branches:
+      - chore/audit-jarvis-alpha2-p0-p3-readiness-01
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Verify exact main and print bounded readiness inventory
+        env:
+          EXPECTED_MAIN: 416b41b80a87345044fc42e5d9e262e8ae2e8ec3
+          EXPECTED_OPENTASKS_BLOB: 0ec14dcbb3b13f529fdf1c06dd83b152bd24cd5d
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          blob="$(git rev-parse HEAD:docs/E150/OpenTasks.md)"
+          test "$blob" = "$EXPECTED_OPENTASKS_BLOB" || { echo "opentasks_blob_drift:$blob"; exit 42; }
+          python - <<'PY'
+          from pathlib import Path
+          import json,re
+          lines=Path('docs/E150/OpenTasks.md').read_text(errors='replace').splitlines()
+          rows=[]
+          for n,line in enumerate(lines,1):
+              if not line.startswith('|') or line.startswith('|---'):
+                  continue
+              cells=[c.strip() for c in line.strip().strip('|').split('|')]
+              if len(cells)<4:
+                  continue
+              task,status,priority=cells[0],cells[1],cells[2]
+              if priority not in {'P0','P1','P2','P3'}:
+                  continue
+              hay=' '.join(cells).lower()
+              strong=bool(re.search(r'alpha2|voxy|jarvis',hay))
+              tracks=[]
+              track_terms={
+                'C':['observe','intake','capture','ingest','contribution'],
+                'T':['verify','verification','research','evidence','fact'],
+                'G':['provenance','readmodel','read-model','graph','derived'],
+                'N':['notification','notify','briefing','digest','watch'],
+              }
+              for key,terms in track_terms.items():
+                  if any(t in hay for t in terms): tracks.append(key)
+              if strong or (tracks and any(x in hay for x in ['agentic','orchestrat','runtime','alpha2','voxy'])):
+                  rows.append({
+                    'line':n,'taskId':task,'status':status,'priority':priority,
+                    'tracks':tracks,
+                    'evidence':cells[3][:240] if len(cells)>3 else '',
+                    'next':cells[5][:300] if len(cells)>5 else (cells[4][:300] if len(cells)>4 else '')
+                  })
+          active={'blocked','codex_ready','in_progress','review','manual_gate'}
+          relevant=[r for r in rows if r['status'] in active or r['status'] not in {'done','closed','superseded'}]
+          print('AUDIT_COUNTS='+json.dumps({
+            'all_relevant_rows':len(rows),
+            'active_or_nonterminal':len(relevant),
+            'by_priority':{p:sum(r['priority']==p for r in relevant) for p in ['P0','P1','P2','P3']},
+            'by_status':{s:sum(r['status']==s for r in relevant) for s in sorted(set(r['status'] for r in relevant))}
+          },sort_keys=True))
+          for r in relevant:
+              print('AUDIT_ROW='+json.dumps(r,ensure_ascii=False,sort_keys=True))
+          # Also print exact AAA red-team row for closeout verification.
+          for n,line in enumerate(lines,1):
+              if line.startswith('| VOXY-AAA-RED-TEAM-ACCEPTANCE-01 |'):
+                  print('AAA_ROW='+json.dumps({'line':n,'row':line},ensure_ascii=False))
+          PY
