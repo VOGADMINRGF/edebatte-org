@@ -292,7 +292,7 @@ describe("Voxy language-variant master freshness at render/worker boundary", () 
     });
 
     expect(result.status).toBe("failed");
+    expect(result.safeErrorCode).toBe("voxy_local_composition_freshness_stale");
     expect(executorCalls).toBe(0);
-    expect(result.safeErrorMessage).toContain("language_variant_master_revision_changed");
   });
 });
