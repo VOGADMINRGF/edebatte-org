@@ -48,6 +48,11 @@ const SECTIONS: Array<{ title: string; items: HubItem[] }> = [
     title: "Operations",
     items: [
       {
+        title: "Alpha2 Mission Control",
+        description: "Durable Runs, Human Gates und validiertes Learning – read-only",
+        href: "/admin/system/alpha2",
+      },
+      {
         title: "Telemetry Hub",
         description: "AI Usage, Health, Logs",
         href: "/admin/telemetry",
