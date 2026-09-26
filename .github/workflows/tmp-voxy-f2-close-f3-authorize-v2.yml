@@ -1,0 +1,107 @@
+name: Temporary Voxy F2 close F3 authorize v2
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - docs/voxy-f2-close-f3-authorize-02
+
+permissions:
+  contents: write
+
+jobs:
+  single-writer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/voxy-f2-close-f3-authorize-02
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply exact guarded OpenTasks transition
+        env:
+          EXPECTED_MAIN: 3a7441533823b32af627bd03b6b05d751572d85a
+          EXPECTED_BLOB: a99127571cee563d991d22e3f9cd4c149fd8baac
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          path = Path("docs/E150/OpenTasks.md")
+          text = path.read_text()
+          marker = "## Historischer Katalog und Evidenz"
+          if text.count(marker) != 1:
+              raise SystemExit("history marker not unique")
+          head, tail = text.split(marker, 1)
+          tail_hash = hashlib.sha256((marker + tail).encode()).hexdigest()
+
+          old_f2 = '''| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | codex_ready | P2 | Issue `#978`; Work closeout audit F2 on `main@a4293c05cc6ff417609fe52540b8d68e1d048e33`; existing `VOXY-LOCAL-COMPOSITION-RUNTIME-01` / #568 + PR #965; prior recovery via #1006/#1007; F1 already closed via #1062 | **Audit repair F2 only — execution generation CAS:** bind every queued→rendering claim, recovery transition and rendering/rendered completion transition to the exact execution generation/attempt read by the caller, so a delayed orphan recovery or stale worker can never overwrite a newly acquired execution; apply the same generation guard in Mongo and in-memory repositories; preserve deterministic job/output identity and existing recovery/freshness authority | Deterministic interleaving must prove: Recovery A reads stale rendering attempt, Recovery B requeues and Worker B reacquires, then A cannot requeue; stale worker success/failure completion cannot mutate the newer attempt; Memory + Mongo-CAS coverage; existing real render/recovery gate, typecheck, diff guard; no second queue/store/renderer, no provider/upload/scheduling/social/auto-publish; F3/F4 not authorized |'''
+          new_f2 = '''| VOXY-LOCAL-COMPOSITION-RECOVERY-01 | review | P2 | Issue `#978`; Work closeout audit F2; authorization #1072; implementation PR #1074 / merge `97f9b5c6ca2f1d93cda32014015c3ddb5d99e57c`; exact-head Web CI, Local Composition Runtime/real-render recovery smoke, Visual QA, AAA red-team and Final Canon green | **Audit repair F2 implemented — execution generation CAS:** canonical Local Composition transitions are fenced by the existing execution `attempt`; stale recovery and stale success/failure completion cannot mutate a newer acquired attempt; Memory and Mongo use the same attempt-bound CAS | Consumed authorization; no second queue/store/renderer/generation SSOT; existing freshness/review bindings preserved; no provider/upload/scheduling/social/auto-publish. Further implementation under this owner requires fresh authorization |'''
+
+          old_f3 = '''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P1 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; #969 Slices A–E; Work closeout audit `a4293c05cc6ff417609fe52540b8d68e1d048e33`; current main product paths unchanged through `76fccb5f76a28e693a1ba8ecbf3622f40453c055` | **Audit Repair F1 only — Master-revision freshness at render authorization/worker start:** existing language-variant binding/freshness contract must resolve the current master Story Plan for derived variants and apply `evaluateVoxyEditorialLanguageVariantFreshness()` before render authorization and again in `createVoxyStudioLocalCompositionFreshnessAuthority().assertCurrent()`; missing master, changed master ID/revision, stale evidence binding or non-approved translation must fail closed; unchanged master remains renderable | Reuse existing Story-Plan/Draft owner and current language-variant freshness evaluator; no second Story/Translation/Evidence/Review/Render store; regression: approved+enqueued variant bound to master rN, mutate only master to rN+1 => worker executor `0`; unchanged master => allowed; existing multilingual E2E and Voxy Runtime/Final Canon/Web CI remain green; no Provider-/Upload-/Scheduling-/Publish-Side-Effects; F2/F3/F4 are not authorized by this row |'''
+          new_f3 = '''| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | codex_ready | P2 | `ECOSYSTEM-I18N-CONTRACT-01` / #566; Voxy #310/#567/#568; #570 via #967; #969 Slices A–E; Work closeout audit F3 on `main@a4293c05cc6ff417609fe52540b8d68e1d048e33`; F1 closed via #1062; F2 closed via #1074 | **Audit repair F3 only — locale-aware numeric semantic guard:** harden the existing `editorialTranslationSemanticGuard.ts` numeric comparison so decimal/grouping separators are value-preserving and `1,5` cannot normalize to the same semantic token as `15`; equivalent locale renderings may remain acceptable, while ambiguous or value-changing numeric forms must become review-required | Reuse the existing semantic guard/language-variant binding only; no second translation/evidence/review store; focused regressions must reject `1,5 → 15`, accept demonstrably equivalent locale formatting, preserve currency/unit/percent/negation/uncertainty checks, and keep multilingual/runtime/final-canon/Web CI green; no provider/model activation, upload, scheduling or publish; F4 not authorized by this row |'''
+
+          if head.count(old_f2) != 1:
+              raise SystemExit(f"expected exactly one F2 row, found {head.count(old_f2)}")
+          if head.count(old_f3) != 1:
+              raise SystemExit(f"expected exactly one F1/969 row, found {head.count(old_f3)}")
+
+          head = head.replace(old_f2, new_f2, 1).replace(old_f3, new_f3, 1)
+          result = head + marker + tail
+          if hashlib.sha256((marker + tail).encode()).hexdigest() != tail_hash:
+              raise SystemExit("historical tail hash changed")
+          if result.count(new_f2) != 1 or result.count(new_f3) != 1:
+              raise SystemExit("post-replacement row uniqueness failed")
+          path.write_text(result)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+      - name: Commit SSOT and validate task preflights
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git commit -m "docs(e150): close Voxy F2 and authorize F3"
+
+          git branch -f main HEAD
+          git switch main
+
+          set +e
+          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 >/tmp/f2-preflight.json 2>&1
+          f2_code=$?
+          set -e
+          test "$f2_code" -eq 1
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 >/tmp/f3-preflight.json
+
+          cat /tmp/f2-preflight.json
+          cat /tmp/f3-preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const f2 = JSON.parse(fs.readFileSync('/tmp/f2-preflight.json', 'utf8'));
+          const f3 = JSON.parse(fs.readFileSync('/tmp/f3-preflight.json', 'utf8'));
+          if (f2.status !== 'review' || f2.executable !== false || f2.reason !== 'task_status_not_executable:review') {
+            throw new Error('F2 preflight did not close authorization');
+          }
+          if (f3.status !== 'codex_ready' || f3.executable !== true || f3.branchCreationAllowed !== true) {
+            throw new Error('F3 preflight did not authorize exact task');
+          }
+          NODE
+
+      - name: Self-delete writer and push final candidate
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tmp-voxy-f2-close-f3-authorize-v2.yml
+          git commit -m "chore(governance): remove one-shot Voxy writer"
+          test "$(git diff --name-only origin/main...HEAD)" = "docs/E150/OpenTasks.md"
+          git diff --check origin/main...HEAD
+          git push origin HEAD:docs/voxy-f2-close-f3-authorize-02
