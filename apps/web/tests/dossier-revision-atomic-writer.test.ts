@@ -271,6 +271,10 @@ describe("dossier revision atomic writer", () => {
   it("keeps audited dossier writers on the single canonical transaction boundary", () => {
     const root = path.resolve(process.cwd(), "../..");
     const dbSource = readFileSync(path.resolve(root, "features/dossier/db.ts"), "utf8");
+    const contentReleaseSource = readFileSync(
+      path.resolve(root, "features/contentReleaseWorkbench.ts"),
+      "utf8",
+    );
     const claimRoute = readFileSync(
       path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/claims/upsert/route.ts"),
       "utf8",
@@ -322,5 +326,12 @@ describe("dossier revision atomic writer", () => {
       expect(maintenanceSource).toContain("mutateDossierWithRevision");
       expect(maintenanceSource).not.toContain("await logDossierRevision(");
     }
+
+    expect(contentReleaseSource).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
+    expect(contentReleaseSource).toContain("await mutateDossierWithRevision({");
+    expect(contentReleaseSource).toContain("await dossiers.insertOne(");
+    expect(contentReleaseSource).toContain("await sources.insertOne(");
+    expect(contentReleaseSource).toContain("{ session },");
+    expect(contentReleaseSource).not.toContain("await logDossierRevision(");
   });
 });
