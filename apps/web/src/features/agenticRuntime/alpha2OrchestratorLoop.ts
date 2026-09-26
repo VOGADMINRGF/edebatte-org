@@ -214,7 +214,7 @@ export function planAlpha2OrchestratorCycle(
       ownership,
       policy,
       mode: eligibility.continuationEligible ? "continue_owner" : "new_slice",
-      requiresOwnerProvisioning: !Boolean(ownership.branch),
+      requiresOwnerProvisioning: !ownership.branch,
       requiresAtomicClaim: task.status === "codex_ready",
       actionGateDecision,
       reasonCodes: eligibility.reasonCodes,
