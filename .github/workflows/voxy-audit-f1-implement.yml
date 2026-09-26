@@ -42,27 +42,24 @@ jobs:
           v2_path.write_text(v2[:block_start] + v2[block_end:])
           PY
           python3 scripts/tmp-voxy-f1-apply-v2.py
-      - name: Verify focused F1 contracts and pinpoint failure
+      - name: Verify focused F1 contracts and exact product scope
         shell: bash
         run: |
-          set -u
-          pnpm install --frozen-lockfile || exit $?
+          set -euo pipefail
+          pnpm install --frozen-lockfile
           pnpm -C apps/web exec vitest run \
             tests/voxy-language-variant-master-freshness.contract.test.ts \
             tests/voxy-local-composition-freshness.contract.test.ts \
             tests/voxy-editorial-language-variant.contract.test.ts \
-            tests/voxy-local-composition-runtime.contract.test.ts || exit $?
-          pnpm -C apps/web exec tsc --noEmit -p tsconfig.json --pretty false > /tmp/f1-tsc.log 2>&1
-          typecheck_code=$?
-          echo "TYPECHECK_CODE=$typecheck_code"
-          echo "TYPECHECK_LOG_BYTES=$(wc -c < /tmp/f1-tsc.log)"
-          cat /tmp/f1-tsc.log
-          if [ "$typecheck_code" -ne 0 ]; then exit "$typecheck_code"; fi
+            tests/voxy-local-composition-runtime.contract.test.ts
+          pnpm -C apps/web exec tsc --noEmit -p tsconfig.json --pretty false
+          git restore -- \
+            packages/db-web/src/generated/edge.js \
+            packages/db-web/src/generated/index.js \
+            packages/db-web/src/generated/wasm.js
+          git add -N apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts
           git diff --check
-          diffcheck_code=$?
-          echo "DIFFCHECK_CODE=$diffcheck_code"
-          git diff --name-only | sort | tee /tmp/f1-diff-files.txt
-          mapfile -t files < <(grep -v '^scripts/tmp-voxy-f1-apply.py$' /tmp/f1-diff-files.txt | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^scripts/tmp-voxy-f1-apply-v2.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
+          mapfile -t files < <(git diff --name-only | sort | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^scripts/tmp-voxy-f1-apply-v2.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
           echo "PRODUCT_DIFF_COUNT=${#files[@]}"
           printf 'PRODUCT_FILE=%s\n' "${files[@]}"
           test "${#files[@]}" -eq 4
@@ -70,19 +67,17 @@ jobs:
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts'
-      - name: Commit product delta and self-delete helpers
+      - name: Commit validated non-workflow product delta and remove helper scripts
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            .github/workflows/voxy-local-composition-runtime.yml \
             apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts \
             'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts' \
             apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts
           git rm \
-            .github/workflows/voxy-audit-f1-implement.yml \
             scripts/tmp-voxy-f1-apply.py \
             scripts/tmp-voxy-f1-fix-patcher.py \
             scripts/tmp-voxy-f1-apply-v2.py
