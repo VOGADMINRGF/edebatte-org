@@ -1,0 +1,57 @@
+name: Alpha2 single-writer closeout
+
+on:
+  push:
+    branches: [ docs/alpha2-single-writer-closeout-01 ]
+
+permissions:
+  contents: write
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/alpha2-single-writer-closeout-01
+          fetch-depth: 0
+      - name: Close exactly one Alpha2 operative task row
+        env:
+          EXPECTED_MAIN: 0c77fe93f8253c13bc36cdd463e6913b927cd4aa
+          EXPECTED_BLOB: 007ae1c0309810c60a8f7514cae48d9f43b42135
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN" || { echo main_drift; exit 41; }
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB" || { echo opentasks_drift; exit 42; }
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/E150/OpenTasks.md')
+          text=p.read_text()
+          rows=text.splitlines()
+          target='ALPHA2-OPENTASKS-SINGLE-WRITER-01'
+          matches=[i for i,r in enumerate(rows) if r.startswith(f'| {target} |')]
+          assert len(matches)==1, matches
+          i=matches[0]
+          before=rows[i]
+          cells=before.split(' | ')
+          assert cells[0] == f'| {target}' and cells[1]=='codex_ready' and cells[2]=='P0', cells[:4]
+          cells[1]='review'
+          evidence='PR #1085 merged as 5fb13e9c20df4edb03f0a4e691ad310b8ffbffbb; transactional CAS/idempotency contract merged; exact-head Web CI and Alpha2 single-writer contract gates green; human #447 authority remains retained pending explicit cutover'
+          cells[3]=cells[3] + '; ' + evidence
+          rows[i]=' | '.join(cells)
+          assert sum(1 for r in rows if r.startswith(f'| {target} |'))==1
+          p.write_text('\n'.join(rows) + ('\n' if text.endswith('\n') else ''))
+          print(before)
+          print(rows[i])
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md
+          git commit -m 'docs(e150): close Alpha2 single writer to review'
+          git rm .github/workflows/alpha2-single-writer-closeout.yml
+          git commit -m 'chore(ci): remove Alpha2 single-writer closeout'
+          git push origin HEAD:docs/alpha2-single-writer-closeout-01
