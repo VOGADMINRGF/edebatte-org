@@ -1,0 +1,36 @@
+name: Voxy Audit F1 Preflight
+
+on:
+  push:
+    branches:
+      - ops/voxy-audit-f1-preflight-01
+    paths:
+      - .github/workflows/voxy-audit-f1-preflight.yml
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify exact main and run task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
+          git checkout --detach origin/main
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.json 2>&1 || true
+          cat /tmp/preflight.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/preflight.json', 'utf8'));
+          if (data.status !== 'codex_ready' || data.executable !== true || data.branchCreationAllowed !== true) {
+            console.error(data);
+            process.exit(1);
+          }
+          NODE
