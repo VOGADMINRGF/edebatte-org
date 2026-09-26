@@ -63,13 +63,18 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/E150/OpenTasks.md
           git commit -m "docs(e150): close Voxy F2 and authorize F3"
-          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 | tee /tmp/f2-preflight.json
+          set +e
+          node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 > /tmp/f2-preflight.json
+          f2_exit=$?
+          set -e
+          test "$f2_exit" -ne 0
+          cat /tmp/f2-preflight.json
           node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 | tee /tmp/f3-preflight.json
           node - <<'NODE'
           const fs = require('fs');
           const f2 = JSON.parse(fs.readFileSync('/tmp/f2-preflight.json', 'utf8'));
           const f3 = JSON.parse(fs.readFileSync('/tmp/f3-preflight.json', 'utf8'));
-          if (f2.status !== 'review' || f2.executable !== false) throw new Error('F2 preflight did not close authorization');
+          if (f2.status !== 'review' || f2.executable !== false || f2.reason !== 'task_status_not_executable:review') throw new Error('F2 preflight did not close authorization');
           if (f3.status !== 'codex_ready' || f3.executable !== true || f3.branchCreationAllowed !== true) throw new Error('F3 preflight did not authorize exact task');
           NODE
 
