@@ -1,0 +1,33 @@
+name: Voxy Work AAA1 exact-main preflight
+
+on:
+  push:
+    branches:
+      - ops/voxy-work-aaa1-preflight-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "bedd18db546279c6d4069d1d892e7516e420adbb"
+      - name: Canonical task preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 > /tmp/preflight.json 2>&1
+          cat /tmp/preflight.json
+          grep -q '"status": "codex_ready"' /tmp/preflight.json
+          grep -q '"executable": true' /tmp/preflight.json
+          grep -q '"branchCreationAllowed": true' /tmp/preflight.json
