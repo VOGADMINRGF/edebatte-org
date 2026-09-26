@@ -1,0 +1,27 @@
+name: Temporary Alpha2 GitHub State Adapter preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-alpha2-github-state-adapter-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and run canonical task preflight
+        env:
+          EXPECTED_MAIN: ee9e3256fc2c25b28696504de49cd6fa3208c047
+          EXPECTED_OPENTASKS_BLOB: a99127571cee563d991d22e3f9cd4c149fd8baac
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN" || { echo "main_drift:$(git rev-parse HEAD)"; exit 41; }
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_OPENTASKS_BLOB" || { echo "opentasks_drift:$(git rev-parse HEAD:docs/E150/OpenTasks.md)"; exit 42; }
+          node scripts/codex-task-preflight.mjs ALPHA2-GITHUB-STATE-ADAPTER-01
