@@ -275,6 +275,10 @@ describe("dossier revision atomic writer", () => {
       path.resolve(root, "features/contentReleaseWorkbench.ts"),
       "utf8",
     );
+    const protocolUpsertSource = readFileSync(
+      path.resolve(root, "features/dossier/protocolUpsert.ts"),
+      "utf8",
+    );
     const dossierRuntimeServerSource = readFileSync(
       path.resolve(process.cwd(), "src/features/create/dossierRuntimeServer.ts"),
       "utf8",
@@ -342,5 +346,11 @@ describe("dossier revision atomic writer", () => {
     expect(dossierRuntimeServerSource).toContain("await mutateDossierWithRevision({");
     expect(dossierRuntimeServerSource).toContain("{ upsert: true, session },");
     expect(dossierRuntimeServerSource).not.toContain("await logDossierRevision(");
+
+    expect(protocolUpsertSource).toContain('import { mutateDossierWithRevision } from "./revisions"');
+    expect(protocolUpsertSource).toContain("await mutateDossierWithRevision({");
+    expect(protocolUpsertSource).toContain("includeResultMetadata: true, session");
+    expect(protocolUpsertSource).not.toContain("dossierSuggestionsCol()).updateMany(");
+    expect(protocolUpsertSource).not.toContain("await logDossierRevision(");
   });
 });
