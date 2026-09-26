@@ -1,0 +1,61 @@
+name: Temporary Alpha2 CTGN preflight audit
+on:
+  push:
+    branches:
+      - chore/audit-jarvis-alpha2-p0-p3-readiness-01
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Verify exact main, inventory CTGN, and preflight Alpha2 chain
+        env:
+          EXPECTED_MAIN: 416b41b80a87345044fc42e5d9e262e8ae2e8ec3
+          EXPECTED_OPENTASKS_BLOB: 0ec14dcbb3b13f529fdf1c06dd83b152bd24cd5d
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN" || exit 41
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_OPENTASKS_BLOB" || exit 42
+          echo '=== ALPHA2_PREFLIGHTS ==='
+          for task in \
+            ALPHA2-AGENT-REGISTRY-01 \
+            ALPHA2-ORCHESTRATOR-LOOP-01 \
+            ALPHA2-LEARNING-EVALS-01 \
+            ALPHA2-GITHUB-STATE-ADAPTER-01 \
+            ALPHA2-OPENTASKS-SINGLE-WRITER-01 \
+            ALPHA2-MISSION-CONTROL-01 \
+            ALPHA2-CONTINUOUS-DISPATCH-01 \
+            ALPHA2-REPAIR-CONTINUATION-01 \
+            ALPHA2-MISSION-CONTROL-TRANSPARENCY-02 \
+            ALPHA2-AUTONOMOUS-E2E-RECOVERY-ACCEPTANCE-01 \
+            ALPHA2-ORGANIZATION-LOOPS-01
+          do
+            echo "PREFLIGHT_TASK=$task"
+            node scripts/codex-task-preflight.mjs "$task" || true
+          done
+          echo '=== CTGN_ROWS ==='
+          python - <<'PY'
+          from pathlib import Path
+          import json,re
+          lines=Path('docs/E150/OpenTasks.md').read_text(errors='replace').splitlines()
+          out=[]
+          for n,line in enumerate(lines,1):
+              if not line.startswith('|'): continue
+              c=[x.strip() for x in line.strip().strip('|').split('|')]
+              if len(c)<4: continue
+              task,status,priority=c[0],c[1],c[2]
+              if priority not in {'P0','P1','P2','P3'}: continue
+              if re.match(r'^(C\d|T\d|G\d|N\d)',task) or 'CTGN' in task or 'C-TRACK' in task or 'T-TRACK' in task or 'G-TRACK' in task or 'N-TRACK' in task:
+                  out.append({'line':n,'taskId':task,'status':status,'priority':priority,'evidence':c[3][:180],'next':(c[5] if len(c)>5 else c[4] if len(c)>4 else '')[:260]})
+          for r in out: print('CTGN_ROW='+json.dumps(r,ensure_ascii=False,sort_keys=True))
+          print('CTGN_COUNTS='+json.dumps({
+             'rows':len(out),
+             'by_priority':{p:sum(r['priority']==p for r in out) for p in ['P0','P1','P2','P3']},
+             'by_status':{s:sum(r['status']==s for r in out) for s in sorted(set(r['status'] for r in out))}
+          },sort_keys=True))
+          PY
