@@ -81,7 +81,8 @@ jobs:
           NODE
           rm .github/workflows/tmp-alpha2-registry-reconcile-next-p0.yml
           git diff --check
-          test "$(git diff --name-only | tr -d '\r')" = "docs/E150/OpenTasks.md"
+          actual_paths="$(git diff --name-only | sort | tr '\n' ' ')"
+          test "$actual_paths" = ".github/workflows/tmp-alpha2-registry-reconcile-next-p0.yml docs/E150/OpenTasks.md " || { echo "unexpected_paths:$actual_paths"; exit 43; }
           test "$(git diff -- docs/E150/OpenTasks.md | grep -E '^[-+]\|' | wc -l)" -eq 6
           git config user.name "VOGADMINRGF"
           git config user.email "rgf@voiceopengov.de"
