@@ -31,30 +31,34 @@ jobs:
           test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB"
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, os
+          import hashlib, os, re
 
           path = Path('docs/E150/OpenTasks.md')
           text = path.read_text()
-          lines = text.splitlines()
           task = os.environ['TASK_ID']
-          hits = [i for i, line in enumerate(lines) if line.startswith(f'| {task} |')]
-          if len(hits) != 1:
-              raise SystemExit(f'expected exactly one operative row, found {len(hits)}')
-          i = hits[0]
-          old = lines[i]
-          marker = '| blocked |'
-          if old.count(marker) != 1:
-              raise SystemExit(f'expected blocked status once: {old}')
-          lines[i] = old.replace(marker, '| codex_ready |', 1)
+          row_re = re.compile(rf'^\| {re.escape(task)} \| blocked \| P0 \|.*$', re.MULTILINE)
+          matches = list(row_re.finditer(text))
+          if len(matches) != 1:
+              raise SystemExit(f'expected exactly one blocked P0 operative row, found {len(matches)}')
+          match = matches[0]
 
-          tail_idx = next((n for n, line in enumerate(lines) if n > i and line.startswith('## ') and ('Histor' in line or 'Archiv' in line)), -1)
-          if tail_idx < 0:
+          tail_match = re.search(r'^##\s+.*(?:Histor|Archiv).*$' , text[match.end():], re.MULTILINE | re.IGNORECASE)
+          if not tail_match:
               raise SystemExit('historical tail marker not found')
-          tail = '\n'.join(lines[tail_idx:])
-          if hashlib.sha256(tail.encode()).hexdigest() != os.environ['HISTORICAL_TAIL_SHA256']:
-              raise SystemExit('historical tail hash changed')
+          tail_start = match.end() + tail_match.start()
+          tail_before = text[tail_start:]
+          if hashlib.sha256(tail_before.encode()).hexdigest() != os.environ['HISTORICAL_TAIL_SHA256']:
+              raise SystemExit('historical tail hash mismatch before mutation')
 
-          path.write_text('\n'.join(lines) + '\n')
+          old_row = match.group(0)
+          new_row = old_row.replace('| blocked |', '| codex_ready |', 1)
+          updated = text[:match.start()] + new_row + text[match.end():]
+          tail_after = updated[tail_start:]
+          if tail_after != tail_before:
+              raise SystemExit('historical tail bytes changed')
+          if hashlib.sha256(tail_after.encode()).hexdigest() != os.environ['HISTORICAL_TAIL_SHA256']:
+              raise SystemExit('historical tail hash mismatch after mutation')
+          path.write_text(updated)
           PY
           git diff --check
           test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
