@@ -240,15 +240,19 @@ export async function ensureDossierForStatement(
   return transaction.result;
 }
 
-export async function computeDossierCounts(dossierId: string) {
+export async function computeDossierCounts(dossierId: string, session?: ClientSession) {
+  const sessionOptions = session ? { session } : {};
   const [claims, sources, findings, edges, openQuestions] = await Promise.all([
-    (await dossierClaimsCol()).countDocuments({ dossierId }),
-    (await dossierSourcesCol()).countDocuments({ dossierId }),
+    (await dossierClaimsCol()).countDocuments({ dossierId }, sessionOptions),
+    (await dossierSourcesCol()).countDocuments({ dossierId }, sessionOptions),
     (await dossierFindingsCol())
-      .find({ dossierId }, { projection: { claimId: 1, producedBy: 1, updatedAt: 1 } })
+      .find(
+        { dossierId },
+        { projection: { claimId: 1, producedBy: 1, updatedAt: 1 }, ...sessionOptions },
+      )
       .toArray(),
-    (await dossierEdgesCol()).countDocuments({ dossierId, active: { $ne: false } }),
-    (await openQuestionsCol()).countDocuments({ dossierId }),
+    (await dossierEdgesCol()).countDocuments({ dossierId, active: { $ne: false } }, sessionOptions),
+    (await openQuestionsCol()).countDocuments({ dossierId }, sessionOptions),
   ]);
   const effectiveFindings = selectEffectiveFindings(findings as any[]);
 
@@ -263,9 +267,9 @@ export async function computeDossierCounts(dossierId: string) {
 
 export async function updateDossierCounts(dossierId: string, reason = "Dossier-Zaehler aktualisiert.") {
   const dossierCol = await dossiersCol();
-  const counts = await computeDossierCounts(dossierId);
 
   const transaction = await mutateWithRevision(dossierId, async (session) => {
+    const counts = await computeDossierCounts(dossierId, session);
     const existing = await dossierCol.findOne({ dossierId }, { session });
     if (!existing) {
       return { result: counts, revision: null };
