@@ -23,7 +23,11 @@ jobs:
           test "$(git rev-parse origin/main)" = "6a9d291e0d66e8d30fa5a77dea4654c938b1905e"
           test "$(git merge-base HEAD origin/main)" = "6a9d291e0d66e8d30fa5a77dea4654c938b1905e"
       - name: Apply focused F3 repair and regressions
-        run: python scripts/tmp-voxy-work-f3-patch.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/tmp-voxy-work-f3-patch.py
+          python scripts/tmp-voxy-work-f3-fix-regex.py
       - run: git diff --check
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
