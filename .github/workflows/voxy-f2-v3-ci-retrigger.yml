@@ -1,9 +1,0 @@
-name: Voxy F2 v3 CI retrigger
-on:
-  pull_request:
-    branches: [main]
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo retrigger
