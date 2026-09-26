@@ -1,0 +1,40 @@
+name: Temporary dedupe watch evidence
+
+on:
+  push:
+    branches:
+      - docs/voxy-external-personal-connectors-01-ssot
+
+permissions:
+  contents: write
+
+jobs:
+  dedupe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/voxy-external-personal-connectors-01-ssot
+          fetch-depth: 0
+      - name: Remove only duplicated watch issue ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          p='docs/E150/OpenTasks.md'
+          s=open(p,encoding='utf-8').read()
+          old='Web CI `#3571` + Voxy canon lock `#372` green; Issue `#1054`; `VOXY-REALTIME-CONVERSATION-VOICE-01`'
+          new='Web CI `#3571` + Voxy canon lock `#372` green; `VOXY-REALTIME-CONVERSATION-VOICE-01`'
+          assert s.count(old)==1, s.count(old)
+          s=s.replace(old,new,1)
+          open(p,'w',encoding='utf-8').write(s)
+          PY
+          git diff --check
+          test "$(git diff --numstat docs/E150/OpenTasks.md | awk '{print $1":"$2}')" = "1:1"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/E150/OpenTasks.md
+          git rm .github/workflows/tmp-dedupe-watch-evidence.yml
+          git commit -m "docs(e150): dedupe proactive watch evidence"
+          git push origin HEAD:docs/voxy-external-personal-connectors-01-ssot
