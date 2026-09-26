@@ -55,17 +55,15 @@ import {
 
 describe("Alpha2 runtime orchestrator re-observation", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     harness.reset();
   });
 
-  it("signals startup, idle and explicit recovery without creating another scheduler truth", async () => {
+  it("signals startup, explicit observation and recovery without owning continuous cadence", async () => {
     const triggers: string[] = [];
     const runtime = startAlpha2ControlPlaneRuntime({
       executorResolver: { resolve: vi.fn() } as any,
       authorizationResolver: { resolve: vi.fn() } as any,
       currentHeadSha: "a".repeat(40),
-      orchestratorObservationIntervalMs: 1_000,
       orchestratorLoop: {
         async run(input) {
           triggers.push(input.trigger);
@@ -73,11 +71,10 @@ describe("Alpha2 runtime orchestrator re-observation", () => {
       },
     });
 
-    await vi.runAllTicks();
     await Promise.resolve();
     expect(triggers).toContain("startup");
 
-    await vi.advanceTimersByTimeAsync(1_000);
+    await runtime.observeNow();
     expect(triggers).toContain("idle");
 
     await runtime.recoverNow();
