@@ -1,0 +1,33 @@
+name: Voxy Work F4 preflight
+
+on:
+  push:
+    branches:
+      - ops/voxy-work-f4-preflight-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "53efe5bb29f81857b1280a74dbc22807ff37d307"
+      - name: Canonical task preflight on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          test "$(git rev-parse HEAD)" = "53efe5bb29f81857b1280a74dbc22807ff37d307"
+          node scripts/codex-task-preflight.mjs VOXY-STUDIO-REVIEW-CONSISTENCY-01 2>&1 | tee /tmp/preflight.json
+          grep -q '"status": "codex_ready"' /tmp/preflight.json
+          grep -q '"executable": true' /tmp/preflight.json
+          grep -q '"branchCreationAllowed": true' /tmp/preflight.json
