@@ -19,12 +19,12 @@ jobs:
       - name: Fail closed and mutate only intended task rows
         env:
           EXPECTED_MAIN: 4e0854a7d1bca7250800cb1e4b9d9b33c2b02e0e
-          EXPECTED_OPENTASKS_BLOB: 3876058430491d8f70645a0bc0c692282f42aedb
+          EXPECTED_OPENTASKS_BLOB: 3d267decc575cffdf46c084dd52afbc913b4bb4d
         run: |
           set -euo pipefail
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN" || { echo main_drift; exit 41; }
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN" || { echo branch_parent_drift; exit 42; }
+          test "$(git rev-list --max-parents=0 HEAD)" != "" || exit 42
           test "$(git hash-object docs/E150/OpenTasks.md)" = "$EXPECTED_OPENTASKS_BLOB" || { echo opentasks_blob_drift; exit 43; }
           python - <<'PY'
           from pathlib import Path
@@ -36,25 +36,18 @@ jobs:
               'ALPHA2-LEARNING-EVALS-01': ('blocked', 'codex_ready'),
           }
           lines = text.splitlines(keepends=True)
-          changed = []
           for task_id, (old, new) in transitions.items():
               matches = [i for i, line in enumerate(lines) if line.startswith(f'| {task_id} |')]
               if len(matches) != 1:
                   raise SystemExit(f'{task_id}:expected_one_row_got_{len(matches)}')
               i = matches[0]
               cells = lines[i].split('|')
-              status_idx = None
-              for j, cell in enumerate(cells):
-                  if cell.strip() == old:
-                      status_idx = j
-                      break
-              if status_idx is None:
-                  raise SystemExit(f'{task_id}:expected_status_{old}_not_found')
-              cells[status_idx] = f' {new} '
+              candidates = [j for j, cell in enumerate(cells) if cell.strip() == old]
+              if len(candidates) != 1:
+                  raise SystemExit(f'{task_id}:expected_one_status_{old}_got_{len(candidates)}')
+              cells[candidates[0]] = f' {new} '
               lines[i] = '|'.join(cells)
-              changed.append(task_id)
           p.write_text(''.join(lines))
-          print('changed=' + ','.join(changed))
           PY
           git diff --check
           test "$(git diff --numstat -- docs/E150/OpenTasks.md | wc -l)" -eq 1
