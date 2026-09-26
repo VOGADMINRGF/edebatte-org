@@ -74,6 +74,26 @@ function fallbackState(): VoxyLocalCompositionPersistenceState {
   };
 }
 
+function expectedAttemptForTransition(input: {
+  expectedStatus: VoxyLocalCompositionStatus;
+  next: VoxyLocalCompositionJob;
+}) {
+  const nextAttempt = input.next.attempt;
+  if (!Number.isInteger(nextAttempt) || nextAttempt < 1) {
+    throw new Error("voxy_local_composition_transition_attempt_invalid");
+  }
+  if (
+    input.next.status === "queued" &&
+    ["rendering", "rendered", "failed"].includes(input.expectedStatus)
+  ) {
+    if (nextAttempt < 2) {
+      throw new Error("voxy_local_composition_transition_generation_not_advanced");
+    }
+    return nextAttempt - 1;
+  }
+  return nextAttempt;
+}
+
 function assertRequestSnapshot(input: {
   job: VoxyLocalCompositionJob;
   request: VoxyLocalCompositionRequest;
@@ -259,8 +279,13 @@ function createMongoRepository(): VoxyLocalCompositionRepository {
     async transitionJob(input) {
       await ensureIndexes();
       const col = await coreCol<any>(JOBS_COLLECTION);
+      const expectedAttempt = expectedAttemptForTransition(input);
       const result = await col.updateOne(
-        { _id: input.jobId, "record.status": input.expectedStatus },
+        {
+          _id: input.jobId,
+          "record.status": input.expectedStatus,
+          "record.attempt": expectedAttempt,
+        },
         {
           $set: {
             record: clone(input.next),
@@ -385,6 +410,7 @@ export function createInMemoryVoxyLocalCompositionRepository(seed?: {
     async transitionJob(input) {
       const current = jobs.get(input.jobId);
       if (!current || current.status !== input.expectedStatus) return false;
+      if (current.attempt !== expectedAttemptForTransition(input)) return false;
       jobs.set(input.jobId, clone(input.next));
       return true;
     },
