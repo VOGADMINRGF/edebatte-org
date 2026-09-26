@@ -1,188 +1,217 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bindVoxyEditorialLanguageVariant,
+  type VoxyEditorialLanguageVariantPlan,
+} from "@/features/voxyVideo/editorialLanguageVariant";
+import type { VoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
+import {
   buildVoxyLocalCompositionInputFingerprint,
   type VoxyLocalCompositionJob,
   type VoxyLocalCompositionRequest,
 } from "@/features/voxyVideo/localCompositionRuntime";
 import { executeVoxyLocalComposition } from "@/features/voxyVideo/localCompositionRuntimeService";
 import { createInMemoryVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
-import {
-  buildEditorialLanguageVariantDraft,
-  type EditorialLanguageVariantDraft,
-} from "@/features/voxyVideo/editorialLanguageVariant";
-import { buildEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
+import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
+import type { VoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import {
   createVoxyStudioLocalCompositionFreshnessAuthority,
+  resolveVoxyStudioLanguageVariantFreshness,
 } from "@/features/voxyVideo/studioLocalCompositionFreshness";
-import {
-  createInMemoryVoxyStudioDraftStore,
-} from "@/features/voxyVideo/studioDraftStore";
-import {
-  buildEvidenceWindow,
-  buildVoxyStudioDraft,
-} from "@/features/voxyVideo/studioDraft";
 
-function sourceDraft() {
-  const evidenceWindow = buildEvidenceWindow({
-    dossierId: "dossier-1",
-    claims: [
-      {
-        id: "claim-1",
-        text: "The source says one thing.",
-        verdict: "supported",
-        sourceIds: ["source-1"],
-      },
-    ],
-    sources: [
-      {
-        id: "source-1",
-        title: "Primary source",
-        url: "https://example.org/source",
-        publisher: "Example",
-        publishedAt: "2026-09-25T12:00:00.000Z",
-        retrievedAt: "2026-09-25T12:05:00.000Z",
-        excerpt: "Evidence excerpt",
-      },
-    ],
-    findings: [],
-    openQuestions: [],
-  });
-  const storyPlan = buildEditorialStoryPlan({
-    dossierId: "dossier-1",
-    evidenceWindow,
-    locale: "de",
-    targetDurationMs: 1_000,
-  });
-  return buildVoxyStudioDraft({
-    draftId: "draft-source",
-    dossierId: "dossier-1",
+const FINGERPRINT = "a".repeat(64);
+const SOURCE_PACK_ID = `voxy-studio-dossier:dossier-1:${FINGERPRINT.slice(0, 40)}`;
+
+function plan(overrides: Partial<VoxyEditorialStoryPlan> = {}): VoxyEditorialStoryPlan {
+  return {
+    version: "voxy-editorial-story-plan-v1",
+    storyPlanId: "story-master-1",
+    revision: 4,
     briefingId: "brief-1",
+    dossierId: "dossier-1",
+    title: "Belegter Master",
     locale: "de",
-    evidenceWindow,
-    storyPlan,
-    createdByUserId: "user-1",
-    createdAt: "2026-09-26T05:00:00.000Z",
+    originalLanguage: "de",
+    outputLanguage: "de",
+    archetype: "explainer",
+    durationClass: "preview",
+    chapters: [
+      {
+        chapterId: "chapter-1",
+        role: "what_happened",
+        headline: "Ausgangslage",
+        narration: "Die belegte Ausgangslage.",
+        claimBindings: [],
+        sourceIds: ["source-1"],
+        findingIds: [],
+        openQuestionIds: [],
+        evidenceWindow: { kind: "source", sourceIds: ["source-1"], findingIds: [] },
+        consequences: [],
+        motion: "explaining",
+      },
+    ],
+    derivedFromStoryPlanId: null,
+    derivedFromRevision: null,
+    reviewRequired: true,
+    autoRender: false,
+    autoPublish: false,
+    ...overrides,
+  };
+}
+
+function frenchVariant(master: VoxyEditorialStoryPlan): VoxyEditorialLanguageVariantPlan {
+  const translated = plan({
+    storyPlanId: "story-fr-1",
+    revision: 1,
+    title: "Master vérifié",
+    locale: "fr",
+    originalLanguage: "de",
+    outputLanguage: "fr",
+    derivedFromStoryPlanId: master.storyPlanId,
+    derivedFromRevision: master.revision,
+    chapters: master.chapters.map((chapter) => ({
+      ...chapter,
+      headline: "Situation initiale",
+      narration: "La situation vérifiée.",
+    })),
+  });
+  return bindVoxyEditorialLanguageVariant({
+    masterPlan: master,
+    translatedPlan: translated,
+    evidenceSourcePackId: SOURCE_PACK_ID,
+    translationRevision: 1,
+    translationStatus: "approved",
   });
 }
 
-function variantDraftFrom(source: ReturnType<typeof sourceDraft>): EditorialLanguageVariantDraft {
-  return buildEditorialLanguageVariantDraft({
-    sourceDraft: source,
-    targetLocale: "fr",
-    createdByUserId: "user-1",
-    createdAt: "2026-09-26T05:10:00.000Z",
+function draft(draftId: string, storyPlan: VoxyEditorialStoryPlan): VoxyStudioDraft {
+  return {
+    draftId,
+    revision: 1,
+    dossierId: "dossier-1",
+    briefingId: "brief-1",
+    selectedFormat: "16:9",
+    status: "approved_for_render",
+    storyPlan,
+  } as VoxyStudioDraft;
+}
+
+function repository(drafts: VoxyStudioDraft[]): VoxyStudioDraftRepository {
+  return {
+    async createOrGetDraft({ draft: value }) {
+      return value;
+    },
+    async getDraft(draftId) {
+      return drafts.find((item) => item.draftId === draftId) ?? null;
+    },
+    async listDrafts(params) {
+      return drafts.filter(
+        (item) =>
+          (!params?.briefingId || item.briefingId === params.briefingId) &&
+          (!params?.dossierId || item.dossierId === params.dossierId) &&
+          (!params?.status || item.status === params.status),
+      );
+    },
+    async replaceDraftIfRevision() {
+      return false;
+    },
+    async appendAuditEvent() {},
+    async listAuditEvents() {
+      return [];
+    },
+    getPersistenceState() {
+      return {
+        mode: "persistent_primary",
+        productionTruth: true,
+        restartReconstructable: true,
+        deploymentReconstructable: true,
+      };
+    },
+  };
+}
+
+function masterDriftAuthority(variantDraft: VoxyStudioDraft, advancedMaster: VoxyStudioDraft) {
+  return createVoxyStudioLocalCompositionFreshnessAuthority({
+    draftRepository: repository([advancedMaster, variantDraft]),
+    evidenceAuthority: {
+      async resolveEvidenceContext() {
+        return {
+          sourcePack: {
+            sourcePackId: SOURCE_PACK_ID,
+            reviewState: "approved",
+            sources: [],
+            openGaps: [],
+            reviewRequired: false,
+            autoPublish: false,
+          },
+          claims: [],
+          findings: [],
+          openQuestions: [],
+        } as any;
+      },
+    },
+    editorialReviewAuthority: {
+      async resolveEditorialReview() {
+        throw new Error("review_resolution_must_not_be_reached_after_master_drift");
+      },
+    },
+    loadEvidenceReviewState: async () =>
+      ({
+        snapshot: { fingerprint: FINGERPRINT },
+        approved: true,
+        reviewRecord: null,
+        persistence: { mode: "persistent_primary" },
+      }) as any,
   });
 }
 
 describe("Voxy language-variant master freshness at render/worker boundary", () => {
-  it("accepts the current language master binding", async () => {
-    const source = sourceDraft();
-    const variantDraft = variantDraftFrom(source);
-    const store = createInMemoryVoxyStudioDraftStore({
-      drafts: [source, variantDraft],
+  it("keeps an approved variant current while its exact master revision is unchanged", async () => {
+    const master = plan();
+    const variantDraft = draft("draft-fr", frenchVariant(master));
+    const result = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: variantDraft,
+      draftRepository: repository([draft("draft-master", master), variantDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
     });
-    const freshnessAuthority = createVoxyStudioLocalCompositionFreshnessAuthority({
-      draftStore: store,
-    });
-
-    await expect(
-      freshnessAuthority.assertCurrent({
-        job: {
-          artifactId: variantDraft.draftId,
-          renderProfile: "editorial_v1",
-        } as VoxyLocalCompositionJob,
-        request: {
-          artifactId: variantDraft.draftId,
-          renderProfile: "editorial_v1",
-        } as VoxyLocalCompositionRequest,
-      }),
-    ).resolves.toBeUndefined();
+    expect(result).toEqual({ current: true, blockers: [] });
   });
 
-  it("rejects a language variant after source master drift", async () => {
-    const source = sourceDraft();
-    const variantDraft = variantDraftFrom(source);
-    const driftedSource = {
-      ...source,
-      revision: source.revision + 1,
-      storyPlan: {
-        ...source.storyPlan,
-        revision: source.storyPlan.revision + 1,
-      },
-      updatedAt: "2026-09-26T05:20:00.000Z",
-    };
-    const store = createInMemoryVoxyStudioDraftStore({
-      drafts: [driftedSource, variantDraft],
+  it("fails closed when the current master revision advances after variant approval", async () => {
+    const master = plan();
+    const variantDraft = draft("draft-fr", frenchVariant(master));
+    const advancedMaster = draft("draft-master", plan({ revision: 5 }));
+    const result = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: variantDraft,
+      draftRepository: repository([advancedMaster, variantDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
     });
-    const freshnessAuthority = createVoxyStudioLocalCompositionFreshnessAuthority({
-      draftStore: store,
-    });
-
-    await expect(
-      freshnessAuthority.assertCurrent({
-        job: {
-          artifactId: variantDraft.draftId,
-          renderProfile: "editorial_v1",
-        } as VoxyLocalCompositionJob,
-        request: {
-          artifactId: variantDraft.draftId,
-          renderProfile: "editorial_v1",
-        } as VoxyLocalCompositionRequest,
-      }),
-    ).rejects.toThrow("language_variant_master_stale");
+    expect(result.current).toBe(false);
+    expect(result.blockers).toContain("language_variant_master_revision_changed");
   });
 
-  it("rejects a language variant after source evidence drift", async () => {
-    const source = sourceDraft();
-    const variantDraft = variantDraftFrom(source);
-    const driftedSource = {
-      ...source,
-      evidenceWindow: {
-        ...source.evidenceWindow,
-        fingerprint: "changed-evidence-fingerprint",
-      },
-      updatedAt: "2026-09-26T05:20:00.000Z",
-    };
-    const store = createInMemoryVoxyStudioDraftStore({
-      drafts: [driftedSource, variantDraft],
-    });
-    const freshnessAuthority = createVoxyStudioLocalCompositionFreshnessAuthority({
-      draftStore: store,
-    });
+  it("makes the production worker freshness authority reject master-only drift", async () => {
+    const master = plan();
+    const variantDraft = draft("draft-fr", frenchVariant(master));
+    const advancedMaster = draft("draft-master", plan({ revision: 5 }));
+    const authority = masterDriftAuthority(variantDraft, advancedMaster);
 
     await expect(
-      freshnessAuthority.assertCurrent({
-        job: {
-          artifactId: variantDraft.draftId,
-          renderProfile: "editorial_v1",
-        } as VoxyLocalCompositionJob,
+      authority.assertCurrent({
+        job: {} as VoxyLocalCompositionJob,
         request: {
-          artifactId: variantDraft.draftId,
           renderProfile: "editorial_v1",
+          artifactId: variantDraft.draftId,
         } as VoxyLocalCompositionRequest,
       }),
-    ).rejects.toThrow("language_variant_master_evidence_stale");
+    ).rejects.toThrow("language_variant_master_revision_changed");
   });
 
   it("blocks the real worker path before any executor call after master-only drift", async () => {
-    const source = sourceDraft();
-    const variantDraft = variantDraftFrom(source);
-    const driftedSource = {
-      ...source,
-      revision: source.revision + 1,
-      storyPlan: {
-        ...source.storyPlan,
-        revision: source.storyPlan.revision + 1,
-      },
-      updatedAt: "2026-09-26T05:20:00.000Z",
-    };
-    const store = createInMemoryVoxyStudioDraftStore({
-      drafts: [driftedSource, variantDraft],
-    });
-    const freshnessAuthority = createVoxyStudioLocalCompositionFreshnessAuthority({
-      draftStore: store,
-    });
+    const master = plan();
+    const variantDraft = draft("draft-fr", frenchVariant(master));
+    const advancedMaster = draft("draft-master", plan({ revision: 5 }));
+    const freshnessAuthority = masterDriftAuthority(variantDraft, advancedMaster);
     const request = {
       requestedByUserId: "user-1",
       artifactId: variantDraft.draftId,
