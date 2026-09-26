@@ -26,7 +26,10 @@ import {
   evaluateVoxyStudioAllFormatLayoutSafety,
   mergeVoxyStudioAllFormatLayoutSafetyIntoValidation,
 } from "@/features/voxyVideo/studioLayoutSafety";
-import { buildVoxyStudioLocaleReviewMatrices } from "@/features/voxyVideo/studioLocaleReviewMatrix";
+import {
+  buildVoxyStudioLocaleReviewMatrices,
+  isVoxyStudioLocaleApprovalCurrent,
+} from "@/features/voxyVideo/studioLocaleReviewMatrix";
 import { buildVoxyStudioProductionContext } from "@/features/voxyVideo/studioProductionContext";
 import { buildVoxyStudioStoryPlanFromDossier } from "@/features/voxyVideo/studioStoryPlanBuilder";
 import { getReviewQueueOperationsRepository } from "@features/reviewQueueOperations";
@@ -102,6 +105,15 @@ export async function GET(req: NextRequest) {
           reviewRepository.getRecord(reviewItemId),
           reviewRepository.listAuditEvents(reviewItemId),
         ]);
+        const evidenceAndGateCurrent =
+          evidenceReview?.approved === true &&
+          draft.renderApproval?.decisionGateId === decisionGateId;
+        const approvalReviewCurrent = isVoxyStudioLocaleApprovalCurrent({
+          draft,
+          evidenceAndGateCurrent,
+          reviewRecord,
+          reviewAuditEvents,
+        });
         return {
           draft,
           validation,
@@ -114,6 +126,7 @@ export async function GET(req: NextRequest) {
           approvalEvidenceStale:
             draft.status === "approved_for_render" &&
             draft.renderApproval?.decisionGateId !== decisionGateId,
+          approvalReviewCurrent,
           reviewRecord,
           reviewAuditEvents: reviewAuditEvents.slice(0, 10),
         };
@@ -134,11 +147,7 @@ export async function GET(req: NextRequest) {
   ]);
   const audioInputsByDraftId = Object.fromEntries(audioEntries);
   const approvalCurrentByDraftId = Object.fromEntries(
-    items.map((item) => [
-      item.draft.draftId,
-      item.evidenceReview?.approved === true &&
-        item.draft.renderApproval?.decisionGateId === item.decisionGateId,
-    ]),
+    items.map((item) => [item.draft.draftId, item.approvalReviewCurrent]),
   );
   const localeReviewMatrices = buildVoxyStudioLocaleReviewMatrices({
     drafts,
