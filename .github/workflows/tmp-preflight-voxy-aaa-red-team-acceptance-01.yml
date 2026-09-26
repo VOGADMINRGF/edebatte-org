@@ -1,0 +1,24 @@
+name: Temporary Voxy AAA red-team preflight
+on:
+  push:
+    branches:
+      - chore/preflight-voxy-aaa-red-team-acceptance-01
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Verify exact main and run canonical task preflight
+        env:
+          EXPECTED_MAIN: 438740daf95e5bbcc95605fe5bb5421405cfb7ae
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs VOXY-AAA-RED-TEAM-ACCEPTANCE-01
