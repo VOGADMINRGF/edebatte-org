@@ -20,14 +20,14 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main
-          test "$(git rev-parse origin/main)" = "6d17563fd226edf87730a1ccb52405528f7ca73f"
-          test "$(git merge-base HEAD origin/main)" = "6d17563fd226edf87730a1ccb52405528f7ca73f"
+          test "$(git rev-parse origin/main)" = "386026ca5830f08d996a8c6e91f85d7e5367daf4"
+          test "$(git merge-base HEAD origin/main)" = "386026ca5830f08d996a8c6e91f85d7e5367daf4"
       - name: Canonical task preflight on main
         shell: bash
         run: |
           set -euo pipefail
           git checkout -B main origin/main
-          test "$(git rev-parse HEAD)" = "6d17563fd226edf87730a1ccb52405528f7ca73f"
+          test "$(git rev-parse HEAD)" = "386026ca5830f08d996a8c6e91f85d7e5367daf4"
           node scripts/codex-task-preflight.mjs VOXY-LOCAL-COMPOSITION-RECOVERY-01 2>&1 | tee /tmp/preflight.json
           grep -q '"status": "codex_ready"' /tmp/preflight.json
           grep -q '"executable": true' /tmp/preflight.json
