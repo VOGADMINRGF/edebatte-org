@@ -1,0 +1,68 @@
+name: Voxy Work F4 materialize final
+
+on:
+  push:
+    branches:
+      - fix/voxy-review-consistency-f4-projection-01
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+      - name: Verify exact main and clean product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main fix/voxy-review-consistency-f4-projection-final-01
+          test "$(git rev-parse origin/main)" = "53efe5bb29f81857b1280a74dbc22807ff37d307"
+          test "$(git rev-parse origin/fix/voxy-review-consistency-f4-projection-final-01)" = "53efe5bb29f81857b1280a74dbc22807ff37d307"
+      - name: Extract already-validated patch program
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+          src = Path('.github/workflows/voxy-work-f4-implement-01.yml').read_text()
+          start = src.index("          python - <<'PY'\n") + len("          python - <<'PY'\n")
+          end = src.index("\n          PY\n", start)
+          Path('/tmp/apply-f4.py').write_text(textwrap.dedent(src[start:end]) + '\n')
+          PY
+      - name: Apply on clean product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B product-f4 origin/fix/voxy-review-consistency-f4-projection-final-01
+          python /tmp/apply-f4.py
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          test "$changed" = $'apps/web/src/app/api/admin/voxy-studio/route.ts\napps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts\napps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts'
+      - name: Install and verify exact product delta
+        run: pnpm install --frozen-lockfile
+      - name: Focused F4 contracts and typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm -C apps/web exec vitest run tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-preview-review.contract.test.ts tests/voxy-studio-evidence-review.contract.test.ts
+          pnpm -C apps/web run typecheck
+          git diff --check
+      - name: Commit product-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src/app/api/admin/voxy-studio/route.ts apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts
+          git commit -m 'fix(voxy): align locale approval with current review truth'
+          git push origin HEAD:fix/voxy-review-consistency-f4-projection-final-01
