@@ -80,6 +80,31 @@ export const Alpha2LessonSchema = z
 export type Alpha2LessonReview = z.infer<typeof Alpha2LessonReviewSchema>;
 export type Alpha2Lesson = z.infer<typeof Alpha2LessonSchema>;
 
+export function assertAlpha2LessonCreationIdentity(
+  existing: Alpha2Lesson,
+  incoming: Alpha2Lesson,
+) {
+  const current = Alpha2LessonSchema.parse(existing);
+  const replay = Alpha2LessonSchema.parse(incoming);
+  const immutable = (lesson: Alpha2Lesson) => ({
+    schemaVersion: lesson.schemaVersion,
+    lessonId: lesson.lessonId,
+    kind: lesson.kind,
+    title: lesson.title,
+    statement: lesson.statement,
+    scopeKeys: lesson.scopeKeys,
+    proposedByRole: lesson.proposedByRole,
+    sourceRunIds: lesson.sourceRunIds,
+    evidenceRefs: lesson.evidenceRefs,
+    confidence: lesson.confidence,
+    supersedesLessonId: lesson.supersedesLessonId,
+    createdAt: lesson.createdAt,
+  });
+  if (JSON.stringify(immutable(current)) !== JSON.stringify(immutable(replay))) {
+    throw new Error("alpha2_lesson_idempotency_conflict");
+  }
+}
+
 export function proposeAlpha2Lesson(input: {
   lessonId: string;
   kind: Alpha2LessonKind;
