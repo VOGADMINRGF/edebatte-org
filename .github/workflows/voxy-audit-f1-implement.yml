@@ -27,6 +27,7 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
           test "$(git merge-base HEAD origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
+          python3 scripts/tmp-voxy-f1-fix-patcher.py
           python3 scripts/tmp-voxy-f1-apply.py
       - name: Verify focused F1 contracts and full typecheck
         shell: bash
@@ -40,7 +41,7 @@ jobs:
             tests/voxy-local-composition-runtime.contract.test.ts
           pnpm -C apps/web run typecheck
           git diff --check
-          mapfile -t files < <(git diff --name-only | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
+          mapfile -t files < <(git diff --name-only | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
           test "${#files[@]}" -eq 4
           printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-local-composition-runtime.yml'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts'
@@ -57,6 +58,6 @@ jobs:
             apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts \
             'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts' \
             apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts
-          git rm .github/workflows/voxy-audit-f1-implement.yml scripts/tmp-voxy-f1-apply.py
+          git rm .github/workflows/voxy-audit-f1-implement.yml scripts/tmp-voxy-f1-apply.py scripts/tmp-voxy-f1-fix-patcher.py
           git commit -m "fix(voxy): invalidate variants on master drift"
           git push origin HEAD:fix/voxy-master-variant-freshness-01
