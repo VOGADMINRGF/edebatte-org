@@ -277,7 +277,7 @@ describe("Alpha2 GitHub state adapter contract", () => {
       ownership: toAlpha2TaskOwnershipEvidence(failedCi),
     });
     expect(blocked.newSliceEligible).toBe(false);
-    expect(blocked.reasonCodes).toContain("owner_ci_failed");
+    expect(blocked.reasonCodes).toContain("ci_failure_requires_repair_or_review");
   });
 
   it("emits SafeTrace metadata only and never accepts or exposes credentials", () => {
