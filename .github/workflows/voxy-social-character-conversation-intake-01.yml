@@ -1,0 +1,96 @@
+name: Voxy social character conversation intake writer
+
+on:
+  push:
+    branches:
+      - docs/voxy-social-character-conversation-intake-01
+
+permissions:
+  contents: write
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact main and OpenTasks blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "436792e81629fa54624d7863ca0c957e87124b6d"
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "ae3c1004226b34ffa9e78578bc2c2cd98afea4f2"
+          test "$(git merge-base HEAD origin/main)" = "436792e81629fa54624d7863ca0c957e87124b6d"
+
+      - name: Insert intake row losslessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          task_id = 'VOXY-SOCIAL-CHARACTER-CONVERSATION-RUNTIME-01'
+          if task_id in text:
+              raise SystemExit(f'{task_id} already present')
+
+          lines = text.splitlines()
+          anchors = [
+              'VOXY-AAA-RED-TEAM-ACCEPTANCE-01',
+              'VOXY-EXTERNAL-PERSONAL-CONNECTORS-01',
+              'VOXY-LOCAL-COMPOSITION-RECOVERY-01',
+              'VOXY-EU24-MULTILINGUAL-EDITORIAL-01',
+          ]
+          anchor_index = None
+          anchor_name = None
+          for candidate in anchors:
+              hits = [i for i, line in enumerate(lines) if line.startswith(f'| {candidate} |')]
+              if len(hits) == 1:
+                  anchor_index = hits[0]
+                  anchor_name = candidate
+                  break
+              if len(hits) > 1:
+                  raise SystemExit(f'anchor not unique: {candidate} ({len(hits)})')
+          if anchor_index is None:
+              raise SystemExit('no canonical Voxy OpenTasks anchor found')
+
+          row = (
+              '| VOXY-SOCIAL-CHARACTER-CONVERSATION-RUNTIME-01 | blocked | P2 | '
+              'Issue `#1095`; next-stage Voxy Social Character & Conversation Runtime intake; final holistic Voxy AAA Work closeout still pending; roadmap priority, not a newly asserted runtime-defect severity | '
+              '**Intake/specification only:** slices A-F from #1095; add only the missing provider-independent Social Comment/conversation core and versioned textual Voxy Character Contract, then triage/context/no_response/composer/repetition/trust/audit/learning-candidate integration; reuse existing Unified Review Queue, Dossier/Evidence truth, Voxy render/social handoff, output-engine social distribution runtime and connector scheduler; no provider calls, reply dispatch or production auto-allow authorized | '
+              'No second review queue, Character runtime, Evidence truth or publishing stack; comment/reply idempotency and no double-post; high-risk political/factual replies human-review-required; no fake engagement, covert persuasion or political user profiling; kill switch/rate limits before any later production rollout; no auto-publish bypass; remains non-executable until the final Voxy AAA Work closeout is available and a later explicit executable slice passes canonical preflight |'
+          )
+          if row.count('|') != lines[anchor_index].count('|'):
+              raise SystemExit(
+                  f'table shape mismatch against {anchor_name}: '
+                  f'new={row.count("|")} anchor={lines[anchor_index].count("|")}'
+              )
+
+          lines.insert(anchor_index + 1, row)
+          updated = '\n'.join(lines) + ('\n' if text.endswith('\n') else '')
+          if updated.count(task_id) != 1:
+              raise SystemExit('new task row not unique after insert')
+          p.write_text(updated)
+          print(f'inserted after {anchor_name}')
+          PY
+
+          git diff --check -- docs/E150/OpenTasks.md
+          test "$(git diff --numstat origin/main -- docs/E150/OpenTasks.md | awk '{print $1":"$2}')" = "1:0"
+          grep -Fq '| VOXY-SOCIAL-CHARACTER-CONVERSATION-RUNTIME-01 | blocked | P2 |' docs/E150/OpenTasks.md
+
+      - name: Commit SSOT intake only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/E150/OpenTasks.md
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "1"
+          test "$(git diff --cached --name-only)" = "docs/E150/OpenTasks.md"
+          git commit -m 'docs(e150): add Voxy social conversation next-stage intake'
+          git push origin HEAD
