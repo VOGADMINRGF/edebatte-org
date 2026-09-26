@@ -42,21 +42,25 @@ jobs:
               raise SystemExit(f'expected exactly one blocked P0 operative row, found {len(matches)}')
           match = matches[0]
 
-          tail_match = re.search(r'^##\s+.*(?:Histor|Archiv).*$' , text[match.end():], re.MULTILINE | re.IGNORECASE)
+          marker_re = re.compile(r'^##\s+.*(?:Histor|Archiv).*$' , re.MULTILINE | re.IGNORECASE)
+          tail_match = marker_re.search(text, match.end())
           if not tail_match:
               raise SystemExit('historical tail marker not found')
-          tail_start = match.end() + tail_match.start()
-          tail_before = text[tail_start:]
-          if hashlib.sha256(tail_before.encode()).hexdigest() != os.environ['HISTORICAL_TAIL_SHA256']:
+          tail_before = text[tail_match.start():]
+          expected_hash = os.environ['HISTORICAL_TAIL_SHA256']
+          if hashlib.sha256(tail_before.encode()).hexdigest() != expected_hash:
               raise SystemExit('historical tail hash mismatch before mutation')
 
           old_row = match.group(0)
           new_row = old_row.replace('| blocked |', '| codex_ready |', 1)
           updated = text[:match.start()] + new_row + text[match.end():]
-          tail_after = updated[tail_start:]
+          updated_tail_match = marker_re.search(updated, match.start() + len(new_row))
+          if not updated_tail_match:
+              raise SystemExit('historical tail marker disappeared after mutation')
+          tail_after = updated[updated_tail_match.start():]
           if tail_after != tail_before:
               raise SystemExit('historical tail bytes changed')
-          if hashlib.sha256(tail_after.encode()).hexdigest() != os.environ['HISTORICAL_TAIL_SHA256']:
+          if hashlib.sha256(tail_after.encode()).hexdigest() != expected_hash:
               raise SystemExit('historical tail hash mismatch after mutation')
           path.write_text(updated)
           PY
