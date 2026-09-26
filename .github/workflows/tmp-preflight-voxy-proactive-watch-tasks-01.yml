@@ -1,0 +1,28 @@
+name: Temporary Voxy proactive watch preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-voxy-proactive-watch-tasks-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Verify exact main and run canonical task preflight
+        env:
+          EXPECTED_MAIN: ccde79d1da0549de3ebbb6de2fd4ff127bc662db
+        shell: bash
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs VOXY-PROACTIVE-WATCH-TASKS-01
