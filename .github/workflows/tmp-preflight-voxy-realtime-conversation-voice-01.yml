@@ -1,0 +1,28 @@
+name: Temporary Voxy realtime voice preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-voxy-realtime-conversation-voice-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Verify exact main and run canonical task preflight
+        shell: bash
+        env:
+          EXPECTED_MAIN: 76fccb5f76a28e693a1ba8ecbf3622f40453c055
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs VOXY-REALTIME-CONVERSATION-VOICE-01
