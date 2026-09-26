@@ -6,6 +6,14 @@ import {
   type Alpha2ExecutionJob,
 } from "@/features/agenticRuntime/alpha2BullmqExecutionQueue";
 import {
+  continueAlpha2AfterCompletedRun,
+  shouldSignalGlobalAlpha2RunCompleted,
+} from "@/features/agenticRuntime/alpha2ContinuousDispatcher";
+import type {
+  Alpha2ContinuationPlanner,
+  Alpha2ContinuationTaskClaimer,
+} from "@/features/agenticRuntime/alpha2ContinuousDispatchContract";
+import {
   runAlpha2DurableStep,
   startAlpha2RecoveryScheduler,
   createAlpha2ResolvingExecutor,
@@ -94,6 +102,8 @@ export async function handleAlpha2ExecutionJob(input: {
   currentHeadSha: string;
   executorResolutionTimeoutMs?: number;
   orchestratorLoop?: Alpha2RuntimeOrchestratorLoop;
+  continuationPlanner?: Alpha2ContinuationPlanner;
+  continuationTaskClaimer?: Alpha2ContinuationTaskClaimer;
   onOrchestratorError?: (error: unknown) => void;
 }) {
   const ledger = getAlpha2MongoRunLedger();
@@ -116,12 +126,29 @@ export async function handleAlpha2ExecutionJob(input: {
   });
 
   if (result.state === "executed" && result.run.status === "completed") {
-    await signalAlpha2Orchestrator({
-      loop: input.orchestratorLoop,
-      trigger: "run_completed",
-      run: result.run,
-      onError: input.onOrchestratorError,
-    });
+    let continuation = null;
+    if (input.continuationPlanner && input.continuationTaskClaimer) {
+      try {
+        continuation = await continueAlpha2AfterCompletedRun({
+          completedRun: result.run,
+          ledger,
+          dispatcher,
+          planner: input.continuationPlanner,
+          taskClaimer: input.continuationTaskClaimer,
+        });
+      } catch (error) {
+        input.onOrchestratorError?.(error);
+      }
+    }
+
+    if (shouldSignalGlobalAlpha2RunCompleted(continuation)) {
+      await signalAlpha2Orchestrator({
+        loop: input.orchestratorLoop,
+        trigger: "run_completed",
+        run: result.run,
+        onError: input.onOrchestratorError,
+      });
+    }
   }
 
   return result;
@@ -138,6 +165,8 @@ export function startAlpha2ControlPlaneRuntime(input: {
   executorResolutionTimeoutMs?: number;
   currentHeadSha: string;
   orchestratorLoop?: Alpha2RuntimeOrchestratorLoop;
+  continuationPlanner?: Alpha2ContinuationPlanner;
+  continuationTaskClaimer?: Alpha2ContinuationTaskClaimer;
   onOrchestratorError?: (error: unknown) => void;
 }) {
   const ledger = getAlpha2MongoRunLedger();
@@ -155,6 +184,8 @@ export function startAlpha2ControlPlaneRuntime(input: {
         currentHeadSha: input.currentHeadSha,
         executorResolutionTimeoutMs: input.executorResolutionTimeoutMs,
         orchestratorLoop: input.orchestratorLoop,
+        continuationPlanner: input.continuationPlanner,
+        continuationTaskClaimer: input.continuationTaskClaimer,
         onOrchestratorError: input.onOrchestratorError,
       }),
   });
