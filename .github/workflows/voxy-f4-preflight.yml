@@ -1,0 +1,25 @@
+name: Voxy F4 canonical preflight
+
+on:
+  push:
+    branches: [ chore/preflight-voxy-studio-review-consistency-f4-01 ]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and run canonical task preflight
+        env:
+          EXPECTED_MAIN: 53efe5bb29f81857b1280a74dbc22807ff37d307
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs VOXY-STUDIO-REVIEW-CONSISTENCY-01
