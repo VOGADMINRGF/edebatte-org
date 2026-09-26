@@ -1,0 +1,31 @@
+name: Voxy AAA1 current-main diagnostic
+
+on:
+  push:
+    branches:
+      - chore/voxy-aaa1-current-main-diagnostic-02
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect current AAA1 owner row
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          echo "MAIN_SHA=$(git rev-parse origin/main)"
+          echo "OPENTASKS_BLOB=$(git rev-parse origin/main:docs/E150/OpenTasks.md)"
+          git show origin/main:docs/E150/OpenTasks.md > /tmp/OpenTasks.md
+          python - <<'PY'
+          from pathlib import Path
+          rows=[line for line in Path('/tmp/OpenTasks.md').read_text().splitlines() if line.startswith('| VOXY-EU24-MULTILINGUAL-EDITORIAL-01 |')]
+          print(f'COUNT={len(rows)}')
+          for row in rows: print(f'ROW={row}')
+          PY
