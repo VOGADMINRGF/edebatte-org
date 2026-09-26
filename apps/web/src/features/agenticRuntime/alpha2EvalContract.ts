@@ -40,7 +40,7 @@ export const Alpha2EvalRecordSchema = z
     latencyMs: z.number().int().nonnegative(),
     estimatedCostEur: z.number().nonnegative().optional(),
     humanInterventions: z.number().int().nonnegative(),
-    evidenceRefs: z.array(z.string().min(1)).default([]),
+    evidenceRefs: z.array(z.string().min(1)).min(1),
     createdAt: z.string().datetime(),
   })
   .strict()
@@ -60,6 +60,17 @@ export const Alpha2EvalRecordSchema = z
   });
 
 export type Alpha2EvalRecord = z.infer<typeof Alpha2EvalRecordSchema>;
+
+export function assertAlpha2EvalReplayIdentity(
+  existing: Alpha2EvalRecord,
+  incoming: Alpha2EvalRecord,
+) {
+  const current = Alpha2EvalRecordSchema.parse(existing);
+  const replay = Alpha2EvalRecordSchema.parse(incoming);
+  if (JSON.stringify(current) !== JSON.stringify(replay)) {
+    throw new Error("alpha2_eval_idempotency_conflict");
+  }
+}
 
 export type Alpha2ProviderPerformance = {
   capability: string;
@@ -217,7 +228,7 @@ export function buildAlpha2EvalRecord(input: {
   latencyMs: number;
   estimatedCostEur?: number;
   humanInterventions?: number;
-  evidenceRefs?: string[];
+  evidenceRefs: string[];
   createdAt?: string;
 }): Alpha2EvalRecord {
   return Alpha2EvalRecordSchema.parse({
@@ -227,7 +238,6 @@ export function buildAlpha2EvalRecord(input: {
     reviewerDefectCount: input.reviewerDefectCount ?? 0,
     policyViolationCount: input.policyViolationCount ?? 0,
     humanInterventions: input.humanInterventions ?? 0,
-    evidenceRefs: input.evidenceRefs ?? [],
     createdAt: input.createdAt ?? new Date().toISOString(),
   });
 }
