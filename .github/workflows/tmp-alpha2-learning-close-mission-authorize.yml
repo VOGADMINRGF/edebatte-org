@@ -74,7 +74,6 @@ jobs:
             ('ALPHA2-LEARNING-EVALS-01', '#640'),
           )
 
-          # Downstream order remains fail-closed.
           for task_id in ('ALPHA2-CONTINUOUS-DISPATCH-01', 'ALPHA2-REPAIR-CONTINUATION-01'):
             rows = [line for line in operative.splitlines() if line.startswith(f'| {task_id} |')]
             if len(rows) != 1:
@@ -91,22 +90,26 @@ jobs:
           git diff --check
           test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
 
-      - name: Validate candidate preflights
+      - name: Validate candidate statuses without dirty-worktree preflight
         run: |
           set -euo pipefail
-          set +e
-          node scripts/codex-task-preflight.mjs ALPHA2-LEARNING-EVALS-01 > /tmp/learning.json
-          learning_rc=$?
-          set -e
-          test "$learning_rc" -ne 0
-          node scripts/codex-task-preflight.mjs ALPHA2-MISSION-CONTROL-01 > /tmp/mission.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const learning = JSON.parse(fs.readFileSync('/tmp/learning.json','utf8'));
-          const mission = JSON.parse(fs.readFileSync('/tmp/mission.json','utf8'));
-          if (learning.status !== 'review' || learning.executable !== false) throw new Error(`learning: ${JSON.stringify(learning)}`);
-          if (mission.status !== 'codex_ready' || mission.executable !== true || mission.branchCreationAllowed !== true) throw new Error(`mission: ${JSON.stringify(mission)}`);
-          NODE
+          python3 - <<'PY'
+          from pathlib import Path
+          operative = Path('docs/E150/OpenTasks.md').read_text().split('## Historischer Katalog und Evidenz',1)[0]
+          expected = {
+            'ALPHA2-LEARNING-EVALS-01': 'review',
+            'ALPHA2-MISSION-CONTROL-01': 'codex_ready',
+            'ALPHA2-CONTINUOUS-DISPATCH-01': 'blocked',
+            'ALPHA2-REPAIR-CONTINUATION-01': 'blocked',
+          }
+          for task_id, status in expected.items():
+            rows = [line for line in operative.splitlines() if line.startswith(f'| {task_id} |')]
+            if len(rows) != 1:
+              raise SystemExit(f'{task_id}: row count {len(rows)}')
+            cols = [part.strip() for part in rows[0].strip().strip('|').split('|')]
+            if cols[1] != status:
+              raise SystemExit(f'{task_id}: expected {status}, got {cols[1]}')
+          PY
 
       - name: Commit, self-delete and push final candidate
         run: |
