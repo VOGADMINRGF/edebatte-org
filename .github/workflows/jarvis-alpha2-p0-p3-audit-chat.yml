@@ -17,11 +17,23 @@ jobs:
           fetch-depth: 0
       - name: Verify exact main and print Jarvis/Voxy/Alpha2 operative rows
         env:
-          EXPECTED_MAIN: 53efe5bb29f81857b1280a74dbc22807ff37d307
+          EXPECTED_MAIN: 71f72c489e2fcf322f83a3db9b80164c1d7244b9
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
-          echo '=== ALPHA2 ==='
-          grep -nE '^\| ALPHA2-' docs/E150/OpenTasks.md || true
-          echo '=== VOXY/JARVIS AAA ==='
-          grep -nE '^\| (VOXY-|PERSONAL-VOXY-|SHARED-CONVERSATION-)' docs/E150/OpenTasks.md || true
+          node <<'NODE'
+          const fs = require('fs');
+          const text = fs.readFileSync('docs/E150/OpenTasks.md','utf8');
+          const start = text.indexOf('## Kanonischer Operativteil');
+          const markers = ['## Historischer Katalog und Evidenz', '## Historisches Archiv'];
+          const ends = markers.map(m => text.indexOf(m, start + 1)).filter(i => i >= 0);
+          const end = Math.min(...ends);
+          const head = text.slice(start, end);
+          const rows = head.split(/\r?\n/).filter(line => /^\| (ALPHA2-|VOXY-|PERSONAL-VOXY-|SHARED-CONVERSATION-)/.test(line));
+          const parsed = rows.map(line => {
+            const c = line.split('|').slice(1,-1).map(x => x.trim());
+            return { id:c[0], status:c[1], priority:c[2], dependencies:c[3] };
+          });
+          console.log(JSON.stringify(parsed, null, 2));
+          console.log('OPEN_P0_P3=' + JSON.stringify(parsed.filter(r => /^P[0-3]$/.test(r.priority) && !['done','review'].includes(r.status))));
+          NODE
