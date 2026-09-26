@@ -1,1 +1,0 @@
-CI trigger for exact-head validation of PR #1086. This file is deleted immediately; final PR tree remains unchanged.
