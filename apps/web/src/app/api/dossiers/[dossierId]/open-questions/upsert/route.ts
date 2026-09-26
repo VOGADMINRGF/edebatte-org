@@ -3,7 +3,7 @@ import { z } from "zod";
 import { openQuestionsCol, updateDossierCounts } from "@features/dossier/db";
 import { OpenQuestionStatusSchema, ResponsibilityTypeSchema } from "@features/dossier/schemas";
 import { makeDossierEntityId } from "@features/dossier/ids";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { requireDossierEditor } from "@/lib/server/auth/dossier";
 
 export const runtime = "nodejs";
@@ -49,37 +49,44 @@ export async function POST(
 
   for (const item of body.items) {
     const questionId = item.questionId ?? makeDossierEntityId("question");
-    const res = await col.findOneAndUpdate(
-      { dossierId, questionId },
-      {
-        $set: {
-          text: item.text,
-          status: item.status ?? "open",
-          responsibility: item.responsibility,
-          links: item.links,
-          updatedAt: now,
-        },
-        $setOnInsert: {
-          dossierId,
-          questionId,
-          createdAt: now,
-        },
-      },
-      { upsert: true, returnDocument: "before", includeResultMetadata: true },
-    );
-
-    const created = !res.value;
-    await logDossierRevision({
+    const transaction = await mutateDossierWithRevision({
       dossierId,
-      entityType: "open_question",
-      entityId: questionId,
-      action: created ? "create" : "update",
-      diffSummary: created ? "Offene Frage erstellt." : "Offene Frage aktualisiert.",
-      byRole: auth.actorRole,
-      byUserId: auth.userId,
+      mutate: async (session) => {
+        const res = await col.findOneAndUpdate(
+          { dossierId, questionId },
+          {
+            $set: {
+              text: item.text,
+              status: item.status ?? "open",
+              responsibility: item.responsibility,
+              links: item.links,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              dossierId,
+              questionId,
+              createdAt: now,
+            },
+          },
+          { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+        );
+
+        const created = !res.value;
+        return {
+          result: { questionId, created },
+          revision: {
+            entityType: "open_question",
+            entityId: questionId,
+            action: created ? "create" : "update",
+            diffSummary: created ? "Offene Frage erstellt." : "Offene Frage aktualisiert.",
+            byRole: auth.actorRole,
+            byUserId: auth.userId,
+          },
+        };
+      },
     });
 
-    results.push({ questionId, created });
+    results.push(transaction.result);
   }
 
   const counts = await updateDossierCounts(dossierId, "Offene Frage Update");
