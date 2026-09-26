@@ -2,10 +2,12 @@ import type { Model } from "mongoose";
 import { mongo, mongoose } from "@core/db/mongoose";
 import {
   Alpha2EvalRecordSchema,
+  assertAlpha2EvalReplayIdentity,
   type Alpha2EvalRecord,
 } from "@/features/agenticRuntime/alpha2EvalContract";
 import {
   Alpha2LessonSchema,
+  assertAlpha2LessonCreationIdentity,
   type Alpha2Lesson,
 } from "@/features/agenticRuntime/alpha2LearningContract";
 import type { Alpha2LearningStore } from "@/features/agenticRuntime/alpha2LearningStoreContract";
@@ -80,7 +82,11 @@ export class Alpha2MongoLearningStore implements Alpha2LearningStore {
     const parsed = Alpha2EvalRecordSchema.parse(record);
     const Model = await evalModel();
     const existing = await Model.findOne({ evalId: parsed.evalId });
-    if (existing) return { created: false, record: evalFromDoc(existing) };
+    if (existing) {
+      const stored = evalFromDoc(existing);
+      assertAlpha2EvalReplayIdentity(stored, parsed);
+      return { created: false, record: stored };
+    }
 
     try {
       const created = await Model.create({
@@ -98,7 +104,9 @@ export class Alpha2MongoLearningStore implements Alpha2LearningStore {
       if (error?.code !== 11000) throw error;
       const raced = await Model.findOne({ evalId: parsed.evalId });
       if (!raced) throw error;
-      return { created: false, record: evalFromDoc(raced) };
+      const stored = evalFromDoc(raced);
+      assertAlpha2EvalReplayIdentity(stored, parsed);
+      return { created: false, record: stored };
     }
   }
 
@@ -116,7 +124,11 @@ export class Alpha2MongoLearningStore implements Alpha2LearningStore {
     const parsed = Alpha2LessonSchema.parse(lesson);
     const Model = await lessonModel();
     const existing = await Model.findOne({ lessonId: parsed.lessonId });
-    if (existing) return { created: false, lesson: lessonFromDoc(existing) };
+    if (existing) {
+      const stored = lessonFromDoc(existing);
+      assertAlpha2LessonCreationIdentity(stored, parsed);
+      return { created: false, lesson: stored };
+    }
 
     try {
       const created = await Model.create({
@@ -133,7 +145,9 @@ export class Alpha2MongoLearningStore implements Alpha2LearningStore {
       if (error?.code !== 11000) throw error;
       const raced = await Model.findOne({ lessonId: parsed.lessonId });
       if (!raced) throw error;
-      return { created: false, lesson: lessonFromDoc(raced) };
+      const stored = lessonFromDoc(raced);
+      assertAlpha2LessonCreationIdentity(stored, parsed);
+      return { created: false, lesson: stored };
     }
   }
 
