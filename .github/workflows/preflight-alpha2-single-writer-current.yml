@@ -1,0 +1,29 @@
+name: Revalidate Alpha2 OpenTasks Single Writer
+
+on:
+  push:
+    branches:
+      - chore/preflight-alpha2-single-writer-current-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify current main and canonical preflight
+        env:
+          EXPECTED_MAIN: a55ee8f04d45e67ce8074dc0093b54e1891d43a4
+          EXPECTED_OPENTASKS_BLOB: 0d1c67966f76269bc00e85434ff639ddea8af3a7
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          blob="$(git rev-parse HEAD:docs/E150/OpenTasks.md)"
+          test "$blob" = "$EXPECTED_OPENTASKS_BLOB" || { echo "opentasks_blob_drift:$blob"; exit 42; }
+          node scripts/codex-task-preflight.mjs ALPHA2-OPENTASKS-SINGLE-WRITER-01
