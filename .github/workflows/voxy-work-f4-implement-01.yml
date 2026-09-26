@@ -86,7 +86,7 @@ jobs:
               raise SystemExit('test helper anchor mismatch')
           text = text.replace(anchor, helpers + anchor, 1)
           end_anchor = '''  it("reports all three canonical format safety states for a prepared locale", () => {'''
-          cases = '''  it("requires the current ready review record and exact ready-audit binding", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });\n    expect(approvalCurrent({ draft: de })).toBe(true);\n    for (const status of ["in_review", "blocked", "request_changes"] as const) {\n      expect(approvalCurrent({ draft: de, status })).toBe(false);\n    }\n    expect(\n      approvalCurrent({\n        draft: de,\n        audit: readyAudit({ id: "review-de-replaced", itemId: "review-item-de" }),\n      }),\n    ).toBe(false);\n    expect(\n      approvalCurrent({\n        draft: de,\n        audit: readyAudit({ itemId: "review-item-de", byUserId: "admin-2" }),\n      }),\n    ).toBe(false);\n    expect(\n      approvalCurrent({\n        draft: de,\n        audit: readyAudit({ itemId: "review-item-de", at: "2026-09-22T12:01:00.000Z" }),\n      }),\n    ).toBe(false);\n  });\n\n  it("fails the locale projection after a delayed mark-in-review overtakes historical approval", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });\n    const current = approvalCurrent({ draft: de, status: "in_review" });\n    expect(current).toBe(false);\n\n    const matrix = buildVoxyStudioLocaleReviewMatrices({\n      drafts: [de],\n      approvalCurrentByDraftId: { [de.draftId]: current },\n    })[0]!;\n    const german = matrix.locales.find((entry) => entry.locale === "de")!;\n    expect(matrix.approvedLocales).toBe(0);\n    expect(german.exactLocaleApprovalPresent).toBe(false);\n  });\n\n'''
+          cases = '''  it("requires the current ready review record and exact ready-audit binding", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });\n    expect(approvalCurrent({ draft: de })).toBe(true);\n    for (const status of ["in_review", "blocked", "request_changes"] as const) {\n      expect(approvalCurrent({ draft: de, status })).toBe(false);\n    }\n    expect(approvalCurrent({ draft: de, audit: readyAudit({ id: "review-de-replaced", itemId: "review-item-de" }) })).toBe(false);\n    expect(approvalCurrent({ draft: de, audit: readyAudit({ itemId: "review-item-de", byUserId: "admin-2" }) })).toBe(false);\n    expect(approvalCurrent({ draft: de, audit: readyAudit({ itemId: "review-item-de", at: "2026-09-22T12:01:00.000Z" }) })).toBe(false);\n  });\n\n  it("fails the locale projection after a delayed mark-in-review overtakes historical approval", () => {\n    const de = draft({ id: "draft-de", locale: "de", status: "approved_for_render", approved: true });\n    const current = approvalCurrent({ draft: de, status: "in_review" });\n    expect(current).toBe(false);\n    const matrix = buildVoxyStudioLocaleReviewMatrices({\n      drafts: [de],\n      approvalCurrentByDraftId: { [de.draftId]: current },\n    })[0]!;\n    const german = matrix.locales.find((entry) => entry.locale === "de")!;\n    expect(matrix.approvedLocales).toBe(0);\n    expect(german.exactLocaleApprovalPresent).toBe(false);\n  });\n\n'''
           if text.count(end_anchor) != 1:
               raise SystemExit('test insertion anchor mismatch')
           text = text.replace(end_anchor, cases + end_anchor, 1)
@@ -102,13 +102,18 @@ jobs:
           pnpm -C apps/web exec vitest run tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-preview-review.contract.test.ts tests/voxy-studio-evidence-review.contract.test.ts
           pnpm -C apps/web run typecheck
           git diff --check
-      - name: Verify narrow diff and commit
+      - name: Commit validated product delta
         shell: bash
         run: |
           set -euo pipefail
-          changed="$(git diff --name-only origin/main -- | sort)"
-          printf '%s\n' "$changed"
-          test "$changed" = $'.github/workflows/voxy-work-f4-implement-01.yml\napps/web/src/app/api/admin/voxy-studio/route.ts\napps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts\napps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts'
+          for path in \
+            apps/web/src/app/api/admin/voxy-studio/route.ts \
+            apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts \
+            apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts; do
+            git diff --name-only origin/main -- "$path" | grep -Fxq "$path"
+          done
+          unexpected="$(git diff --name-only origin/main -- | grep -vE '^(\.github/workflows/voxy-work-f4-implement-01\.yml|apps/web/src/app/api/admin/voxy-studio/route\.ts|apps/web/src/features/voxyVideo/studioLocaleReviewMatrix\.ts|apps/web/tests/voxy-studio-locale-review-matrix\.contract\.test\.ts)$' || true)"
+          test -z "$unexpected"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add apps/web/src/app/api/admin/voxy-studio/route.ts apps/web/src/features/voxyVideo/studioLocaleReviewMatrix.ts apps/web/tests/voxy-studio-locale-review-matrix.contract.test.ts
