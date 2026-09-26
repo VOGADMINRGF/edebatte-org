@@ -1,0 +1,37 @@
+name: Voxy Work AAA diagnostic
+
+on:
+  push:
+    branches:
+      - chore/voxy-work-aaa-diagnostic-01
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect exact current Voxy owners
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          echo "MAIN_SHA=$(git rev-parse origin/main)"
+          echo "OPENTASKS_BLOB=$(git rev-parse origin/main:docs/E150/OpenTasks.md)"
+          git show origin/main:docs/E150/OpenTasks.md > /tmp/OpenTasks.md
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/OpenTasks.md').read_text()
+          for task in ['VOXY-EU24-MULTILINGUAL-EDITORIAL-01','VOXY-REALTIME-CONVERSATION-VOICE-01','VOXY-AAA-RED-TEAM-ACCEPTANCE-01']:
+              rows = [line for line in text.splitlines() if line.startswith(f'| {task} |')]
+              print(f'{task}_COUNT={len(rows)}')
+              for row in rows:
+                  print(f'{task}_ROW={row}')
+          PY
+          git checkout -B main origin/main
+          node scripts/codex-task-preflight.mjs VOXY-EU24-MULTILINGUAL-EDITORIAL-01 2>&1 || true
+          node scripts/codex-task-preflight.mjs VOXY-REALTIME-CONVERSATION-VOICE-01 2>&1 || true
