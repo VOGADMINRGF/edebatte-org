@@ -52,6 +52,7 @@ on:
       - "apps/web/src/features/voxyVideo/index.ts"
       - "apps/web/tests/voxy-local-composition-runtime.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-freshness.contract.test.ts"
+      - "apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts"
       - "apps/web/tests/voxy-local-composition-review-bridge.contract.test.ts"
       - "apps/web/tests/voxy-production-operations-readiness.contract.test.ts"
       - "apps/web/tests/voxy-editorial-audio-motion.contract.test.ts"
@@ -114,7 +115,7 @@ jobs:
       - name: Runtime, editorial-canon, operations and Studio contract tests
         run: |
           pnpm -C apps/web run test:voxy-local-composition-runtime
-          pnpm -C apps/web exec vitest run tests/voxy-local-composition-freshness.contract.test.ts tests/voxy-production-operations-readiness.contract.test.ts
+          pnpm -C apps/web exec vitest run tests/voxy-local-composition-freshness.contract.test.ts tests/voxy-language-variant-master-freshness.contract.test.ts tests/voxy-production-operations-readiness.contract.test.ts
           pnpm -C apps/web exec vitest run tests/voxy-editorial-audio-motion.contract.test.ts tests/voxy-editorial-composition-html.contract.test.ts tests/voxy-editorial-evidence-window.contract.test.ts tests/voxy-editorial-story-plan.contract.test.ts tests/voxy-editorial-language-variant.contract.test.ts tests/voxy-editorial-translation-semantic-guard.contract.test.ts tests/voxy-studio-admin-auth.contract.test.ts tests/voxy-studio-audio-motion-preview.contract.test.ts tests/voxy-studio-dossier-auto-intake.contract.test.ts tests/voxy-studio-draft-service.contract.test.ts tests/voxy-studio-evidence-review.contract.test.ts tests/voxy-studio-frame-preview.contract.test.ts tests/voxy-studio-immutable-render-binding.contract.test.ts tests/voxy-studio-layout-approval.contract.test.ts tests/voxy-studio-layout-safety.contract.test.ts tests/voxy-studio-locale-review-matrix.contract.test.ts tests/voxy-studio-operator-edit.contract.test.ts tests/voxy-studio-persistence-boundary.contract.test.ts tests/voxy-studio-preview-review.contract.test.ts tests/voxy-studio-production-context.contract.test.ts tests/voxy-studio-render-handoff.contract.test.ts tests/voxy-editorial-agent-council.contract.test.ts tests/voxy-editorial-agent-learning.contract.test.ts
 
       - name: Typecheck and diff guard

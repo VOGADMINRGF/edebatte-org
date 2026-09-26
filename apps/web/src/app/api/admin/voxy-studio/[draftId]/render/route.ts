@@ -20,6 +20,7 @@ import {
 import { getVoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import { buildVoxyStudioEvidenceBoundRenderReviewGateId } from "@/features/voxyVideo/studioDraftService";
 import { mergeVoxyStudioAllFormatLayoutSafetyIntoValidation } from "@/features/voxyVideo/studioLayoutSafety";
+import { resolveVoxyStudioLanguageVariantFreshness } from "@/features/voxyVideo/studioLocalCompositionFreshness";
 import { buildVoxyStudioEditorialCompositionHandoff } from "@/features/voxyVideo/studioRenderHandoff";
 
 const BodySchema = z
@@ -96,6 +97,10 @@ export async function GET(
   const evidenceAuthority = createFailClosedDossierStudioEvidenceAuthority();
   const evidence = await evidenceAuthority.resolveEvidenceContext(draft);
   const validation = validateRenderReadiness(draft, evidence);
+  const languageVariantFreshness = await resolveVoxyStudioLanguageVariantFreshness({
+    draft,
+    evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+  });
   const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
     draft,
     evidence.sourcePack.sourcePackId,
@@ -104,7 +109,8 @@ export async function GET(
     draft.status === "approved_for_render" &&
     Boolean(draft.renderApproval) &&
     draft.renderApproval?.decisionGateId === currentDecisionGateId &&
-    validation.renderEligible;
+    validation.renderEligible &&
+    languageVariantFreshness.current;
 
   const audioRepository = getVoxyLocalCompositionAudioInputRepository();
   const runtimeRepository = getVoxyLocalCompositionRepository();
@@ -190,6 +196,7 @@ export async function GET(
     evidenceSourcePackId: evidence.sourcePack.sourcePackId,
     currentDecisionGateId,
     approvalEvidenceCurrent,
+    languageVariantFreshness,
     evidenceValidation: validation,
     audioInputs: audioInputs.map(safeAudioSummary),
     renderJobs,
@@ -272,6 +279,23 @@ export async function POST(
         {
           ok: false,
           error: "voxy_studio_render_evidence_snapshot_binding_mismatch",
+          renderTriggered: false,
+          uploadTriggered: false,
+          publishTriggered: false,
+        },
+        { status: 409 },
+      );
+    }
+    const languageVariantFreshness = await resolveVoxyStudioLanguageVariantFreshness({
+      draft,
+      evidenceSourcePackId: evidence.sourcePack.sourcePackId,
+    });
+    if (!languageVariantFreshness.current) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "voxy_studio_render_language_variant_stale",
+          blockers: languageVariantFreshness.blockers,
           renderTriggered: false,
           uploadTriggered: false,
           publishTriggered: false,
