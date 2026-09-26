@@ -66,13 +66,16 @@ function mongoStore(): NewsletterSubscriberCoordinationStore {
               status: "active",
               consentVersion: input.requiredConsentVersion,
             }
-          : {};
+          : null;
+      const acquireFilter = {
+        $and: [
+          identity,
+          ...(eligibility ? [eligibility] : []),
+          availableLockFilter(input.now),
+        ],
+      };
       const acquired = await subscribers.findOneAndUpdate(
-        {
-          ...identity,
-          ...eligibility,
-          ...availableLockFilter(input.now),
-        } as never,
+        acquireFilter as never,
         {
           $set: {
             sendCoordinationLock: {
