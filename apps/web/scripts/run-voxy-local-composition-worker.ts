@@ -48,6 +48,7 @@ async function failQueuedJob(input: {
   await repository.transitionJob({
     jobId: input.job.jobId,
     expectedStatus: "queued",
+    expectedAttempt: input.job.attempt,
     next: failed,
   });
   return failed;

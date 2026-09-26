@@ -35,6 +35,7 @@ export type VoxyLocalCompositionRepository = {
   transitionJob(input: {
     jobId: string;
     expectedStatus: VoxyLocalCompositionStatus;
+    expectedAttempt: number;
     next: VoxyLocalCompositionJob;
   }): Promise<boolean>;
   saveOutput(output: VoxyLocalCompositionOutput): Promise<VoxyLocalCompositionOutput>;
@@ -133,6 +134,18 @@ async function ensureIndexes() {
     outputs.createIndex({ dossierRefId: 1, createdAt: -1 }),
   ]).catch(() => undefined);
   indexesReady = true;
+}
+
+export function buildVoxyLocalCompositionTransitionCasFilter(input: {
+  jobId: string;
+  expectedStatus: VoxyLocalCompositionStatus;
+  expectedAttempt: number;
+}) {
+  return {
+    _id: input.jobId,
+    "record.status": input.expectedStatus,
+    "record.attempt": input.expectedAttempt,
+  };
 }
 
 function createMongoRepository(): VoxyLocalCompositionRepository {
@@ -260,7 +273,7 @@ function createMongoRepository(): VoxyLocalCompositionRepository {
       await ensureIndexes();
       const col = await coreCol<any>(JOBS_COLLECTION);
       const result = await col.updateOne(
-        { _id: input.jobId, "record.status": input.expectedStatus },
+        buildVoxyLocalCompositionTransitionCasFilter(input),
         {
           $set: {
             record: clone(input.next),
@@ -384,7 +397,11 @@ export function createInMemoryVoxyLocalCompositionRepository(seed?: {
     },
     async transitionJob(input) {
       const current = jobs.get(input.jobId);
-      if (!current || current.status !== input.expectedStatus) return false;
+      if (
+        !current ||
+        current.status !== input.expectedStatus ||
+        current.attempt !== input.expectedAttempt
+      ) return false;
       jobs.set(input.jobId, clone(input.next));
       return true;
     },
