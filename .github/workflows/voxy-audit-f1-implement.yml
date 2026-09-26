@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - fix/voxy-master-variant-freshness-01
-    paths:
-      - .github/workflows/voxy-audit-f1-implement.yml
 
 permissions:
   contents: write
@@ -22,400 +20,15 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - name: Verify product branch base and apply F1 only
+      - name: Verify base and apply F1 only
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main
+          test "$(git rev-parse origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
           test "$(git merge-base HEAD origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
-          python3 - <<'PY'
-          from pathlib import Path
-
-          freshness = Path('apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts')
-          text = freshness.read_text()
-          old_import = 'import { buildVoxyEditorialScriptVersion } from "@/features/voxyVideo/editorialLanguageVariant";'
-          new_import = '''import {
-            buildVoxyEditorialScriptVersion,
-            evaluateVoxyEditorialLanguageVariantFreshness,
-            getVoxyEditorialLanguageVariantBinding,
-            type VoxyEditorialLanguageVariantFreshness,
-          } from "@/features/voxyVideo/editorialLanguageVariant";'''
-          if text.count(old_import) != 1:
-              raise SystemExit('freshness import anchor mismatch')
-          text = text.replace(old_import, new_import, 1)
-
-          marker = '''export type VoxyStudioLocalCompositionFreshnessSnapshot = {
-            draft: VoxyStudioDraft | null;
-            draftPersistenceMode: FreshnessPersistenceMode;
-            evidenceApproved: boolean;
-            evidencePersistenceMode: FreshnessPersistenceMode;
-            evidenceSourcePackId: string | null;
-            evidenceReviewState: string | null;
-            reviewPersistenceMode: FreshnessPersistenceMode;
-            reviewItemId: string | null;
-            reviewOperationalStatus: string | null;
-            latestReadyAuditId: string | null;
-            latestReadyAuditByUserId: string | null;
-          };
-'''
-          helper = marker + '''
-          export async function resolveVoxyStudioLanguageVariantFreshness(input: {
-            draft: VoxyStudioDraft;
-            evidenceSourcePackId: string;
-            draftRepository?: VoxyStudioDraftRepository;
-          }): Promise<VoxyEditorialLanguageVariantFreshness> {
-            const binding = getVoxyEditorialLanguageVariantBinding(input.draft.storyPlan);
-            if (!binding) return { current: true, blockers: [] };
-
-            const repository = input.draftRepository ?? getVoxyStudioDraftRepository();
-            const briefingDrafts = await repository.listDrafts({
-              briefingId: input.draft.briefingId,
-              limit: 100,
-            });
-            const masterCandidates = briefingDrafts.filter(
-              (candidate) =>
-                candidate.draftId !== input.draft.draftId &&
-                candidate.dossierId === input.draft.dossierId &&
-                candidate.storyPlan.storyPlanId === binding.translatedFromStoryPlanId,
-            );
-            if (masterCandidates.length !== 1) {
-              return {
-                current: false,
-                blockers: [
-                  masterCandidates.length === 0
-                    ? "language_variant_master_story_missing"
-                    : "language_variant_master_story_ambiguous",
-                ],
-              };
-            }
-
-            const master = masterCandidates[0]!;
-            return evaluateVoxyEditorialLanguageVariantFreshness({
-              plan: input.draft.storyPlan,
-              masterStoryPlanId: master.storyPlan.storyPlanId,
-              masterStoryPlanRevision: master.storyPlan.revision,
-              evidenceSourcePackId: input.evidenceSourcePackId,
-            });
-          }
-'''
-          if text.count(marker) != 1:
-              raise SystemExit('snapshot marker mismatch')
-          text = text.replace(marker, helper, 1)
-
-          evidence_anchor = '''        if (evidence.sourcePack.sourcePackId !== expectedSourcePackId) {
-          throw new Error("voxy_local_composition_freshness_stale:evidence_snapshot_race");
-        }
-
-        const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft, evidence.sourcePack.sourcePackId);'''
-          evidence_replacement = '''        if (evidence.sourcePack.sourcePackId !== expectedSourcePackId) {
-          throw new Error("voxy_local_composition_freshness_stale:evidence_snapshot_race");
-        }
-
-        const languageVariantFreshness = await resolveVoxyStudioLanguageVariantFreshness({
-          draft,
-          draftRepository,
-          evidenceSourcePackId: evidence.sourcePack.sourcePackId,
-        });
-        if (!languageVariantFreshness.current) {
-          throw new Error(
-            `voxy_local_composition_freshness_stale:${languageVariantFreshness.blockers.join(",")}`,
-          );
-        }
-
-        const reviewItemId = buildVoxyStudioEditorialReviewItemId(draft, evidence.sourcePack.sourcePackId);'''
-          if text.count(evidence_anchor) != 1:
-              raise SystemExit('worker freshness anchor mismatch')
-          text = text.replace(evidence_anchor, evidence_replacement, 1)
-          freshness.write_text(text)
-
-          route = Path('apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts')
-          text = route.read_text()
-          import_anchor = 'import { mergeVoxyStudioAllFormatLayoutSafetyIntoValidation } from "@/features/voxyVideo/studioLayoutSafety";'
-          import_replacement = import_anchor + '\nimport { resolveVoxyStudioLanguageVariantFreshness } from "@/features/voxyVideo/studioLocalCompositionFreshness";'
-          if text.count(import_anchor) != 1:
-              raise SystemExit('route import anchor mismatch')
-          text = text.replace(import_anchor, import_replacement, 1)
-
-          get_anchor = '''  const validation = validateRenderReadiness(draft, evidence);
-  const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
-    draft,
-    evidence.sourcePack.sourcePackId,
-  );
-  const approvalEvidenceCurrent =
-    draft.status === "approved_for_render" &&
-    Boolean(draft.renderApproval) &&
-    draft.renderApproval?.decisionGateId === currentDecisionGateId &&
-    validation.renderEligible;'''
-          get_replacement = '''  const validation = validateRenderReadiness(draft, evidence);
-  const languageVariantFreshness = await resolveVoxyStudioLanguageVariantFreshness({
-    draft,
-    evidenceSourcePackId: evidence.sourcePack.sourcePackId,
-  });
-  const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId(
-    draft,
-    evidence.sourcePack.sourcePackId,
-  );
-  const approvalEvidenceCurrent =
-    draft.status === "approved_for_render" &&
-    Boolean(draft.renderApproval) &&
-    draft.renderApproval?.decisionGateId === currentDecisionGateId &&
-    validation.renderEligible &&
-    languageVariantFreshness.current;'''
-          if text.count(get_anchor) != 1:
-              raise SystemExit('route GET anchor mismatch')
-          text = text.replace(get_anchor, get_replacement, 1)
-
-          response_anchor = '''    approvalEvidenceCurrent,
-    evidenceValidation: validation,'''
-          response_replacement = '''    approvalEvidenceCurrent,
-    languageVariantFreshness,
-    evidenceValidation: validation,'''
-          if text.count(response_anchor) != 1:
-              raise SystemExit('route response anchor mismatch')
-          text = text.replace(response_anchor, response_replacement, 1)
-
-          post_anchor = '''    if (evidence.sourcePack.sourcePackId !== expectedEvidenceSourcePackId) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "voxy_studio_render_evidence_snapshot_binding_mismatch",
-          renderTriggered: false,
-          uploadTriggered: false,
-          publishTriggered: false,
-        },
-        { status: 409 },
-      );
-    }
-    const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId('''
-          post_replacement = '''    if (evidence.sourcePack.sourcePackId !== expectedEvidenceSourcePackId) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "voxy_studio_render_evidence_snapshot_binding_mismatch",
-          renderTriggered: false,
-          uploadTriggered: false,
-          publishTriggered: false,
-        },
-        { status: 409 },
-      );
-    }
-    const languageVariantFreshness = await resolveVoxyStudioLanguageVariantFreshness({
-      draft,
-      evidenceSourcePackId: evidence.sourcePack.sourcePackId,
-    });
-    if (!languageVariantFreshness.current) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "voxy_studio_render_language_variant_stale",
-          blockers: languageVariantFreshness.blockers,
-          renderTriggered: false,
-          uploadTriggered: false,
-          publishTriggered: false,
-        },
-        { status: 409 },
-      );
-    }
-    const currentDecisionGateId = buildVoxyStudioEvidenceBoundRenderReviewGateId('''
-          if text.count(post_anchor) != 1:
-              raise SystemExit('route POST anchor mismatch')
-          text = text.replace(post_anchor, post_replacement, 1)
-          route.write_text(text)
-          PY
-
-          cat > apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts <<'EOF'
-          import { describe, expect, it } from "vitest";
-
-          import {
-            bindVoxyEditorialLanguageVariant,
-            type VoxyEditorialLanguageVariantPlan,
-          } from "@/features/voxyVideo/editorialLanguageVariant";
-          import type { VoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
-          import type { VoxyLocalCompositionJob, VoxyLocalCompositionRequest } from "@/features/voxyVideo/localCompositionRuntime";
-          import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
-          import type { VoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
-          import {
-            createVoxyStudioLocalCompositionFreshnessAuthority,
-            resolveVoxyStudioLanguageVariantFreshness,
-          } from "@/features/voxyVideo/studioLocalCompositionFreshness";
-
-          const FINGERPRINT = "a".repeat(64);
-          const SOURCE_PACK_ID = `voxy-studio-dossier:dossier-1:${FINGERPRINT.slice(0, 40)}`;
-
-          function plan(overrides: Partial<VoxyEditorialStoryPlan> = {}): VoxyEditorialStoryPlan {
-            return {
-              version: "voxy-editorial-story-plan-v1",
-              storyPlanId: "story-master-1",
-              revision: 4,
-              briefingId: "brief-1",
-              dossierId: "dossier-1",
-              title: "Belegter Master",
-              locale: "de",
-              originalLanguage: "de",
-              outputLanguage: "de",
-              archetype: "explainer",
-              durationClass: "preview",
-              chapters: [
-                {
-                  chapterId: "chapter-1",
-                  role: "what_happened",
-                  headline: "Ausgangslage",
-                  narration: "Die belegte Ausgangslage.",
-                  claimBindings: [],
-                  sourceIds: ["source-1"],
-                  findingIds: [],
-                  openQuestionIds: [],
-                  evidenceWindow: { kind: "source", sourceIds: ["source-1"], findingIds: [] },
-                  consequences: [],
-                  motion: "explaining",
-                },
-              ],
-              derivedFromStoryPlanId: null,
-              derivedFromRevision: null,
-              reviewRequired: true,
-              autoRender: false,
-              autoPublish: false,
-              ...overrides,
-            };
-          }
-
-          function frenchVariant(master: VoxyEditorialStoryPlan): VoxyEditorialLanguageVariantPlan {
-            const translated = plan({
-              storyPlanId: "story-fr-1",
-              revision: 1,
-              title: "Master vérifié",
-              locale: "fr",
-              originalLanguage: "de",
-              outputLanguage: "fr",
-              derivedFromStoryPlanId: master.storyPlanId,
-              derivedFromRevision: master.revision,
-              chapters: master.chapters.map((chapter) => ({
-                ...chapter,
-                headline: "Situation initiale",
-                narration: "La situation vérifiée.",
-              })),
-            });
-            return bindVoxyEditorialLanguageVariant({
-              masterPlan: master,
-              translatedPlan: translated,
-              evidenceSourcePackId: SOURCE_PACK_ID,
-              translationRevision: 1,
-              translationStatus: "approved",
-            });
-          }
-
-          function draft(draftId: string, storyPlan: VoxyEditorialStoryPlan): VoxyStudioDraft {
-            return {
-              draftId,
-              revision: 1,
-              dossierId: "dossier-1",
-              briefingId: "brief-1",
-              selectedFormat: "16:9",
-              status: "approved_for_render",
-              storyPlan,
-            } as VoxyStudioDraft;
-          }
-
-          function repository(drafts: VoxyStudioDraft[]): VoxyStudioDraftRepository {
-            return {
-              async createOrGetDraft({ draft: value }) { return value; },
-              async getDraft(draftId) { return drafts.find((item) => item.draftId === draftId) ?? null; },
-              async listDrafts(params) {
-                return drafts.filter((item) =>
-                  (!params?.briefingId || item.briefingId === params.briefingId) &&
-                  (!params?.dossierId || item.dossierId === params.dossierId) &&
-                  (!params?.status || item.status === params.status),
-                );
-              },
-              async replaceDraftIfRevision() { return false; },
-              async appendAuditEvent() {},
-              async listAuditEvents() { return []; },
-              getPersistenceState() {
-                return {
-                  mode: "persistent_primary",
-                  productionTruth: true,
-                  restartReconstructable: true,
-                  deploymentReconstructable: true,
-                };
-              },
-            };
-          }
-
-          describe("Voxy language-variant master freshness at render/worker boundary", () => {
-            it("keeps an approved variant current while its exact master revision is unchanged", async () => {
-              const master = plan();
-              const variantDraft = draft("draft-fr", frenchVariant(master));
-              const result = await resolveVoxyStudioLanguageVariantFreshness({
-                draft: variantDraft,
-                draftRepository: repository([draft("draft-master", master), variantDraft]),
-                evidenceSourcePackId: SOURCE_PACK_ID,
-              });
-              expect(result).toEqual({ current: true, blockers: [] });
-            });
-
-            it("fails closed when the current master revision advances after variant approval", async () => {
-              const master = plan();
-              const variantDraft = draft("draft-fr", frenchVariant(master));
-              const advancedMaster = draft("draft-master", plan({ revision: 5 }));
-              const result = await resolveVoxyStudioLanguageVariantFreshness({
-                draft: variantDraft,
-                draftRepository: repository([advancedMaster, variantDraft]),
-                evidenceSourcePackId: SOURCE_PACK_ID,
-              });
-              expect(result.current).toBe(false);
-              expect(result.blockers).toContain("language_variant_master_revision_changed");
-            });
-
-            it("makes the production worker freshness authority reject master-only drift", async () => {
-              const master = plan();
-              const variantDraft = draft("draft-fr", frenchVariant(master));
-              const advancedMaster = draft("draft-master", plan({ revision: 5 }));
-              const authority = createVoxyStudioLocalCompositionFreshnessAuthority({
-                draftRepository: repository([advancedMaster, variantDraft]),
-                evidenceAuthority: {
-                  async resolveEvidenceContext() {
-                    return {
-                      sourcePack: {
-                        sourcePackId: SOURCE_PACK_ID,
-                        reviewState: "approved",
-                        sources: [],
-                        openGaps: [],
-                        reviewRequired: false,
-                        autoPublish: false,
-                      },
-                      claims: [],
-                      findings: [],
-                      openQuestions: [],
-                    } as any;
-                  },
-                },
-                editorialReviewAuthority: {
-                  async resolveEditorialReview() {
-                    throw new Error("review_resolution_must_not_be_reached_after_master_drift");
-                  },
-                },
-                loadEvidenceReviewState: async () => ({
-                  snapshot: { fingerprint: FINGERPRINT },
-                  approved: true,
-                  reviewRecord: null,
-                  persistence: { mode: "persistent_primary" },
-                } as any),
-              });
-
-              await expect(
-                authority.assertCurrent({
-                  job: {} as VoxyLocalCompositionJob,
-                  request: {
-                    renderProfile: "editorial_v1",
-                    artifactId: variantDraft.draftId,
-                  } as VoxyLocalCompositionRequest,
-                }),
-              ).rejects.toThrow("language_variant_master_revision_changed");
-            });
-          });
-          EOF
-
-      - name: Install and verify focused F1 contracts
+          python3 scripts/tmp-voxy-f1-apply.py
+      - name: Verify focused F1 contracts and full typecheck
         shell: bash
         run: |
           set -euo pipefail
@@ -427,22 +40,23 @@ jobs:
             tests/voxy-local-composition-runtime.contract.test.ts
           pnpm -C apps/web run typecheck
           git diff --check
-          mapfile -t files < <(git diff --name-only)
-          test "${#files[@]}" -eq 3
+          mapfile -t files < <(git diff --name-only | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
+          test "${#files[@]}" -eq 4
+          printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-local-composition-runtime.yml'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts'
-
-      - name: Commit F1 product delta and self-delete runner
+      - name: Commit product delta and self-delete helpers
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
+            .github/workflows/voxy-local-composition-runtime.yml \
             apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts \
             'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts' \
             apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts
-          git rm .github/workflows/voxy-audit-f1-implement.yml
+          git rm .github/workflows/voxy-audit-f1-implement.yml scripts/tmp-voxy-f1-apply.py
           git commit -m "fix(voxy): invalidate variants on master drift"
           git push origin HEAD:fix/voxy-master-variant-freshness-01
