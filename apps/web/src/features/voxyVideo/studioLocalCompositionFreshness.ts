@@ -51,39 +51,55 @@ export async function resolveVoxyStudioLanguageVariantFreshness(input: {
   evidenceSourcePackId: string;
   draftRepository?: VoxyStudioDraftRepository;
 }): Promise<VoxyEditorialLanguageVariantFreshness> {
-  const binding = getVoxyEditorialLanguageVariantBinding(input.draft.storyPlan);
-  if (!binding) return { current: true, blockers: [] };
-
   const repository = input.draftRepository ?? getVoxyStudioDraftRepository();
   const briefingDrafts = await repository.listDrafts({
     briefingId: input.draft.briefingId,
     dossierId: input.draft.dossierId,
     limit: 100,
   });
-  const masterCandidates = briefingDrafts.filter(
-    (candidate) =>
-      candidate.draftId !== input.draft.draftId &&
-      candidate.dossierId === input.draft.dossierId &&
-      candidate.storyPlan.storyPlanId === binding.translatedFromStoryPlanId,
-  );
-  if (masterCandidates.length !== 1) {
-    return {
-      current: false,
-      blockers: [
-        masterCandidates.length === 0
-          ? "language_variant_master_story_missing"
-          : "language_variant_master_story_ambiguous",
-      ],
-    };
-  }
+  const visitedStoryPlanIds = new Set<string>();
+  let currentDraft = input.draft;
 
-  const master = masterCandidates[0]!;
-  return evaluateVoxyEditorialLanguageVariantFreshness({
-    plan: input.draft.storyPlan,
-    masterStoryPlanId: master.storyPlan.storyPlanId,
-    masterStoryPlanRevision: master.storyPlan.revision,
-    evidenceSourcePackId: input.evidenceSourcePackId,
-  });
+  while (true) {
+    const currentStoryPlanId = currentDraft.storyPlan.storyPlanId;
+    if (visitedStoryPlanIds.has(currentStoryPlanId)) {
+      return { current: false, blockers: ["language_variant_master_story_cycle"] };
+    }
+    visitedStoryPlanIds.add(currentStoryPlanId);
+
+    const binding = getVoxyEditorialLanguageVariantBinding(currentDraft.storyPlan);
+    if (!binding) return { current: true, blockers: [] };
+
+    const masterCandidates = briefingDrafts.filter(
+      (candidate) =>
+        candidate.draftId !== currentDraft.draftId &&
+        candidate.dossierId === input.draft.dossierId &&
+        candidate.storyPlan.storyPlanId === binding.translatedFromStoryPlanId,
+    );
+    if (masterCandidates.length !== 1) {
+      return {
+        current: false,
+        blockers: [
+          masterCandidates.length === 0
+            ? "language_variant_master_story_missing"
+            : "language_variant_master_story_ambiguous",
+        ],
+      };
+    }
+
+    const master = masterCandidates[0]!;
+    if (visitedStoryPlanIds.has(master.storyPlan.storyPlanId)) {
+      return { current: false, blockers: ["language_variant_master_story_cycle"] };
+    }
+    const freshness = evaluateVoxyEditorialLanguageVariantFreshness({
+      plan: currentDraft.storyPlan,
+      masterStoryPlanId: master.storyPlan.storyPlanId,
+      masterStoryPlanRevision: master.storyPlan.revision,
+      evidenceSourcePackId: input.evidenceSourcePackId,
+    });
+    if (!freshness.current) return freshness;
+    currentDraft = master;
+  }
 }
 
 export function validateVoxyStudioLocalCompositionFreshness(input: {
