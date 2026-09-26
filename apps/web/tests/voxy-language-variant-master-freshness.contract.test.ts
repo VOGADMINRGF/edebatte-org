@@ -5,10 +5,13 @@ import {
   type VoxyEditorialLanguageVariantPlan,
 } from "@/features/voxyVideo/editorialLanguageVariant";
 import type { VoxyEditorialStoryPlan } from "@/features/voxyVideo/editorialStoryPlan";
-import type {
-  VoxyLocalCompositionJob,
-  VoxyLocalCompositionRequest,
+import {
+  buildVoxyLocalCompositionInputFingerprint,
+  type VoxyLocalCompositionJob,
+  type VoxyLocalCompositionRequest,
 } from "@/features/voxyVideo/localCompositionRuntime";
+import { executeVoxyLocalComposition } from "@/features/voxyVideo/localCompositionRuntimeService";
+import { createInMemoryVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
 import type { VoxyStudioDraft } from "@/features/voxyVideo/studioDraft";
 import type { VoxyStudioDraftRepository } from "@/features/voxyVideo/studioDraftStore";
 import {
@@ -127,6 +130,41 @@ function repository(drafts: VoxyStudioDraft[]): VoxyStudioDraftRepository {
   };
 }
 
+function masterDriftAuthority(variantDraft: VoxyStudioDraft, advancedMaster: VoxyStudioDraft) {
+  return createVoxyStudioLocalCompositionFreshnessAuthority({
+    draftRepository: repository([advancedMaster, variantDraft]),
+    evidenceAuthority: {
+      async resolveEvidenceContext() {
+        return {
+          sourcePack: {
+            sourcePackId: SOURCE_PACK_ID,
+            reviewState: "approved",
+            sources: [],
+            openGaps: [],
+            reviewRequired: false,
+            autoPublish: false,
+          },
+          claims: [],
+          findings: [],
+          openQuestions: [],
+        } as any;
+      },
+    },
+    editorialReviewAuthority: {
+      async resolveEditorialReview() {
+        throw new Error("review_resolution_must_not_be_reached_after_master_drift");
+      },
+    },
+    loadEvidenceReviewState: async () =>
+      ({
+        snapshot: { fingerprint: FINGERPRINT },
+        approved: true,
+        reviewRecord: null,
+        persistence: { mode: "persistent_primary" },
+      }) as any,
+  });
+}
+
 describe("Voxy language-variant master freshness at render/worker boundary", () => {
   it("keeps an approved variant current while its exact master revision is unchanged", async () => {
     const master = plan();
@@ -156,38 +194,7 @@ describe("Voxy language-variant master freshness at render/worker boundary", () 
     const master = plan();
     const variantDraft = draft("draft-fr", frenchVariant(master));
     const advancedMaster = draft("draft-master", plan({ revision: 5 }));
-    const authority = createVoxyStudioLocalCompositionFreshnessAuthority({
-      draftRepository: repository([advancedMaster, variantDraft]),
-      evidenceAuthority: {
-        async resolveEvidenceContext() {
-          return {
-            sourcePack: {
-              sourcePackId: SOURCE_PACK_ID,
-              reviewState: "approved",
-              sources: [],
-              openGaps: [],
-              reviewRequired: false,
-              autoPublish: false,
-            },
-            claims: [],
-            findings: [],
-            openQuestions: [],
-          } as any;
-        },
-      },
-      editorialReviewAuthority: {
-        async resolveEditorialReview() {
-          throw new Error("review_resolution_must_not_be_reached_after_master_drift");
-        },
-      },
-      loadEvidenceReviewState: async () =>
-        ({
-          snapshot: { fingerprint: FINGERPRINT },
-          approved: true,
-          reviewRecord: null,
-          persistence: { mode: "persistent_primary" },
-        }) as any,
-    });
+    const authority = masterDriftAuthority(variantDraft, advancedMaster);
 
     await expect(
       authority.assertCurrent({
@@ -198,5 +205,94 @@ describe("Voxy language-variant master freshness at render/worker boundary", () 
         } as VoxyLocalCompositionRequest,
       }),
     ).rejects.toThrow("language_variant_master_revision_changed");
+  });
+
+  it("blocks the real worker path before any executor call after master-only drift", async () => {
+    const master = plan();
+    const variantDraft = draft("draft-fr", frenchVariant(master));
+    const advancedMaster = draft("draft-master", plan({ revision: 5 }));
+    const freshnessAuthority = masterDriftAuthority(variantDraft, advancedMaster);
+    const request = {
+      requestedByUserId: "user-1",
+      artifactId: variantDraft.draftId,
+      briefingId: "brief-1",
+      scriptVersion: "script-v1",
+      locale: "fr",
+      format: "16:9",
+      renderProfile: "editorial_v1",
+      timelineVersion: "timeline-v1",
+      audioAssetId: "audio-1",
+      sceneContent: [],
+      captionCues: [],
+      editorialTimeline: { durationMs: 1_000 },
+    } as unknown as VoxyLocalCompositionRequest;
+    const inputFingerprint = buildVoxyLocalCompositionInputFingerprint(request);
+    const queued = {
+      jobId: "job-master-drift",
+      outputId: "output-master-drift",
+      identityKey: "identity-master-drift",
+      inputFingerprint,
+      reviewBindingHash: "review-binding-master-drift",
+      requestedByUserId: "user-1",
+      artifactId: variantDraft.draftId,
+      briefingId: "brief-1",
+      scriptVersion: "script-v1",
+      locale: "fr",
+      format: "16:9",
+      renderProfile: "editorial_v1",
+      timelineVersion: "timeline-v1",
+      timelineHash: "timeline-hash",
+      durationMs: 1_000,
+      audioAssetId: "audio-1",
+      previewReviewFlowId: "preview-review-flow",
+      decisionGateId: "decision-gate",
+      dossierRefId: "dossier-1",
+      status: "queued",
+      attempt: 0,
+      approvalRef: "approval-ref",
+      createdAt: "2026-09-26T06:00:00.000Z",
+      updatedAt: "2026-09-26T06:00:00.000Z",
+      startedAt: null,
+      completedAt: null,
+      safeErrorCode: null,
+      safeErrorMessage: null,
+      reviewRequired: true,
+      autoPublish: false,
+      uploadTriggered: false,
+      publishTriggered: false,
+      socialPostTriggered: false,
+    } as VoxyLocalCompositionJob;
+    const runtimeRepository = createInMemoryVoxyLocalCompositionRepository({ jobs: [queued] });
+    let executorCalls = 0;
+
+    const result = await executeVoxyLocalComposition({
+      jobId: queued.jobId,
+      request,
+      deps: {
+        repository: runtimeRepository,
+        approvalAuthority: {
+          async resolveApproval() {
+            throw new Error("approval_resolution_not_expected_during_execution");
+          },
+        },
+        freshnessAuthority,
+        audioResolver: {
+          async resolveAudioAsset() {
+            throw new Error("audio_resolution_must_not_be_reached_after_master_drift");
+          },
+        },
+        executor: {
+          async execute() {
+            executorCalls += 1;
+            throw new Error("executor_must_not_run_after_master_drift");
+          },
+        },
+        now: () => "2026-09-26T06:01:00.000Z",
+      },
+    });
+
+    expect(result.status).toBe("failed");
+    expect(executorCalls).toBe(0);
+    expect(result.safeErrorMessage).toContain("language_variant_master_revision_changed");
   });
 });
