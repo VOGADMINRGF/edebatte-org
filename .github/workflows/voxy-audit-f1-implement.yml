@@ -27,8 +27,27 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
           test "$(git merge-base HEAD origin/main)" = "1a20e3391b151ca6fc29a890757750dd04d3f951"
-          python3 scripts/tmp-voxy-f1-fix-patcher.py
-          python3 scripts/tmp-voxy-f1-apply.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Materialize the already-staged regression test without parsing the old patcher.
+          v1 = Path("scripts/tmp-voxy-f1-apply.py").read_text()
+          start_token = "test.write_text(dedent('''\\\n"
+          end_token = "\n'''))\n\nworkflow ="
+          start = v1.index(start_token) + len(start_token)
+          end = v1.index(end_token, start)
+          Path("apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts").write_text(
+              v1[start:end] + "\n"
+          )
+
+          # Remove only the invalid self-extraction block from v2; source/runtime patches remain unchanged.
+          v2_path = Path("scripts/tmp-voxy-f1-apply-v2.py")
+          v2 = v2_path.read_text()
+          block_start = v2.index("# Reuse the already-staged canonical test body")
+          block_end = v2.index('workflow = Path(".github/workflows/voxy-local-composition-runtime.yml")', block_start)
+          v2_path.write_text(v2[:block_start] + v2[block_end:])
+          PY
+          python3 scripts/tmp-voxy-f1-apply-v2.py
       - name: Verify focused F1 contracts and full typecheck
         shell: bash
         run: |
@@ -41,7 +60,7 @@ jobs:
             tests/voxy-local-composition-runtime.contract.test.ts
           pnpm -C apps/web run typecheck
           git diff --check
-          mapfile -t files < <(git diff --name-only | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
+          mapfile -t files < <(git diff --name-only | grep -v '^scripts/tmp-voxy-f1-apply.py$' | grep -v '^scripts/tmp-voxy-f1-fix-patcher.py$' | grep -v '^scripts/tmp-voxy-f1-apply-v2.py$' | grep -v '^.github/workflows/voxy-audit-f1-implement.yml$')
           test "${#files[@]}" -eq 4
           printf '%s\n' "${files[@]}" | grep -Fx '.github/workflows/voxy-local-composition-runtime.yml'
           printf '%s\n' "${files[@]}" | grep -Fx 'apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts'
@@ -58,6 +77,10 @@ jobs:
             apps/web/src/features/voxyVideo/studioLocalCompositionFreshness.ts \
             'apps/web/src/app/api/admin/voxy-studio/[draftId]/render/route.ts' \
             apps/web/tests/voxy-language-variant-master-freshness.contract.test.ts
-          git rm .github/workflows/voxy-audit-f1-implement.yml scripts/tmp-voxy-f1-apply.py scripts/tmp-voxy-f1-fix-patcher.py
+          git rm \
+            .github/workflows/voxy-audit-f1-implement.yml \
+            scripts/tmp-voxy-f1-apply.py \
+            scripts/tmp-voxy-f1-fix-patcher.py \
+            scripts/tmp-voxy-f1-apply-v2.py
           git commit -m "fix(voxy): invalidate variants on master drift"
           git push origin HEAD:fix/voxy-master-variant-freshness-01
