@@ -45,12 +45,13 @@ async function failQueuedJob(input: {
     safeErrorCode: input.code,
     safeErrorMessage: input.message,
   };
-  await repository.transitionJob({
+  const markedFailed = await repository.transitionJob({
     jobId: input.job.jobId,
     expectedStatus: "queued",
     next: failed,
   });
-  return failed;
+  if (markedFailed) return failed;
+  return (await repository.getJob(input.job.jobId)) ?? input.job;
 }
 
 async function main() {
