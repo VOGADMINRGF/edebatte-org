@@ -4,6 +4,10 @@ import {
   getDir,
   type SupportedLocale,
 } from "@/config/locales";
+import type {
+  ReviewQueueOperationAuditEvent,
+  ReviewQueueOperationRecord,
+} from "@features/reviewQueueOperations";
 import type { VoxyLocalCompositionAudioInputRecord } from "./localCompositionAudioAssetStore";
 import type { VoxyVideoFormat } from "./modernCharacterContracts";
 import type { VoxyStudioDraft } from "./studioDraft";
@@ -77,6 +81,35 @@ function approved(draft: VoxyStudioDraft) {
     ["approved_for_render", "rendered", "approved_for_publish"].includes(draft.status) &&
     draft.renderApproval?.studioDraftRevision === draft.revision &&
     draft.renderApproval.storyPlanRevision === draft.storyPlan.revision
+  );
+}
+
+export function isVoxyStudioLocaleApprovalCurrent(input: {
+  draft: VoxyStudioDraft;
+  evidenceAndGateCurrent: boolean;
+  reviewRecord: ReviewQueueOperationRecord | null;
+  reviewAuditEvents: readonly ReviewQueueOperationAuditEvent[];
+}): boolean {
+  const approval = input.draft.renderApproval;
+  if (!input.evidenceAndGateCurrent || !approval || !approved(input.draft)) return false;
+
+  const record = input.reviewRecord;
+  if (!record || record.operationalStatus !== "ready") return false;
+
+  const currentReadyAudit = input.reviewAuditEvents
+    .filter(
+      (event) =>
+        event.itemId === record.itemId &&
+        event.action === "mark_ready" &&
+        event.nextOperationalStatus === "ready",
+    )
+    .sort((left, right) => right.at.localeCompare(left.at))[0];
+
+  return Boolean(
+    currentReadyAudit &&
+      currentReadyAudit.id === approval.reviewDecisionRecordId &&
+      currentReadyAudit.byUserId === approval.approvedByUserId &&
+      currentReadyAudit.at === approval.approvedAt,
   );
 }
 
