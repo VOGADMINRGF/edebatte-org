@@ -1,0 +1,68 @@
+name: Alpha2 learning evals SSOT writer temp
+
+on:
+  push:
+    branches:
+      - docs/alpha2-learning-evals-authorize-current-01
+
+permissions:
+  contents: write
+
+jobs:
+  mutate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: docs/alpha2-learning-evals-authorize-current-01
+      - name: Fail closed and mutate only intended task rows
+        env:
+          EXPECTED_MAIN: 4e0854a7d1bca7250800cb1e4b9d9b33c2b02e0e
+          EXPECTED_OPENTASKS_BLOB: 3876058430491d8f70645a0bc0c692282f42aedb
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN" || { echo main_drift; exit 41; }
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN" || { echo branch_parent_drift; exit 42; }
+          test "$(git hash-object docs/E150/OpenTasks.md)" = "$EXPECTED_OPENTASKS_BLOB" || { echo opentasks_blob_drift; exit 43; }
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          transitions = {
+              'ALPHA2-ORCHESTRATOR-LOOP-01': ('codex_ready', 'review'),
+              'VOXY-AAA-RED-TEAM-ACCEPTANCE-01': ('codex_ready', 'review'),
+              'ALPHA2-LEARNING-EVALS-01': ('blocked', 'codex_ready'),
+          }
+          lines = text.splitlines(keepends=True)
+          changed = []
+          for task_id, (old, new) in transitions.items():
+              matches = [i for i, line in enumerate(lines) if line.startswith(f'| {task_id} |')]
+              if len(matches) != 1:
+                  raise SystemExit(f'{task_id}:expected_one_row_got_{len(matches)}')
+              i = matches[0]
+              cells = lines[i].split('|')
+              status_idx = None
+              for j, cell in enumerate(cells):
+                  if cell.strip() == old:
+                      status_idx = j
+                      break
+              if status_idx is None:
+                  raise SystemExit(f'{task_id}:expected_status_{old}_not_found')
+              cells[status_idx] = f' {new} '
+              lines[i] = '|'.join(cells)
+              changed.append(task_id)
+          p.write_text(''.join(lines))
+          print('changed=' + ','.join(changed))
+          PY
+          git diff --check
+          test "$(git diff --numstat -- docs/E150/OpenTasks.md | wc -l)" -eq 1
+          changed_rows="$(git diff -U0 -- docs/E150/OpenTasks.md | grep -E '^[+-]\| (ALPHA2-ORCHESTRATOR-LOOP-01|VOXY-AAA-RED-TEAM-ACCEPTANCE-01|ALPHA2-LEARNING-EVALS-01) \|' | wc -l)"
+          test "$changed_rows" -eq 6 || { echo unexpected_changed_rows:$changed_rows; git diff -- docs/E150/OpenTasks.md; exit 44; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/alpha2-learning-evals-ssot-writer-temp.yml
+          git add docs/E150/OpenTasks.md
+          git commit -m 'docs(e150): close Alpha2 orchestrator and authorize learning evals'
+          git push origin HEAD:docs/alpha2-learning-evals-authorize-current-01
