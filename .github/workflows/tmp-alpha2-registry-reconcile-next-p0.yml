@@ -1,0 +1,90 @@
+name: Temporary Alpha2 post-registry reconciliation
+
+on:
+  push:
+    branches:
+      - docs/alpha2-registry-reconcile-next-p0-01
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/alpha2-registry-reconcile-next-p0-01
+          fetch-depth: 0
+      - name: Apply exact bounded SSOT delta
+        env:
+          EXPECTED_MAIN: 386026ca5830f08d996a8c6e91f85d7e5367daf4
+          EXPECTED_OPENTASKS_BLOB: 52751e9cd640390807b0fe250928b2a703be5abe
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN" || { echo "main_drift:$(git rev-parse origin/main)"; exit 41; }
+          test "$(git rev-parse origin/main:docs/E150/OpenTasks.md)" = "$EXPECTED_OPENTASKS_BLOB" || { echo "opentasks_drift:$(git rev-parse origin/main:docs/E150/OpenTasks.md)"; exit 42; }
+          cp docs/E150/OpenTasks.md /tmp/OpenTasks.before
+          node <<'NODE'
+          const fs = require('fs');
+          const path='docs/E150/OpenTasks.md';
+          let lines=fs.readFileSync(path,'utf8').split(/\r?\n/);
+          const mutations = new Map([
+            ['VOXY-AAA-RED-TEAM-ACCEPTANCE-01', {from:'codex_ready', to:'review', evidence:'PR #1071 merged; dedicated AAA acceptance, Voxy final canon lock, Web contracts/security/lint/typecheck/production build green on exact head c5c92c1a6e27146908e4421eb6a4544da0e66c91.'}],
+            ['ALPHA2-AGENT-REGISTRY-01', {from:'review', to:'done', evidence:'PR #638 merged as 5a7dcadf98c69d31b184266c8c525722ef4b0c30; post-merge Web CI #2025 fully successful; all review threads resolved; #447 reconciliation evidence.'}],
+            ['ALPHA2-GITHUB-STATE-ADAPTER-01', {from:'blocked', to:'codex_ready', evidence:'Promoted only as next P0 autonomy slice after ALPHA2-AGENT-REGISTRY-01 reached done; #447 dependency graph fixes order GitHub State Adapter -> OpenTasks Single Writer -> Orchestrator Loop.'}],
+          ]);
+          const seen=new Set();
+          lines=lines.map((line)=>{
+            if(!line.startsWith('|')) return line;
+            const cells=line.split('|');
+            const task=(cells[1]||'').trim();
+            const m=mutations.get(task);
+            if(!m) return line;
+            if(seen.has(task)) throw new Error(`duplicate operative task row:${task}`);
+            const current=(cells[2]||'').trim();
+            if(current!==m.from) throw new Error(`unexpected status ${task}:${current} expected ${m.from}`);
+            cells[2]=` ${m.to} `;
+            if(cells.length < 6) throw new Error(`unexpected row shape:${task}`);
+            cells[4]=` ${m.evidence} `;
+            seen.add(task);
+            return cells.join('|');
+          });
+          for(const task of mutations.keys()) if(!seen.has(task)) throw new Error(`missing operative task:${task}`);
+          fs.writeFileSync(path,lines.join('\n'));
+          NODE
+          node <<'NODE'
+          const fs=require('fs'); const crypto=require('crypto');
+          const before=fs.readFileSync('/tmp/OpenTasks.before','utf8');
+          const after=fs.readFileSync('docs/E150/OpenTasks.md','utf8');
+          const marker='## Historischer Katalog und Evidenz';
+          const tail=s=>{const i=s.indexOf(marker); if(i<0) throw new Error('historical marker missing'); return s.slice(i)};
+          const h=s=>crypto.createHash('sha256').update(s).digest('hex');
+          if(h(tail(before))!==h(tail(after))) throw new Error('historical tail changed');
+          const expected={
+            'VOXY-AAA-RED-TEAM-ACCEPTANCE-01':'review',
+            'ALPHA2-AGENT-REGISTRY-01':'done',
+            'ALPHA2-GITHUB-STATE-ADAPTER-01':'codex_ready',
+            'ALPHA2-OPENTASKS-SINGLE-WRITER-01':'blocked',
+            'ALPHA2-ORCHESTRATOR-LOOP-01':'blocked',
+            'ALPHA2-LEARNING-EVALS-01':'blocked',
+            'ALPHA2-MISSION-CONTROL-01':'blocked',
+            'ALPHA2-CONTINUOUS-DISPATCH-01':'blocked',
+            'ALPHA2-REPAIR-CONTINUATION-01':'blocked'
+          };
+          for(const [task,status] of Object.entries(expected)){
+            const line=after.split(/\r?\n/).find(l=>l.startsWith('|') && (l.split('|')[1]||'').trim()===task);
+            if(!line) throw new Error('missing '+task);
+            const got=(line.split('|')[2]||'').trim(); if(got!==status) throw new Error(`${task}:${got} expected ${status}`);
+          }
+          NODE
+          rm .github/workflows/tmp-alpha2-registry-reconcile-next-p0.yml
+          git diff --check
+          test "$(git diff --name-only | tr -d '\r')" = "docs/E150/OpenTasks.md"
+          test "$(git diff -- docs/E150/OpenTasks.md | grep -E '^[-+]\|' | wc -l)" -eq 6
+          git config user.name "VOGADMINRGF"
+          git config user.email "rgf@voiceopengov.de"
+          git add docs/E150/OpenTasks.md .github/workflows/tmp-alpha2-registry-reconcile-next-p0.yml
+          git commit -m "docs(e150): reconcile Alpha2 registry and authorize next P0"
+          git push origin HEAD:docs/alpha2-registry-reconcile-next-p0-01
