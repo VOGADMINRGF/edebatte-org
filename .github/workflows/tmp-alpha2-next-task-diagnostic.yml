@@ -1,0 +1,41 @@
+name: Temporary Alpha2 next-task diagnostic
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print exact operative Alpha2 rows
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('docs/E150/OpenTasks.md').read_text()
+          marker = '## Historischer Katalog und Evidenz'
+          operative = text.split(marker, 1)[0]
+          ids = [
+            'ALPHA2-ORCHESTRATOR-LOOP-01',
+            'ALPHA2-CONTINUOUS-DISPATCH-01',
+            'ALPHA2-REPAIR-CONTINUATION-01',
+            'ALPHA2-LEARNING-EVALS-01',
+            'ALPHA2-MISSION-CONTROL-01',
+          ]
+          for task_id in ids:
+            rows = [line for line in operative.splitlines() if line.startswith(f'| {task_id} |')]
+            if len(rows) != 1:
+              raise SystemExit(f'{task_id}: expected exactly one operative row, found {len(rows)}')
+            print(rows[0])
+          PY
+          echo '--- PREFLIGHTS ---'
+          for id in ALPHA2-ORCHESTRATOR-LOOP-01 ALPHA2-CONTINUOUS-DISPATCH-01 ALPHA2-REPAIR-CONTINUATION-01 ALPHA2-LEARNING-EVALS-01 ALPHA2-MISSION-CONTROL-01; do
+            echo "### $id"
+            node scripts/codex-task-preflight.mjs "$id" || true
+          done
