@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { coreCol } from "@core/db/triMongo";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 
 type EdgeDoc = {
   _id?: unknown;
@@ -91,17 +91,28 @@ async function run() {
       archived += 1;
 
       if (!dryRun) {
-        await col.updateOne(
-          { _id: edge._id },
-          { $set: { active: false, archivedAt: new Date(), archivedReason: "stale_cleanup" } },
-        );
-        await logDossierRevision({
+        await mutateDossierWithRevision({
           dossierId,
-          entityType: "edge",
-          entityId: edge.edgeId,
-          action: "update",
-          diffSummary: "Edge archiviert (Cleanup).",
-          byRole: "system",
+          mutate: async (session) => {
+            const res = await col.updateOne(
+              { _id: edge._id, active: { $ne: false } },
+              { $set: { active: false, archivedAt: new Date(), archivedReason: "stale_cleanup" } },
+              { session },
+            );
+            return {
+              result: null,
+              revision:
+                res.modifiedCount > 0
+                  ? {
+                      entityType: "edge",
+                      entityId: edge.edgeId,
+                      action: "update",
+                      diffSummary: "Edge archiviert (Cleanup).",
+                      byRole: "system",
+                    }
+                  : null,
+            };
+          },
         });
       }
     }

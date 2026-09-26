@@ -7,7 +7,7 @@ import {
 } from "@features/dossier/db";
 import { DossierSourceTypeSchema } from "@features/dossier/schemas";
 import { makeDossierEntityId } from "@features/dossier/ids";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import {
   DOSSIER_LIMITS,
   clampNote,
@@ -100,46 +100,53 @@ export async function POST(
     const canonicalUrlHash = stableHash(url);
     const sourceId = item.sourceId ?? makeDossierEntityId("source");
 
-    const res = await col.findOneAndUpdate(
-      { dossierId, canonicalUrlHash },
-      {
-        $set: {
-          url,
-          title: item.title,
-          publisher: item.publisher,
-          publishedAt: parseDate(item.publishedAt),
-          retrievedAt: parseDate(item.retrievedAt),
-          type: item.type,
-          snippet: item.snippet,
-          licenseNote: item.licenseNote,
-          conflictOfInterest: item.conflictOfInterest,
-          tags: item.tags,
-          language: item.language,
-          updatedAt: now,
-        },
-        $setOnInsert: {
-          dossierId,
-          sourceId,
-          canonicalUrlHash,
-          createdAt: now,
-        },
-      },
-      { upsert: true, returnDocument: "before", includeResultMetadata: true },
-    );
-
-    const created = !res.value;
-    const effectiveSourceId = res.value?.sourceId ?? sourceId;
-    await logDossierRevision({
+    const transaction = await mutateDossierWithRevision({
       dossierId,
-      entityType: "source",
-      entityId: effectiveSourceId,
-      action: created ? "create" : "update",
-      diffSummary: created ? "Quelle hinzugefuegt." : "Quelle aktualisiert.",
-      byRole: auth.actorRole,
-      byUserId: auth.userId,
+      mutate: async (session) => {
+        const res = await col.findOneAndUpdate(
+          { dossierId, canonicalUrlHash },
+          {
+            $set: {
+              url,
+              title: item.title,
+              publisher: item.publisher,
+              publishedAt: parseDate(item.publishedAt),
+              retrievedAt: parseDate(item.retrievedAt),
+              type: item.type,
+              snippet: item.snippet,
+              licenseNote: item.licenseNote,
+              conflictOfInterest: item.conflictOfInterest,
+              tags: item.tags,
+              language: item.language,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              dossierId,
+              sourceId,
+              canonicalUrlHash,
+              createdAt: now,
+            },
+          },
+          { upsert: true, returnDocument: "before", includeResultMetadata: true, session },
+        );
+
+        const created = !res.value;
+        const effectiveSourceId = res.value?.sourceId ?? sourceId;
+        return {
+          result: { sourceId: effectiveSourceId, created },
+          revision: {
+            entityType: "source",
+            entityId: effectiveSourceId,
+            action: created ? "create" : "update",
+            diffSummary: created ? "Quelle hinzugefuegt." : "Quelle aktualisiert.",
+            byRole: auth.actorRole,
+            byUserId: auth.userId,
+          },
+        };
+      },
     });
 
-    results.push({ sourceId: effectiveSourceId, created });
+    results.push(transaction.result);
   }
 
   const counts = await updateDossierCounts(dossierId, "Quelle Update");

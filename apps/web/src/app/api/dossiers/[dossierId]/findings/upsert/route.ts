@@ -15,7 +15,7 @@ import {
   clampQuote,
   clampRationaleItem,
 } from "@features/dossier/limits";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { requireDossierEditor } from "@/lib/server/auth/dossier";
 
 export const runtime = "nodejs";
@@ -86,28 +86,30 @@ async function archiveEdges(params: {
     })
     .toArray();
 
-  if (staleEdges.length === 0) return;
-
-  await edgeCol.updateMany(
-    {
-      dossierId: params.dossierId,
-      fromId: params.fromId,
-      toId: params.toId,
-      rel: { $ne: params.keepRel },
-      active: { $ne: false },
-    },
-    { $set: { active: false, archivedAt: now, archivedReason: "verdict_changed" } },
-  );
-
   for (const edge of staleEdges) {
-    await logDossierRevision({
+    await mutateDossierWithRevision({
       dossierId: params.dossierId,
-      entityType: "edge",
-      entityId: edge.edgeId,
-      action: "update",
-      diffSummary: "Edge archiviert (Verdict geaendert).",
-      byRole: params.byRole,
-      byUserId: params.byUserId,
+      mutate: async (session) => {
+        const res = await edgeCol.updateOne(
+          { _id: edge._id, active: { $ne: false } },
+          { $set: { active: false, archivedAt: now, archivedReason: "verdict_changed" } },
+          { session },
+        );
+        return {
+          result: null,
+          revision:
+            res.modifiedCount > 0
+              ? {
+                  entityType: "edge",
+                  entityId: edge.edgeId,
+                  action: "update",
+                  diffSummary: "Edge archiviert (Verdict geaendert).",
+                  byRole: params.byRole,
+                  byUserId: params.byUserId,
+                }
+              : null,
+        };
+      },
     });
   }
 }
@@ -187,31 +189,68 @@ export async function POST(
       return true;
     });
 
-    const findingRes = await findingCol.updateOne(
-      { dossierId, claimId: item.claimId, producedBy },
-      {
-        $set: {
-          findingId,
-          dossierId,
-          claimId: item.claimId,
-          verdict,
-          rationale,
-          citations: validCitations,
-          producedBy,
-          updatedAt: now,
-        },
-        $setOnInsert: {
-          createdAt: now,
-        },
+    const findingTransaction = await mutateDossierWithRevision({
+      dossierId,
+      mutate: async (session) => {
+        const findingRes = await findingCol.updateOne(
+          { dossierId, claimId: item.claimId, producedBy },
+          {
+            $set: {
+              findingId,
+              dossierId,
+              claimId: item.claimId,
+              verdict,
+              rationale,
+              citations: validCitations,
+              producedBy,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              createdAt: now,
+            },
+          },
+          { upsert: true, session },
+        );
+        const created = Boolean(findingRes.upsertedId);
+        return {
+          result: { created },
+          revision: {
+            entityType: "finding",
+            entityId: findingId,
+            action: created ? "create" : "update",
+            diffSummary: created ? "Finding angelegt (Editor)." : "Finding aktualisiert (Editor).",
+            byRole: auth.actorRole,
+            byUserId: auth.userId,
+          },
+        };
       },
-      { upsert: true },
-    );
+    });
 
     const claimStatus = verdictToClaimStatus(verdict);
-    const claimRes = await claimCol.updateOne(
-      { dossierId, claimId: item.claimId },
-      { $set: { status: claimStatus, updatedAt: now } },
-    );
+    await mutateDossierWithRevision({
+      dossierId,
+      mutate: async (session) => {
+        const claimRes = await claimCol.updateOne(
+          { dossierId, claimId: item.claimId },
+          { $set: { status: claimStatus, updatedAt: now } },
+          { session },
+        );
+        return {
+          result: null,
+          revision:
+            claimRes.modifiedCount > 0
+              ? {
+                  entityType: "claim",
+                  entityId: item.claimId,
+                  action: "status_change",
+                  diffSummary: "Claim-Status aktualisiert (Editor-Finding).",
+                  byRole: auth.actorRole,
+                  byUserId: auth.userId,
+                }
+              : null,
+        };
+      },
+    });
 
     for (const citation of validCitations) {
       const rel: DossierEdgeRel =
@@ -226,96 +265,89 @@ export async function POST(
       });
 
       const edgeId = `edge_${stableHash(`${dossierId}:${findingId}:${citation.sourceId}:${rel}`).slice(0, 12)}`;
-      const edgeRes = await edgeCol.updateOne(
-        { dossierId, fromId: findingId, toId: citation.sourceId, rel },
-        {
-          $set: {
-            fromType: "finding",
-            fromId: findingId,
-            toType: "source",
-            toId: citation.sourceId,
-            rel,
-            active: true,
-          },
-          $unset: { archivedAt: "", archivedReason: "" },
-          $setOnInsert: {
-            dossierId,
-            edgeId,
-            createdBy: edgeCreatedBy,
-            createdAt: now,
-          },
-        },
-        { upsert: true },
-      );
-      await logDossierRevision({
+      await mutateDossierWithRevision({
         dossierId,
-        entityType: "edge",
-        entityId: edgeId,
-        action: edgeRes.upsertedId ? "create" : "update",
-        diffSummary: edgeRes.upsertedId ? "Graph-Edge erstellt (Editor-Finding)." : "Graph-Edge aktualisiert (Editor-Finding).",
-        byRole: auth.actorRole,
-        byUserId: auth.userId,
+        mutate: async (session) => {
+          const edgeRes = await edgeCol.updateOne(
+            { dossierId, fromId: findingId, toId: citation.sourceId, rel },
+            {
+              $set: {
+                fromType: "finding",
+                fromId: findingId,
+                toType: "source",
+                toId: citation.sourceId,
+                rel,
+                active: true,
+              },
+              $unset: { archivedAt: "", archivedReason: "" },
+              $setOnInsert: {
+                dossierId,
+                edgeId,
+                createdBy: edgeCreatedBy,
+                createdAt: now,
+              },
+            },
+            { upsert: true, session },
+          );
+          const created = Boolean(edgeRes.upsertedId);
+          return {
+            result: null,
+            revision: {
+              entityType: "edge",
+              entityId: edgeId,
+              action: created ? "create" : "update",
+              diffSummary: created ? "Graph-Edge erstellt (Editor-Finding)." : "Graph-Edge aktualisiert (Editor-Finding).",
+              byRole: auth.actorRole,
+              byUserId: auth.userId,
+            },
+          };
+        },
       });
     }
 
     const claimEdgeId = `edge_${stableHash(`${dossierId}:${item.claimId}:${findingId}:context`).slice(0, 12)}`;
-    const claimEdgeRes = await edgeCol.updateOne(
-      { dossierId, fromId: item.claimId, toId: findingId, rel: "context_for" },
-      {
-        $set: {
-          fromType: "claim",
-          fromId: item.claimId,
-          toType: "finding",
-          toId: findingId,
-          rel: "context_for",
-          active: true,
-        },
-        $unset: { archivedAt: "", archivedReason: "" },
-        $setOnInsert: {
-          dossierId,
-          edgeId: claimEdgeId,
-          createdBy: edgeCreatedBy,
-          createdAt: now,
-        },
+    await mutateDossierWithRevision({
+      dossierId,
+      mutate: async (session) => {
+        const claimEdgeRes = await edgeCol.updateOne(
+          { dossierId, fromId: item.claimId, toId: findingId, rel: "context_for" },
+          {
+            $set: {
+              fromType: "claim",
+              fromId: item.claimId,
+              toType: "finding",
+              toId: findingId,
+              rel: "context_for",
+              active: true,
+            },
+            $unset: { archivedAt: "", archivedReason: "" },
+            $setOnInsert: {
+              dossierId,
+              edgeId: claimEdgeId,
+              createdBy: edgeCreatedBy,
+              createdAt: now,
+            },
+          },
+          { upsert: true, session },
+        );
+        const created = Boolean(claimEdgeRes.upsertedId);
+        return {
+          result: null,
+          revision: {
+            entityType: "edge",
+            entityId: claimEdgeId,
+            action: created ? "create" : "update",
+            diffSummary: created
+              ? "Claim-Finding-Edge erstellt (Editor-Finding)."
+              : "Claim-Finding-Edge aktualisiert (Editor-Finding).",
+            byRole: auth.actorRole,
+            byUserId: auth.userId,
+          },
+        };
       },
-      { upsert: true },
-    );
-
-    await logDossierRevision({
-      dossierId,
-      entityType: "edge",
-      entityId: claimEdgeId,
-      action: claimEdgeRes.upsertedId ? "create" : "update",
-      diffSummary: claimEdgeRes.upsertedId
-        ? "Claim-Finding-Edge erstellt (Editor-Finding)."
-        : "Claim-Finding-Edge aktualisiert (Editor-Finding).",
-      byRole: auth.actorRole,
-      byUserId: auth.userId,
     });
 
-    await logDossierRevision({
-      dossierId,
-      entityType: "finding",
-      entityId: findingId,
-      action: findingRes.upsertedId ? "create" : "update",
-      diffSummary: findingRes.upsertedId ? "Finding angelegt (Editor)." : "Finding aktualisiert (Editor).",
-      byRole: auth.actorRole,
-      byUserId: auth.userId,
-    });
-
-    if (claimRes.modifiedCount > 0) {
-      await logDossierRevision({
-        dossierId,
-        entityType: "claim",
-        entityId: item.claimId,
-        action: "status_change",
-        diffSummary: "Claim-Status aktualisiert (Editor-Finding).",
-        byRole: auth.actorRole,
-        byUserId: auth.userId,
-      });
-    }
-
-    results.push({ claimId: item.claimId, created: Boolean(findingRes.upsertedId), warnings });
+    results.push({ claimId: item.claimId, created: findingTransaction.result.created, warnings });
   }
 
   const counts = await updateDossierCounts(dossierId, "Editor Finding Update");
