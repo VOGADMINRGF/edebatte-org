@@ -36,9 +36,9 @@ export type Alpha2RuntimeOrchestratorTrigger =
   | "recovery";
 
 /**
- * Runtime hook into the canonical orchestrator loop. The runtime does not own task selection or
- * OpenTasks/GitHub mutation; it only tells the existing orchestrator when canonical state must be
- * re-observed after startup, idle time, a completed durable run or an explicit recovery pass.
+ * Runtime hook into the canonical orchestrator loop. The runtime does not own task selection,
+ * OpenTasks/GitHub mutation, or a continuous observation cadence. It only requests re-observation
+ * at explicit runtime boundaries; Continuous Dispatch owns ongoing cadence separately.
  */
 export interface Alpha2RuntimeOrchestratorLoop {
   run(input: {
@@ -138,7 +138,6 @@ export function startAlpha2ControlPlaneRuntime(input: {
   executorResolutionTimeoutMs?: number;
   currentHeadSha: string;
   orchestratorLoop?: Alpha2RuntimeOrchestratorLoop;
-  orchestratorObservationIntervalMs?: number;
   onOrchestratorError?: (error: unknown) => void;
 }) {
   const ledger = getAlpha2MongoRunLedger();
@@ -174,18 +173,6 @@ export function startAlpha2ControlPlaneRuntime(input: {
     onError: input.onOrchestratorError,
   });
 
-  const observationIntervalMs = Math.max(1_000, input.orchestratorObservationIntervalMs ?? 30_000);
-  const observationTimer = input.orchestratorLoop
-    ? setInterval(() => {
-        void signalAlpha2Orchestrator({
-          loop: input.orchestratorLoop,
-          trigger: "idle",
-          onError: input.onOrchestratorError,
-        });
-      }, observationIntervalMs)
-    : null;
-  observationTimer?.unref?.();
-
   return {
     worker,
     recovery,
@@ -206,7 +193,6 @@ export function startAlpha2ControlPlaneRuntime(input: {
       return result;
     },
     async close() {
-      if (observationTimer) clearInterval(observationTimer);
       await recovery.stop();
       await worker.close();
       await closeAlpha2ExecutionRuntime();
