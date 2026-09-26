@@ -1,0 +1,28 @@
+name: Alpha2 Continuous Dispatch preflight
+
+on:
+  push:
+    branches:
+      - chore/preflight-alpha2-continuous-dispatch-current-01
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_MAIN: f9bc65903325e7959cb68e9a39bd7d7539a2e036
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify exact main and run canonical task preflight
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          test "$observed" = "$EXPECTED_MAIN" || { echo "main_drift:$observed"; exit 41; }
+          node scripts/codex-task-preflight.mjs ALPHA2-CONTINUOUS-DISPATCH-01
