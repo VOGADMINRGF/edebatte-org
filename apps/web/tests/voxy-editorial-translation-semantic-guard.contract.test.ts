@@ -196,6 +196,44 @@ describe("Voxy editorial translation semantic guard", () => {
     );
   });
 
+  it("flags Work F3 decimal magnitude drift instead of collapsing punctuation", () => {
+    const master = masterPlan({ title: "Die Strecke ist 1,5 km lang" });
+    const translated = frenchPlan(master, { title: "La distance est de 15 km" });
+    const report = evaluateVoxyEditorialTranslationSemanticGuard({ masterPlan: master, translatedPlan: translated });
+
+    expect(report.reviewFlags).toContain("semantic_guard_number_changed:story:title");
+    expect(report.requiresReview).toBe(true);
+    const variant = bind(master, translated);
+    expect(variant.languageVariant.translationStatus).toBe("uncertain");
+  });
+
+  it("keeps unambiguous locale-equivalent decimal and grouping forms semantically aligned", () => {
+    const master = masterPlan({ title: "Volumen: 1.234,5 EUR auf 10 km bei 20 %" });
+    const translated = masterPlan({
+      storyPlanId: "story-en-1",
+      revision: 1,
+      title: "Volume: 1,234.5 EUR over 10 km at 20 %",
+      locale: "en",
+      originalLanguage: "de",
+      outputLanguage: "en",
+      derivedFromStoryPlanId: master.storyPlanId,
+      derivedFromRevision: master.revision,
+    });
+    const report = evaluateVoxyEditorialTranslationSemanticGuard({ masterPlan: master, translatedPlan: translated });
+
+    expect(report.reviewFlags).not.toContain("semantic_guard_number_changed:story:title");
+    expect(report.reviewFlags).not.toContain("semantic_guard_number_ambiguous:story:title");
+  });
+
+  it("fails closed on malformed or locale-ambiguous numeric syntax", () => {
+    const master = masterPlan({ title: "Wert 1,5" });
+    const translated = frenchPlan(master, { title: "Valeur 1,2,3" });
+    const report = evaluateVoxyEditorialTranslationSemanticGuard({ masterPlan: master, translatedPlan: translated });
+
+    expect(report.reviewFlags).toContain("semantic_guard_number_ambiguous:story:title");
+    expect(report.requiresReview).toBe(true);
+  });
+
   it("treats source-pack translation review state as an existing fail-closed trust signal", () => {
     expect(
       evaluateVoxyEditorialTranslationEvidenceTrust({

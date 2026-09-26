@@ -180,16 +180,101 @@ function markerCount(value: string, markers: readonly string[]): number {
   return tokens.filter((token) => markerSet.has(token)).length;
 }
 
-function numericTokens(value: string): string[] {
-  const matches = value.match(/[-+]?\d(?:[\d\s.,'’]*\d)?/g) ?? [];
-  return matches
-    .map((token) => {
-      const sign = token.trim().startsWith("-") ? "-" : "";
-      const digits = token.replace(/\D/g, "");
-      return digits ? `${sign}${digits}` : "";
-    })
-    .filter(Boolean)
-    .sort();
+const COMMA_DECIMAL_LANGUAGES = new Set([
+  "de", "fr", "es", "it", "pt", "nl", "pl", "cs", "sk", "sl", "hr", "ro",
+  "hu", "da", "sv", "no", "fi", "et", "lv", "lt", "el", "bg",
+]);
+const DOT_DECIMAL_LANGUAGES = new Set(["en", "ga", "mt"]);
+
+type NumericSemanticTokens = {
+  tokens: string[];
+  ambiguous: boolean;
+};
+
+function normalizeDecimalDigits(value: string): string {
+  return value
+    .replace(/[\u0660-\u0669]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+}
+
+function numericConvention(language: string): {
+  decimal: "." | "," | "٫" | null;
+  group: readonly string[];
+} {
+  const key = languageKey(language);
+  if (COMMA_DECIMAL_LANGUAGES.has(key)) return { decimal: ",", group: [".", "'", "’", "\u00a0", "\u202f"] };
+  if (DOT_DECIMAL_LANGUAGES.has(key)) return { decimal: ".", group: [",", "'", "’", "\u00a0", "\u202f"] };
+  if (key === "ar") return { decimal: "٫", group: ["٬", "'", "’", "\u00a0", "\u202f"] };
+  return { decimal: null, group: ["'", "’", "\u00a0", "\u202f"] };
+}
+
+function canonicalInteger(value: string): string {
+  const normalized = value.replace(/^0+(?=\d)/, "");
+  return normalized || "0";
+}
+
+function canonicalFraction(value: string): string {
+  return value.replace(/0+$/, "");
+}
+
+function canonicalNumericToken(raw: string, language: string): { token: string; ambiguous: boolean } {
+  const convention = numericConvention(language);
+  const trimmed = raw.trim();
+  const sign = trimmed.startsWith("-") ? "-" : trimmed.startsWith("+") ? "+" : "";
+  const body = trimmed.replace(/^[-+]/, "");
+  const numericPunctuation = [".", ",", "٫", "٬"];
+
+  if (!convention.decimal) {
+    const hasPunctuation = numericPunctuation.some((separator) => body.includes(separator));
+    const digits = body.replace(/[^0-9]/g, "");
+    return { token: `${sign}${canonicalInteger(digits)}`, ambiguous: hasPunctuation };
+  }
+
+  const decimalParts = body.split(convention.decimal);
+  if (decimalParts.length > 2) {
+    return { token: `${sign}${body.replace(/[^0-9]/g, "")}`, ambiguous: true };
+  }
+
+  const integerPart = decimalParts[0] ?? "";
+  const fractionPart = decimalParts[1] ?? null;
+  const unsupportedPunctuation = numericPunctuation.filter(
+    (separator) => separator !== convention.decimal && !convention.group.includes(separator),
+  );
+  if (
+    unsupportedPunctuation.some((separator) => body.includes(separator)) ||
+    (fractionPart !== null && /[^0-9]/.test(fractionPart))
+  ) {
+    return { token: `${sign}${body.replace(/[^0-9]/g, "")}`, ambiguous: true };
+  }
+
+  const groupPattern = convention.group
+    .map((separator) => (separator === "." ? "\\." : separator))
+    .join("|");
+  const groups = groupPattern ? integerPart.split(new RegExp(groupPattern, "g")) : [integerPart];
+  const groupingValid =
+    groups.length <= 1 ||
+    (/^\d{1,3}$/.test(groups[0] ?? "") && groups.slice(1).every((part) => /^\d{3}$/.test(part)));
+  if (!groupingValid || groups.some((part) => !/^\d+$/.test(part))) {
+    return { token: `${sign}${body.replace(/[^0-9]/g, "")}`, ambiguous: true };
+  }
+
+  const integer = canonicalInteger(groups.join(""));
+  if (fractionPart === null) return { token: `${sign}${integer}`, ambiguous: false };
+  const fraction = canonicalFraction(fractionPart);
+  return {
+    token: fraction ? `${sign}${integer}.${fraction}` : `${sign}${integer}`,
+    ambiguous: false,
+  };
+}
+
+function numericTokens(value: string, language: string): NumericSemanticTokens {
+  const normalized = normalizeDecimalDigits(value);
+  const matches = normalized.match(/[-+]?\d(?:[\d.,٫٬'’\u00a0\u202f]*\d)?/g) ?? [];
+  const parsed = matches.map((token) => canonicalNumericToken(token, language));
+  return {
+    tokens: parsed.map((entry) => entry.token).filter(Boolean).sort(),
+    ambiguous: parsed.some((entry) => entry.ambiguous),
+  };
 }
 
 function percentMarkerCount(value: string, language: string): number {
@@ -250,7 +335,12 @@ function compareTextRisk(input: {
   targetLanguage: string;
   reviewFlags: string[];
 }) {
-  compareTokenList(input.reviewFlags, input.path, "number", numericTokens(input.source), numericTokens(input.target));
+  const sourceNumbers = numericTokens(input.source, input.sourceLanguage);
+  const targetNumbers = numericTokens(input.target, input.targetLanguage);
+  compareTokenList(input.reviewFlags, input.path, "number", sourceNumbers.tokens, targetNumbers.tokens);
+  if (sourceNumbers.ambiguous || targetNumbers.ambiguous) {
+    input.reviewFlags.push(`semantic_guard_number_ambiguous:${input.path}`);
+  }
   compareTokenList(input.reviewFlags, input.path, "currency", currencyTokens(input.source), currencyTokens(input.target));
   compareTokenList(input.reviewFlags, input.path, "unit", unitTokens(input.source), unitTokens(input.target));
   compareTokenList(input.reviewFlags, input.path, "acronym", acronymTokens(input.source), acronymTokens(input.target));
