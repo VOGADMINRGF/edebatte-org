@@ -1,6 +1,9 @@
 name: Temporary Voxy F2 close F3 authorize
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - docs/voxy-f2-close-f3-authorize-01
