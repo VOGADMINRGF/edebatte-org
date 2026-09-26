@@ -1,6 +1,9 @@
 name: Temporary Voxy F3 numeric semantic repair
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - fix/voxy-f3-numeric-semantic-guard-01
