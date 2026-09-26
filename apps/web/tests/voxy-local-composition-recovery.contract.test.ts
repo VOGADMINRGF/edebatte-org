@@ -17,7 +17,10 @@ import {
   VOXY_LOCAL_COMPOSITION_RECOVERY_ORPHAN_AFTER_MS,
   type VoxyLocalCompositionRuntimeDependencies,
 } from "@/features/voxyVideo/localCompositionRuntimeService";
-import { createInMemoryVoxyLocalCompositionRepository } from "@/features/voxyVideo/localCompositionRuntimeStore";
+import {
+  buildVoxyLocalCompositionTransitionCasFilter,
+  createInMemoryVoxyLocalCompositionRepository,
+} from "@/features/voxyVideo/localCompositionRuntimeStore";
 
 const QUEUED_AT = "2026-09-25T00:00:00.000Z";
 const RECOVERY_AT = "2026-09-25T06:00:00.000Z";
@@ -175,6 +178,7 @@ async function queueAndMarkRendering(input: {
     await input.deps.repository.transitionJob({
       jobId: queued.job.jobId,
       expectedStatus: "queued",
+      expectedAttempt: queued.job.attempt,
       next: rendering,
     }),
   ).toBe(true);
@@ -182,6 +186,102 @@ async function queueAndMarkRendering(input: {
 }
 
 describe("VOXY-LOCAL-COMPOSITION-RECOVERY-01", () => {
+  it("binds the Mongo transition selector to status and execution attempt", () => {
+    expect(
+      buildVoxyLocalCompositionTransitionCasFilter({
+        jobId: "job-1",
+        expectedStatus: "rendering",
+        expectedAttempt: 7,
+      }),
+    ).toEqual({
+      _id: "job-1",
+      "record.status": "rendering",
+      "record.attempt": 7,
+    });
+  });
+
+  it("rejects stale recovery and stale completion after a newer attempt is acquired", async () => {
+    const state = runtime();
+    const staleRendering = await queueAndMarkRendering({
+      request: localRequest(),
+      deps: state.deps,
+    });
+
+    const recovered = await recoverInterruptedVoxyLocalComposition({
+      jobId: staleRendering.jobId,
+      repository: state.repository,
+      now: RECOVERY_AT,
+    });
+    expect(recovered.status).toBe("queued");
+    expect(recovered.attempt).toBe(staleRendering.attempt + 1);
+
+    const newerRendering: VoxyLocalCompositionJob = {
+      ...recovered,
+      status: "rendering",
+      startedAt: RECOVERY_AT,
+      updatedAt: RECOVERY_AT,
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: recovered.jobId,
+        expectedStatus: "queued",
+        expectedAttempt: recovered.attempt,
+        next: newerRendering,
+      }),
+    ).toBe(true);
+
+    const staleRecoveryQueued: VoxyLocalCompositionJob = {
+      ...staleRendering,
+      status: "queued",
+      attempt: staleRendering.attempt + 1,
+      startedAt: null,
+      updatedAt: RECOVERY_AT,
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: staleRendering.jobId,
+        expectedStatus: "rendering",
+        expectedAttempt: staleRendering.attempt,
+        next: staleRecoveryQueued,
+      }),
+    ).toBe(false);
+
+    const staleRendered: VoxyLocalCompositionJob = {
+      ...staleRendering,
+      status: "rendered",
+      completedAt: RECOVERY_AT,
+      updatedAt: RECOVERY_AT,
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: staleRendering.jobId,
+        expectedStatus: "rendering",
+        expectedAttempt: staleRendering.attempt,
+        next: staleRendered,
+      }),
+    ).toBe(false);
+
+    const staleFailed: VoxyLocalCompositionJob = {
+      ...staleRendering,
+      status: "failed",
+      completedAt: RECOVERY_AT,
+      updatedAt: RECOVERY_AT,
+      safeErrorCode: "stale_worker",
+      safeErrorMessage: "stale worker must not fence a newer attempt",
+    };
+    expect(
+      await state.repository.transitionJob({
+        jobId: staleRendering.jobId,
+        expectedStatus: "rendering",
+        expectedAttempt: staleRendering.attempt,
+        next: staleFailed,
+      }),
+    ).toBe(false);
+
+    const current = await state.repository.getJob(staleRendering.jobId);
+    expect(current?.status).toBe("rendering");
+    expect(current?.attempt).toBe(newerRendering.attempt);
+  });
   it("does not reclaim an active rendering lease", async () => {
     const state = runtime();
     const rendering = await queueAndMarkRendering({
@@ -261,6 +361,7 @@ describe("VOXY-LOCAL-COMPOSITION-RECOVERY-01", () => {
       await state.repository.transitionJob({
         jobId: rendered.jobId,
         expectedStatus: "rendering",
+        expectedAttempt: rendering.attempt,
         next: rendered,
       }),
     ).toBe(true);
@@ -300,6 +401,7 @@ describe("VOXY-LOCAL-COMPOSITION-RECOVERY-01", () => {
       await state.repository.transitionJob({
         jobId: rendered.jobId,
         expectedStatus: "rendering",
+        expectedAttempt: rendering.attempt,
         next: rendered,
       }),
     ).toBe(true);

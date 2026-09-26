@@ -208,6 +208,7 @@ export async function executeVoxyLocalComposition(input: {
   const acquired = await deps.repository.transitionJob({
     jobId: current.jobId,
     expectedStatus: "queued",
+    expectedAttempt: current.attempt,
     next: rendering,
   });
   if (!acquired) {
@@ -274,6 +275,7 @@ export async function executeVoxyLocalComposition(input: {
     const markedRendered = await deps.repository.transitionJob({
       jobId: rendering.jobId,
       expectedStatus: "rendering",
+      expectedAttempt: rendering.attempt,
       next: rendered,
     });
     if (!markedRendered) throw new Error("voxy_local_composition_rendered_transition_lost");
@@ -286,6 +288,7 @@ export async function executeVoxyLocalComposition(input: {
     const markedReviewReady = await deps.repository.transitionJob({
       jobId: rendered.jobId,
       expectedStatus: "rendered",
+      expectedAttempt: rendered.attempt,
       next: reviewReady,
     });
     if (!markedReviewReady) throw new Error("voxy_local_composition_review_ready_transition_lost");
@@ -293,9 +296,9 @@ export async function executeVoxyLocalComposition(input: {
   } catch (error) {
     const failure = safeVoxyLocalCompositionFailure(error);
     const latest = (await deps.repository.getJob(rendering.jobId)) ?? rendering;
-    if (latest.status === "rendering") {
+    if (latest.status === "rendering" && latest.attempt === rendering.attempt) {
       const failed: VoxyLocalCompositionJob = {
-        ...latest,
+        ...rendering,
         status: "failed",
         updatedAt: now(deps),
         completedAt: now(deps),
@@ -305,9 +308,10 @@ export async function executeVoxyLocalComposition(input: {
       await deps.repository.transitionJob({
         jobId: latest.jobId,
         expectedStatus: "rendering",
+        expectedAttempt: rendering.attempt,
         next: failed,
       });
-      return failed;
+      return (await deps.repository.getJob(rendering.jobId)) ?? failed;
     }
     return latest;
   }
@@ -347,6 +351,7 @@ export async function recoverInterruptedVoxyLocalComposition(input: {
       const markedFailed = await input.repository.transitionJob({
         jobId: current.jobId,
         expectedStatus: "rendered",
+        expectedAttempt: current.attempt,
         next: failed,
       });
       return markedFailed
@@ -367,6 +372,7 @@ export async function recoverInterruptedVoxyLocalComposition(input: {
     const recovered = await input.repository.transitionJob({
       jobId: current.jobId,
       expectedStatus: "rendered",
+      expectedAttempt: current.attempt,
       next: queued,
     });
     return recovered ? queued : ((await input.repository.getJob(current.jobId)) ?? current);
@@ -400,6 +406,7 @@ export async function recoverInterruptedVoxyLocalComposition(input: {
   const recovered = await input.repository.transitionJob({
     jobId: current.jobId,
     expectedStatus: "rendering",
+    expectedAttempt: current.attempt,
     next: queued,
   });
   return recovered ? queued : ((await input.repository.getJob(current.jobId)) ?? current);
@@ -428,6 +435,7 @@ export async function retryVoxyLocalComposition(input: {
   const updated = await input.repository.transitionJob({
     jobId: current.jobId,
     expectedStatus: "failed",
+    expectedAttempt: current.attempt,
     next,
   });
   return updated ? next : ((await input.repository.getJob(current.jobId)) ?? current);
