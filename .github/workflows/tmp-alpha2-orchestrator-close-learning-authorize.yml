@@ -1,0 +1,98 @@
+name: Temporary Alpha2 orchestrator close learning authorize
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - docs/alpha2-orchestrator-close-learning-authorize-01
+
+permissions:
+  contents: write
+
+jobs:
+  single-writer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/alpha2-orchestrator-close-learning-authorize-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply exact guarded OpenTasks transition
+        env:
+          EXPECTED_MAIN: 4e0854a7d1bca7250800cb1e4b9d9b33c2b02e0e
+          EXPECTED_BLOB: 3d267decc575cffdf46c084dd52afbc913b4bb4d
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD:docs/E150/OpenTasks.md)" = "$EXPECTED_BLOB"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('docs/E150/OpenTasks.md')
+          text = p.read_text()
+          marker = '## Historischer Katalog und Evidenz'
+          if text.count(marker) != 1:
+            raise SystemExit('historical marker must occur exactly once')
+          operative, historical = text.split(marker, 1)
+          historical_hash_before = __import__('hashlib').sha256(historical.encode()).hexdigest()
+
+          old_orchestrator = '''| ALPHA2-ORCHESTRATOR-LOOP-01 | codex_ready | P0 | `ALPHA2-PERSISTENT-RUN-LEDGER-01`; `ALPHA2-AGENT-REGISTRY-01`; `ALPHA2-GITHUB-STATE-ADAPTER-01`; `ALPHA2-OPENTASKS-SINGLE-WRITER-01`; bestehender `lean-continuous-slice-runner` | Den vorhandenen bounded Runner als dauerhaften `observe → prioritize → claim → delegate → execute → verify → review/human_gate → reconcile SSOT → learn → continue → observe`-Loop erweitern | Worker bleiben auf einen kohärenten Slice beziehungsweise 1–3 Tasks begrenzt; Missionen überleben Chat-/Prozessende; nach Idle, Neustart, Worker-Ausfall, vom Runtime-Contract gedecktem Queue-/Redis-Ausfall und Taskabschluss wird kanonischer Zustand neu beobachtet und die nächste erlaubte Arbeit bestimmt; Risiko-, Budget-, Policy-, Review- und Human-Gates stoppen fail-closed; keine parallele Runner- oder Task-Wahrheit |'''
+          new_orchestrator = '''| ALPHA2-ORCHESTRATOR-LOOP-01 | review | P0 | `ALPHA2-PERSISTENT-RUN-LEDGER-01`; `ALPHA2-AGENT-REGISTRY-01`; `ALPHA2-GITHUB-STATE-ADAPTER-01`; `ALPHA2-OPENTASKS-SINGLE-WRITER-01`; implementation PR #1092 / merge `27596abd7794367f71b3fbaa0660b088ae5ec4ee`; exact-head Web CI, Alpha2 orchestrator loop, OpenTasks single-writer and Voxy AAA red-team gates green | **Implemented — bounded durable orchestrator:** existing task truth, ownership evidence, Risk/Action Gate, transactional OpenTasks claim, durable run ledger and BullMQ dispatch are reused for a bounded `observe → prioritize → claim → delegate → execute → verify → review/human_gate → reconcile → continue → observe` loop with startup/idle/completion/recovery re-observation | Consumed authorization; worker selection remains 1–3 bounded tasks; review/manual/human-only actions fail closed; merge/deploy/publish remain human sovereignty actions; no parallel runner/task truth. Further implementation under this owner requires fresh authorization |'''
+
+          old_learning = '''| ALPHA2-LEARNING-EVALS-01 | blocked | P1 | `ALPHA2-PERSISTENT-RUN-LEDGER-01`; `ALPHA2-AGENT-REGISTRY-01`; bestehender Draft-PR `#639` | Validierte Lesson-Promotion und empirische Agent-/Modell-Evaluation auf derselben Control Plane ergänzen | Raw Chat ist keine kanonische Erinnerung; Candidate Lesson → unabhängige Prüfung → Evidenz/Tests → Curator → accept/reject; Performance nach Qualität, Regression, Kosten, Latenz und Human Intervention; bestehender Branch `feat/alpha2-learning-evals-01` wird wiederverwendet |'''
+          new_learning = '''| ALPHA2-LEARNING-EVALS-01 | codex_ready | P1 | `ALPHA2-PERSISTENT-RUN-LEDGER-01`; `ALPHA2-AGENT-REGISTRY-01`; bestehender Draft-PR `#639`; canonical next-task diagnostic #1093 after orchestrator merge #1092 | **Next authorized Alpha2 convergence slice:** reconcile the existing Learning/Evals implementation onto current main without a second memory/eval/control-plane truth; preserve validated Lesson lifecycle and empirical capability-scoped model/agent evaluation | Raw Chat is never canonical memory; Candidate Lesson → independent check → evidence/tests → accept/reject; no self-approval; routing promotion requires sufficient samples and policy/compliance evidence; reuse existing branch/owners where safe; exact-head CI + review required; no auto-merge/deploy/publish, provider activation or governance self-modification |'''
+
+          if operative.count(old_orchestrator) != 1:
+            raise SystemExit(f'orchestrator row count={operative.count(old_orchestrator)}')
+          if operative.count(old_learning) != 1:
+            raise SystemExit(f'learning row count={operative.count(old_learning)}')
+          operative = operative.replace(old_orchestrator, new_orchestrator, 1)
+          operative = operative.replace(old_learning, new_learning, 1)
+          out = operative + marker + historical
+          historical_after = out.split(marker,1)[1]
+          if __import__('hashlib').sha256(historical_after.encode()).hexdigest() != historical_hash_before:
+            raise SystemExit('historical tail changed')
+          p.write_text(out)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "docs/E150/OpenTasks.md"
+
+      - name: Validate candidate statuses
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('docs/E150/OpenTasks.md').read_text().split('## Historischer Katalog und Evidenz',1)[0]
+          expected = {
+            'ALPHA2-ORCHESTRATOR-LOOP-01': 'review',
+            'ALPHA2-LEARNING-EVALS-01': 'codex_ready',
+            'ALPHA2-MISSION-CONTROL-01': 'blocked',
+            'ALPHA2-CONTINUOUS-DISPATCH-01': 'blocked',
+            'ALPHA2-REPAIR-CONTINUATION-01': 'blocked',
+          }
+          for task_id, status in expected.items():
+            rows = [l for l in text.splitlines() if l.startswith(f'| {task_id} |')]
+            if len(rows) != 1:
+              raise SystemExit(f'{task_id}: row count {len(rows)}')
+            cols = [x.strip() for x in rows[0].strip('|').split('|')]
+            if cols[1] != status:
+              raise SystemExit(f'{task_id}: expected {status}, got {cols[1]}')
+          PY
+
+      - name: Commit, self-delete and push candidate
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/E150/OpenTasks.md
+          git commit -m "docs(e150): close Alpha2 orchestrator and authorize learning"
+          git rm .github/workflows/tmp-alpha2-orchestrator-close-learning-authorize.yml
+          git commit -m "chore(governance): remove one-shot Alpha2 writer"
+          test "$(git diff --name-only origin/main...HEAD)" = "docs/E150/OpenTasks.md"
+          git diff --check origin/main...HEAD
+          git push origin HEAD:docs/alpha2-orchestrator-close-learning-authorize-01
