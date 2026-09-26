@@ -6,7 +6,7 @@ import {
   getDossierStudioWorkspaceRepo,
   type DossierStudioWorkspaceSource,
 } from "@features/dossier/server/studioPersistence";
-import { logDossierRevision } from "@features/dossier/revisions";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { dossiersCol, dossierSourcesCol, updateDossierCounts } from "@features/dossier/db";
 import { seedDossierFromAnalysis } from "@features/dossier/seed";
 import {
@@ -783,36 +783,47 @@ async function ensureDossierDraftFromSourceResult(input: {
   const title = suggestedTitleForTarget(input.result, "dossier");
   const now = new Date();
   const dossiers = await dossiersCol();
-  const existing = await dossiers.findOne({
-    $or: [{ dossierId }, { statementId }],
-  } as any);
 
-  if (!existing) {
-    await dossiers.insertOne({
-      dossierId,
-      statementId,
-      title,
-      status: "draft",
-      counts: {
-        claims: 0,
-        sources: 0,
-        findings: 0,
-        edges: 0,
-        openQuestions: 0,
-      },
-      createdAt: now,
-      updatedAt: now,
-    } as any);
-    await logDossierRevision({
-      dossierId,
-      entityType: "dossier",
-      entityId: dossierId,
-      action: "create",
-      diffSummary: "Dossier-Entwurf aus Review-Queue-Source-Result erstellt.",
-      byRole: "admin",
-      byUserId: input.requestedBy,
-    });
-  }
+  await mutateDossierWithRevision({
+    dossierId,
+    mutate: async (session) => {
+      const existing = await dossiers.findOne(
+        { $or: [{ dossierId }, { statementId }] } as any,
+        { session },
+      );
+      if (existing) return { result: null, revision: null };
+
+      await dossiers.insertOne(
+        {
+          dossierId,
+          statementId,
+          title,
+          status: "draft",
+          counts: {
+            claims: 0,
+            sources: 0,
+            findings: 0,
+            edges: 0,
+            openQuestions: 0,
+          },
+          createdAt: now,
+          updatedAt: now,
+        } as any,
+        { session },
+      );
+      return {
+        result: null,
+        revision: {
+          entityType: "dossier",
+          entityId: dossierId,
+          action: "create",
+          diffSummary: "Dossier-Entwurf aus Review-Queue-Source-Result erstellt.",
+          byRole: "admin",
+          byUserId: input.requestedBy,
+        },
+      };
+    },
+  });
 
   await seedDossierFromAnalysis({
     dossierId,
@@ -830,32 +841,43 @@ async function ensureDossierDraftFromSourceResult(input: {
     if (!url) continue;
     const sourceId = `source-result-source-${stableHash(`${input.result.id}:${url}:${index}`).slice(0, 12)}`;
     const canonicalUrlHash = stableHash(url);
-    const existingSource = await sources.findOne({ dossierId, canonicalUrlHash });
-    if (existingSource) continue;
-    await sources.insertOne({
-      sourceId,
+    await mutateDossierWithRevision({
       dossierId,
-      canonicalUrlHash,
-      url,
-      title: reference.label || input.result.connectionLabel,
-      publisher: input.result.connectionLabel,
-      publishedAt: new Date(input.result.createdAt),
-      retrievedAt: now,
-      type: input.result.sourceType === "official_feed" ? "official" : "quality_media",
-      snippet: String(reference.excerpt ?? "").trim() || undefined,
-      tags: input.result.detectedTopics.slice(0, 5),
-      language: "de",
-      createdAt: now,
-      updatedAt: now,
-    } as any);
-    await logDossierRevision({
-      dossierId,
-      entityType: "source",
-      entityId: sourceId,
-      action: "create",
-      diffSummary: "Quelle aus expliziter URL-Auswertung übernommen.",
-      byRole: "admin",
-      byUserId: input.requestedBy,
+      mutate: async (session) => {
+        const existingSource = await sources.findOne({ dossierId, canonicalUrlHash }, { session });
+        if (existingSource) return { result: null, revision: null };
+
+        await sources.insertOne(
+          {
+            sourceId,
+            dossierId,
+            canonicalUrlHash,
+            url,
+            title: reference.label || input.result.connectionLabel,
+            publisher: input.result.connectionLabel,
+            publishedAt: new Date(input.result.createdAt),
+            retrievedAt: now,
+            type: input.result.sourceType === "official_feed" ? "official" : "quality_media",
+            snippet: String(reference.excerpt ?? "").trim() || undefined,
+            tags: input.result.detectedTopics.slice(0, 5),
+            language: "de",
+            createdAt: now,
+            updatedAt: now,
+          } as any,
+          { session },
+        );
+        return {
+          result: null,
+          revision: {
+            entityType: "source",
+            entityId: sourceId,
+            action: "create",
+            diffSummary: "Quelle aus expliziter URL-Auswertung übernommen.",
+            byRole: "admin",
+            byUserId: input.requestedBy,
+          },
+        };
+      },
     });
   }
   await updateDossierCounts(dossierId, "Dossier-Zaehler nach Source-Result-Übernahme aktualisiert.");
@@ -937,36 +959,47 @@ async function ensureDossierDraftFromCreateHandoff(input: {
   const title = suggestedTitleForCreateHandoff(input.record, "dossier");
   const now = new Date();
   const dossiers = await dossiersCol();
-  const existing = await dossiers.findOne({
-    $or: [{ dossierId }, { statementId }],
-  } as any);
 
-  if (!existing) {
-    await dossiers.insertOne({
-      dossierId,
-      statementId,
-      title,
-      status: "draft",
-      counts: {
-        claims: 0,
-        sources: 0,
-        findings: 0,
-        edges: 0,
-        openQuestions: 0,
-      },
-      createdAt: now,
-      updatedAt: now,
-    } as any);
-    await logDossierRevision({
-      dossierId,
-      entityType: "dossier",
-      entityId: dossierId,
-      action: "create",
-      diffSummary: "Dossier-Entwurf aus persistiertem Create-Handoff erstellt.",
-      byRole: "admin",
-      byUserId: input.requestedBy,
-    });
-  }
+  await mutateDossierWithRevision({
+    dossierId,
+    mutate: async (session) => {
+      const existing = await dossiers.findOne(
+        { $or: [{ dossierId }, { statementId }] } as any,
+        { session },
+      );
+      if (existing) return { result: null, revision: null };
+
+      await dossiers.insertOne(
+        {
+          dossierId,
+          statementId,
+          title,
+          status: "draft",
+          counts: {
+            claims: 0,
+            sources: 0,
+            findings: 0,
+            edges: 0,
+            openQuestions: 0,
+          },
+          createdAt: now,
+          updatedAt: now,
+        } as any,
+        { session },
+      );
+      return {
+        result: null,
+        revision: {
+          entityType: "dossier",
+          entityId: dossierId,
+          action: "create",
+          diffSummary: "Dossier-Entwurf aus persistiertem Create-Handoff erstellt.",
+          byRole: "admin",
+          byUserId: input.requestedBy,
+        },
+      };
+    },
+  });
 
   await seedDossierFromAnalysis({
     dossierId,
@@ -984,32 +1017,43 @@ async function ensureDossierDraftFromCreateHandoff(input: {
     if (!url) continue;
     const sourceId = `create-handoff-source-${stableHash(`${input.record.id}:${url}:${index}`).slice(0, 12)}`;
     const canonicalUrlHash = stableHash(url);
-    const existingSource = await sources.findOne({ dossierId, canonicalUrlHash });
-    if (existingSource) continue;
-    await sources.insertOne({
-      sourceId,
+    await mutateDossierWithRevision({
       dossierId,
-      canonicalUrlHash,
-      url,
-      title: reference.label || title,
-      publisher: "Create Handoff",
-      publishedAt: new Date(input.record.createdAt),
-      retrievedAt: now,
-      type: "user_generated",
-      snippet: safeTrim(reference.detail) || undefined,
-      tags: input.record.plannerResult.topicCandidates.slice(0, 5),
-      language: "de",
-      createdAt: now,
-      updatedAt: now,
-    } as any);
-    await logDossierRevision({
-      dossierId,
-      entityType: "source",
-      entityId: sourceId,
-      action: "create",
-      diffSummary: "Quellenhinweis aus persistiertem Create-Handoff übernommen.",
-      byRole: "admin",
-      byUserId: input.requestedBy,
+      mutate: async (session) => {
+        const existingSource = await sources.findOne({ dossierId, canonicalUrlHash }, { session });
+        if (existingSource) return { result: null, revision: null };
+
+        await sources.insertOne(
+          {
+            sourceId,
+            dossierId,
+            canonicalUrlHash,
+            url,
+            title: reference.label || title,
+            publisher: "Create Handoff",
+            publishedAt: new Date(input.record.createdAt),
+            retrievedAt: now,
+            type: "user_generated",
+            snippet: safeTrim(reference.detail) || undefined,
+            tags: input.record.plannerResult.topicCandidates.slice(0, 5),
+            language: "de",
+            createdAt: now,
+            updatedAt: now,
+          } as any,
+          { session },
+        );
+        return {
+          result: null,
+          revision: {
+            entityType: "source",
+            entityId: sourceId,
+            action: "create",
+            diffSummary: "Quellenhinweis aus persistiertem Create-Handoff übernommen.",
+            byRole: "admin",
+            byUserId: input.requestedBy,
+          },
+        };
+      },
     });
   }
   await updateDossierCounts(dossierId, "Dossier-Zaehler nach Create-Handoff-Übernahme aktualisiert.");

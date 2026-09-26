@@ -6,6 +6,7 @@ import {
   ensureDossierForStatement,
   updateDossierCounts,
 } from "@features/dossier/db";
+import { mutateDossierWithRevision } from "@features/dossier/revisions";
 import { getDossierStudioWorkspaceRepo } from "@features/dossier/server/studioPersistence";
 import type { DossierClaimKind } from "@features/dossier/schemas";
 import {
@@ -291,47 +292,85 @@ async function materializeRuntimeDossier(input: {
     const claimId = `handoff-claim-${stableHash(
       `${sourceRecord.id}:${index}:${claim.text}`,
     ).slice(0, 18)}`;
-    await claimsCol.updateOne(
-      { dossierId: dossier.dossierId, claimId } as any,
-      {
-        $set: {
-          dossierId: dossier.dossierId,
-          claimId,
-          text: claim.text,
-          kind: mapClaimKind(claim.kind),
-          status: "open",
-          createdByRole: "admin",
-          authorRef: actorUserId ? { userId: actorUserId } : undefined,
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
-      } as any,
-      { upsert: true },
-    );
+    await mutateDossierWithRevision({
+      dossierId: dossier.dossierId,
+      mutate: async (session) => {
+        const result = await claimsCol.updateOne(
+          { dossierId: dossier.dossierId, claimId } as any,
+          {
+            $set: {
+              dossierId: dossier.dossierId,
+              claimId,
+              text: claim.text,
+              kind: mapClaimKind(claim.kind),
+              status: "open",
+              createdByRole: "admin",
+              authorRef: actorUserId ? { userId: actorUserId } : undefined,
+              updatedAt: new Date(),
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+            },
+          } as any,
+          { upsert: true, session },
+        );
+        const created = Boolean(result.upsertedId);
+        return {
+          result: null,
+          revision: {
+            entityType: "claim",
+            entityId: claimId,
+            action: created ? "create" : "update",
+            diffSummary: created
+              ? "Claim aus review-bestätigtem Create-Handoff erstellt."
+              : "Claim aus review-bestätigtem Create-Handoff aktualisiert.",
+            byRole: "admin",
+            byUserId: actorUserId,
+          },
+        };
+      },
+    });
   }
 
   for (const [index, question] of input.record.openQuestions.entries()) {
     const questionId = `handoff-question-${stableHash(
       `${sourceRecord.id}:${index}:${question}`,
     ).slice(0, 18)}`;
-    await questionsCol.updateOne(
-      { dossierId: dossier.dossierId, questionId } as any,
-      {
-        $set: {
-          dossierId: dossier.dossierId,
-          questionId,
-          text: question,
-          status: "open",
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
-      } as any,
-      { upsert: true },
-    );
+    await mutateDossierWithRevision({
+      dossierId: dossier.dossierId,
+      mutate: async (session) => {
+        const result = await questionsCol.updateOne(
+          { dossierId: dossier.dossierId, questionId } as any,
+          {
+            $set: {
+              dossierId: dossier.dossierId,
+              questionId,
+              text: question,
+              status: "open",
+              updatedAt: new Date(),
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+            },
+          } as any,
+          { upsert: true, session },
+        );
+        const created = Boolean(result.upsertedId);
+        return {
+          result: null,
+          revision: {
+            entityType: "open_question",
+            entityId: questionId,
+            action: created ? "create" : "update",
+            diffSummary: created
+              ? "Offene Frage aus review-bestätigtem Create-Handoff erstellt."
+              : "Offene Frage aus review-bestätigtem Create-Handoff aktualisiert.",
+            byRole: "admin",
+            byUserId: actorUserId,
+          },
+        };
+      },
+    });
   }
 
   await updateDossierCounts(

@@ -253,6 +253,11 @@ const memory = vi.hoisted(() => {
   };
 });
 
+const revisions = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  session: { id: "protocol-upsert-test-session" },
+}));
+
 vi.mock("@core/db/triMongo", async () => {
   const mongodb = await import("mongodb");
   return {
@@ -264,6 +269,10 @@ vi.mock("@core/db/triMongo", async () => {
     },
   };
 });
+
+vi.mock("@features/dossier/revisions", () => ({
+  mutateDossierWithRevision: (...args: unknown[]) => revisions.mutate(...args),
+}));
 
 import {
   applyDossierUpsertContractAuthorized,
@@ -320,6 +329,11 @@ function seedRoom(roomId: ObjectId, overrides: Record<string, unknown> = {}) {
 describe("GOV-EVENT-02 contracts hardening", () => {
   beforeEach(() => {
     memory.reset();
+    revisions.mutate.mockReset();
+    revisions.mutate.mockImplementation(async (input: any) => {
+      const mutation = await input.mutate(revisions.session as any);
+      return { result: mutation.result, revision: mutation.revision };
+    });
   });
 
   it("Scenario A: protocol contract apply is additive, stateful, auditable", async () => {
@@ -352,6 +366,7 @@ describe("GOV-EVENT-02 contracts hardening", () => {
     });
 
     expect(created.status).toBe("pending_review");
+    expect(revisions.mutate).toHaveBeenCalled();
 
     const applied = await applyDossierUpsertContractAuthorized({
       contractId: created.contractId,

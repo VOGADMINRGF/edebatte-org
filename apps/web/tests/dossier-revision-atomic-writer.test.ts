@@ -271,6 +271,18 @@ describe("dossier revision atomic writer", () => {
   it("keeps audited dossier writers on the single canonical transaction boundary", () => {
     const root = path.resolve(process.cwd(), "../..");
     const dbSource = readFileSync(path.resolve(root, "features/dossier/db.ts"), "utf8");
+    const contentReleaseSource = readFileSync(
+      path.resolve(root, "features/contentReleaseWorkbench.ts"),
+      "utf8",
+    );
+    const protocolUpsertSource = readFileSync(
+      path.resolve(root, "features/dossier/protocolUpsert.ts"),
+      "utf8",
+    );
+    const dossierRuntimeServerSource = readFileSync(
+      path.resolve(process.cwd(), "src/features/create/dossierRuntimeServer.ts"),
+      "utf8",
+    );
     const claimRoute = readFileSync(
       path.resolve(process.cwd(), "src/app/api/dossiers/[dossierId]/claims/upsert/route.ts"),
       "utf8",
@@ -322,5 +334,23 @@ describe("dossier revision atomic writer", () => {
       expect(maintenanceSource).toContain("mutateDossierWithRevision");
       expect(maintenanceSource).not.toContain("await logDossierRevision(");
     }
+
+    expect(contentReleaseSource).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
+    expect(contentReleaseSource).toContain("await mutateDossierWithRevision({");
+    expect(contentReleaseSource).toContain("await dossiers.insertOne(");
+    expect(contentReleaseSource).toContain("await sources.insertOne(");
+    expect(contentReleaseSource).toContain("{ session },");
+    expect(contentReleaseSource).not.toContain("await logDossierRevision(");
+
+    expect(dossierRuntimeServerSource).toContain('import { mutateDossierWithRevision } from "@features/dossier/revisions"');
+    expect(dossierRuntimeServerSource).toContain("await mutateDossierWithRevision({");
+    expect(dossierRuntimeServerSource).toContain("{ upsert: true, session },");
+    expect(dossierRuntimeServerSource).not.toContain("await logDossierRevision(");
+
+    expect(protocolUpsertSource).toContain('import { mutateDossierWithRevision } from "./revisions"');
+    expect(protocolUpsertSource).toContain("await mutateDossierWithRevision({");
+    expect(protocolUpsertSource).toContain("includeResultMetadata: true, session");
+    expect(protocolUpsertSource).not.toContain("dossierSuggestionsCol()).updateMany(");
+    expect(protocolUpsertSource).not.toContain("await logDossierRevision(");
   });
 });
