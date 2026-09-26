@@ -84,6 +84,27 @@ function frenchVariant(master: VoxyEditorialStoryPlan): VoxyEditorialLanguageVar
   });
 }
 
+function italianVariant(master: VoxyEditorialStoryPlan): VoxyEditorialLanguageVariantPlan {
+  const translated = plan({
+    storyPlanId: "story-it-1",
+    revision: 1,
+    title: master.title,
+    locale: "it",
+    originalLanguage: master.outputLanguage,
+    outputLanguage: "it",
+    derivedFromStoryPlanId: master.storyPlanId,
+    derivedFromRevision: master.revision,
+    chapters: master.chapters.map((chapter) => ({ ...chapter })),
+  });
+  return bindVoxyEditorialLanguageVariant({
+    masterPlan: master,
+    translatedPlan: translated,
+    evidenceSourcePackId: SOURCE_PACK_ID,
+    translationRevision: 1,
+    translationStatus: "approved",
+  });
+}
+
 function draft(draftId: string, storyPlan: VoxyEditorialStoryPlan): VoxyStudioDraft {
   return {
     draftId,
@@ -130,9 +151,13 @@ function repository(drafts: VoxyStudioDraft[]): VoxyStudioDraftRepository {
   };
 }
 
-function masterDriftAuthority(variantDraft: VoxyStudioDraft, advancedMaster: VoxyStudioDraft) {
+function masterDriftAuthority(
+  variantDraft: VoxyStudioDraft,
+  advancedMaster: VoxyStudioDraft,
+  ancestorDrafts: VoxyStudioDraft[] = [],
+) {
   return createVoxyStudioLocalCompositionFreshnessAuthority({
-    draftRepository: repository([advancedMaster, variantDraft]),
+    draftRepository: repository([advancedMaster, ...ancestorDrafts, variantDraft]),
     evidenceAuthority: {
       async resolveEvidenceContext() {
         return {
@@ -190,6 +215,68 @@ describe("Voxy language-variant master freshness at render/worker boundary", () 
     expect(result.blockers).toContain("language_variant_master_revision_changed");
   });
 
+  it("keeps a transitive de -> fr -> it chain current while every ancestor revision is unchanged", async () => {
+    const master = plan();
+    const frenchDraft = draft("draft-fr", frenchVariant(master));
+    const italianDraft = draft("draft-it", italianVariant(frenchDraft.storyPlan));
+    const result = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: italianDraft,
+      draftRepository: repository([draft("draft-master", master), frenchDraft, italianDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
+    });
+    expect(result).toEqual({ current: true, blockers: [] });
+  });
+
+  it("fails closed transitively when only the root master revision advances", async () => {
+    const master = plan();
+    const frenchDraft = draft("draft-fr", frenchVariant(master));
+    const italianDraft = draft("draft-it", italianVariant(frenchDraft.storyPlan));
+    const result = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: italianDraft,
+      draftRepository: repository([draft("draft-master", plan({ revision: 5 })), frenchDraft, italianDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
+    });
+    expect(result.current).toBe(false);
+    expect(result.blockers).toContain("language_variant_master_revision_changed");
+  });
+
+  it("fails closed on missing, ambiguous and cyclic language-variant ancestors", async () => {
+    const master = plan();
+    const french = frenchVariant(master);
+    const frenchDraft = draft("draft-fr", french);
+    const italian = italianVariant(french);
+    const italianDraft = draft("draft-it", italian);
+
+    const missing = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: italianDraft,
+      draftRepository: repository([italianDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
+    });
+    expect(missing.blockers).toContain("language_variant_master_story_missing");
+
+    const ambiguous = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: italianDraft,
+      draftRepository: repository([frenchDraft, draft("draft-fr-duplicate", french), italianDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
+    });
+    expect(ambiguous.blockers).toContain("language_variant_master_story_ambiguous");
+
+    const cyclicFrench = {
+      ...french,
+      languageVariant: {
+        ...french.languageVariant,
+        translatedFromStoryPlanId: italian.storyPlanId,
+        translatedFromStoryPlanRevision: italian.revision,
+      },
+    } as VoxyEditorialLanguageVariantPlan;
+    const cyclic = await resolveVoxyStudioLanguageVariantFreshness({
+      draft: italianDraft,
+      draftRepository: repository([draft("draft-fr", cyclicFrench), italianDraft]),
+      evidenceSourcePackId: SOURCE_PACK_ID,
+    });
+    expect(cyclic.blockers).toContain("language_variant_master_story_cycle");
+  });
+
   it("makes the production worker freshness authority reject master-only drift", async () => {
     const master = plan();
     const variantDraft = draft("draft-fr", frenchVariant(master));
@@ -207,17 +294,18 @@ describe("Voxy language-variant master freshness at render/worker boundary", () 
     ).rejects.toThrow("language_variant_master_revision_changed");
   });
 
-  it("blocks the real worker path before any executor call after master-only drift", async () => {
+  it("blocks the real worker path before any executor call after transitive root-master drift", async () => {
     const master = plan();
-    const variantDraft = draft("draft-fr", frenchVariant(master));
+    const frenchDraft = draft("draft-fr", frenchVariant(master));
+    const variantDraft = draft("draft-it", italianVariant(frenchDraft.storyPlan));
     const advancedMaster = draft("draft-master", plan({ revision: 5 }));
-    const freshnessAuthority = masterDriftAuthority(variantDraft, advancedMaster);
+    const freshnessAuthority = masterDriftAuthority(variantDraft, advancedMaster, [frenchDraft]);
     const request = {
       requestedByUserId: "user-1",
       artifactId: variantDraft.draftId,
       briefingId: "brief-1",
       scriptVersion: "script-v1",
-      locale: "fr",
+      locale: "it",
       format: "16:9",
       renderProfile: "editorial_v1",
       timelineVersion: "timeline-v1",
