@@ -29,6 +29,38 @@ export interface Alpha2ExecutionAuthorizationResolver {
   ): Alpha2ExecutionAuthorization;
 }
 
+export type Alpha2RuntimeOrchestratorTrigger =
+  | "startup"
+  | "idle"
+  | "run_completed"
+  | "recovery";
+
+/**
+ * Runtime hook into the canonical orchestrator loop. The runtime does not own task selection or
+ * OpenTasks/GitHub mutation; it only tells the existing orchestrator when canonical state must be
+ * re-observed after startup, idle time, a completed durable run or an explicit recovery pass.
+ */
+export interface Alpha2RuntimeOrchestratorLoop {
+  run(input: {
+    trigger: Alpha2RuntimeOrchestratorTrigger;
+    run?: Alpha2RunRecord;
+  }): Promise<void> | void;
+}
+
+async function signalAlpha2Orchestrator(input: {
+  loop?: Alpha2RuntimeOrchestratorLoop;
+  trigger: Alpha2RuntimeOrchestratorTrigger;
+  run?: Alpha2RunRecord;
+  onError?: (error: unknown) => void;
+}) {
+  if (!input.loop) return;
+  try {
+    await input.loop.run({ trigger: input.trigger, run: input.run });
+  } catch (error) {
+    input.onError?.(error);
+  }
+}
+
 export async function persistAndDispatchAlpha2Run(input: {
   run: Alpha2RunRecord;
   dispatch?: boolean;
@@ -61,6 +93,8 @@ export async function handleAlpha2ExecutionJob(input: {
   workerId: string;
   currentHeadSha: string;
   executorResolutionTimeoutMs?: number;
+  orchestratorLoop?: Alpha2RuntimeOrchestratorLoop;
+  onOrchestratorError?: (error: unknown) => void;
 }) {
   const ledger = getAlpha2MongoRunLedger();
   const dispatcher = getAlpha2ExecutionDispatcher();
@@ -69,7 +103,7 @@ export async function handleAlpha2ExecutionJob(input: {
     resolutionTimeoutMs: input.executorResolutionTimeoutMs,
   });
 
-  return runAlpha2DurableStep({
+  const result = await runAlpha2DurableStep({
     runId: input.job.data.runId,
     workerId: input.workerId,
     ledger,
@@ -80,6 +114,17 @@ export async function handleAlpha2ExecutionJob(input: {
       input.authorizationResolver.resolve(run, context),
     executionId: `${String(input.job.id ?? "job")}:${input.job.attemptsMade}:${String(input.job.processedOn ?? "pending")}`,
   });
+
+  if (result.state === "executed" && result.run.status === "completed") {
+    await signalAlpha2Orchestrator({
+      loop: input.orchestratorLoop,
+      trigger: "run_completed",
+      run: result.run,
+      onError: input.onOrchestratorError,
+    });
+  }
+
+  return result;
 }
 
 export function startAlpha2ControlPlaneRuntime(input: {
@@ -92,6 +137,9 @@ export function startAlpha2ControlPlaneRuntime(input: {
   onRecoveryError?: (error: unknown) => void;
   executorResolutionTimeoutMs?: number;
   currentHeadSha: string;
+  orchestratorLoop?: Alpha2RuntimeOrchestratorLoop;
+  orchestratorObservationIntervalMs?: number;
+  onOrchestratorError?: (error: unknown) => void;
 }) {
   const ledger = getAlpha2MongoRunLedger();
   const dispatcher = getAlpha2ExecutionDispatcher();
@@ -107,6 +155,8 @@ export function startAlpha2ControlPlaneRuntime(input: {
         workerId,
         currentHeadSha: input.currentHeadSha,
         executorResolutionTimeoutMs: input.executorResolutionTimeoutMs,
+        orchestratorLoop: input.orchestratorLoop,
+        onOrchestratorError: input.onOrchestratorError,
       }),
   });
 
@@ -118,13 +168,45 @@ export function startAlpha2ControlPlaneRuntime(input: {
     onError: input.onRecoveryError,
   });
 
+  void signalAlpha2Orchestrator({
+    loop: input.orchestratorLoop,
+    trigger: "startup",
+    onError: input.onOrchestratorError,
+  });
+
+  const observationIntervalMs = Math.max(1_000, input.orchestratorObservationIntervalMs ?? 30_000);
+  const observationTimer = input.orchestratorLoop
+    ? setInterval(() => {
+        void signalAlpha2Orchestrator({
+          loop: input.orchestratorLoop,
+          trigger: "idle",
+          onError: input.onOrchestratorError,
+        });
+      }, observationIntervalMs)
+    : null;
+  observationTimer?.unref?.();
+
   return {
     worker,
     recovery,
+    async observeNow() {
+      await signalAlpha2Orchestrator({
+        loop: input.orchestratorLoop,
+        trigger: "idle",
+        onError: input.onOrchestratorError,
+      });
+    },
     async recoverNow() {
-      return recovery.recoverNow();
+      const result = await recovery.recoverNow();
+      await signalAlpha2Orchestrator({
+        loop: input.orchestratorLoop,
+        trigger: "recovery",
+        onError: input.onOrchestratorError,
+      });
+      return result;
     },
     async close() {
+      if (observationTimer) clearInterval(observationTimer);
       await recovery.stop();
       await worker.close();
       await closeAlpha2ExecutionRuntime();
